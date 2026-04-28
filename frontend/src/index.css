@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-card: var(--card);
+  --color-danger: var(--danger);
+
+  --font-sans: "Inter", "Calibri", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --bg: #eeece5;
+  --surface: #f6f4ef;
+  --border: #cac6bc;
+  --text: #1a1714;
+  --muted: #8a8070;
+  --accent: #1e5fa8;
+  --card: #ffffff;
+  --sh: 0 1px 5px rgba(0, 0, 0, 0.08);
+  --danger: #b03030;
+  --nav-h: 44px;
+  --faction-h: 24px;
+  --tab-h: 28px;
+  --sidebar-w: 200px;
+}
+
+[data-theme="dark"] {
+  --bg: #141920;
+  --surface: #1b2230;
+  --border: #2e3a4e;
+  --text: #cdd6e8;
+  --muted: #6b7d99;
+  --accent: #5b9cf6;
+  --card: #1e2a3a;
+  --sh: 0 1px 8px rgba(0, 0, 0, 0.5);
+}
+
+body {
+  @apply bg-bg text-text min-h-screen font-sans antialiased text-[11px];
+}
+
+.sidebar {
+  @apply w-[var(--sidebar-w)] bg-surface border-r border-border h-[calc(100vh-var(--nav-h))] sticky top-[var(--nav-h)] shrink-0 hidden md:flex flex-col z-[250];
+}
+
+.sidebar-item {
+  @apply flex items-center gap-2.5 px-4 py-2.5 text-[10.5px] font-semibold tracking-wide uppercase text-muted hover:text-text hover:bg-bg transition-all border-l-2 border-transparent;
+}
+
+.sidebar-item.active {
+  @apply text-accent bg-accent/5 border-accent;
+}
+
+/* Custom compact scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-border/60 rounded-full hover:bg-muted;
+}
+
+/* Roster Table Styles */
+.rt-table {
+  @apply w-full border-collapse border-spacing-0 table-fixed;
+}
+
+.rt-th {
+  @apply bg-border/25 text-[7px] font-bold uppercase tracking-[0.15em] text-muted py-0.5 px-1 border-b border-r border-border text-center overflow-hidden whitespace-nowrap h-[16px];
+}
+
+.rt-td {
+  @apply border-b border-r border-border py-0 px-1 text-[10px] align-middle overflow-hidden whitespace-nowrap text-ellipsis h-[18px] text-center uppercase;
+}
+
+.rt-tr {
+  @apply hover:bg-accent/4 transition-colors;
+}
+
+.bureaus-container {
+  @apply flex flex-wrap gap-3 justify-start items-start w-full;
+}
