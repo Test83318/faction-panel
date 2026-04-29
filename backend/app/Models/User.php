@@ -30,4 +30,9 @@ class User extends Authenticatable
             'is_superadmin' => 'boolean',
         ];
     }
+
+    public function factions()
+    {
+        return $this->belongsToMany(Faction::class)->withTimestamps();
+    }
 }

@@ -1,0 +1,113 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Faction;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
+
+class FactionController extends Controller
+{
+    public function index()
+    {
+        return Auth::user()->factions()->get();
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'shortname' => 'required|string|unique:factions,shortname|max:20|alpha_dash',
+            'name' => 'required|string|max:255',
+            'color' => ['required', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
+            'gtaw_faction_id' => 'nullable|integer|unique:factions,gtaw_faction_id',
+        ]);
+
+        $faction = Faction::create([
+            ...$validated,
+            'faction_leader' => Auth::id(),
+            'created_by' => Auth::id(),
+        ]);
+
+        // Creator automatically joins the faction
+        $faction->users()->attach(Auth::id());
+
+        return response()->json($faction, 201);
+    }
+
+    public function show(string $shortname)
+    {
+        $faction = Faction::where('shortname', $shortname)->firstOrFail();
+        
+        // Ensure user is part of the faction
+        if (!$faction->users()->where('user_id', Auth::id())->exists()) {
+            return response()->json(['message' => 'Unauthorized access to this faction.'], 403);
+        }
+
+        return $faction;
+    }
+
+    public function update(Request $request, Faction $faction)
+    {
+        // Only leader or superadmin can update
+        if ($faction->faction_leader !== Auth::id() && !Auth::user()->is_superadmin) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $validated = $request->validate([
+            'shortname' => ['sometimes', 'string', Rule::unique('factions')->ignore($faction->id), 'max:20', 'alpha_dash'],
+            'name' => 'sometimes|string|max:255',
+            'color' => ['sometimes', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
+            'gtaw_faction_id' => ['sometimes', 'nullable', 'integer', Rule::unique('factions')->ignore($faction->id)],
+            'faction_leader' => 'sometimes|exists:users,id',
+        ]);
+
+        $faction->update($validated);
+
+        return $faction;
+    }
+
+    public function destroy(Faction $faction)
+    {
+        if ($faction->faction_leader !== Auth::id() && !Auth::user()->is_superadmin) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $faction->delete();
+
+        return response()->json(['message' => 'Faction deleted']);
+    }
+
+    public function join(Request $request)
+    {
+        $request->validate([
+            'shortname' => 'required|string|exists:factions,shortname',
+        ]);
+
+        $faction = Faction::where('shortname', $request->shortname)->firstOrFail();
+        
+        if ($faction->users()->where('user_id', Auth::id())->exists()) {
+            return response()->json(['message' => 'Already a member'], 400);
+        }
+
+        $faction->users()->attach(Auth::id());
+
+        return response()->json(['message' => 'Joined successfully']);
+    }
+
+    public function leave(Faction $faction)
+    {
+        if ($faction->faction_leader === Auth::id()) {
+            return response()->json(['message' => 'Leaders cannot leave. Transfer leadership first.'], 400);
+        }
+
+        $faction->users()->detach(Auth::id());
+
+        return response()->json(['message' => 'Left successfully']);
+    }
+
+    public function getAllFactions()
+    {
+        return Faction::all(['name', 'shortname', 'color']);
+    }
+}
