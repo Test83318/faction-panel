@@ -1,13 +1,15 @@
 import React from 'react';
-import { Shield, Moon, Sun, LogIn } from 'lucide-react';
+import { Shield, Moon, Sun, LogOut, User } from 'lucide-react';
 
 interface HeaderProps {
   isDark: boolean;
   toggleTheme: () => void;
   factionName: string;
+  user: any;
+  onLogout: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName }) => {
+export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName, user, onLogout }) => {
   return (
     <header className="topbar h-[var(--nav-h)] bg-surface border-b border-border flex items-center px-5 gap-2.5 sticky top-0 z-[300] shrink-0">
       <div className="logo flex items-center gap-1.5 text-accent font-extrabold text-[16px] tracking-tight hover:opacity-80 transition-opacity cursor-pointer">
@@ -21,7 +23,19 @@ export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName
 
       <div className="flex-1" />
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-3 mr-4">
+        <div className="flex flex-col items-end">
+          <span className="text-[11px] font-bold text-text leading-none">{user.username}</span>
+          {user.is_superadmin && (
+            <span className="text-[8px] font-black text-accent uppercase tracking-tighter">Superadmin</span>
+          )}
+        </div>
+        <div className="w-7 h-7 bg-border rounded-full flex items-center justify-center text-muted">
+          <User size={14} />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 border-l border-border pl-4">
         <span className="text-[10px] text-muted hidden sm:block">Dark</span>
         <button 
           onClick={toggleTheme}
@@ -38,9 +52,12 @@ export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName
       </div>
 
       <div className="ml-2.5">
-        <button className="auth-btn flex items-center gap-1.5 text-[9px] font-bold tracking-widest uppercase text-muted border border-border px-2.5 py-1 rounded hover:text-accent hover:border-accent transition-all">
-          <LogIn size={10} />
-          Login
+        <button 
+          onClick={onLogout}
+          className="auth-btn flex items-center gap-1.5 text-[9px] font-bold tracking-widest uppercase text-muted border border-border px-2.5 py-1 rounded hover:text-red-500 hover:border-red-500 transition-all"
+        >
+          <LogOut size={10} />
+          Logout
         </button>
       </div>
     </header>

@@ -4,13 +4,17 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { BureauCard } from './components/BureauCard';
 import { RosterTable } from './components/RosterTable';
+import Login from './components/Login';
+import api from './api';
 import { INITIAL_DATA } from './constants';
-import { Faction, Division } from './types';
+import { Faction } from './types';
 
 export default function App() {
   const [isDark, setIsDark] = useState(false);
   const [faction] = useState<Faction>(INITIAL_DATA[0]);
   const [activeDivId, setActiveDivId] = useState<string>(faction.divisions[0].id);
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   const activeDivision = faction.divisions.find(d => d.id === activeDivId) || faction.divisions[0];
 
@@ -20,7 +24,39 @@ export default function App() {
       setIsDark(true);
       document.documentElement.setAttribute('data-theme', 'dark');
     }
+
+    const checkAuth = async () => {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        try {
+          const response = await api.get('/user');
+          setUser(response.data);
+        } catch (err) {
+          localStorage.removeItem('access_token');
+          setUser(null);
+        }
+      }
+      setLoading(false);
+    };
+
+    checkAuth();
   }, []);
+
+  const handleLogin = (token: string, userData: any) => {
+    localStorage.setItem('access_token', token);
+    setUser(userData);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await api.post('/logout');
+    } catch (err) {
+      console.error('Logout failed', err);
+    } finally {
+      localStorage.removeItem('access_token');
+      setUser(null);
+    }
+  };
 
   const toggleTheme = () => {
     const next = !isDark;
@@ -30,13 +66,21 @@ export default function App() {
     localStorage.setItem('bp-rosters-theme', theme);
   };
 
+  if (loading) {
+    return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Loading...</div>;
+  }
+
+  if (!user) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   const totalMembers = activeDivision.leadership.length + 
     activeDivision.bureaus.reduce((acc, b) => 
       acc + b.leadership.length + b.units.reduce((uAcc, u) => uAcc + u.members.length, 0), 0);
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Header isDark={isDark} toggleTheme={toggleTheme} factionName={faction.name} />
+      <Header isDark={isDark} toggleTheme={toggleTheme} factionName={faction.name} user={user} onLogout={handleLogout} />
 
       <div className="flex flex-1 relative">
         <Sidebar />
