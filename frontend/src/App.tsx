@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useParams, Navigate, useLocation } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -91,19 +92,14 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
   useEffect(() => {
     const fetchFactionAndPermissions = async () => {
       try {
-        const [factionRes] = await Promise.all([
+        const [factionRes, permsRes] = await Promise.all([
           api.get(`/factions/${shortname}`),
+          api.get(`/factions/${shortname}/permissions`)
         ]);
         
         setFactionData(factionRes.data);
+        setPermissions(permsRes.data);
         setActiveDivId(staticFaction.divisions[0].id);
-        
-        try {
-            await api.get(`/factions/${shortname}/roles`);
-            setPermissions(['view_admin_page']);
-        } catch (e) {
-            setPermissions([]);
-        }
 
       } catch (err: any) {
         setError(err.response?.data?.message || 'Faction not found');
@@ -223,6 +219,20 @@ export default function App() {
 
   return (
     <Router>
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: '#1f2937',
+            color: '#fff',
+            border: '1px solid #374151',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+          },
+        }}
+      />
       <Routes>
         <Route path="/" element={
           user ? <FactionManager /> : <Home onLogin={handleLogin} />

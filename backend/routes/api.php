@@ -17,6 +17,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/factions/all', [FactionController::class, 'getAllFactions']); // For joining
     Route::post('/factions', [FactionController::class, 'store']);
     Route::get('/factions/{shortname}', [FactionController::class, 'show']);
+    Route::get('/factions/{shortname}/permissions', [FactionController::class, 'getPermissions']);
     Route::put('/factions/{faction}', [FactionController::class, 'update']);
     Route::delete('/factions/{faction}', [FactionController::class, 'destroy']);
     Route::post('/factions/join', [FactionController::class, 'join']);

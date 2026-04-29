@@ -1,0 +1,4 @@
+**Post-Implementation Requirements:**
+After every code modification or file creation, you MUST run npm 'run tsc --noEmit' on the frontend and 'php artisan test' on the backend.
+* If the command fails, analyze the errors, fix the code, and run it again until it passes.
+* Do not consider the task "complete" until the codebase is type-safe.

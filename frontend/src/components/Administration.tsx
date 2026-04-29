@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import toast from 'react-hot-toast';
 import api from '../api';
 import Loading from './Loading';
 import { Shield, Settings, Trash2, Edit2, Check, X, Plus, Save, Info, Key } from 'lucide-react';
@@ -13,7 +14,12 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
     const [saving, setSaving] = useState(false);
     
     // Faction Details Form
-    const [factionForm, setFactionForm] = useState({ name: faction.name, color: faction.color });
+    const [factionForm, setFactionForm] = useState({ 
+        name: faction.name, 
+        color: faction.color,
+        image_url: faction.image_url || '',
+        visibility: faction.visibility || 'private'
+    });
     const [savingDetails, setSavingDetails] = useState(false);
 
     // Role Edit State
@@ -61,8 +67,9 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
             }));
             await api.put(`/roles/${selectedRole.id}/permissions`, { permissions: permsToSave });
             fetchData();
+            toast.success('Permissions saved successfully');
         } catch (err) {
-            alert('Failed to save permissions');
+            toast.error('Failed to save permissions');
         } finally {
             setSaving(false);
         }
@@ -73,10 +80,10 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
         setSavingDetails(true);
         try {
             await api.put(`/factions/${faction.id}`, factionForm);
-            alert('Faction details updated successfully!');
-            window.location.reload(); // Refresh to apply new name/color globally
+            toast.success('Faction details updated successfully!');
+            setTimeout(() => window.location.reload(), 1000); // Give toast time to show
         } catch (err) {
-            alert('Failed to update faction details');
+            toast.error('Failed to update faction details');
         } finally {
             setSavingDetails(false);
         }
@@ -87,26 +94,51 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
         try {
             if (editingRole) {
                 await api.put(`/roles/${editingRole.id}`, roleForm);
+                toast.success('Rank updated successfully');
             } else {
                 await api.post(`/factions/${faction.shortname}/roles`, roleForm);
+                toast.success('Rank created successfully');
             }
             setShowRoleModal(false);
             setEditingRole(null);
             fetchData();
         } catch (err) {
-            alert('Failed to save rank');
+            toast.error('Failed to save rank');
         }
     };
 
     const deleteRole = async (role: any) => {
-        if (!confirm(`Are you sure you want to delete the rank "${role.name}"?`)) return;
-        try {
-            await api.delete(`/roles/${role.id}`);
-            if (selectedRole?.id === role.id) setSelectedRole(null);
-            fetchData();
-        } catch (err: any) {
-            alert(err.response?.data?.message || 'Failed to delete rank');
-        }
+        toast((t) => (
+            <div className="flex flex-col gap-1">
+                <p className="font-bold">Delete rank "{role.name}"?</p>
+                <p className="text-[10px] opacity-80 uppercase tracking-tighter">This action cannot be undone.</p>
+                <div className="flex gap-2 justify-end mt-2">
+                    <button 
+                        onClick={() => toast.dismiss(t.id)}
+                        className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-[9px] font-bold uppercase transition"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={async () => {
+                            toast.dismiss(t.id);
+                            const loadToast = toast.loading('Deleting rank...');
+                            try {
+                                await api.delete(`/roles/${role.id}`);
+                                if (selectedRole?.id === role.id) setSelectedRole(null);
+                                fetchData();
+                                toast.success('Rank deleted successfully', { id: loadToast });
+                            } catch (err: any) {
+                                toast.error(err.response?.data?.message || 'Failed to delete rank', { id: loadToast });
+                            }
+                        }}
+                        className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-[9px] font-bold uppercase transition"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </div>
+        ), { duration: 6000, position: 'top-center' });
     };
 
     const openRoleModal = (role: any = null) => {
@@ -162,66 +194,141 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 10 }}
-                        className="bg-card border border-border rounded-lg p-6 max-w-2xl"
+                        className="bg-card border border-border rounded-lg p-6 w-full"
                     >
                         <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
                             <Info size={18} className="text-blue-500" />
                             General Information
                         </h3>
-                        <form onSubmit={handleFactionUpdate} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Faction Name</label>
-                                    <input 
-                                        value={factionForm.name}
-                                        onChange={e => setFactionForm({ ...factionForm, name: e.target.value })}
-                                        className="w-full bg-gray-950 border border-border p-3 rounded text-sm focus:border-blue-500 outline-none transition"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Short Name (URL Slug)</label>
-                                    <input 
-                                        value={faction.shortname}
-                                        disabled
-                                        className="w-full bg-gray-950/50 border border-border p-3 rounded text-sm text-muted cursor-not-allowed"
-                                    />
-                                    <p className="text-[9px] text-muted mt-1 italic">Short names cannot be changed once created.</p>
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Faction Color</label>
-                                    <div className="flex gap-3">
-                                        <input 
-                                            type="color"
-                                            value={factionForm.color}
-                                            onChange={e => setFactionForm({ ...factionForm, color: e.target.value })}
-                                            className="w-12 h-11 bg-gray-950 border border-border rounded p-1 cursor-pointer"
-                                        />
-                                        <input 
-                                            value={factionForm.color}
-                                            onChange={e => setFactionForm({ ...factionForm, color: e.target.value })}
-                                            className="flex-1 bg-gray-950 border border-border p-3 rounded text-sm font-mono focus:border-blue-500 outline-none transition"
-                                        />
+                        <form onSubmit={handleFactionUpdate} className="space-y-8">
+                            {/* Top Section: Identity & Media */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                {/* Identity Column */}
+                                <div className="space-y-6">
+                                    <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1">Identity & Branding</div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="col-span-2 sm:col-span-1">
+                                            <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Faction Name</label>
+                                            <input 
+                                                value={factionForm.name}
+                                                onChange={e => setFactionForm({ ...factionForm, name: e.target.value })}
+                                                className="w-full bg-gray-950 border border-border p-3 rounded text-sm focus:border-blue-500 outline-none transition"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="col-span-2 sm:col-span-1">
+                                            <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Short Name (URL Slug)</label>
+                                            <input 
+                                                value={faction.shortname}
+                                                disabled
+                                                className="w-full bg-gray-950/50 border border-border p-3 rounded text-sm text-muted cursor-not-allowed"
+                                            />
+                                        </div>
+                                        <div className="col-span-2">
+                                            <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Faction Color</label>
+                                            <div className="flex gap-3">
+                                                <input 
+                                                    type="color"
+                                                    value={factionForm.color}
+                                                    onChange={e => setFactionForm({ ...factionForm, color: e.target.value })}
+                                                    className="w-12 h-11 bg-gray-950 border border-border rounded p-1 cursor-pointer"
+                                                />
+                                                <input 
+                                                    value={factionForm.color}
+                                                    onChange={e => setFactionForm({ ...factionForm, color: e.target.value })}
+                                                    className="flex-1 bg-gray-950 border border-border p-3 rounded text-sm font-mono focus:border-blue-500 outline-none transition"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">GTAW Faction ID</label>
-                                    <input 
-                                        value={faction.gtaw_faction_id || 'Not Linked'}
-                                        disabled
-                                        className="w-full bg-gray-950/50 border border-border p-3 rounded text-sm text-muted cursor-not-allowed font-mono"
-                                    />
+
+                                {/* Media Column */}
+                                <div className="space-y-6">
+                                    <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1">Media & Visuals</div>
+                                    <div>
+                                        <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Faction Image URL</label>
+                                        <input 
+                                            value={factionForm.image_url}
+                                            onChange={e => setFactionForm({ ...factionForm, image_url: e.target.value })}
+                                            placeholder="https://example.com/logo.png"
+                                            className="w-full bg-gray-950 border border-border p-3 rounded text-sm focus:border-blue-500 outline-none transition"
+                                        />
+                                    </div>
+                                    {factionForm.image_url && (
+                                        <div className="mt-4">
+                                            <div className="w-full h-24 bg-gray-950 border border-border rounded-lg overflow-hidden flex items-center justify-center p-2">
+                                                <img src={factionForm.image_url} alt="Preview" className="max-w-full max-h-full object-contain" />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
-                            <div className="pt-4 border-t border-border flex justify-end">
+                            {/* Middle Section: Visibility (Full Width) */}
+                            <div className="space-y-6 pt-4 border-t border-border/50">
+                                <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1">Access & Visibility Control</div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                                    {[
+                                        { id: 'public', name: 'Public', desc: 'Roster is viewable by anyone. Access via Public rank.', color: 'text-green-500' },
+                                        { id: 'hidden', name: 'Hidden', desc: 'Public access, but not listed in the directory.', color: 'text-yellow-500' },
+                                        { id: 'joinable', name: 'Joinable', desc: 'Visible in directory. Open for anyone to join.', color: 'text-blue-500' },
+                                        { id: 'invite-only', name: 'Invite-Only', desc: 'Visible, but membership requires an invitation.', color: 'text-purple-500' },
+                                        { id: 'private', name: 'Private', desc: 'Strictly members only. Hidden from public view.', color: 'text-red-500' }
+                                    ].map(opt => (
+                                        <label 
+                                            key={opt.id}
+                                            className={`relative flex flex-col gap-2 p-4 rounded-xl border transition-all cursor-pointer group ${
+                                                factionForm.visibility === opt.id 
+                                                    ? 'bg-blue-600/10 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.1)]' 
+                                                    : 'bg-gray-950 border-border hover:border-blue-500/50'
+                                            }`}
+                                        >
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className={`text-[10px] font-black uppercase tracking-widest ${factionForm.visibility === opt.id ? 'text-blue-400' : 'text-muted'}`}>
+                                                    {opt.name}
+                                                </span>
+                                                <input 
+                                                    type="radio" 
+                                                    name="visibility" 
+                                                    value={opt.id}
+                                                    checked={factionForm.visibility === opt.id}
+                                                    onChange={e => setFactionForm({ ...factionForm, visibility: e.target.value })}
+                                                    className="w-3.5 h-3.5 text-blue-600 bg-gray-900 border-gray-700 focus:ring-blue-500 transition cursor-pointer"
+                                                />
+                                            </div>
+                                            <p className="text-[9px] text-muted leading-relaxed italic">
+                                                {opt.desc}
+                                            </p>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Bottom Section: Integrations */}
+                            <div className="space-y-6 pt-4 border-t border-border/50">
+                                <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1">Integrations & System Data</div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div>
+                                        <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">GTAW Faction ID</label>
+                                        <input 
+                                            value={faction.gtaw_faction_id || 'Not Linked'}
+                                            disabled
+                                            className="w-full bg-gray-950/50 border border-border p-3 rounded text-sm text-muted cursor-not-allowed font-mono"
+                                        />
+                                        <p className="text-[9px] text-muted mt-1 italic">Synchronization settings are managed by system administrators.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="pt-6 border-t border-border flex justify-end">
                                 <button 
                                     type="submit"
                                     disabled={savingDetails}
-                                    className="flex items-center gap-2 px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold text-xs uppercase tracking-widest transition disabled:opacity-50"
+                                    className="flex items-center gap-2 px-10 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold text-xs uppercase tracking-widest transition disabled:opacity-50 shadow-lg shadow-blue-500/20"
                                 >
-                                    <Save size={14} />
-                                    {savingDetails ? 'Updating...' : 'Save Faction Details'}
+                                    <Save size={16} />
+                                    {savingDetails ? 'Saving Changes...' : 'Update Faction Settings'}
                                 </button>
                             </div>
                         </form>
@@ -244,37 +351,47 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                                     <Plus size={14} />
                                 </button>
                             </div>
-                            {roles.map(role => (
-                                <div 
-                                    key={role.id}
-                                    className={`group relative p-3 rounded-lg transition-all border cursor-pointer ${
-                                        selectedRole?.id === role.id 
-                                            ? 'bg-blue-600/10 border-blue-500 text-blue-400' 
-                                            : 'bg-card border-border text-muted hover:border-blue-500/50'
-                                    }`}
-                                    onClick={() => setSelectedRole(role)}
-                                >
-                                    <div className="font-bold text-sm pr-12">{role.name}</div>
-                                    <div className="text-[10px] opacity-60">Weight: {role.weight}</div>
-                                    
-                                    <div className="absolute top-1/2 right-2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); openRoleModal(role); }}
-                                            className="p-1 hover:text-white transition"
-                                        >
-                                            <Edit2 size={12} />
-                                        </button>
-                                        {role.name !== 'Administrator' && (
+                            {roles.map(role => {
+                                const isProtected = ['Administrator', 'Global Moderator', 'User', 'Public'].includes(role.name);
+                                const isPublicDisabled = role.name === 'Public' && ['private', 'invite-only', 'joinable'].includes(factionForm.visibility);
+                                
+                                return (
+                                    <div 
+                                        key={role.id}
+                                        className={`group relative p-3 rounded-lg transition-all border cursor-pointer ${
+                                            selectedRole?.id === role.id 
+                                                ? 'bg-blue-600/10 border-blue-500 text-blue-400' 
+                                                : 'bg-card border-border text-muted hover:border-blue-500/50'
+                                        }`}
+                                        onClick={() => setSelectedRole(role)}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <div className="font-bold text-sm pr-12">{role.name}</div>
+                                            {isPublicDisabled && (
+                                                <span className="text-[8px] bg-red-500/10 text-red-500 px-1 rounded border border-red-500/20 font-black uppercase tracking-tighter">Disabled</span>
+                                            )}
+                                        </div>
+                                        <div className="text-[10px] opacity-60">Weight: {role.weight}</div>
+                                        
+                                        <div className="absolute top-1/2 right-2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button 
-                                                onClick={(e) => { e.stopPropagation(); deleteRole(role); }}
-                                                className="p-1 hover:text-red-500 transition"
+                                                onClick={(e) => { e.stopPropagation(); openRoleModal(role); }}
+                                                className="p-1 hover:text-white transition"
                                             >
-                                                <Trash2 size={12} />
+                                                <Edit2 size={12} />
                                             </button>
-                                        )}
+                                            {!isProtected && (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); deleteRole(role); }}
+                                                    className="p-1 hover:text-red-500 transition"
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
 
                         {/* Permissions Content */}

@@ -72,8 +72,9 @@ class RoleController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        if ($role->name === 'Administrator') {
-            return response()->json(['message' => 'Cannot delete Administrator role'], 400);
+        $protectedRoles = ['Administrator', 'Global Moderator', 'User', 'Public'];
+        if (in_array($role->name, $protectedRoles)) {
+            return response()->json(['message' => "Cannot delete the {$role->name} role as it is a core system role."], 400);
         }
 
         $role->delete();

@@ -20,6 +20,8 @@ class FactionController extends Controller
             'shortname' => 'required|string|unique:factions,shortname|max:20|alpha_dash',
             'name' => 'required|string|max:255',
             'color' => ['required', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
+            'image_url' => 'nullable|url|max:2048',
+            'visibility' => ['required', Rule::in(['public', 'hidden', 'joinable', 'invite-only', 'private'])],
             'gtaw_faction_id' => 'nullable|integer|unique:factions,gtaw_faction_id',
         ]);
 
@@ -36,6 +38,7 @@ class FactionController extends Controller
         $adminRole = $faction->roles()->create(['name' => 'Administrator', 'weight' => 100]);
         $modRole = $faction->roles()->create(['name' => 'Global Moderator', 'weight' => 50]);
         $userRole = $faction->roles()->create(['name' => 'User', 'weight' => 1]);
+        $publicRole = $faction->roles()->create(['name' => 'Public', 'weight' => 0]);
 
         // Assign creator to Admin role
         Auth::user()->roles()->attach($adminRole->id);
@@ -55,6 +58,9 @@ class FactionController extends Controller
                 // User gets basic
                 $userValue = ($key === 'view_faction_roster') ? 'YES' : 'NO';
                 $userRole->permissions()->create(['permission_key' => $key, 'value' => $userValue]);
+
+                // Public gets nothing by default (usually just view_faction_roster if they want)
+                $publicRole->permissions()->create(['permission_key' => $key, 'value' => 'NO']);
             }
         }
 
@@ -65,6 +71,11 @@ class FactionController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         
+        // Allow access if public/hidden
+        if (in_array($faction->visibility, ['public', 'hidden'])) {
+            return $faction;
+        }
+
         // Ensure user is part of the faction
         if (!$faction->users()->where('user_id', Auth::id())->exists()) {
             return response()->json(['message' => 'Unauthorized access to this faction.'], 403);
@@ -84,6 +95,8 @@ class FactionController extends Controller
             'shortname' => ['sometimes', 'string', Rule::unique('factions')->ignore($faction->id), 'max:20', 'alpha_dash'],
             'name' => 'sometimes|string|max:255',
             'color' => ['sometimes', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
+            'image_url' => 'nullable|url|max:2048',
+            'visibility' => ['sometimes', Rule::in(['public', 'hidden', 'joinable', 'invite-only', 'private'])],
             'gtaw_faction_id' => ['sometimes', 'nullable', 'integer', Rule::unique('factions')->ignore($faction->id)],
             'faction_leader' => 'sometimes|exists:users,id',
         ]);
@@ -112,6 +125,11 @@ class FactionController extends Controller
 
         $faction = Faction::where('shortname', $request->shortname)->firstOrFail();
         
+        // Only allow joining if visibility is 'joinable'
+        if ($faction->visibility !== 'joinable') {
+            return response()->json(['message' => 'This faction is not currently open for joining.'], 403);
+        }
+
         if ($faction->users()->where('user_id', Auth::id())->exists()) {
             return response()->json(['message' => 'Already a member'], 400);
         }
@@ -134,6 +152,29 @@ class FactionController extends Controller
 
     public function getAllFactions()
     {
-        return Faction::all(['name', 'shortname', 'color']);
+        // Users see public, joinable, and invite-only (maybe? user said hidden doesn't appear)
+        // Hidden same as public but doesn't appear on faction page.
+        // Private nobody can join (probably hide too).
+        return Faction::whereIn('visibility', ['public', 'joinable', 'invite-only'])
+            ->get(['name', 'shortname', 'color', 'image_url', 'visibility']);
+    }
+
+    public function getPermissions(string $shortname)
+    {
+        $faction = Faction::where('shortname', $shortname)->firstOrFail();
+        $user = Auth::user();
+
+        $allPermissions = config('permissions.categories');
+        $permissions = [];
+
+        foreach ($allPermissions as $category) {
+            foreach ($category['permissions'] as $key => $details) {
+                if ($user->hasPermission($key, $faction->id)) {
+                    $permissions[] = $key;
+                }
+            }
+        }
+
+        return $permissions;
     }
 }

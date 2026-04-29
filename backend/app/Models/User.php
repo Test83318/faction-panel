@@ -48,11 +48,21 @@ class User extends Authenticatable
         }
 
         $faction = Faction::find($factionId);
-        if ($faction && $faction->faction_leader === $this->id) {
+        if (!$faction) return false;
+
+        if ($faction->faction_leader === $this->id) {
             return true;
         }
 
         $roles = $this->roles()->where('faction_id', $factionId)->with('permissions')->get();
+
+        // If faction is public/hidden, always include the "Public" role permissions
+        if (in_array($faction->visibility, ['public', 'hidden'])) {
+            $publicRole = $faction->roles()->where('name', 'Public')->with('permissions')->first();
+            if ($publicRole && !$roles->contains('id', $publicRole->id)) {
+                $roles->push($publicRole);
+            }
+        }
 
         $hasNever = false;
         $hasYes = false;

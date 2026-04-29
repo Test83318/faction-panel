@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
 import Loading from './Loading';
+import toast from 'react-hot-toast';
 
 const FactionManager: React.FC = () => {
     const [myFactions, setMyFactions] = useState<any[]>([]);
@@ -23,6 +24,7 @@ const FactionManager: React.FC = () => {
             setMyFactions(myRes.data);
             setAllFactions(allRes.data);
         } catch (err) {
+            toast.error('Failed to fetch factions');
             console.error('Failed to fetch factions', err);
         } finally {
             setLoading(false);
@@ -35,24 +37,35 @@ const FactionManager: React.FC = () => {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
+        const loadToast = toast.loading('Creating Faction...');
         try {
-            const response = await api.post('/factions', { name, shortname, color });
+            const response = await api.post('/factions', { 
+                name, 
+                shortname, 
+                color,
+                visibility: 'private'
+            });
             setName('');
             setShortname('');
             setShowCreate(false);
+            toast.success('Faction created successfully', { id: loadToast });
             window.location.href = `/${response.data.shortname}/admin`;
-        } catch (err) {
-            alert('Failed to create faction');
+        } catch (err: any) {
+            const message = err.response?.data?.message || 'Failed to create faction';
+            toast.error(message, { id: loadToast });
         }
     };
 
     const handleJoin = async (shortname: string) => {
+        const loadToast = toast.loading('Joining Faction...');
         try {
             await api.post('/factions/join', { shortname });
             setShowJoin(false);
+            toast.success('Joined successfully', { id: loadToast });
             fetchData();
-        } catch (err) {
-            alert('Failed to join faction');
+        } catch (err: any) {
+            const message = err.response?.data?.message || 'Failed to join faction';
+            toast.error(message, { id: loadToast });
         }
     };
 
@@ -96,23 +109,28 @@ const FactionManager: React.FC = () => {
                 {showCreate && (
                     <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[500]">
                         <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full border border-gray-700">
-                            <h2 className="text-2xl font-bold mb-4">Create New Faction</h2>
+                            <h2 className="text-2xl font-bold mb-4 text-white">Create New Faction</h2>
                             <form onSubmit={handleCreate} className="space-y-4">
                                 <div>
-                                    <label className="block text-sm text-gray-400 mb-1">Name</label>
-                                    <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-gray-700 border border-gray-600 p-2 rounded" required />
+                                    <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Faction Name</label>
+                                    <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-gray-900 border border-gray-700 p-3 rounded focus:border-blue-500 outline-none text-white text-sm" required placeholder="e.g. Los Santos Sheriff's Department" />
                                 </div>
-                                <div>
-                                    <label className="block text-sm text-gray-400 mb-1">Shortname (URL Slug)</label>
-                                    <input value={shortname} onChange={e => setShortname(e.target.value)} className="w-full bg-gray-700 border border-gray-600 p-2 rounded" required placeholder="e.g. lssd" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm text-gray-400 mb-1">Color</label>
-                                    <input type="color" value={color} onChange={e => setColor(e.target.value)} className="w-full h-10 bg-gray-700 border border-gray-600 rounded p-1" />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Shortname</label>
+                                        <input value={shortname} onChange={e => setShortname(e.target.value)} className="w-full bg-gray-900 border border-gray-700 p-3 rounded focus:border-blue-500 outline-none text-white text-sm" required placeholder="e.g. lssd" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Color</label>
+                                        <div className="flex gap-2">
+                                            <input type="color" value={color} onChange={e => setColor(e.target.value)} className="w-12 h-11 bg-gray-900 border border-gray-700 rounded p-1 cursor-pointer" />
+                                            <input value={color} onChange={e => setColor(e.target.value)} className="flex-1 bg-gray-900 border border-gray-700 p-3 rounded font-mono text-[10px] text-white" />
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="flex gap-4 pt-4">
-                                    <button type="button" onClick={() => setShowCreate(false)} className="flex-1 px-4 py-2 bg-gray-700 rounded">Cancel</button>
-                                    <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 rounded font-bold">Create</button>
+                                    <button type="button" onClick={() => setShowCreate(false)} className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded font-bold uppercase tracking-widest text-[10px] text-white transition">Cancel</button>
+                                    <button type="submit" className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded font-bold uppercase tracking-widest text-[10px] text-white transition">Create Faction</button>
                                 </div>
                             </form>
                         </div>
