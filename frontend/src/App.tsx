@@ -5,7 +5,7 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { BureauCard } from './components/BureauCard';
 import { RosterTable } from './components/RosterTable';
-import Login from './components/Login';
+import Home from './components/Home';
 import FactionManager from './components/FactionManager';
 import Loading from './components/Loading';
 import api from './api';
@@ -178,7 +178,7 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/" element={
-          user ? <FactionManager /> : <Login onLogin={handleLogin} />
+          user ? <FactionManager /> : <Home onLogin={handleLogin} />
         } />
         <Route path="/:shortname" element={
           user ? <Dashboard user={user} onLogout={handleLogout} isDark={isDark} toggleTheme={toggleTheme} /> : <Navigate to="/" />

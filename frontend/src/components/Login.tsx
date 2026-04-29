@@ -3,9 +3,10 @@ import api from '../api';
 
 interface LoginProps {
     onLogin: (token: string, user: any) => void;
+    isEmbedded?: boolean;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, isEmbedded = false }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -26,43 +27,53 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         }
     };
 
+    const content = (
+        <div className={`${isEmbedded ? '' : 'max-w-md w-full p-8 bg-gray-800 rounded-lg shadow-xl border border-gray-700'}`}>
+            {!isEmbedded && <h2 className="text-3xl font-bold text-white mb-6 text-center">Faction Panel</h2>}
+            <div className="mb-8">
+                <h3 className="text-2xl font-bold text-white">Welcome back</h3>
+                <p className="text-gray-400 text-sm">Please enter your details to sign in.</p>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label className="block text-gray-400 mb-1 text-xs uppercase font-bold tracking-widest">Username</label>
+                    <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="w-full p-3 bg-gray-900/50 text-white rounded border border-gray-700 focus:border-blue-500 outline-none transition-all"
+                        placeholder="Enter username"
+                        required
+                    />
+                </div>
+                <div>
+                    <label className="block text-gray-400 mb-1 text-xs uppercase font-bold tracking-widest">Password</label>
+                    <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full p-3 bg-gray-900/50 text-white rounded border border-gray-700 focus:border-blue-500 outline-none transition-all"
+                        placeholder="Enter password"
+                        required
+                    />
+                </div>
+                {error && <p className="text-red-500 text-xs font-bold uppercase tracking-tighter">{error}</p>}
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded transition duration-200 disabled:opacity-50 uppercase tracking-widest text-xs"
+                >
+                    {loading ? 'Authenticating...' : 'Sign In'}
+                </button>
+            </form>
+        </div>
+    );
+
+    if (isEmbedded) return content;
+
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-900">
-            <div className="max-w-md w-full p-8 bg-gray-800 rounded-lg shadow-xl border border-gray-700">
-                <h2 className="text-3xl font-bold text-white mb-6 text-center">Faction Panel</h2>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-gray-400 mb-1">Username</label>
-                        <input
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 outline-none"
-                            placeholder="Enter username"
-                            required
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-gray-400 mb-1">Password</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full p-3 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 outline-none"
-                            placeholder="Enter password"
-                            required
-                        />
-                    </div>
-                    {error && <p className="text-red-500 text-sm">{error}</p>}
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded transition duration-200 disabled:opacity-50"
-                    >
-                        {loading ? 'Logging in...' : 'Login'}
-                    </button>
-                </form>
-            </div>
+            {content}
         </div>
     );
 };
