@@ -14,6 +14,7 @@ class Faction extends Model
     protected $fillable = [
         'shortname',
         'name',
+        'description',
         'color',
         'image_url',
         'visibility',
@@ -21,6 +22,11 @@ class Faction extends Model
         'faction_leader',
         'created_by',
     ];
+
+    public function invites()
+    {
+        return $this->hasMany(FactionInvite::class);
+    }
 
     public function users()
     {

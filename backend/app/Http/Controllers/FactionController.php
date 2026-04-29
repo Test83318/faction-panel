@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Faction;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -35,10 +36,9 @@ class FactionController extends Controller
         $faction->users()->attach(Auth::id());
 
         // Create Default Roles
-        $adminRole = $faction->roles()->create(['name' => 'Administrator', 'weight' => 100]);
-        $modRole = $faction->roles()->create(['name' => 'Global Moderator', 'weight' => 50]);
-        $userRole = $faction->roles()->create(['name' => 'User', 'weight' => 1]);
-        $publicRole = $faction->roles()->create(['name' => 'Public', 'weight' => 0]);
+        $adminRole = $faction->roles()->create(['name' => 'Administrator', 'weight' => 100, 'color' => '#ef4444']);
+        $userRole = $faction->roles()->create(['name' => 'User', 'weight' => 1, 'color' => '#d1d5db']);
+        $publicRole = $faction->roles()->create(['name' => 'Public', 'weight' => 0, 'color' => '#d1d5db']);
 
         // Assign creator to Admin role
         Auth::user()->roles()->attach($adminRole->id);
@@ -51,15 +51,11 @@ class FactionController extends Controller
                 // Admin gets YES for everything
                 $adminRole->permissions()->create(['permission_key' => $key, 'value' => 'YES']);
                 
-                // Mod gets some
-                $modValue = in_array($key, ['view_faction_roster', 'view_admin_page', 'view_faction_details', 'view_permissions']) ? 'YES' : 'NO';
-                $modRole->permissions()->create(['permission_key' => $key, 'value' => $modValue]);
-                
                 // User gets basic
                 $userValue = ($key === 'view_faction_roster') ? 'YES' : 'NO';
                 $userRole->permissions()->create(['permission_key' => $key, 'value' => $userValue]);
 
-                // Public gets nothing by default (usually just view_faction_roster if they want)
+                // Public gets nothing by default
                 $publicRole->permissions()->create(['permission_key' => $key, 'value' => 'NO']);
             }
         }
@@ -70,20 +66,23 @@ class FactionController extends Controller
     public function show(string $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        
-        // Allow access if public/hidden
-        if (in_array($faction->visibility, ['public', 'hidden'])) {
-            return $faction;
+        $user = Auth::guard('sanctum')->user();
+
+        if (!User::hasFactionPermission($user, $faction, 'view_faction_roster')) {
+            return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        // Ensure user is part of the faction
-        if (!$faction->users()->where('user_id', Auth::id())->exists()) {
-            return response()->json(['message' => 'Unauthorized access to this faction.'], 403);
+        if ($user) {
+            $highestRole = $user->roles()
+                ->where('faction_id', $faction->id)
+                ->orderByDesc('weight')
+                ->first();
+                
+            $faction->user_highest_role = $highestRole;
         }
 
         return $faction;
     }
-
     public function update(Request $request, Faction $faction)
     {
         // Only leader or superadmin can update
@@ -162,19 +161,83 @@ class FactionController extends Controller
     public function getPermissions(string $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        $user = Auth::user();
+        $user = Auth::guard('sanctum')->user();
 
         $allPermissions = config('permissions.categories');
         $permissions = [];
 
         foreach ($allPermissions as $category) {
             foreach ($category['permissions'] as $key => $details) {
-                if ($user->hasPermission($key, $faction->id)) {
+                if (User::hasFactionPermission($user, $faction, $key)) {
                     $permissions[] = $key;
                 }
             }
         }
 
         return $permissions;
+    }
+
+    public function getMembers(string $shortname)
+    {
+        $faction = Faction::where('shortname', $shortname)->firstOrFail();
+        
+        if (!User::hasFactionPermission(Auth::user(), $faction, 'view_users')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $users = $faction->users()->with(['roles' => function($query) use ($faction) {
+            $query->where('faction_id', $faction->id);
+        }])->get();
+
+        return $users;
+    }
+
+    public function removeMember(Faction $faction, User $user)
+    {
+        if (!User::hasFactionPermission(Auth::user(), $faction, 'remove_users')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if ($faction->faction_leader === $user->id) {
+            return response()->json(['message' => 'Cannot remove the faction leader.'], 403);
+        }
+
+        $faction->users()->detach($user->id);
+        
+        // Also remove faction roles
+        $roles = $faction->roles()->pluck('roles.id');
+        $user->roles()->detach($roles);
+
+        return response()->json(['message' => 'User removed from faction.']);
+    }
+
+    public function updateMemberRoles(Faction $faction, User $user, Request $request)
+    {
+        if (!User::hasFactionPermission(Auth::user(), $faction, 'change_ranks')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if ($faction->faction_leader === $user->id) {
+            return response()->json(['message' => 'Cannot change the rank of the faction leader.'], 403);
+        }
+
+        $request->validate([
+            'role_ids' => 'required|array',
+            'role_ids.*' => 'exists:roles,id',
+        ]);
+
+        // Ensure roles belong to the faction
+        $validRoles = $faction->roles()->pluck('roles.id')->toArray();
+        foreach ($request->role_ids as $id) {
+            if (!in_array($id, $validRoles)) {
+                return response()->json(['message' => 'Invalid role for this faction.'], 400);
+            }
+        }
+
+        // Sync roles for this faction
+        $otherRoles = $user->roles()->where('faction_id', '!=', $faction->id)->pluck('roles.id')->toArray();
+        $user->roles()->sync(array_merge($otherRoles, $request->role_ids));
+
+        return response()->json(['message' => 'User roles updated.']);
     }
 }

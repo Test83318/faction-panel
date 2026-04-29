@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Role extends Model
 {
-    protected $fillable = ['faction_id', 'name', 'weight'];
+    protected $fillable = ['faction_id', 'name', 'weight', 'color'];
 
     public function faction()
     {

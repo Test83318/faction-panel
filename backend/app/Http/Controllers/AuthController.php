@@ -33,6 +33,38 @@ class AuthController extends Controller
         ]);
     }
 
+    public function register(Request $request)
+    {
+        if (!config('features.allow_registration')) {
+            return response()->json(['message' => 'Registration is currently disabled.'], 403);
+        }
+
+        $request->validate([
+            'username' => 'required|string|unique:users|max:255',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = User::create([
+            'username' => $request->username,
+            'password' => Hash::make($request->password),
+        ]);
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+            'user' => $user,
+        ]);
+    }
+
+    public function registrationStatus()
+    {
+        return response()->json([
+            'allow_registration' => (bool) config('features.allow_registration'),
+        ]);
+    }
+
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();

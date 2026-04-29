@@ -5,9 +5,10 @@ import { Users, Settings } from 'lucide-react';
 interface SidebarProps {
   shortname: string;
   canViewAdmin: boolean;
+  user: any | null;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ shortname, canViewAdmin }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ shortname, canViewAdmin, user }) => {
   return (
     <aside className="sidebar">
       <div className="py-4 flex flex-col gap-1">

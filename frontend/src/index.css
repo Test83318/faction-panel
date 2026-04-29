@@ -20,6 +20,7 @@
   --text: #1a1714;
   --muted: #8a8070;
   --accent: #1e5fa8;
+  --accent-rgb: 30, 95, 168;
   --card: #ffffff;
   --sh: 0 1px 5px rgba(0, 0, 0, 0.08);
   --danger: #b03030;
@@ -30,18 +31,28 @@
 }
 
 [data-theme="dark"] {
-  --bg: #141920;
-  --surface: #1b2230;
-  --border: #2e3a4e;
+  --bg: #0f1115;
+  --surface: #161a1f;
+  --border: #262c36;
   --text: #cdd6e8;
   --muted: #6b7d99;
   --accent: #5b9cf6;
-  --card: #1e2a3a;
+  --accent-rgb: 91, 156, 246;
+  --card: #1c222b;
   --sh: 0 1px 8px rgba(0, 0, 0, 0.5);
 }
 
 body {
-  @apply bg-bg text-text min-h-screen font-sans antialiased text-[11px];
+  @apply bg-bg text-text min-h-screen font-sans antialiased text-[11px] transition-colors duration-200;
+}
+
+/* Global Input & UI overrides for light/dark mode */
+input, select, textarea {
+  @apply bg-surface border-border text-text placeholder:text-muted/50 transition-all focus:border-accent outline-none;
+}
+
+.auth-btn {
+  @apply bg-accent text-white hover:bg-accent/90 transition-all;
 }
 
 .sidebar {

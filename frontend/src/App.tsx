@@ -10,6 +10,9 @@ import Home from './components/Home';
 import FactionManager from './components/FactionManager';
 import Administration from './components/Administration';
 import Loading from './components/Loading';
+import Invite from './components/Invite';
+import Register from './components/Register';
+import Login from './components/Login';
 import api from './api';
 import { INITIAL_DATA } from './constants';
 import { Faction as FactionType } from './types';
@@ -77,6 +80,11 @@ const FactionRoster = ({ activeDivision, totalMembers, staticFaction, activeDivI
   );
 };
 
+const hexToRgb = (hex: string) => {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : null;
+};
+
 const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
   const { shortname } = useParams();
   const location = useLocation();
@@ -97,9 +105,17 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
           api.get(`/factions/${shortname}/permissions`)
         ]);
         
-        setFactionData(factionRes.data);
+        const faction = factionRes.data;
+        setFactionData(faction);
         setPermissions(permsRes.data);
         setActiveDivId(staticFaction.divisions[0].id);
+
+        // Apply faction color to CSS variables
+        if (faction.color) {
+          document.documentElement.style.setProperty('--accent', faction.color);
+          const rgb = hexToRgb(faction.color);
+          if (rgb) document.documentElement.style.setProperty('--accent-rgb', rgb);
+        }
 
       } catch (err: any) {
         setError(err.response?.data?.message || 'Faction not found');
@@ -108,6 +124,12 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
       }
     };
     fetchFactionAndPermissions();
+
+    // Reset accent color when leaving dashboard
+    return () => {
+      document.documentElement.style.removeProperty('--accent');
+      document.documentElement.style.removeProperty('--accent-rgb');
+    };
   }, [shortname, staticFaction.divisions]);
 
   if (loading) return <Loading message="Initializing Faction..." />;
@@ -115,7 +137,7 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
     <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center text-white">
       <h1 className="text-4xl font-bold text-red-500 mb-4">Error</h1>
       <p className="mb-8">{error}</p>
-      <button onClick={() => window.location.href = '/'} className="px-6 py-2 bg-blue-600 rounded font-bold">Return to Faction Selector</button>
+      <button onClick={() => window.location.href = '/'} className="px-6 py-2 bg-accent hover:bg-accent/90 transition-colors rounded font-bold">Return to Faction Selector</button>
     </div>
   );
 
@@ -124,7 +146,7 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
     activeDivision.bureaus.reduce((acc, b) => 
       acc + b.leadership.length + b.units.reduce((uAcc, u) => uAcc + u.members.length, 0), 0);
 
-  const canViewAdmin = user.is_superadmin || permissions.includes('view_admin_page');
+  const canViewAdmin = user?.is_superadmin || permissions.includes('view_admin_page');
 
   // Handle root faction path redirect
   if (location.pathname === `/${shortname}`) {
@@ -133,10 +155,17 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Header isDark={isDark} toggleTheme={toggleTheme} factionName={factionData.name} user={user} onLogout={onLogout} />
+      <Header 
+        isDark={isDark} 
+        toggleTheme={toggleTheme} 
+        factionName={factionData.name} 
+        user={user} 
+        userRole={factionData.user_highest_role}
+        onLogout={onLogout} 
+      />
 
       <div className="flex flex-1 relative">
-        <Sidebar shortname={shortname!} canViewAdmin={canViewAdmin} />
+        <Sidebar shortname={shortname!} canViewAdmin={canViewAdmin} user={user} />
 
         <div className="flex flex-col flex-1 min-w-0">
           <Routes>
@@ -152,7 +181,7 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
             <Route path="admin" element={
               canViewAdmin ? (
                 <main className="main flex-1 overflow-auto p-5">
-                  <Administration faction={factionData} />
+                  <Administration faction={factionData} user={user} />
                 </main>
               ) : <Navigate to={`/${shortname}/roster`} />
             } />
@@ -223,9 +252,9 @@ export default function App() {
         position="top-right"
         toastOptions={{
           style: {
-            background: '#1f2937',
-            color: '#fff',
-            border: '1px solid #374151',
+            background: 'var(--card)',
+            color: 'var(--text)',
+            border: '1px solid var(--border)',
             fontSize: '12px',
             fontWeight: 'bold',
             textTransform: 'uppercase',
@@ -235,10 +264,26 @@ export default function App() {
       />
       <Routes>
         <Route path="/" element={
-          user ? <FactionManager /> : <Home onLogin={handleLogin} />
+          user ? (
+            <FactionManager 
+              isDark={isDark} 
+              toggleTheme={toggleTheme} 
+              user={user} 
+              onLogout={handleLogout} 
+            />
+          ) : (
+            <Home 
+              onLogin={handleLogin} 
+              isDark={isDark} 
+              toggleTheme={toggleTheme} 
+            />
+          )
         } />
+        <Route path="/invite/:code" element={<Invite user={user} />} />
+        <Route path="/register" element={<Register onLogin={handleLogin} />} />
+        <Route path="/login" element={<Login onLogin={handleLogin} />} />
         <Route path="/:shortname/*" element={
-          user ? <Dashboard user={user} onLogout={handleLogout} isDark={isDark} toggleTheme={toggleTheme} /> : <Navigate to="/" />
+          <Dashboard user={user} onLogout={handleLogout} isDark={isDark} toggleTheme={toggleTheme} />
         } />
       </Routes>
     </Router>

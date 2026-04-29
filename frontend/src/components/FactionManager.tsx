@@ -2,8 +2,16 @@ import React, { useState, useEffect } from 'react';
 import api from '../api';
 import Loading from './Loading';
 import toast from 'react-hot-toast';
+import { Moon, Sun, Plus, Search, LogOut, Shield } from 'lucide-react';
 
-const FactionManager: React.FC = () => {
+interface FactionManagerProps {
+    isDark: boolean;
+    toggleTheme: () => void;
+    user: any;
+    onLogout: () => void;
+}
+
+const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, user, onLogout }) => {
     const [myFactions, setMyFactions] = useState<any[]>([]);
     const [allFactions, setAllFactions] = useState<any[]>([]);
     const [showCreate, setShowCreate] = useState(false);
@@ -13,7 +21,7 @@ const FactionManager: React.FC = () => {
     // Form states
     const [name, setName] = useState('');
     const [shortname, setShortname] = useState('');
-    const [color, setColor] = useState('#3b82f6');
+    const [color, setColor] = useState('#1e5fa8');
 
     const fetchData = async () => {
         try {
@@ -72,65 +80,107 @@ const FactionManager: React.FC = () => {
     if (loading) return <Loading message="Loading Factions..." />;
 
     return (
-        <div className="p-6 bg-gray-900 min-h-screen text-white">
-            <div className="max-w-4xl mx-auto">
-                <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-bold">Factions</h1>
-                    <div className="flex gap-4">
+        <div className="min-h-screen bg-bg text-text transition-colors duration-200">
+            {/* Minimal Header for Faction Selection */}
+            <header className="h-[var(--nav-h)] bg-surface border-b border-border flex items-center px-6 sticky top-0 z-[300]">
+                <div className="flex items-center gap-2 text-accent font-black uppercase italic tracking-tighter text-lg">
+                    <Shield size={20} fill="currentColor" fillOpacity={0.2} />
+                    Faction Panel
+                </div>
+                <div className="flex-1" />
+                <div className="flex items-center gap-4">
+                    <button 
+                        onClick={toggleTheme}
+                        className="p-1.5 text-muted hover:text-accent transition-colors"
+                    >
+                        {isDark ? <Sun size={18} /> : <Moon size={18} />}
+                    </button>
+                    <div className="h-4 w-[1px] bg-border mx-2" />
+                    <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-bold text-muted uppercase tracking-widest">{user?.username}</span>
+                        <button onClick={onLogout} className="p-2 text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all">
+                            <LogOut size={16} />
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <div className="max-w-6xl mx-auto p-8">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+                    <div>
+                        <h1 className="text-4xl font-black tracking-tighter uppercase italic mb-1">Your Organizations</h1>
+                        <p className="text-muted text-xs font-bold uppercase tracking-[0.2em]">Select a faction to manage operations</p>
+                    </div>
+                    <div className="flex gap-3">
                         <button 
                             onClick={() => setShowJoin(true)}
-                            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded font-bold transition"
+                            className="flex items-center gap-2 px-5 py-2.5 bg-surface border border-border hover:border-accent rounded font-bold text-[10px] uppercase tracking-widest transition-all"
                         >
+                            <Search size={14} />
                             Join Faction
                         </button>
                         <button 
                             onClick={() => setShowCreate(true)}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded font-bold transition"
+                            className="flex items-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent/90 text-white rounded font-bold text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-accent/20"
                         >
+                            <Plus size={14} />
                             Create Faction
                         </button>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {myFactions.map(faction => (
-                        <div key={faction.id} className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden hover:border-blue-500 transition cursor-pointer"
-                             onClick={() => window.location.href = `/${faction.shortname}`}>
-                            <div className="h-2" style={{ backgroundColor: faction.color }} />
-                            <div className="p-4">
-                                <h3 className="text-xl font-bold mb-1">{faction.name}</h3>
-                                <p className="text-gray-400 text-sm uppercase tracking-widest">{faction.shortname}</p>
+                    {myFactions.length > 0 ? (
+                        myFactions.map(faction => (
+                            <div key={faction.id} className="group bg-card rounded-xl border border-border overflow-hidden hover:border-accent transition-all cursor-pointer shadow-sm hover:shadow-xl hover:-translate-y-1"
+                                 onClick={() => window.location.href = `/${faction.shortname}`}>
+                                <div className="h-1.5" style={{ backgroundColor: faction.color }} />
+                                <div className="p-6">
+                                    <h3 className="text-xl font-bold mb-1 group-hover:text-accent transition-colors">{faction.name}</h3>
+                                    <div className="flex items-center justify-between mt-4">
+                                        <p className="text-muted text-[9px] font-black uppercase tracking-[0.2em]">{faction.shortname}</p>
+                                        <div className="w-8 h-8 rounded-lg bg-accent/5 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-all">
+                                            <Plus size={14} className="rotate-45" />
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
+                        ))
+                    ) : (
+                        <div className="col-span-full py-20 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-muted">
+                            <Shield size={48} className="opacity-10 mb-4" />
+                            <p className="font-bold uppercase tracking-widest text-xs">No factions found</p>
+                            <p className="text-[10px] mt-1 italic">Join an existing organization or create your own</p>
                         </div>
-                    ))}
+                    )}
                 </div>
 
                 {/* Create Modal */}
                 {showCreate && (
-                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[500]">
-                        <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full border border-gray-700">
-                            <h2 className="text-2xl font-bold mb-4 text-white">Create New Faction</h2>
-                            <form onSubmit={handleCreate} className="space-y-4">
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[500]">
+                        <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl">
+                            <h2 className="text-2xl font-black uppercase tracking-tighter italic mb-6">Create New Faction</h2>
+                            <form onSubmit={handleCreate} className="space-y-6">
                                 <div>
-                                    <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Faction Name</label>
-                                    <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-gray-900 border border-gray-700 p-3 rounded focus:border-blue-500 outline-none text-white text-sm" required placeholder="e.g. Los Santos Sheriff's Department" />
+                                    <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Faction Name</label>
+                                    <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-surface border border-border p-4 rounded-xl text-sm" required placeholder="e.g. Los Santos Sheriff's Department" />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Shortname</label>
-                                        <input value={shortname} onChange={e => setShortname(e.target.value)} className="w-full bg-gray-900 border border-gray-700 p-3 rounded focus:border-blue-500 outline-none text-white text-sm" required placeholder="e.g. lssd" />
+                                        <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Shortname</label>
+                                        <input value={shortname} onChange={e => setShortname(e.target.value)} className="w-full bg-surface border border-border p-4 rounded-xl text-sm" required placeholder="e.g. lssd" />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-1.5">Color</label>
+                                        <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Color</label>
                                         <div className="flex gap-2">
-                                            <input type="color" value={color} onChange={e => setColor(e.target.value)} className="w-12 h-11 bg-gray-900 border border-gray-700 rounded p-1 cursor-pointer" />
-                                            <input value={color} onChange={e => setColor(e.target.value)} className="flex-1 bg-gray-900 border border-gray-700 p-3 rounded font-mono text-[10px] text-white" />
+                                            <input type="color" value={color} onChange={e => setColor(e.target.value)} className="w-12 h-13 bg-surface border border-border rounded-xl p-1 cursor-pointer" />
+                                            <input value={color} onChange={e => setColor(e.target.value)} className="flex-1 bg-surface border border-border p-4 rounded-xl font-mono text-[10px]" />
                                         </div>
                                     </div>
                                 </div>
                                 <div className="flex gap-4 pt-4">
-                                    <button type="button" onClick={() => setShowCreate(false)} className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded font-bold uppercase tracking-widest text-[10px] text-white transition">Cancel</button>
-                                    <button type="submit" className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded font-bold uppercase tracking-widest text-[10px] text-white transition">Create Faction</button>
+                                    <button type="button" onClick={() => setShowCreate(false)} className="flex-1 px-4 py-4 bg-surface border border-border hover:bg-bg rounded-xl font-bold uppercase tracking-widest text-[10px] transition">Cancel</button>
+                                    <button type="submit" className="flex-1 px-4 py-4 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20">Create Faction</button>
                                 </div>
                             </form>
                         </div>
@@ -139,21 +189,25 @@ const FactionManager: React.FC = () => {
 
                 {/* Join Modal */}
                 {showJoin && (
-                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[500]">
-                        <div className="bg-gray-800 p-6 rounded-lg max-w-md w-full border border-gray-700">
-                            <h2 className="text-2xl font-bold mb-4">Join Faction</h2>
-                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                                {allFactions.filter(f => !myFactions.find(mf => mf.shortname === f.shortname)).map(faction => (
-                                    <div key={faction.shortname} className="flex justify-between items-center p-3 bg-gray-700 rounded border border-gray-600">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: faction.color }} />
-                                            <span className="font-bold">{faction.name}</span>
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[500]">
+                        <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl">
+                            <h2 className="text-2xl font-black uppercase tracking-tighter italic mb-6">Join Faction</h2>
+                            <div className="space-y-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+                                {allFactions.filter(f => !myFactions.find(mf => mf.shortname === f.shortname)).length > 0 ? (
+                                    allFactions.filter(f => !myFactions.find(mf => mf.shortname === f.shortname)).map(faction => (
+                                        <div key={faction.shortname} className="flex justify-between items-center p-4 bg-surface rounded-xl border border-border hover:border-accent transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: faction.color }} />
+                                                <span className="font-bold text-sm uppercase tracking-tight">{faction.name}</span>
+                                            </div>
+                                            <button onClick={() => handleJoin(faction.shortname)} className="text-[9px] bg-accent text-white px-4 py-1.5 rounded-lg font-black uppercase tracking-widest hover:bg-accent/90 transition-colors">Join</button>
                                         </div>
-                                        <button onClick={() => handleJoin(faction.shortname)} className="text-xs bg-blue-600 px-3 py-1 rounded font-bold uppercase">Join</button>
-                                    </div>
-                                ))}
+                                    ))
+                                ) : (
+                                    <p className="text-center py-8 text-muted text-[10px] uppercase font-bold tracking-widest">No other factions available</p>
+                                )}
                             </div>
-                            <button onClick={() => setShowJoin(false)} className="w-full mt-6 px-4 py-2 bg-gray-700 rounded">Close</button>
+                            <button onClick={() => setShowJoin(false)} className="w-full mt-8 px-4 py-4 bg-surface border border-border rounded-xl font-bold text-[10px] uppercase tracking-widest">Close</button>
                         </div>
                     </div>
                 )}

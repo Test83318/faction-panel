@@ -31,6 +31,7 @@ class RoleController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'weight' => 'required|integer',
+            'color' => ['required', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
         ]);
 
         $role = $faction->roles()->create($validated);
@@ -54,9 +55,15 @@ class RoleController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $systemRoles = ['Administrator', 'User', 'Public'];
+        if (in_array($role->name, $systemRoles)) {
+            return response()->json(['message' => 'Cannot modify core system roles'], 400);
+        }
+
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'weight' => 'sometimes|integer',
+            'color' => ['sometimes', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
         ]);
 
         $role->update($validated);
@@ -72,7 +79,7 @@ class RoleController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $protectedRoles = ['Administrator', 'Global Moderator', 'User', 'Public'];
+        $protectedRoles = ['Administrator', 'User', 'Public'];
         if (in_array($role->name, $protectedRoles)) {
             return response()->json(['message' => "Cannot delete the {$role->name} role as it is a core system role."], 400);
         }
@@ -88,6 +95,10 @@ class RoleController extends Controller
 
         if (!$this->can($faction, 'modify_permissions')) {
             return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if ($role->name === 'Administrator') {
+            return response()->json(['message' => 'Administrator permissions are locked and cannot be modified.'], 400);
         }
 
         $request->validate([

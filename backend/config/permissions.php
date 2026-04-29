@@ -40,6 +40,21 @@ return [
                     'description' => 'Allows changing permissions for any role.',
                     'type' => 'MODIFY',
                 ],
+                'view_users' => [
+                    'name' => 'View Users',
+                    'description' => 'Allows viewing the faction member list in administration.',
+                    'type' => 'VIEW',
+                ],
+                'remove_users' => [
+                    'name' => 'Remove Users',
+                    'description' => 'Allows removing members from the faction.',
+                    'type' => 'DELETE',
+                ],
+                'change_ranks' => [
+                    'name' => 'Change Ranks',
+                    'description' => 'Allows changing a member\'s rank/role.',
+                    'type' => 'MODIFY',
+                ],
                 'create_ranks' => [
                     'name' => 'Create Ranks',
                     'description' => 'Allows creation of new faction ranks/roles.',
@@ -53,6 +68,11 @@ return [
                 'modify_ranks' => [
                     'name' => 'Modify Ranks',
                     'description' => 'Allows editing of rank names and properties.',
+                    'type' => 'MODIFY',
+                ],
+                'manage_invites' => [
+                    'name' => 'Manage Invites',
+                    'description' => 'Allows creating and deleting faction invite links.',
                     'type' => 'MODIFY',
                 ],
             ],

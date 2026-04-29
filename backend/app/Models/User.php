@@ -41,27 +41,38 @@ class User extends Authenticatable
         return $this->belongsToMany(Role::class)->withTimestamps();
     }
 
-    public function hasPermission(string $permissionKey, int $factionId): bool
+    public static function hasFactionPermission(?User $user, Faction $faction, string $permissionKey): bool
     {
-        if ($this->is_superadmin) {
+        if ($user && $user->is_superadmin) {
             return true;
         }
 
-        $faction = Faction::find($factionId);
-        if (!$faction) return false;
-
-        if ($faction->faction_leader === $this->id) {
+        if ($user && $faction->faction_leader === $user->id) {
             return true;
         }
 
-        $roles = $this->roles()->where('faction_id', $factionId)->with('permissions')->get();
+        $roles = collect();
 
-        // If faction is public/hidden, always include the "Public" role permissions
+        // 1. Always get Public role permissions if faction is public/hidden
         if (in_array($faction->visibility, ['public', 'hidden'])) {
             $publicRole = $faction->roles()->where('name', 'Public')->with('permissions')->first();
-            if ($publicRole && !$roles->contains('id', $publicRole->id)) {
+            if ($publicRole) {
                 $roles->push($publicRole);
             }
+        }
+
+        // 2. Add specific user roles if user is logged in
+        if ($user) {
+            $userRoles = $user->roles()->where('faction_id', $faction->id)->with('permissions')->get();
+            foreach ($userRoles as $role) {
+                if (!$roles->contains('id', $role->id)) {
+                    $roles->push($role);
+                }
+            }
+        }
+
+        if ($roles->isEmpty()) {
+            return false;
         }
 
         $hasNever = false;
@@ -81,5 +92,13 @@ class User extends Authenticatable
         }
 
         return $hasYes && !$hasNever;
+    }
+
+    public function hasPermission(string $permissionKey, int $factionId): bool
+    {
+        $faction = Faction::find($factionId);
+        if (!$faction) return false;
+
+        return self::hasFactionPermission($this, $faction, $permissionKey);
     }
 }
