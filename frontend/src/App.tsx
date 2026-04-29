@@ -7,6 +7,7 @@ import { BureauCard } from './components/BureauCard';
 import { RosterTable } from './components/RosterTable';
 import Login from './components/Login';
 import FactionManager from './components/FactionManager';
+import Loading from './components/Loading';
 import api from './api';
 import { INITIAL_DATA } from './constants';
 import { Faction as FactionType } from './types';
@@ -36,7 +37,7 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
     fetchFaction();
   }, [shortname, staticFaction.divisions]);
 
-  if (loading) return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white uppercase tracking-widest font-bold">Initializing Faction...</div>;
+  if (loading) return <Loading message="Initializing Faction..." />;
   if (error) return <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center text-white">
     <h1 className="text-4xl font-bold text-red-500 mb-4">Error</h1>
     <p className="mb-8">{error}</p>
@@ -171,7 +172,7 @@ export default function App() {
     localStorage.setItem('bp-rosters-theme', theme);
   };
 
-  if (loading) return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Loading...</div>;
+  if (loading) return <Loading message="Authenticating..." />;
 
   return (
     <Router>

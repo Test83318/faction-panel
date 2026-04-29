@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import Loading from './Loading';
 
 const FactionManager: React.FC = () => {
     const [myFactions, setMyFactions] = useState<any[]>([]);
@@ -55,7 +56,7 @@ const FactionManager: React.FC = () => {
         }
     };
 
-    if (loading) return <div className="text-white">Loading factions...</div>;
+    if (loading) return <Loading message="Loading Factions..." />;
 
     return (
         <div className="p-6 bg-gray-900 min-h-screen text-white">
