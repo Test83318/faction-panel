@@ -32,6 +32,32 @@ class FactionController extends Controller
         // Creator automatically joins the faction
         $faction->users()->attach(Auth::id());
 
+        // Create Default Roles
+        $adminRole = $faction->roles()->create(['name' => 'Administrator', 'weight' => 100]);
+        $modRole = $faction->roles()->create(['name' => 'Global Moderator', 'weight' => 50]);
+        $userRole = $faction->roles()->create(['name' => 'User', 'weight' => 1]);
+
+        // Assign creator to Admin role
+        Auth::user()->roles()->attach($adminRole->id);
+
+        // Assign permissions
+        $allPermissions = config('permissions.categories');
+        
+        foreach ($allPermissions as $category) {
+            foreach ($category['permissions'] as $key => $details) {
+                // Admin gets YES for everything
+                $adminRole->permissions()->create(['permission_key' => $key, 'value' => 'YES']);
+                
+                // Mod gets some
+                $modValue = in_array($key, ['view_faction_roster', 'view_admin_page', 'view_faction_details', 'view_permissions']) ? 'YES' : 'NO';
+                $modRole->permissions()->create(['permission_key' => $key, 'value' => $modValue]);
+                
+                // User gets basic
+                $userValue = ($key === 'view_faction_roster') ? 'YES' : 'NO';
+                $userRole->permissions()->create(['permission_key' => $key, 'value' => $userValue]);
+            }
+        }
+
         return response()->json($faction, 201);
     }
 

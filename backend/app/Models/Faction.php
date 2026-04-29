@@ -34,4 +34,9 @@ class Faction extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    public function roles()
+    {
+        return $this->hasMany(Role::class);
+    }
 }

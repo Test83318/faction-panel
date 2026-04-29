@@ -35,4 +35,41 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Faction::class)->withTimestamps();
     }
+
+    public function roles()
+    {
+        return $this->belongsToMany(Role::class)->withTimestamps();
+    }
+
+    public function hasPermission(string $permissionKey, int $factionId): bool
+    {
+        if ($this->is_superadmin) {
+            return true;
+        }
+
+        $faction = Faction::find($factionId);
+        if ($faction && $faction->faction_leader === $this->id) {
+            return true;
+        }
+
+        $roles = $this->roles()->where('faction_id', $factionId)->with('permissions')->get();
+
+        $hasNever = false;
+        $hasYes = false;
+
+        foreach ($roles as $role) {
+            $permission = $role->permissions->where('permission_key', $permissionKey)->first();
+            if ($permission) {
+                if ($permission->value === 'NEVER') {
+                    $hasNever = true;
+                    break;
+                }
+                if ($permission->value === 'YES') {
+                    $hasYes = true;
+                }
+            }
+        }
+
+        return $hasYes && !$hasNever;
+    }
 }

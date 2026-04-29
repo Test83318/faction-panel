@@ -36,11 +36,11 @@ const FactionManager: React.FC = () => {
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await api.post('/factions', { name, shortname, color });
+            const response = await api.post('/factions', { name, shortname, color });
             setName('');
             setShortname('');
             setShowCreate(false);
-            fetchData();
+            window.location.href = `/${response.data.shortname}/admin`;
         } catch (err) {
             alert('Failed to create faction');
         }
