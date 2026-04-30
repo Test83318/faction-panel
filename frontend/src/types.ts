@@ -42,6 +42,30 @@ export interface Division {
   bureaus: Bureau[];
 }
 
+export interface RosterSection {
+  id: number;
+  roster_id: number;
+  name: string;
+  shortname: string;
+  color: string | null;
+  type: 'master' | 'section' | 'subsection';
+  order: number;
+  parent_id: number | null;
+  section_options: any;
+  children?: RosterSection[];
+}
+
+export interface Roster {
+  id: number;
+  faction_id: number;
+  name: string;
+  shortname: string;
+  color: string;
+  order: number;
+  roster_options: any;
+  root_sections?: RosterSection[];
+}
+
 export interface Faction {
   id: string;
   name: string;

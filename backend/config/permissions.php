@@ -10,6 +10,16 @@ return [
                     'description' => 'Allows the user to see the entire faction roster.',
                     'type' => 'VIEW',
                 ],
+                'global_roster_moderation' => [
+                    'name' => 'Global Roster Moderation',
+                    'description' => 'Grants full control over all rosters (modify, delete, reorder).',
+                    'type' => 'MODIFY',
+                ],
+                'create_roster' => [
+                    'name' => 'Create Rosters',
+                    'description' => 'Allows creating new rosters for the faction.',
+                    'type' => 'CREATE',
+                ],
             ],
         ],
         'administration' => [

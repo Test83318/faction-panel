@@ -30,7 +30,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({ members, isLeadership,
           </tr>
         </thead>
         <tbody>
-          {members.map((member, idx) => (
+          {members && members.map((member, idx) => (
             <tr key={member.id} className="rt-tr">
               <td className="rt-td text-muted opacity-50" style={{ borderLeft: `3px solid ${accentColor}` }}>
                 {idx + 1}
@@ -55,7 +55,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({ members, isLeadership,
               <td className="rt-td"></td>
             </tr>
           ))}
-          {members.length === 0 && (
+          {(!members || members.length === 0) && (
             <tr>
               <td colSpan={6} className="rt-td text-muted italic opacity-40 text-center py-2 uppercase text-[9px]">
                 Empty Position

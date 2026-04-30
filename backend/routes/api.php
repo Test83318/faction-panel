@@ -4,6 +4,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FactionController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\InviteController;
+use App\Http\Controllers\RosterController;
+use App\Http\Controllers\RosterSectionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -49,4 +51,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/roles/{role}', [RoleController::class, 'update']);
     Route::delete('/roles/{role}', [RoleController::class, 'destroy']);
     Route::put('/roles/{role}/permissions', [RoleController::class, 'updatePermissions']);
+
+    // Roster Management
+    Route::get('/factions/{shortname}/rosters', [RosterController::class, 'index']);
+    Route::post('/factions/{shortname}/rosters', [RosterController::class, 'store']);
+    Route::put('/rosters/{roster}', [RosterController::class, 'update']);
+    Route::delete('/rosters/{roster}', [RosterController::class, 'destroy']);
+    Route::put('/factions/{shortname}/rosters/reorder', [RosterController::class, 'reorder']);
+
+    // Roster Section Management
+    Route::post('/rosters/{roster}/sections', [RosterSectionController::class, 'store']);
+    Route::put('/sections/{section}', [RosterSectionController::class, 'update']);
+    Route::delete('/sections/{section}', [RosterSectionController::class, 'destroy']);
+    Route::put('/rosters/{roster}/sections/reorder', [RosterSectionController::class, 'reorder']);
 });

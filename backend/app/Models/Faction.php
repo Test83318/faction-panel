@@ -48,4 +48,9 @@ class Faction extends Model
     {
         return $this->hasMany(Role::class);
     }
+
+    public function rosters()
+    {
+        return $this->hasMany(Roster::class);
+    }
 }

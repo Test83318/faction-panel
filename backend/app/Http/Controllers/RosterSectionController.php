@@ -1,0 +1,115 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Roster;
+use App\Models\RosterSection;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
+class RosterSectionController extends Controller
+{
+    public function store(Request $request, Roster $roster)
+    {
+        $faction = $roster->faction;
+
+        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'shortname' => 'required|string|max:6',
+            'color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
+            'type' => 'required|in:master,section,subsection',
+            'parent_id' => 'nullable|exists:roster_sections,id',
+            'section_options' => 'nullable|array',
+        ]);
+
+        $validated['shortname'] = strtoupper($validated['shortname']);
+        
+        // Validation: master sections cannot have parents
+        if ($validated['type'] === 'master' && !empty($validated['parent_id'])) {
+            return response()->json(['message' => 'Master sections cannot have a parent'], 422);
+        }
+
+        // Get next order within the same parent or root
+        $maxOrder = $roster->sections()
+            ->where('parent_id', $validated['parent_id'] ?? null)
+            ->max('order') ?? -1;
+
+        $section = $roster->sections()->create([
+            ...$validated,
+            'order' => $maxOrder + 1,
+            'created_by' => Auth::id(),
+        ]);
+
+        return response()->json($section, 201);
+    }
+
+    public function update(Request $request, RosterSection $section)
+    {
+        $faction = $section->roster->faction;
+
+        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'shortname' => 'sometimes|string|max:6',
+            'color' => ['sometimes', 'nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
+            'type' => 'sometimes|in:master,section,subsection',
+            'parent_id' => 'sometimes|nullable|exists:roster_sections,id',
+            'section_options' => 'nullable|array',
+        ]);
+
+        if (isset($validated['shortname'])) {
+            $validated['shortname'] = strtoupper($validated['shortname']);
+        }
+
+        $section->update($validated);
+
+        return response()->json($section);
+    }
+
+    public function destroy(RosterSection $section)
+    {
+        $faction = $section->roster->faction;
+
+        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $section->delete();
+
+        return response()->json(['message' => 'Section deleted']);
+    }
+
+    public function reorder(Request $request, Roster $roster)
+    {
+        $faction = $roster->faction;
+
+        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $request->validate([
+            'section_ids' => 'required|array',
+            'section_ids.*' => 'exists:roster_sections,id',
+            'parent_id' => 'nullable|exists:roster_sections,id',
+        ]);
+
+        foreach ($request->section_ids as $index => $id) {
+            RosterSection::where('id', $id)
+                ->where('roster_id', $roster->id)
+                ->update([
+                    'order' => $index,
+                    'parent_id' => $request->parent_id
+                ]);
+        }
+
+        return response()->json(['message' => 'Order updated']);
+    }
+}
