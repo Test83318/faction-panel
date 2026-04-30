@@ -1,14 +1,15 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Users, Settings } from 'lucide-react';
+import { Users, Settings, Layers } from 'lucide-react';
 
 interface SidebarProps {
   shortname: string;
   canViewAdmin: boolean;
+  canViewGroups: boolean;
   user: any | null;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ shortname, canViewAdmin, user }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ shortname, canViewAdmin, canViewGroups, user }) => {
   return (
     <aside className="sidebar">
       <div className="py-4 flex flex-col gap-1">
@@ -19,6 +20,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ shortname, canViewAdmin, user 
           <Users size={14} />
           Faction Roster
         </NavLink>
+
+        {canViewGroups && (
+          <NavLink 
+            to={`/${shortname}/groups`}
+            className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
+          >
+            <Layers size={14} />
+            Group Management
+          </NavLink>
+        )}
 
         {canViewAdmin && (
           <NavLink 

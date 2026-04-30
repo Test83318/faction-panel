@@ -5,24 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Roster extends Model
+class Group extends Model
 {
     use SoftDeletes;
 
     protected $fillable = [
         'faction_id',
         'name',
-        'shortname',
         'color',
-        'order',
-        'roster_options',
-        'columns',
         'created_by'
-    ];
-
-    protected $casts = [
-        'roster_options' => 'array',
-        'columns' => 'array',
     ];
 
     public function faction()
@@ -35,13 +26,13 @@ class Roster extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function sections()
+    public function members()
     {
-        return $this->hasMany(RosterSection::class);
+        return $this->belongsToMany(User::class)->withPivot('is_leader')->withTimestamps();
     }
 
-    public function rootSections()
+    public function leaders()
     {
-        return $this->hasMany(RosterSection::class)->whereNull('parent_id')->orderBy('order');
+        return $this->belongsToMany(User::class)->wherePivot('is_leader', true)->withPivot('is_leader')->withTimestamps();
     }
 }

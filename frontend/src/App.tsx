@@ -7,17 +7,19 @@ import { Sidebar } from './components/Sidebar';
 import { SectionCard } from './components/SectionCard';
 import { BureauCard } from './components/BureauCard';
 import { RosterTable } from './components/RosterTable';
+import { ColumnsModal } from './components/ColumnsModal';
 import Home from './components/Home';
 import FactionManager from './components/FactionManager';
 import Administration from './components/Administration';
+import GroupManagement from './components/GroupManagement';
 import Loading from './components/Loading';
 import Invite from './components/Invite';
 import Register from './components/Register';
 import Login from './components/Login';
 import api from './api';
 import { INITIAL_DATA } from './constants';
-import { Faction as FactionType } from './types';
-import { Plus, MoreVertical, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Settings2 } from 'lucide-react';
+import { Faction as FactionType, Roster as RosterType } from './types';
+import { Plus, MoreVertical, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Settings2, Pencil } from 'lucide-react';
 
 const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, activeDivId, setActiveDivId, permissions, shortname, fetchRosters }: any) => {
   const canCreate = permissions.includes('create_roster');
@@ -25,6 +27,8 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSectionModal, setShowSectionModal] = useState(false);
+  const [showColumnsModal, setShowColumnsModal] = useState<RosterType | null>(null);
+  const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
   const [menuPosition, setMenuPosition] = useState({ left: 0 });
@@ -166,15 +170,25 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                     {activeDivision.name}
                   </div>
                   {canModerate && (
-                    <button 
-                        onClick={() => {
-                            setSectionData({ id: null, name: '', shortname: '', color: '', type: 'section', parent_id: null });
-                            setShowSectionModal(true);
-                        }}
-                        className="p-1 hover:bg-surface rounded text-muted hover:text-accent transition-colors"
-                    >
-                        <Plus size={14} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                        <button 
+                            onClick={() => setEditMode(!editMode)}
+                            className={`px-2 py-1 rounded transition-colors flex items-center gap-1.5 ${editMode ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'hover:bg-surface text-muted hover:text-accent'}`}
+                            title={editMode ? 'Exit Editing Mode' : 'Enter Editing Mode'}
+                        >
+                            <span className="text-[9px] font-black uppercase tracking-widest">Edit</span>
+                            <Pencil size={11} />
+                        </button>
+                        <button 
+                            onClick={() => {
+                                setSectionData({ id: null, name: '', shortname: '', color: '', type: 'section', parent_id: null });
+                                setShowSectionModal(true);
+                            }}
+                            className="p-1 hover:bg-surface rounded text-muted hover:text-accent transition-colors"
+                        >
+                            <Plus size={14} />
+                        </button>
+                    </div>
                   )}
                   <div className="text-[9.5px] text-muted shrink-0 pr-4">
                     <strong className="text-accent">{totalMembers}</strong> PERSONNEL
@@ -185,8 +199,11 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                     <SectionCard 
                         key={section.id} 
                         section={section} 
-                        canModerate={canModerate} 
+                        canModerate={canModerate}
                         onEdit={handleEditSection}
+                        columns={rosters.find((r: any) => r.id === activeDivId)?.columns}
+                        editMode={editMode}
+                        onRefresh={fetchRosters}
                     />
                 ))}
 
@@ -195,11 +212,13 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                     <div key={section.id} className="section-col flex flex-col min-w-[450px] flex-1 max-w-[calc(50%-8px)]">
                       <SectionCard 
                         section={section} 
-                        canModerate={canModerate} 
+                        canModerate={canModerate}
                         onAddChild={handleAddChildSection}
                         onEdit={handleEditSection}
-                      />
-                    </div>
+                        columns={rosters.find((r: any) => r.id === activeDivId)?.columns}
+                        editMode={editMode}
+                        onRefresh={fetchRosters}
+                      />                    </div>
                   ))}
                 </div>
 
@@ -250,7 +269,7 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                 value={roster}
                 className="flex items-center group relative h-full shrink-0"
             >
-              <button 
+              <div 
                 onClick={() => setActiveDivId(roster.id)}
                 className={`tab pl-4 py-2 cursor-pointer transition-all text-[10px] font-bold uppercase h-full flex items-center gap-1.5 relative border-t-2 ${
                   canModerate ? 'pr-1' : 'pr-4'
@@ -266,8 +285,8 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                 {canModerate && (
                     <div className="flex items-center">
                         <div className={`transition-opacity flex items-center ${activeMenuId === roster.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                             <MoreVertical 
-                                size={12} 
+                             <button 
+                                type="button"
                                 className={`text-muted hover:text-accent cursor-pointer p-0.5 rounded hover:bg-accent/10 ${activeMenuId === roster.id ? 'text-accent bg-accent/10' : ''}`} 
                                 onClick={(e) => {
                                     e.preventDefault();
@@ -280,7 +299,9 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                                         setActiveMenuId(roster.id);
                                     }
                                 }} 
-                             />
+                             >
+                                <MoreVertical size={12} />
+                             </button>
                         </div>
 
                         {activeMenuId === roster.id && (
@@ -299,6 +320,15 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                                     <Settings2 size={12} /> Edit Roster
                                 </button>
                                 <button 
+                                    onClick={() => {
+                                        setShowColumnsModal(roster);
+                                        setActiveMenuId(null);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface rounded transition-colors"
+                                >
+                                    <Settings2 size={12} /> Manage Columns
+                                </button>
+                                <button 
                                     onClick={() => handleDelete(roster.id)}
                                     className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-danger/70 hover:text-danger hover:bg-danger/5 rounded transition-colors"
                                 >
@@ -313,7 +343,7 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                         )}
                     </div>
                 )}
-              </button>
+              </div>
             </Reorder.Item>
           ))}
 
@@ -338,6 +368,18 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
           </div>
         )}
       </div>
+
+      {/* Columns Modal */}
+      {showColumnsModal && (
+        <ColumnsModal 
+          roster={showColumnsModal} 
+          onClose={() => setShowColumnsModal(null)} 
+          onSave={() => {
+            setShowColumnsModal(null);
+            fetchRosters();
+          }} 
+        />
+      )}
 
       {/* Create/Edit Modal */}
       {showCreateModal && (
@@ -561,6 +603,7 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
   ) : 0;
 
   const canViewAdmin = user?.is_superadmin || permissions.includes('view_admin_page');
+  const canViewGroups = user?.is_superadmin || permissions.includes('view_groups') || (rosters.length > 0); // Simplified check, GroupController handles strict access
 
   // Handle root faction path redirect
   if (location.pathname === `/${shortname}`) {
@@ -579,7 +622,7 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
       />
 
       <div className="flex flex-1 relative">
-        <Sidebar shortname={shortname!} canViewAdmin={canViewAdmin} user={user} />
+        <Sidebar shortname={shortname!} canViewAdmin={canViewAdmin} canViewGroups={canViewGroups} user={user} />
 
         <div className="flex flex-col flex-1 min-w-0">
           <Routes>
@@ -595,6 +638,13 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
                 shortname={shortname}
                 fetchRosters={fetchRosters}
               />
+            } />
+            <Route path="groups" element={
+              canViewGroups ? (
+                <main className="main flex-1 overflow-auto p-5">
+                  <GroupManagement shortname={shortname!} user={user} permissions={permissions} />
+                </main>
+              ) : <Navigate to={`/${shortname}/roster`} />
             } />
             <Route path="admin" element={
               canViewAdmin ? (

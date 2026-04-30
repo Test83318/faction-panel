@@ -2,17 +2,54 @@ import React from 'react';
 import { MoreHorizontal, Plus } from 'lucide-react';
 import { RosterSection } from '../types';
 import { RosterTable } from './RosterTable';
+import api from '../api';
 
 interface SectionCardProps {
   section: RosterSection;
   canModerate?: boolean;
+  columns?: any[];
+  editMode?: boolean;
   onAddChild?: (parentId: number) => void;
   onEdit?: (section: RosterSection) => void;
+  onRefresh?: () => void;
 }
 
-export const SectionCard: React.FC<SectionCardProps> = ({ section, canModerate, onAddChild, onEdit }) => {
-  // For now content is placeholder
-  const mockMembers: any[] = []; 
+export const SectionCard: React.FC<SectionCardProps> = ({ 
+  section, 
+  canModerate, 
+  columns, 
+  editMode,
+  onAddChild, 
+  onEdit,
+  onRefresh
+}) => {
+  const handleAddRow = async (sectionId: number) => {
+    try {
+      await api.post(`/sections/${sectionId}/contents`, { type: 'predefined', content: {} });
+      onRefresh?.();
+    } catch (err) {
+      console.error('Failed to add row', err);
+    }
+  };
+
+  const handleUpdateRow = async (id: number, data: any) => {
+    try {
+      await api.put(`/contents/${id}`, { content: data });
+      onRefresh?.();
+    } catch (err) {
+      console.error('Failed to update row', err);
+    }
+  };
+
+  const handleDeleteRow = async (id: number) => {
+    if (!window.confirm('Delete this row?')) return;
+    try {
+      await api.delete(`/contents/${id}`);
+      onRefresh?.();
+    } catch (err) {
+      console.error('Failed to delete row', err);
+    }
+  };
 
   if (section.type === 'master') {
     return (
@@ -30,8 +67,17 @@ export const SectionCard: React.FC<SectionCardProps> = ({ section, canModerate, 
             )}
           </div>
         </div>
-        {/* Placeholder for content */}
-        <RosterTable members={mockMembers} isLeadership accentColor={section.color || 'var(--accent)'} />
+        <RosterTable 
+          contents={section.contents || []} 
+          isLeadership 
+          accentColor={section.color || 'var(--accent)'} 
+          columns={columns} 
+          editMode={editMode}
+          canModerate={canModerate}
+          onAddRow={() => handleAddRow(section.id)}
+          onUpdateRow={handleUpdateRow}
+          onDeleteRow={handleDeleteRow}
+        />
       </div>
     );
   }
@@ -84,14 +130,31 @@ export const SectionCard: React.FC<SectionCardProps> = ({ section, canModerate, 
                 </button>
             )}
           </div>
-          {/* Placeholder for child content */}
-          <RosterTable members={mockMembers} accentColor={child.color || section.color || 'var(--accent)'} />
+          <RosterTable 
+            contents={child.contents || []} 
+            accentColor={child.color || section.color || 'var(--accent)'} 
+            columns={columns} 
+            editMode={editMode}
+            canModerate={canModerate}
+            onAddRow={() => handleAddRow(child.id)}
+            onUpdateRow={handleUpdateRow}
+            onDeleteRow={handleDeleteRow}
+          />
         </div>
       ))}
 
-      {/* If it's a root section but has no children, maybe show empty state or just the header with empty table */}
+      {/* If it's a root section but has no children */}
       {(!section.children || section.children.length === 0) && (
-        <RosterTable members={mockMembers} accentColor={section.color || 'var(--accent)'} />
+        <RosterTable 
+          contents={section.contents || []} 
+          accentColor={section.color || 'var(--accent)'} 
+          columns={columns} 
+          editMode={editMode}
+          canModerate={canModerate}
+          onAddRow={() => handleAddRow(section.id)}
+          onUpdateRow={handleUpdateRow}
+          onDeleteRow={handleDeleteRow}
+        />
       )}
     </div>
   );

@@ -11,15 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('rosters', function (Blueprint $table) {
+        Schema::create('groups', function (Blueprint $table) {
             $table->id();
             $table->foreignId('faction_id')->constrained()->cascadeOnDelete();
             $table->string('name');
-            $table->string('shortname', 6);
             $table->string('color', 7);
-            $table->integer('order')->default(0);
-            $table->json('roster_options')->nullable();
-            $table->json('columns')->nullable();
             $table->foreignId('created_by')->constrained('users');
             $table->timestamps();
             $table->softDeletes();
@@ -31,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('rosters');
+        Schema::dropIfExists('groups');
     }
 };

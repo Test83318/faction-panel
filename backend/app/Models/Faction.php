@@ -53,4 +53,9 @@ class Faction extends Model
     {
         return $this->hasMany(Roster::class);
     }
+
+    public function groups()
+    {
+        return $this->hasMany(Group::class);
+    }
 }

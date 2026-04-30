@@ -41,6 +41,11 @@ class User extends Authenticatable
         return $this->belongsToMany(Role::class)->withTimestamps();
     }
 
+    public function groups()
+    {
+        return $this->belongsToMany(Group::class)->withPivot('is_leader')->withTimestamps();
+    }
+
     public static function hasFactionPermission(?User $user, Faction $faction, string $permissionKey): bool
     {
         if ($user && $user->is_superadmin) {

@@ -19,7 +19,7 @@ class RosterController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $rosters = $faction->rosters()->with(['rootSections.children'])->orderBy('order')->get();
+        $rosters = $faction->rosters()->with(['rootSections.children.contents', 'rootSections.contents'])->orderBy('order')->get();
         return response()->json($rosters);
     }
 
@@ -43,9 +43,17 @@ class RosterController extends Controller
         // Get next order
         $maxOrder = $faction->rosters()->max('order') ?? -1;
 
+        $defaultColumns = [
+            ['id' => 'rank', 'name' => 'Rank', 'type' => 'dropdown', 'options' => [], 'checkboxes' => ['Acting']],
+            ['id' => 'name', 'name' => 'Name', 'type' => 'text', 'checkboxes' => ['LOA']],
+            ['id' => 'position', 'name' => 'Position', 'type' => 'text', 'checkboxes' => []],
+            ['id' => 'callsign', 'name' => 'Callsign', 'type' => 'text', 'checkboxes' => []]
+        ];
+
         $roster = $faction->rosters()->create([
             ...$validated,
             'order' => $maxOrder + 1,
+            'columns' => $validated['columns'] ?? $defaultColumns,
             'created_by' => Auth::id(),
         ]);
 
@@ -65,6 +73,7 @@ class RosterController extends Controller
             'shortname' => 'sometimes|string|max:6',
             'color' => ['sometimes', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'roster_options' => 'nullable|array',
+            'columns' => 'nullable|array',
         ]);
 
         if (isset($validated['shortname'])) {

@@ -42,6 +42,14 @@ export interface Division {
   bureaus: Bureau[];
 }
 
+export interface RosterContent {
+  id: number;
+  section_id: number;
+  order: number;
+  type: 'predefined' | 'defined';
+  content: any;
+}
+
 export interface RosterSection {
   id: number;
   roster_id: number;
@@ -53,6 +61,7 @@ export interface RosterSection {
   parent_id: number | null;
   section_options: any;
   children?: RosterSection[];
+  contents?: RosterContent[];
 }
 
 export interface Roster {
@@ -63,7 +72,20 @@ export interface Roster {
   color: string;
   order: number;
   roster_options: any;
+  columns?: any;
   root_sections?: RosterSection[];
+}
+
+export interface Group {
+  id: number;
+  faction_id: number;
+  name: string;
+  color: string;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+  members?: any[];
+  leaders?: any[];
 }
 
 export interface Faction {
