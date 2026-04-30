@@ -1,3 +1,13 @@
+export interface Role {
+  id: number;
+  name: string;
+  weight: number;
+  color: string;
+  type: 'primary' | 'secondary';
+  faction_id: number;
+  permissions?: any[];
+}
+
 export interface Member {
   id: string;
   rank: string;

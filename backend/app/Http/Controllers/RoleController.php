@@ -32,7 +32,12 @@ class RoleController extends Controller
             'name' => 'required|string|max:255',
             'weight' => 'required|integer',
             'color' => ['required', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
+            'type' => 'required|string|in:primary,secondary',
         ]);
+
+        if ($validated['weight'] >= Auth::user()->getHighestRoleWeight($faction->id)) {
+            return response()->json(['message' => 'Cannot create a role with weight equal to or higher than your own.'], 403);
+        }
 
         $role = $faction->roles()->create($validated);
 
@@ -50,9 +55,14 @@ class RoleController extends Controller
     public function update(Request $request, Role $role)
     {
         $faction = $role->faction;
+        $userWeight = Auth::user()->getHighestRoleWeight($faction->id);
 
         if (!$this->can($faction, 'modify_ranks')) {
             return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if ($role->weight >= $userWeight) {
+            return response()->json(['message' => 'Cannot modify a role with weight equal to or higher than your own.'], 403);
         }
 
         $systemRoles = ['Administrator', 'User', 'Public'];
@@ -64,7 +74,12 @@ class RoleController extends Controller
             'name' => 'sometimes|string|max:255',
             'weight' => 'sometimes|integer',
             'color' => ['sometimes', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
+            'type' => 'sometimes|string|in:primary,secondary',
         ]);
+
+        if (isset($validated['weight']) && $validated['weight'] >= $userWeight) {
+            return response()->json(['message' => 'Cannot set weight equal to or higher than your own.'], 403);
+        }
 
         $role->update($validated);
 
@@ -77,6 +92,10 @@ class RoleController extends Controller
 
         if (!$this->can($faction, 'delete_ranks')) {
             return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if ($role->weight >= Auth::user()->getHighestRoleWeight($faction->id)) {
+            return response()->json(['message' => 'Cannot delete a role with weight equal to or higher than your own.'], 403);
         }
 
         $protectedRoles = ['Administrator', 'User', 'Public'];
@@ -95,6 +114,10 @@ class RoleController extends Controller
 
         if (!$this->can($faction, 'modify_permissions')) {
             return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if ($role->weight >= Auth::user()->getHighestRoleWeight($faction->id)) {
+            return response()->json(['message' => 'Cannot modify permissions for a role with weight equal to or higher than your own.'], 403);
         }
 
         if ($role->name === 'Administrator') {

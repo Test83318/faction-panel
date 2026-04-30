@@ -8,7 +8,7 @@ interface LoadingProps {
 
 const Loading: React.FC<LoadingProps> = ({ message = 'Loading...', fullScreen = true }) => {
   return (
-    <div className={`flex flex-col items-center justify-center bg-bg ${fullScreen ? 'min-h-screen' : 'w-full py-12'}`}>
+    <div className={`flex flex-col items-center justify-center ${fullScreen ? 'min-h-screen bg-bg' : 'w-full py-12 bg-transparent'}`}>
       <div className="relative mb-6">
         {/* Outer Ring */}
         <motion.div

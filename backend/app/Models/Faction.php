@@ -18,6 +18,7 @@ class Faction extends Model
         'color',
         'image_url',
         'visibility',
+        'access',
         'gtaw_faction_id',
         'faction_leader',
         'created_by',

@@ -75,6 +75,25 @@ class User extends Authenticatable
             return false;
         }
 
+        // Check for 'administrator' permission first (System category)
+        // This grants everything except specifically exempted permissions
+        $isSystemAdmin = false;
+        foreach ($roles as $role) {
+            if ($role->permissions->where('permission_key', 'administrator')->where('value', 'YES')->first()) {
+                $isSystemAdmin = true;
+                break;
+            }
+        }
+
+        // Future-proof exemptions for 'administrator' permission
+        $leaderOnlyPermissions = [
+            'delete_faction', // Example of a future permission
+        ];
+
+        if ($isSystemAdmin && !in_array($permissionKey, $leaderOnlyPermissions)) {
+            return true;
+        }
+
         $hasNever = false;
         $hasYes = false;
 
@@ -100,5 +119,21 @@ class User extends Authenticatable
         if (!$faction) return false;
 
         return self::hasFactionPermission($this, $faction, $permissionKey);
+    }
+
+    public function getHighestRoleWeight(int $factionId): int
+    {
+        if ($this->is_superadmin) {
+            return PHP_INT_MAX;
+        }
+
+        $faction = Faction::find($factionId);
+        if ($faction && $faction->faction_leader === $this->id) {
+            return PHP_INT_MAX;
+        }
+
+        return $this->roles()
+            ->where('faction_id', $factionId)
+            ->max('weight') ?? 0;
     }
 }

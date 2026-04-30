@@ -77,5 +77,15 @@ return [
                 ],
             ],
         ],
+        'system' => [
+            'name' => 'System',
+            'permissions' => [
+                'administrator' => [
+                    'name' => 'Administrator',
+                    'description' => 'Grants full administrative access to the faction. (Equivalent to Faction Leader)',
+                    'type' => 'MODIFY',
+                ],
+            ],
+        ],
     ],
 ];

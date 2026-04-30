@@ -160,7 +160,7 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
         toggleTheme={toggleTheme} 
         factionName={factionData.name} 
         user={user} 
-        userRole={factionData.user_highest_role}
+        userRole={factionData.user_primary_role}
         onLogout={onLogout} 
       />
 
@@ -181,7 +181,7 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
             <Route path="admin" element={
               canViewAdmin ? (
                 <main className="main flex-1 overflow-auto p-5">
-                  <Administration faction={factionData} user={user} />
+                  <Administration faction={factionData} user={user} permissions={permissions} />
                 </main>
               ) : <Navigate to={`/${shortname}/roster`} />
             } />
@@ -190,6 +190,41 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
       </div>
     </div>
   );
+};
+
+const TitleUpdater = ({ user }: { user: any }) => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const path = location.pathname;
+    const segments = path.split('/').filter(Boolean);
+
+    if (segments.length === 0) {
+      document.title = 'Faction Panel';
+      return;
+    }
+
+    const firstSegment = segments[0];
+
+    if (['login', 'register', 'invite'].includes(firstSegment)) {
+      document.title = `Faction Panel · ${firstSegment.charAt(0).toUpperCase() + firstSegment.slice(1)}`;
+      return;
+    }
+
+    // Faction routes
+    const shortname = firstSegment.toUpperCase();
+    let page = segments[1] || 'Roster';
+
+    const pageMap: Record<string, string> = {
+      'admin': 'Administration',
+      'roster': 'Roster'
+    };
+
+    const displayPage = pageMap[page] || (page.charAt(0).toUpperCase() + page.slice(1));
+    document.title = `${shortname} · ${displayPage}`;
+  }, [location, user]);
+
+  return null;
 };
 
 export default function App() {
@@ -248,6 +283,7 @@ export default function App() {
 
   return (
     <Router>
+      <TitleUpdater user={user} />
       <Toaster 
         position="top-right"
         toastOptions={{
@@ -289,3 +325,4 @@ export default function App() {
     </Router>
   );
 }
+

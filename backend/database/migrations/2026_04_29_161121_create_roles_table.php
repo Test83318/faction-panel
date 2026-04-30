@@ -16,6 +16,8 @@ return new class extends Migration
             $table->foreignId('faction_id')->constrained()->cascadeOnDelete();
             $table->string('name');
             $table->integer('weight')->default(0);
+            $table->string('color')->nullable();
+            $table->string('type')->default('secondary');
             $table->timestamps();
         });
     }

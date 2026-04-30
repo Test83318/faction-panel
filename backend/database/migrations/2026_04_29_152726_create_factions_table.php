@@ -16,6 +16,9 @@ return new class extends Migration
             $table->string('shortname')->unique();
             $table->string('name');
             $table->string('color', 7); // Hex color
+            $table->string('image_url')->nullable();
+            $table->enum('visibility', ['public', 'hidden', 'private'])->default('private');
+            $table->string('access')->default('invite-only');
             $table->integer('gtaw_faction_id')->unique()->nullable();
             $table->foreignId('faction_leader')->constrained('users');
             $table->foreignId('created_by')->constrained('users');

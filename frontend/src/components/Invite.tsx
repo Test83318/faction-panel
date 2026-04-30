@@ -71,7 +71,7 @@ const Invite: React.FC<{ user: any }> = ({ user }) => {
                             </h2>
                             <div className="flex flex-wrap justify-center gap-2 mt-4">
                                 <p className="text-muted text-[10px] font-bold uppercase tracking-[0.1em] bg-surface px-4 py-1.5 rounded-full border border-border">
-                                    {faction.shortname} &bull; {faction.visibility} organization
+                                    {faction.shortname} &bull; {faction.access} organization
                                 </p>
                                 {faction.invite?.expires_at && (
                                     <p className="text-orange-500/80 text-[10px] font-bold uppercase tracking-[0.1em] bg-orange-500/5 px-4 py-1.5 rounded-full border border-orange-500/20 flex items-center gap-1.5">

@@ -17,6 +17,7 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
     const [showCreate, setShowCreate] = useState(false);
     const [showJoin, setShowJoin] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [processing, setProcessing] = useState(false);
 
     // Form states
     const [name, setName] = useState('');
@@ -45,13 +46,16 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (processing) return;
+        setProcessing(true);
         const loadToast = toast.loading('Creating Faction...');
         try {
             const response = await api.post('/factions', { 
                 name, 
                 shortname, 
                 color,
-                visibility: 'private'
+                visibility: 'private',
+                access: 'invite-only'
             });
             setName('');
             setShortname('');
@@ -61,10 +65,14 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
         } catch (err: any) {
             const message = err.response?.data?.message || 'Failed to create faction';
             toast.error(message, { id: loadToast });
+        } finally {
+            setProcessing(false);
         }
     };
 
     const handleJoin = async (shortname: string) => {
+        if (processing) return;
+        setProcessing(true);
         const loadToast = toast.loading('Joining Faction...');
         try {
             await api.post('/factions/join', { shortname });
@@ -74,6 +82,8 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
         } catch (err: any) {
             const message = err.response?.data?.message || 'Failed to join faction';
             toast.error(message, { id: loadToast });
+        } finally {
+            setProcessing(false);
         }
     };
 
@@ -168,7 +178,15 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Shortname</label>
-                                        <input value={shortname} onChange={e => setShortname(e.target.value)} className="w-full bg-surface border border-border p-4 rounded-xl text-sm" required placeholder="e.g. lssd" />
+                                        <input 
+                                            value={shortname} 
+                                            onChange={e => setShortname(e.target.value.toLowerCase().replace(/[^a-z0-9\-_]/g, ''))} 
+                                            className="w-full bg-surface border border-border p-4 rounded-xl text-sm" 
+                                            required 
+                                            placeholder="e.g. lssd"
+                                            pattern="[a-z0-9\-_]+"
+                                            title="Lowercase letters, numbers, dashes and underscores only"
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Color</label>
@@ -180,7 +198,9 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
                                 </div>
                                 <div className="flex gap-4 pt-4">
                                     <button type="button" onClick={() => setShowCreate(false)} className="flex-1 px-4 py-4 bg-surface border border-border hover:bg-bg rounded-xl font-bold uppercase tracking-widest text-[10px] transition">Cancel</button>
-                                    <button type="submit" className="flex-1 px-4 py-4 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20">Create Faction</button>
+                                    <button type="submit" disabled={processing} className="flex-1 px-4 py-4 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20 disabled:opacity-50">
+                                        {processing ? 'Processing...' : 'Create Faction'}
+                                    </button>
                                 </div>
                             </form>
                         </div>
@@ -200,7 +220,17 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
                                                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: faction.color }} />
                                                 <span className="font-bold text-sm uppercase tracking-tight">{faction.name}</span>
                                             </div>
-                                            <button onClick={() => handleJoin(faction.shortname)} className="text-[9px] bg-accent text-white px-4 py-1.5 rounded-lg font-black uppercase tracking-widest hover:bg-accent/90 transition-colors">Join</button>
+                                            {faction.access === 'joinable' ? (
+                                                <button 
+                                                    onClick={() => handleJoin(faction.shortname)} 
+                                                    disabled={processing}
+                                                    className="text-[9px] bg-accent text-white px-4 py-1.5 rounded-lg font-black uppercase tracking-widest hover:bg-accent/90 transition-colors disabled:opacity-50"
+                                                >
+                                                    {processing ? '...' : 'Join'}
+                                                </button>
+                                            ) : (
+                                                <span className="text-[9px] bg-muted/20 text-muted px-4 py-1.5 rounded-lg font-black uppercase tracking-widest border border-border/50">Invite Only</span>
+                                            )}
                                         </div>
                                     ))
                                 ) : (

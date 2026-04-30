@@ -5,8 +5,22 @@ import api from '../api';
 import Loading from './Loading';
 import { Shield, Settings, Trash2, Edit2, Check, X, Plus, Save, Info, Key, Users, UserMinus, ShieldAlert, Crown, UserCog, Copy, Link as LinkIcon, Clock } from 'lucide-react';
 
-const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }) => {
-    const [activeTab, setActiveTab] = useState('details');
+const Administration: React.FC<{ faction: any; user: any; permissions: string[] }> = ({ faction, user, permissions }) => {
+    const hasPerm = (perm: string) => user?.is_superadmin || permissions.includes(perm);
+    const userHighestWeight = user?.is_superadmin || faction.faction_leader === user?.id 
+        ? 999999 
+        : Math.max(0, ...(faction.user_roles || user?.roles || [])
+            .filter((r: any) => r.faction_id === faction.id)
+            .map((r: any) => r.weight || 0));
+
+    const availableTabs = [
+        { id: 'details', perm: 'view_faction_details' },
+        { id: 'roles', perm: 'view_permissions' },
+        { id: 'users', perm: 'view_users' },
+        { id: 'invites', perm: 'manage_invites' }
+    ].filter(tab => hasPerm(tab.perm));
+
+    const [activeTab, setActiveTab] = useState(availableTabs.length > 0 ? availableTabs[0].id : '');
     const [roles, setRoles] = useState<any[]>([]);
     const [members, setMembers] = useState<any[]>([]);
     const [config, setConfig] = useState<any>(null);
@@ -25,6 +39,7 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
     const [invites, setInvites] = useState<any[]>([]);
     const [fetchingInvites, setFetchingInvites] = useState(false);
     const [creatingInvite, setCreatingInvite] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const [inviteForm, setInviteForm] = useState({ duration: '24h', max_uses: 0 });
 
     // Faction Details Form
@@ -33,7 +48,8 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
         description: faction.description || '',
         color: faction.color,
         image_url: faction.image_url || '',
-        visibility: faction.visibility || 'private'
+        visibility: faction.visibility || 'private',
+        access: faction.access || 'invite-only'
     });
 
     const copyInviteLink = (code: string) => {
@@ -46,7 +62,8 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
     // Role Edit State
     const [showRoleModal, setShowRoleModal] = useState(false);
     const [editingRole, setEditingRole] = useState<any>(null);
-    const [roleForm, setRoleForm] = useState({ name: '', weight: 0, color: '#3b82f6' });
+    const [roleForm, setRoleForm] = useState({ name: '', weight: 0, color: '#3b82f6', type: 'secondary' });
+    const [savingRank, setSavingRank] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -102,6 +119,7 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
     }, [activeTab]);
 
     const handleRemoveMember = async (targetUser: any) => {
+        if (deleting) return;
         toast((t) => (
             <div className="flex flex-col gap-1 text-left">
                 <p className="font-bold">Remove "{targetUser.username}"?</p>
@@ -111,6 +129,7 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                     <button 
                         onClick={async () => {
                             toast.dismiss(t.id);
+                            setDeleting(true);
                             const loadToast = toast.loading('Removing member...');
                             try {
                                 await api.delete(`/factions/${faction.id}/users/${targetUser.id}`);
@@ -118,11 +137,14 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                                 toast.success('Member removed successfully', { id: loadToast });
                             } catch (err: any) {
                                 toast.error(err.response?.data?.message || 'Failed to remove member', { id: loadToast });
+                            } finally {
+                                setDeleting(false);
                             }
                         }}
-                        className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-[9px] font-bold uppercase transition"
+                        className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-[9px] font-bold uppercase transition disabled:opacity-50"
+                        disabled={deleting}
                     >
-                        Remove
+                        {deleting ? 'Removing...' : 'Remove'}
                     </button>
                 </div>
             </div>
@@ -164,12 +186,17 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
     };
 
     const handleDeleteInvite = async (id: number) => {
+        if (deleting) return;
+        setDeleting(true);
+        const loadToast = toast.loading('Deleting invite...');
         try {
             await api.delete(`/invites/${id}`);
             setInvites(invites.filter(i => i.id !== id));
-            toast.success('Invite deleted');
+            toast.success('Invite deleted', { id: loadToast });
         } catch (err) {
-            toast.error('Failed to delete invite');
+            toast.error('Failed to delete invite', { id: loadToast });
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -213,23 +240,35 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
 
     const handleRoleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (savingRank) return;
+
+        if (roleForm.weight >= userHighestWeight) {
+            toast.error('Cannot set weight equal to or higher than your own.');
+            return;
+        }
+
+        setSavingRank(true);
+        const loadToast = toast.loading(editingRole ? 'Updating rank...' : 'Creating rank...');
         try {
             if (editingRole) {
                 await api.put(`/roles/${editingRole.id}`, roleForm);
-                toast.success('Rank updated successfully');
+                toast.success('Rank updated successfully', { id: loadToast });
             } else {
                 await api.post(`/factions/${faction.shortname}/roles`, roleForm);
-                toast.success('Rank created successfully');
+                toast.success('Rank created successfully', { id: loadToast });
             }
             setShowRoleModal(false);
             setEditingRole(null);
             fetchData();
         } catch (err) {
-            toast.error('Failed to save rank');
+            toast.error('Failed to save rank', { id: loadToast });
+        } finally {
+            setSavingRank(false);
         }
     };
 
     const deleteRole = async (role: any) => {
+        if (deleting) return;
         toast((t) => (
             <div className="flex flex-col gap-1">
                 <p className="font-bold">Delete rank "{role.name}"?</p>
@@ -244,6 +283,7 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                     <button 
                         onClick={async () => {
                             toast.dismiss(t.id);
+                            setDeleting(true);
                             const loadToast = toast.loading('Deleting rank...');
                             try {
                                 await api.delete(`/roles/${role.id}`);
@@ -252,11 +292,14 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                                 toast.success('Rank deleted successfully', { id: loadToast });
                             } catch (err: any) {
                                 toast.error(err.response?.data?.message || 'Failed to delete rank', { id: loadToast });
+                            } finally {
+                                setDeleting(false);
                             }
                         }}
-                        className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-[9px] font-bold uppercase transition"
+                        className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-[9px] font-bold uppercase transition disabled:opacity-50"
+                        disabled={deleting}
                     >
-                        Delete
+                        {deleting ? 'Deleting...' : 'Delete'}
                     </button>
                 </div>
             </div>
@@ -266,10 +309,10 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
     const openRoleModal = (role: any = null) => {
         if (role) {
             setEditingRole(role);
-            setRoleForm({ name: role.name, weight: role.weight, color: role.color });
+            setRoleForm({ name: role.name, weight: role.weight, color: role.color, type: role.type || 'secondary' });
         } else {
             setEditingRole(null);
-            setRoleForm({ name: '', weight: roles.length > 0 ? Math.min(...roles.map(r => r.weight)) - 1 : 1, color: '#3b82f6' });
+            setRoleForm({ name: '', weight: roles.length > 0 ? Math.min(...roles.map(r => r.weight)) - 1 : 1, color: '#3b82f6', type: 'secondary' });
         }
         setShowRoleModal(true);
     };
@@ -287,46 +330,25 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
 
             {/* Admin Tabs */}
             <div className="flex gap-1 border-b border-border mb-2 relative z-50 overflow-x-auto scrollbar-none">
-                <button 
-                    onClick={() => setActiveTab('details')}
-                    className={`px-6 py-2 text-[10px] font-bold uppercase tracking-widest transition-all relative whitespace-nowrap ${activeTab === 'details' ? 'text-accent' : 'text-muted hover:text-text'}`}
-                >
-                    <div className="flex items-center gap-2">
-                        <Info size={14} />
-                        Faction Details
-                    </div>
-                    {activeTab === 'details' && <motion.div layoutId="adminTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
-                </button>
-                <button 
-                    onClick={() => setActiveTab('roles')}
-                    className={`px-6 py-2 text-[10px] font-bold uppercase tracking-widest transition-all relative whitespace-nowrap ${activeTab === 'roles' ? 'text-accent' : 'text-muted hover:text-text'}`}
-                >
-                    <div className="flex items-center gap-2">
-                        <Key size={14} />
-                        Ranks & Permissions
-                    </div>
-                    {activeTab === 'roles' && <motion.div layoutId="adminTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
-                </button>
-                <button 
-                    onClick={() => setActiveTab('users')}
-                    className={`px-6 py-2 text-[10px] font-bold uppercase tracking-widest transition-all relative whitespace-nowrap ${activeTab === 'users' ? 'text-accent' : 'text-muted hover:text-text'}`}
-                >
-                    <div className="flex items-center gap-2">
-                        <Users size={14} />
-                        Users
-                    </div>
-                    {activeTab === 'users' && <motion.div layoutId="adminTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
-                </button>
-                <button 
-                    onClick={() => setActiveTab('invites')}
-                    className={`px-6 py-2 text-[10px] font-bold uppercase tracking-widest transition-all relative whitespace-nowrap ${activeTab === 'invites' ? 'text-accent' : 'text-muted hover:text-text'}`}
-                >
-                    <div className="flex items-center gap-2">
-                        <LinkIcon size={14} />
-                        Invites
-                    </div>
-                    {activeTab === 'invites' && <motion.div layoutId="adminTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
-                </button>
+                {availableTabs.map(tab => (
+                    <button 
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`px-6 py-2 text-[10px] font-bold uppercase tracking-widest transition-all relative whitespace-nowrap ${activeTab === tab.id ? 'text-accent' : 'text-muted hover:text-text'}`}
+                    >
+                        <div className="flex items-center gap-2">
+                            {tab.id === 'details' && <Info size={14} />}
+                            {tab.id === 'roles' && <Key size={14} />}
+                            {tab.id === 'users' && <Users size={14} />}
+                            {tab.id === 'invites' && <LinkIcon size={14} />}
+                            {tab.id === 'details' && 'Faction Details'}
+                            {tab.id === 'roles' && 'Ranks & Permissions'}
+                            {tab.id === 'users' && 'Users'}
+                            {tab.id === 'invites' && 'Invites'}
+                        </div>
+                        {activeTab === tab.id && <motion.div layoutId="adminTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
+                    </button>
+                ))}
             </div>
 
             <AnimatePresence mode="wait">
@@ -352,8 +374,9 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                                             <input 
                                                 value={factionForm.name}
                                                 onChange={e => setFactionForm({ ...factionForm, name: e.target.value })}
-                                                className="w-full bg-surface border border-border p-3 rounded text-sm focus:border-accent outline-none transition text-text"
+                                                className="w-full bg-surface border border-border p-3 rounded text-sm focus:border-accent outline-none transition text-text disabled:opacity-50 disabled:cursor-not-allowed"
                                                 required
+                                                disabled={!hasPerm('modify_faction_details')}
                                             />
                                         </div>
                                         <div className="col-span-2 sm:col-span-1">
@@ -371,12 +394,14 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                                                     type="color"
                                                     value={factionForm.color}
                                                     onChange={e => setFactionForm({ ...factionForm, color: e.target.value })}
-                                                    className="w-12 h-11 bg-surface border border-border rounded p-1 cursor-pointer"
+                                                    className="w-12 h-11 bg-surface border border-border rounded p-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    disabled={!hasPerm('modify_faction_details')}
                                                 />
                                                 <input 
                                                     value={factionForm.color}
                                                     onChange={e => setFactionForm({ ...factionForm, color: e.target.value })}
-                                                    className="flex-1 bg-surface border border-border p-3 rounded text-sm font-mono focus:border-accent outline-none transition text-text"
+                                                    className="flex-1 bg-surface border border-border p-3 rounded text-sm font-mono focus:border-accent outline-none transition text-text disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    disabled={!hasPerm('modify_faction_details')}
                                                 />
                                             </div>
                                         </div>
@@ -386,8 +411,9 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                                                 value={factionForm.description}
                                                 onChange={e => setFactionForm({ ...factionForm, description: e.target.value })}
                                                 rows={4}
-                                                className="w-full bg-surface border border-border p-3 rounded text-sm focus:border-accent outline-none transition resize-none text-text"
+                                                className="w-full bg-surface border border-border p-3 rounded text-sm focus:border-accent outline-none transition resize-none text-text disabled:opacity-50 disabled:cursor-not-allowed"
                                                 placeholder="Tell people about your organization..."
+                                                disabled={!hasPerm('modify_faction_details')}
                                             />
                                         </div>
                                     </div>
@@ -401,7 +427,8 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                                             value={factionForm.image_url}
                                             onChange={e => setFactionForm({ ...factionForm, image_url: e.target.value })}
                                             placeholder="https://example.com/logo.png"
-                                            className="w-full bg-surface border border-border p-3 rounded text-sm focus:border-accent outline-none transition text-text"
+                                            className="w-full bg-surface border border-border p-3 rounded text-sm focus:border-accent outline-none transition text-text disabled:opacity-50 disabled:cursor-not-allowed"
+                                            disabled={!hasPerm('modify_faction_details')}
                                         />
                                     </div>
                                     {factionForm.image_url && (
@@ -414,55 +441,98 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                                 </div>
                             </div>
 
-                            <div className="space-y-6 pt-4 border-t border-border/50">
-                                <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1">Access & Visibility Control</div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                                    {[
-                                        { id: 'public', name: 'Public', desc: 'Roster is viewable by anyone.', color: 'text-green-500' },
-                                        { id: 'hidden', name: 'Hidden', desc: 'Public access, but not listed.', color: 'text-yellow-500' },
-                                        { id: 'joinable', name: 'Joinable', desc: 'Visible. Open for anyone.', color: 'text-accent' },
-                                        { id: 'invite-only', name: 'Invite-Only', desc: 'Visible. Requires link.', color: 'text-purple-500' },
-                                        { id: 'private', name: 'Private', desc: 'Strictly members only.', color: 'text-red-500' }
-                                    ].map(opt => (
-                                        <label 
-                                            key={opt.id}
-                                            className={`relative flex flex-col gap-2 p-4 rounded-xl border transition-all cursor-pointer group ${
-                                                factionForm.visibility === opt.id 
-                                                    ? 'bg-accent/10 border-accent shadow-[0_0_15px_rgba(var(--accent-rgb),0.1)]' 
-                                                    : 'bg-surface border-border hover:border-accent/50'
-                                            }`}
-                                        >
-                                            <div className="flex justify-between items-center mb-1">
-                                                <span className={`text-[10px] font-black uppercase tracking-widest ${factionForm.visibility === opt.id ? 'text-accent' : 'text-muted'}`}>
-                                                    {opt.name}
-                                                </span>
-                                                <input 
-                                                    type="radio" 
-                                                    name="visibility" 
-                                                    value={opt.id}
-                                                    checked={factionForm.visibility === opt.id}
-                                                    onChange={e => setFactionForm({ ...factionForm, visibility: e.target.value })}
-                                                    className="w-3.5 h-3.5 text-accent bg-bg border-border focus:ring-accent transition cursor-pointer"
-                                                />
-                                            </div>
-                                            <p className="text-[9px] text-muted leading-relaxed italic">
-                                                {opt.desc}
-                                            </p>
-                                        </label>
-                                    ))}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                <div className="space-y-12">
+                                    <div className="space-y-6">
+                                        <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1">Visibility Settings</div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            {[
+                                                { id: 'public', name: 'Public', desc: 'Listed on factions page, enables public roles, accessible via link.', color: 'text-green-500' },
+                                                { id: 'hidden', name: 'Hidden', desc: 'Not listed, enables public roles, accessible via link.', color: 'text-yellow-500' },
+                                                { id: 'private', name: 'Private', desc: 'Not listed, disables public roles, link access restricted.', color: 'text-red-500' }
+                                            ].map(opt => (
+                                                <label 
+                                                    key={opt.id}
+                                                    className={`relative flex flex-col gap-2 p-4 rounded-xl border transition-all cursor-pointer group ${
+                                                        factionForm.visibility === opt.id 
+                                                            ? 'bg-accent/10 border-accent shadow-[0_0_15px_rgba(var(--accent-rgb),0.1)]' 
+                                                            : 'bg-surface border-border hover:border-accent/50'
+                                                    } ${!hasPerm('modify_faction_details') ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                >
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${factionForm.visibility === opt.id ? 'text-accent' : 'text-muted'}`}>
+                                                            {opt.name}
+                                                        </span>
+                                                        <input 
+                                                            type="radio" 
+                                                            name="visibility" 
+                                                            value={opt.id}
+                                                            checked={factionForm.visibility === opt.id}
+                                                            onChange={e => setFactionForm({ ...factionForm, visibility: e.target.value })}
+                                                            className="w-3.5 h-3.5 text-accent bg-bg border-border focus:ring-accent transition cursor-pointer disabled:cursor-not-allowed"
+                                                            disabled={!hasPerm('modify_faction_details')}
+                                                        />
+                                                    </div>
+                                                    <p className="text-[9px] text-muted leading-relaxed italic">
+                                                        {opt.desc}
+                                                    </p>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-6">
+                                        <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1">Access Settings</div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            {[
+                                                { id: 'joinable', name: 'Joinable', desc: 'Anyone can join with or without an invite link.', color: 'text-accent' },
+                                                { id: 'invite-only', name: 'Invite-Only', desc: 'Joining is only possible via a valid invite link.', color: 'text-purple-500' },
+                                                { id: 'private', name: 'Private', desc: 'Nobody can join. Invites are disabled.', color: 'text-red-500' }
+                                            ].map(opt => (
+                                                <label 
+                                                    key={opt.id}
+                                                    className={`relative flex flex-col gap-2 p-4 rounded-xl border transition-all cursor-pointer group ${
+                                                        factionForm.access === opt.id 
+                                                            ? 'bg-accent/10 border-accent shadow-[0_0_15px_rgba(var(--accent-rgb),0.1)]' 
+                                                            : 'bg-surface border-border hover:border-accent/50'
+                                                    } ${!hasPerm('modify_faction_details') ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                >
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${factionForm.access === opt.id ? 'text-accent' : 'text-muted'}`}>
+                                                            {opt.name}
+                                                        </span>
+                                                        <input 
+                                                            type="radio" 
+                                                            name="access" 
+                                                            value={opt.id}
+                                                            checked={factionForm.access === opt.id}
+                                                            onChange={e => setFactionForm({ ...factionForm, access: e.target.value })}
+                                                            className="w-3.5 h-3.5 text-accent bg-bg border-border focus:ring-accent transition cursor-pointer disabled:cursor-not-allowed"
+                                                            disabled={!hasPerm('modify_faction_details')}
+                                                        />
+                                                    </div>
+                                                    <p className="text-[9px] text-muted leading-relaxed italic">
+                                                        {opt.desc}
+                                                    </p>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="pt-6 border-t border-border flex justify-end">
-                                <button 
-                                    type="submit"
-                                    disabled={savingDetails}
-                                    className="flex items-center gap-2 px-10 py-3 bg-accent hover:bg-accent/90 text-white rounded font-bold text-xs uppercase tracking-widest transition disabled:opacity-50 shadow-lg shadow-accent/20"
-                                >
-                                    <Save size={16} />
-                                    {savingDetails ? 'Saving Changes...' : 'Update Faction Settings'}
-                                </button>
-                            </div>
+                            {hasPerm('modify_faction_details') && (
+                                <div className="pt-6 border-t border-border flex justify-end">
+                                    <button 
+                                        type="submit"
+                                        disabled={savingDetails}
+                                        className="flex items-center gap-2 px-10 py-3 bg-accent hover:bg-accent/90 text-white rounded font-bold text-xs uppercase tracking-widest transition disabled:opacity-50 shadow-lg shadow-accent/20"
+                                    >
+                                        <Save size={16} />
+                                        {savingDetails ? 'Saving Changes...' : 'Update Faction Settings'}
+                                    </button>
+                                </div>
+                            )}
                         </form>
                     </motion.div>
                 )}
@@ -512,9 +582,11 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                                         <Settings size={12} />
                                         Custom Ranks
                                     </div>
-                                    <button onClick={() => openRoleModal()} className="p-1 hover:text-accent transition">
-                                        <Plus size={14} />
-                                    </button>
+                                    {hasPerm('create_ranks') && (
+                                        <button onClick={() => openRoleModal()} className="p-1 hover:text-accent transition">
+                                            <Plus size={14} />
+                                        </button>
+                                    )}
                                 </div>
                                 {roles.filter(r => !['Administrator', 'User', 'Public'].includes(r.name)).map(role => (
                                     <div 
@@ -532,8 +604,8 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                                         </div>
                                         <div className="text-[10px] opacity-60">Weight: {role.weight}</div>
                                         <div className="absolute top-1/2 right-2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={(e) => { e.stopPropagation(); openRoleModal(role); }} className="p-1 hover:text-text"><Edit2 size={12} /></button>
-                                            <button onClick={(e) => { e.stopPropagation(); deleteRole(role); }} className="p-1 hover:text-danger"><Trash2 size={12} /></button>
+                                            {hasPerm('modify_ranks') && role.weight < userHighestWeight && <button onClick={(e) => { e.stopPropagation(); openRoleModal(role); }} className="p-1 hover:text-text"><Edit2 size={12} /></button>}
+                                            {hasPerm('delete_ranks') && role.weight < userHighestWeight && <button onClick={(e) => { e.stopPropagation(); deleteRole(role); }} className="p-1 hover:text-danger"><Trash2 size={12} /></button>}
                                         </div>
                                     </div>
                                 ))}
@@ -547,7 +619,7 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                                         <h3 className="font-bold text-lg uppercase tracking-tight">{selectedRole.name} Permissions</h3>
                                         <p className="text-[11px] text-muted">Configure access levels for this rank.</p>
                                     </div>
-                                    {selectedRole.name !== 'Administrator' && (
+                                    {selectedRole.name !== 'Administrator' && hasPerm('modify_permissions') && selectedRole.weight < userHighestWeight && (
                                         <button 
                                             onClick={savePermissions}
                                             disabled={saving}
@@ -575,8 +647,9 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                                                                 {['YES', 'NO', 'NEVER'].map(val => (
                                                                     <button
                                                                         key={val}
-                                                                        onClick={() => selectedRole.name !== 'Administrator' && handlePermissionChange(permKey, val)}
-                                                                        className={`px-3 py-1 text-[9px] font-black uppercase rounded transition-all ${currentVal === val ? val === 'YES' ? 'bg-green-600 text-white' : val === 'NEVER' ? 'bg-red-600 text-white' : 'bg-muted text-white' : 'text-muted hover:text-text'}`}
+                                                                        disabled={!hasPerm('modify_permissions') || selectedRole.name === 'Administrator'}
+                                                                        onClick={() => handlePermissionChange(permKey, val)}
+                                                                        className={`px-3 py-1 text-[9px] font-black uppercase rounded transition-all ${currentVal === val ? val === 'YES' ? 'bg-green-600 text-white' : val === 'NEVER' ? 'bg-red-600 text-white' : 'bg-muted text-white' : 'text-muted hover:text-text'} disabled:opacity-50 disabled:cursor-not-allowed`}
                                                                     >
                                                                         {val}
                                                                     </button>
@@ -618,58 +691,65 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                                         <tr className="border-b border-border">
                                             <th className="py-3 px-4 text-[10px] font-bold text-muted uppercase">User</th>
                                             <th className="py-3 px-4 text-[10px] font-bold text-muted uppercase">Ranks</th>
-                                            <th className="py-3 px-4 text-[10px] font-bold text-muted uppercase text-right">Actions</th>
+                                            {(hasPerm('change_ranks') || hasPerm('remove_users')) && <th className="py-3 px-4 text-[10px] font-bold text-muted uppercase text-right">Actions</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {members.map((member: any) => (
-                                            <tr key={member.id} className="border-b border-border/50 hover:bg-surface transition-colors group">
-                                                <td className="py-4 px-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-full bg-accent/10 text-accent flex items-center justify-center font-bold">{member.username.charAt(0).toUpperCase()}</div>
-                                                        <div>
-                                                            <div className="font-bold text-sm text-text flex items-center gap-2">
-                                                                {member.username} 
-                                                                {faction.faction_leader === member.id && <Crown size={12} className="text-yellow-500" />}
-                                                                {member.is_superadmin && (
-                                                                    <span 
-                                                                        className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-[#FFD700]/10 text-[#FFD700] border border-[#FFD700]/30 shadow-[0_0_5px_rgba(255,215,0,0.2)]"
-                                                                    >
-                                                                        Superadmin
-                                                                    </span>
-                                                                )}
+                                        {members.map((member: any) => {
+                                            const memberHighestWeight = Math.max(0, ...member.roles.map((r: any) => r.weight || 0));
+                                            const canManageMember = userHighestWeight > memberHighestWeight;
+
+                                            return (
+                                                <tr key={member.id} className="border-b border-border/50 hover:bg-surface transition-colors group">
+                                                    <td className="py-4 px-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-accent/10 text-accent flex items-center justify-center font-bold">{member.username.charAt(0).toUpperCase()}</div>
+                                                            <div>
+                                                                <div className="font-bold text-sm text-text flex items-center gap-2">
+                                                                    {member.username} 
+                                                                    {faction.faction_leader === member.id && <Crown size={12} className="text-yellow-500" />}
+                                                                    {member.is_superadmin && (
+                                                                        <span 
+                                                                            className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-[#FFD700]/10 text-[#FFD700] border border-[#FFD700]/30 shadow-[0_0_5px_rgba(255,215,0,0.2)]"
+                                                                        >
+                                                                            Superadmin
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-[10px] text-muted">ID: {member.id}</div>
                                                             </div>
-                                                            <div className="text-[10px] text-muted">ID: {member.id}</div>
                                                         </div>
-                                                    </div>
-                                                </td>
-                                                <td className="py-4 px-4">
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {member.roles.map((r: any) => (
-                                                            <span 
-                                                                key={r.id} 
-                                                                className="px-2 py-0.5 rounded text-[9px] font-bold uppercase border"
-                                                                style={{ 
-                                                                    backgroundColor: `${r.color}15`, 
-                                                                    color: r.color,
-                                                                    borderColor: `${r.color}30`
-                                                                }}
-                                                            >
-                                                                {r.name}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                </td>
-                                                <td className="py-4 px-4 text-right">
-                                                    {faction.faction_leader !== member.id && (
-                                                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <button onClick={() => openRankModal(member)} className="p-1.5 hover:bg-accent/20 hover:text-accent rounded"><UserCog size={16} /></button>
-                                                            <button onClick={() => handleRemoveMember(member)} className="p-1.5 hover:bg-danger/20 hover:text-danger rounded"><UserMinus size={16} /></button>
+                                                    </td>
+                                                    <td className="py-4 px-4">
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {member.roles.map((r: any) => (
+                                                                <span 
+                                                                    key={r.id} 
+                                                                    className="px-2 py-0.5 rounded text-[9px] font-bold uppercase border"
+                                                                    style={{ 
+                                                                        backgroundColor: `${r.color}15`, 
+                                                                        color: r.color,
+                                                                        borderColor: `${r.color}30`
+                                                                    }}
+                                                                >
+                                                                    {r.name}
+                                                                </span>
+                                                            ))}
                                                         </div>
+                                                    </td>
+                                                    {(hasPerm('change_ranks') || hasPerm('remove_users')) && (
+                                                        <td className="py-4 px-4 text-right">
+                                                            {faction.faction_leader !== member.id && canManageMember && (
+                                                                <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                    {hasPerm('change_ranks') && <button disabled={deleting} onClick={() => openRankModal(member)} className="p-1.5 hover:bg-accent/20 hover:text-accent rounded disabled:opacity-50"><UserCog size={16} /></button>}
+                                                                    {hasPerm('remove_users') && <button disabled={deleting} onClick={() => handleRemoveMember(member)} className="p-1.5 hover:bg-danger/20 hover:text-danger rounded disabled:opacity-50"><UserMinus size={16} /></button>}
+                                                                </div>
+                                                            )}
+                                                        </td>
                                                     )}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             )}
@@ -740,7 +820,7 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                                                     <td className="py-4 px-4">
                                                         <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted uppercase"><Clock size={12} /> {invite.expires_at ? new Date(invite.expires_at).toLocaleString() : 'Never'}</div>
                                                     </td>
-                                                    <td className="py-4 px-4 text-right"><button onClick={() => handleDeleteInvite(invite.id)} className="p-1.5 hover:bg-danger/10 text-muted hover:text-danger rounded transition"><Trash2 size={16} /></button></td>
+                                                    <td className="py-4 px-4 text-right"><button disabled={deleting} onClick={() => handleDeleteInvite(invite.id)} className="p-1.5 hover:bg-danger/10 text-muted hover:text-danger rounded transition disabled:opacity-50"><Trash2 size={16} /></button></td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -767,9 +847,23 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                                 <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">Rank Name</label>
                                 <input value={roleForm.name} onChange={e => setRoleForm({ ...roleForm, name: e.target.value })} className="w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition" required placeholder="e.g. Commander" />
                             </div>
-                            <div>
-                                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">Weight</label>
-                                <input type="number" value={roleForm.weight} onChange={e => setRoleForm({ ...roleForm, weight: parseInt(e.target.value) })} className="w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition" required />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">Weight</label>
+                                    <input type="number" value={roleForm.weight} onChange={e => setRoleForm({ ...roleForm, weight: parseInt(e.target.value) })} className="w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition" required />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">Rank Type</label>
+                                    <select 
+                                        value={roleForm.type} 
+                                        onChange={e => setRoleForm({ ...roleForm, type: e.target.value })}
+                                        className={`w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition ${['Administrator', 'User', 'Public'].includes(roleForm.name) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        disabled={['Administrator', 'User', 'Public'].includes(roleForm.name)}
+                                    >
+                                        <option value="primary">Primary</option>
+                                        <option value="secondary">Secondary</option>
+                                    </select>
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">Rank Color</label>
@@ -791,7 +885,9 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                             </div>
                             <div className="flex gap-3 pt-4">
                                 <button type="button" onClick={() => setShowRoleModal(false)} className="flex-1 px-4 py-2 bg-surface hover:bg-bg border border-border text-text rounded font-bold text-xs uppercase tracking-widest transition">Cancel</button>
-                                <button type="submit" className="flex-1 px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded font-bold text-xs uppercase tracking-widest transition">Save Rank</button>
+                                <button type="submit" disabled={savingRank} className="flex-1 px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded font-bold text-xs uppercase tracking-widest transition disabled:opacity-50">
+                                    {savingRank ? 'Saving...' : 'Save Rank'}
+                                </button>
                             </div>
                         </form>
                     </div>
@@ -804,14 +900,56 @@ const Administration: React.FC<{ faction: any; user: any }> = ({ faction, user }
                     <div className="bg-card p-6 rounded-lg max-w-md w-full border border-border shadow-2xl">
                         <h2 className="text-xl font-bold mb-1 flex items-center gap-2 text-text"><UserCog size={20} className="text-accent" /> Manage Ranks</h2>
                         <p className="text-[11px] text-muted mb-6 uppercase tracking-widest font-bold">For <span className="text-text">{editingMember.username}</span></p>
-                        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 mb-6 custom-scrollbar">
-                            {roles.filter(r => r.name !== 'Public').sort((a, b) => b.weight - a.weight).map(role => (
-                                <label key={role.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${memberRoleIds.includes(role.id) ? 'bg-accent/10 border-accent text-accent' : 'bg-surface border-border text-muted hover:border-accent/30'}`}>
-                                    <div className="flex flex-col"><span className="font-bold text-sm">{role.name}</span><span className="text-[9px] opacity-60 uppercase">Weight: {role.weight}</span></div>
-                                    <input type="checkbox" checked={memberRoleIds.includes(role.id)} onChange={(e) => { if (e.target.checked) { setMemberRoleIds([...memberRoleIds, role.id]); } else { setMemberRoleIds(memberRoleIds.filter(id => id !== role.id)); } }} className="w-4 h-4 rounded border-border text-accent focus:ring-accent bg-bg" />
-                                </label>
-                            ))}
+                        
+                        <div className="space-y-6 max-h-[450px] overflow-y-auto pr-2 mb-6 custom-scrollbar">
+                            {/* Primary Ranks */}
+                            <div>
+                                <h3 className="text-[10px] font-bold text-accent uppercase tracking-widest mb-3 border-b border-accent/20 pb-1">Primary Rank (Select One)</h3>
+                                <div className="space-y-2">
+                                    {roles.filter(r => r.name !== 'Public' && r.type === 'primary' && r.weight < userHighestWeight).sort((a, b) => b.weight - a.weight).map(role => (
+                                        <label key={role.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${memberRoleIds.includes(role.id) ? 'bg-accent/10 border-accent text-accent' : 'bg-surface border-border text-muted hover:border-accent/30'}`}>
+                                            <div className="flex flex-col"><span className="font-bold text-sm">{role.name}</span><span className="text-[9px] opacity-60 uppercase">Weight: {role.weight}</span></div>
+                                            <input 
+                                                type="radio" 
+                                                name="primary_rank"
+                                                checked={memberRoleIds.includes(role.id)} 
+                                                onChange={() => {
+                                                    const secondaryIds = roles.filter(r => r.type === 'secondary').map(r => r.id);
+                                                    const currentSecondary = memberRoleIds.filter(id => secondaryIds.includes(id));
+                                                    setMemberRoleIds([...currentSecondary, role.id]);
+                                                }} 
+                                                className="w-4 h-4 rounded-full border-border text-accent focus:ring-accent bg-bg" 
+                                            />
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Secondary Ranks */}
+                            <div>
+                                <h3 className="text-[10px] font-bold text-muted uppercase tracking-widest mb-3 border-b border-border pb-1">Secondary Ranks (Select Multiple)</h3>
+                                <div className="space-y-2">
+                                    {roles.filter(r => r.name !== 'Public' && r.type === 'secondary' && r.weight < userHighestWeight).sort((a, b) => b.weight - a.weight).map(role => (
+                                        <label key={role.id} className={`flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer ${memberRoleIds.includes(role.id) ? 'bg-accent/10 border-accent text-accent' : 'bg-surface border-border text-muted hover:border-accent/30'}`}>
+                                            <div className="flex flex-col"><span className="font-bold text-sm">{role.name}</span><span className="text-[9px] opacity-60 uppercase">Weight: {role.weight}</span></div>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={memberRoleIds.includes(role.id)} 
+                                                onChange={(e) => { 
+                                                    if (e.target.checked) { 
+                                                        setMemberRoleIds([...memberRoleIds, role.id]); 
+                                                    } else { 
+                                                        setMemberRoleIds(memberRoleIds.filter(id => id !== role.id)); 
+                                                    } 
+                                                }} 
+                                                className="w-4 h-4 rounded border-border text-accent focus:ring-accent bg-bg" 
+                                            />
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
+
                         <div className="flex gap-3">
                             <button type="button" onClick={() => setShowRankModal(false)} className="flex-1 px-4 py-2 bg-surface hover:bg-bg border border-border text-text rounded font-bold text-xs uppercase tracking-widest transition">Cancel</button>
                             <button onClick={saveMemberRoles} disabled={savingMemberRoles} className="flex-1 px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded font-bold text-xs uppercase tracking-widest transition disabled:opacity-50">{savingMemberRoles ? 'Saving...' : 'Update Ranks'}</button>

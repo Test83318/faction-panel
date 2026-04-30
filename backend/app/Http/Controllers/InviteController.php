@@ -82,8 +82,7 @@ class InviteController extends Controller
             return response()->json(['message' => 'This invite has expired or reached its usage limit.'], 410);
         }
 
-        $allowedVisibilities = ['invite-only', 'joinable', 'hidden', 'public'];
-        if (!in_array($faction->visibility, $allowedVisibilities)) {
+        if ($faction->access === 'private') {
             return response()->json(['message' => 'This organization is not accepting new members via invite links.'], 403);
         }
 
@@ -95,6 +94,7 @@ class InviteController extends Controller
             'color' => $faction->color,
             'image_url' => $faction->image_url,
             'visibility' => $faction->visibility,
+            'access' => $faction->access,
             'invite' => [
                 'code' => $invite->code,
                 'expires_at' => $invite->expires_at,
@@ -113,8 +113,7 @@ class InviteController extends Controller
             return response()->json(['message' => 'This invite has expired or reached its usage limit.'], 410);
         }
 
-        $allowedVisibilities = ['invite-only', 'joinable', 'hidden', 'public'];
-        if (!in_array($faction->visibility, $allowedVisibilities)) {
+        if ($faction->access === 'private') {
             return response()->json(['message' => 'This organization is not accepting new members via invite links.'], 403);
         }
 

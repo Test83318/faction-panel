@@ -18,11 +18,12 @@ class FactionController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'shortname' => 'required|string|unique:factions,shortname|max:20|alpha_dash',
+            'shortname' => ['required', 'string', 'unique:factions,shortname', 'max:20', 'regex:/^[a-z0-9\-_]+$/'],
             'name' => 'required|string|max:255',
             'color' => ['required', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'image_url' => 'nullable|url|max:2048',
-            'visibility' => ['required', Rule::in(['public', 'hidden', 'joinable', 'invite-only', 'private'])],
+            'visibility' => ['required', Rule::in(['public', 'hidden', 'private'])],
+            'access' => ['required', Rule::in(['joinable', 'invite-only', 'private'])],
             'gtaw_faction_id' => 'nullable|integer|unique:factions,gtaw_faction_id',
         ]);
 
@@ -36,9 +37,9 @@ class FactionController extends Controller
         $faction->users()->attach(Auth::id());
 
         // Create Default Roles
-        $adminRole = $faction->roles()->create(['name' => 'Administrator', 'weight' => 100, 'color' => '#ef4444']);
-        $userRole = $faction->roles()->create(['name' => 'User', 'weight' => 1, 'color' => '#d1d5db']);
-        $publicRole = $faction->roles()->create(['name' => 'Public', 'weight' => 0, 'color' => '#d1d5db']);
+        $adminRole = $faction->roles()->create(['name' => 'Administrator', 'weight' => 100, 'color' => '#ef4444', 'type' => 'primary']);
+        $userRole = $faction->roles()->create(['name' => 'User', 'weight' => 1, 'color' => '#d1d5db', 'type' => 'primary']);
+        $publicRole = $faction->roles()->create(['name' => 'Public', 'weight' => 0, 'color' => '#d1d5db', 'type' => 'secondary']);
 
         // Assign creator to Admin role
         Auth::user()->roles()->attach($adminRole->id);
@@ -73,20 +74,25 @@ class FactionController extends Controller
         }
 
         if ($user) {
+            $primaryRole = $user->roles()
+                ->where('faction_id', $faction->id)
+                ->where('type', 'primary')
+                ->first();
+
             $highestRole = $user->roles()
                 ->where('faction_id', $faction->id)
                 ->orderByDesc('weight')
                 ->first();
                 
             $faction->user_highest_role = $highestRole;
+            $faction->user_primary_role = $primaryRole ?? $highestRole;
         }
 
         return $faction;
     }
     public function update(Request $request, Faction $faction)
     {
-        // Only leader or superadmin can update
-        if ($faction->faction_leader !== Auth::id() && !Auth::user()->is_superadmin) {
+        if (!User::hasFactionPermission(Auth::user(), $faction, 'modify_faction_details')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -95,10 +101,15 @@ class FactionController extends Controller
             'name' => 'sometimes|string|max:255',
             'color' => ['sometimes', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'image_url' => 'nullable|url|max:2048',
-            'visibility' => ['sometimes', Rule::in(['public', 'hidden', 'joinable', 'invite-only', 'private'])],
+            'visibility' => ['sometimes', Rule::in(['public', 'hidden', 'private'])],
+            'access' => ['sometimes', Rule::in(['joinable', 'invite-only', 'private'])],
             'gtaw_faction_id' => ['sometimes', 'nullable', 'integer', Rule::unique('factions')->ignore($faction->id)],
             'faction_leader' => 'sometimes|exists:users,id',
         ]);
+
+        if (isset($validated['faction_leader']) && $faction->faction_leader !== Auth::id() && !Auth::user()->is_superadmin) {
+            return response()->json(['message' => 'Only the faction leader can transfer leadership.'], 403);
+        }
 
         $faction->update($validated);
 
@@ -124,8 +135,8 @@ class FactionController extends Controller
 
         $faction = Faction::where('shortname', $request->shortname)->firstOrFail();
         
-        // Only allow joining if visibility is 'joinable'
-        if ($faction->visibility !== 'joinable') {
+        // Only allow joining if access is 'joinable'
+        if ($faction->access !== 'joinable') {
             return response()->json(['message' => 'This faction is not currently open for joining.'], 403);
         }
 
@@ -151,11 +162,9 @@ class FactionController extends Controller
 
     public function getAllFactions()
     {
-        // Users see public, joinable, and invite-only (maybe? user said hidden doesn't appear)
-        // Hidden same as public but doesn't appear on faction page.
-        // Private nobody can join (probably hide too).
-        return Faction::whereIn('visibility', ['public', 'joinable', 'invite-only'])
-            ->get(['name', 'shortname', 'color', 'image_url', 'visibility']);
+        // Users only see factions with 'public' visibility
+        return Faction::where('visibility', 'public')
+            ->get(['name', 'shortname', 'color', 'image_url', 'visibility', 'access']);
     }
 
     public function getPermissions(string $shortname)
@@ -202,6 +211,13 @@ class FactionController extends Controller
             return response()->json(['message' => 'Cannot remove the faction leader.'], 403);
         }
 
+        $myWeight = Auth::user()->getHighestRoleWeight($faction->id);
+        $targetWeight = $user->getHighestRoleWeight($faction->id);
+
+        if ($targetWeight >= $myWeight) {
+            return response()->json(['message' => 'Cannot remove a user with equal or higher weight than your own.'], 403);
+        }
+
         $faction->users()->detach($user->id);
         
         // Also remove faction roles
@@ -221,16 +237,34 @@ class FactionController extends Controller
             return response()->json(['message' => 'Cannot change the rank of the faction leader.'], 403);
         }
 
+        $myWeight = Auth::user()->getHighestRoleWeight($faction->id);
+        $targetWeight = $user->getHighestRoleWeight($faction->id);
+
+        if ($targetWeight >= $myWeight && !Auth::user()->is_superadmin && $faction->faction_leader !== Auth::id()) {
+            return response()->json(['message' => 'Cannot change roles of a user with equal or higher weight than your own.'], 403);
+        }
+
         $request->validate([
             'role_ids' => 'required|array',
             'role_ids.*' => 'exists:roles,id',
         ]);
 
         // Ensure roles belong to the faction
-        $validRoles = $faction->roles()->pluck('roles.id')->toArray();
-        foreach ($request->role_ids as $id) {
-            if (!in_array($id, $validRoles)) {
-                return response()->json(['message' => 'Invalid role for this faction.'], 400);
+        $roles = $faction->roles()->whereIn('roles.id', $request->role_ids)->get();
+        if ($roles->count() !== count($request->role_ids)) {
+            return response()->json(['message' => 'Invalid role for this faction.'], 400);
+        }
+
+        // Check for multiple primary roles
+        $primaryRoles = $roles->where('type', 'primary');
+        if ($primaryRoles->count() > 1) {
+            return response()->json(['message' => 'A user can only have one primary rank.'], 400);
+        }
+
+        // Hierarchy check for assigned roles
+        foreach ($roles as $role) {
+            if ($role->weight >= $myWeight) {
+                return response()->json(['message' => "Cannot assign role '{$role->name}' as it has equal or higher weight than your own."], 403);
             }
         }
 
