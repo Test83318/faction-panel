@@ -12,9 +12,7 @@ class RosterSectionController extends Controller
 {
     public function store(Request $request, Roster $roster)
     {
-        $faction = $roster->faction;
-
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+        if (!User::hasRosterPermission(Auth::user(), $roster, 'add_sections')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -50,9 +48,7 @@ class RosterSectionController extends Controller
 
     public function update(Request $request, RosterSection $section)
     {
-        $faction = $section->roster->faction;
-
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+        if (!User::hasRosterPermission(Auth::user(), $section->roster, 'add_sections')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -76,9 +72,7 @@ class RosterSectionController extends Controller
 
     public function destroy(RosterSection $section)
     {
-        $faction = $section->roster->faction;
-
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+        if (!User::hasRosterPermission(Auth::user(), $section->roster, 'remove_sections')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -89,9 +83,7 @@ class RosterSectionController extends Controller
 
     public function reorder(Request $request, Roster $roster)
     {
-        $faction = $roster->faction;
-
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+        if (!User::hasRosterPermission(Auth::user(), $roster, 'add_sections')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

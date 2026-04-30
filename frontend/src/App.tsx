@@ -8,6 +8,7 @@ import { SectionCard } from './components/SectionCard';
 import { BureauCard } from './components/BureauCard';
 import { RosterTable } from './components/RosterTable';
 import { ColumnsModal } from './components/ColumnsModal';
+import { RosterPermissionsModal } from './components/RosterPermissionsModal';
 import Home from './components/Home';
 import FactionManager from './components/FactionManager';
 import Administration from './components/Administration';
@@ -19,15 +20,21 @@ import Login from './components/Login';
 import api from './api';
 import { INITIAL_DATA } from './constants';
 import { Faction as FactionType, Roster as RosterType } from './types';
-import { Plus, MoreVertical, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Settings2, Pencil } from 'lucide-react';
+import { Plus, MoreVertical, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Pencil } from 'lucide-react';
 
 const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, activeDivId, setActiveDivId, permissions, shortname, fetchRosters }: any) => {
   const canCreate = permissions.includes('create_roster');
-  const canModerate = permissions.includes('global_roster_moderation');
+  const isGlobalMod = permissions.includes('global_roster_moderation');
+  
+  const rosterPerms = activeDivision?.user_roster_permissions || {};
+  const canModerate = isGlobalMod || rosterPerms.modify_roster || rosterPerms.add_sections || rosterPerms.remove_sections || rosterPerms.manage_columns;
+  const canAddSections = isGlobalMod || rosterPerms.add_sections;
+  const canManageColumns = isGlobalMod || rosterPerms.manage_columns;
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSectionModal, setShowSectionModal] = useState(false);
   const [showColumnsModal, setShowColumnsModal] = useState<RosterType | null>(null);
+  const [showPermissionsModal, setShowPermissionsModal] = useState<RosterType | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
@@ -179,15 +186,17 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                             <span className="text-[9px] font-black uppercase tracking-widest">Edit</span>
                             <Pencil size={11} />
                         </button>
-                        <button 
-                            onClick={() => {
-                                setSectionData({ id: null, name: '', shortname: '', color: '', type: 'section', parent_id: null });
-                                setShowSectionModal(true);
-                            }}
-                            className="p-1 hover:bg-surface rounded text-muted hover:text-accent transition-colors"
-                        >
-                            <Plus size={14} />
-                        </button>
+                        {canAddSections && (
+                            <button 
+                                onClick={() => {
+                                    setSectionData({ id: null, name: '', shortname: '', color: '', type: 'section', parent_id: null });
+                                    setShowSectionModal(true);
+                                }}
+                                className="p-1 hover:bg-surface rounded text-muted hover:text-accent transition-colors"
+                            >
+                                <Plus size={14} />
+                            </button>
+                        )}
                     </div>
                   )}
                   <div className="text-[9.5px] text-muted shrink-0 pr-4">
@@ -199,7 +208,8 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                     <SectionCard 
                         key={section.id} 
                         section={section} 
-                        canModerate={canModerate}
+                        canModerate={isGlobalMod}
+                        permissions={rosterPerms}
                         onEdit={handleEditSection}
                         columns={rosters.find((r: any) => r.id === activeDivId)?.columns}
                         editMode={editMode}
@@ -212,7 +222,8 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                     <div key={section.id} className="section-col flex flex-col min-w-[450px] flex-1 max-w-[calc(50%-8px)]">
                       <SectionCard 
                         section={section} 
-                        canModerate={canModerate}
+                        canModerate={isGlobalMod}
+                        permissions={rosterPerms}
                         onAddChild={handleAddChildSection}
                         onEdit={handleEditSection}
                         columns={rosters.find((r: any) => r.id === activeDivId)?.columns}
@@ -313,27 +324,44 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                                 }}
                                 onClick={(e) => e.stopPropagation()}
                             >
-                                <button 
-                                    onClick={() => handleEditRoster(roster)}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface rounded transition-colors"
-                                >
-                                    <Settings2 size={12} /> Edit Roster
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        setShowColumnsModal(roster);
-                                        setActiveMenuId(null);
-                                    }}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface rounded transition-colors"
-                                >
-                                    <Settings2 size={12} /> Manage Columns
-                                </button>
-                                <button 
-                                    onClick={() => handleDelete(roster.id)}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-danger/70 hover:text-danger hover:bg-danger/5 rounded transition-colors"
-                                >
-                                    <Trash2 size={12} /> Remove Roster
-                                </button>
+                                {(isGlobalMod || roster.user_roster_permissions?.modify_roster) && (
+                                    <button 
+                                        onClick={() => handleEditRoster(roster)}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface rounded transition-colors"
+                                    >
+                                        <Settings2 size={12} /> Edit Roster
+                                    </button>
+                                )}
+                                {(isGlobalMod || roster.user_roster_permissions?.manage_columns) && (
+                                    <button 
+                                        onClick={() => {
+                                            setShowColumnsModal(roster);
+                                            setActiveMenuId(null);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface rounded transition-colors"
+                                    >
+                                        <Settings2 size={12} /> Manage Columns
+                                    </button>
+                                )}
+                                {(isGlobalMod || roster.user_roster_permissions?.modify_roster) && (
+                                    <button 
+                                        onClick={() => {
+                                            setShowPermissionsModal(roster);
+                                            setActiveMenuId(null);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface rounded transition-colors"
+                                    >
+                                        <Shield size={12} /> Permissions
+                                    </button>
+                                )}
+                                {(isGlobalMod || roster.user_roster_permissions?.modify_roster) && (
+                                    <button 
+                                        onClick={() => handleDelete(roster.id)}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-danger/70 hover:text-danger hover:bg-danger/5 rounded transition-colors"
+                                    >
+                                        <Trash2 size={12} /> Remove Roster
+                                    </button>
+                                )}
                                 <div className="border-t border-border mt-1 pt-1">
                                     <div className="px-3 py-1.5 text-[8px] font-black uppercase text-muted/50 tracking-widest flex items-center gap-2">
                                         <GripVertical size={10} /> Drag to reorder
@@ -378,6 +406,15 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
             setShowColumnsModal(null);
             fetchRosters();
           }} 
+        />
+      )}
+
+      {/* Permissions Modal */}
+      {showPermissionsModal && (
+        <RosterPermissionsModal
+          roster={showPermissionsModal}
+          shortname={shortname}
+          onClose={() => setShowPermissionsModal(null)}
         />
       )}
 

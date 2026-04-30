@@ -88,6 +88,14 @@ export interface Group {
   leaders?: any[];
 }
 
+export interface RosterPermission {
+  id: number;
+  roster_id: number;
+  group_id: number | null;
+  permissions: string[];
+  group?: Group;
+}
+
 export interface Faction {
   id: string;
   name: string;

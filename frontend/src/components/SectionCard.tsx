@@ -7,6 +7,7 @@ import api from '../api';
 interface SectionCardProps {
   section: RosterSection;
   canModerate?: boolean;
+  permissions?: any;
   columns?: any[];
   editMode?: boolean;
   onAddChild?: (parentId: number) => void;
@@ -17,12 +18,16 @@ interface SectionCardProps {
 export const SectionCard: React.FC<SectionCardProps> = ({ 
   section, 
   canModerate, 
+  permissions,
   columns, 
   editMode,
   onAddChild, 
   onEdit,
   onRefresh
 }) => {
+  const canEditSection = canModerate || permissions?.add_sections;
+  const canAddChildSection = canModerate || permissions?.add_sections;
+
   const handleAddRow = async (sectionId: number) => {
     try {
       await api.post(`/sections/${sectionId}/contents`, { type: 'predefined', content: {} });
@@ -57,7 +62,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         <div className="section-header py-0.5 px-2 border-b border-border bg-border/20 flex justify-between items-center">
           <span className="text-[9px] font-bold tracking-widest text-muted uppercase">{section.name}</span>
           <div className="flex items-center gap-2">
-            {canModerate && (
+            {canEditSection && (
                 <button 
                     onClick={() => onEdit?.(section)}
                     className="p-1 hover:bg-surface rounded text-muted hover:text-text"
@@ -74,6 +79,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           columns={columns} 
           editMode={editMode}
           canModerate={canModerate}
+          permissions={permissions}
           onAddRow={() => handleAddRow(section.id)}
           onUpdateRow={handleUpdateRow}
           onDeleteRow={handleDeleteRow}
@@ -91,9 +97,9 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             {section.name}
           </span>
           <div className="flex items-center gap-1 ml-auto">
-            {canModerate && (
+            {canEditSection && (
                 <>
-                    {!section.parent_id && (
+                    {!section.parent_id && canAddChildSection && (
                         <button 
                             onClick={() => onAddChild?.(section.id)}
                             className="p-0.5 hover:bg-bg rounded text-muted hover:text-accent"
@@ -121,7 +127,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             <span className="text-[9px] font-bold text-text uppercase text-center flex-1 truncate">
               {child.name}
             </span>
-            {canModerate && (
+            {canEditSection && (
                 <button 
                     onClick={() => onEdit?.(child)}
                     className="absolute right-1 opacity-0 group-hover/child:opacity-100 p-0.5 hover:bg-bg rounded text-muted hover:text-text transition-opacity"
@@ -136,6 +142,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             columns={columns} 
             editMode={editMode}
             canModerate={canModerate}
+            permissions={permissions}
             onAddRow={() => handleAddRow(child.id)}
             onUpdateRow={handleUpdateRow}
             onDeleteRow={handleDeleteRow}
@@ -151,6 +158,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           columns={columns} 
           editMode={editMode}
           canModerate={canModerate}
+          permissions={permissions}
           onAddRow={() => handleAddRow(section.id)}
           onUpdateRow={handleUpdateRow}
           onDeleteRow={handleDeleteRow}

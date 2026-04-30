@@ -13,9 +13,8 @@ class RosterContentController extends Controller
     public function store(Request $request, RosterSection $section)
     {
         $roster = $section->roster;
-        $faction = $roster->faction;
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+        if (!User::hasRosterPermission(Auth::user(), $roster, 'edit_predefined')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -37,10 +36,11 @@ class RosterContentController extends Controller
 
     public function update(Request $request, RosterContent $content)
     {
-        $section = $content->section;
-        $faction = $section->roster->faction;
+        $roster = $content->section->roster;
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+        $user = Auth::user();
+        if (!User::hasRosterPermission($user, $roster, 'edit_defined_fields') && 
+            !User::hasRosterPermission($user, $roster, 'edit_predefined')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -57,10 +57,9 @@ class RosterContentController extends Controller
 
     public function destroy(RosterContent $content)
     {
-        $section = $content->section;
-        $faction = $section->roster->faction;
+        $roster = $content->section->roster;
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+        if (!User::hasRosterPermission(Auth::user(), $roster, 'edit_predefined')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

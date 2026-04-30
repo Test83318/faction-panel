@@ -17,6 +17,7 @@ interface RosterTableProps {
   accentColor?: string;
   editMode?: boolean;
   canModerate?: boolean;
+  permissions?: any;
   onUpdateRow?: (id: number, data: any) => void;
   onDeleteRow?: (id: number) => void;
   onAddRow?: () => void;
@@ -29,10 +30,15 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   accentColor, 
   editMode, 
   canModerate,
+  permissions,
   onUpdateRow,
   onDeleteRow,
   onAddRow
 }) => {
+  const canEditDefined = canModerate || permissions?.edit_defined_fields;
+  const canEditPredefined = canModerate || permissions?.edit_predefined;
+  const canEditAny = canEditDefined || canEditPredefined;
+
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const [editData, setEditData] = useState<any>({});
   const inputRef = useRef<HTMLInputElement>(null);
@@ -51,7 +57,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   }, [editingRowId]);
 
   const handleStartEdit = (row: RosterContent) => {
-    if (!canModerate) return;
+    if (!canEditAny) return;
     setEditingRowId(row.id);
     setEditData(row.content || {});
   };
@@ -86,9 +92,11 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   };
 
   const isColEditable = (col: RosterColumn) => {
-    if (editMode) return true;
-    if (col.type.startsWith('predefined_')) return false;
-    return true;
+    if (editMode && canEditPredefined) return true;
+    if (col.type.startsWith('predefined_') || col.type.includes('predefined')) {
+        return canEditPredefined;
+    }
+    return canEditDefined;
   };
 
   const renderCell = (row: RosterContent, col: RosterColumn) => {
@@ -170,8 +178,8 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
     return (
       <div 
-        className={`flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all ${canModerate ? 'cursor-pointer hover:bg-accent/5' : ''}`}
-        onClick={() => canModerate && handleStartEdit(row)}
+        className={`flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all ${canEditAny ? 'cursor-pointer hover:bg-accent/5' : ''}`}
+        onClick={() => canEditAny && handleStartEdit(row)}
       >
         <span className="text-[10px] uppercase font-medium" style={textStyle}>{value || '-'}</span>
         {checked.length > 0 && (

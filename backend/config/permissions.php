@@ -22,6 +22,36 @@ return [
                 ],
             ],
         ],
+        'groups' => [
+            'name' => 'Group Management',
+            'permissions' => [
+                'view_groups' => [
+                    'name' => 'View Groups',
+                    'description' => 'Allows viewing all groups within the faction.',
+                    'type' => 'VIEW',
+                ],
+                'create_groups' => [
+                    'name' => 'Create Groups',
+                    'description' => 'Allows creating new groups.',
+                    'type' => 'CREATE',
+                ],
+                'remove_groups' => [
+                    'name' => 'Remove Groups',
+                    'description' => 'Allows deleting groups.',
+                    'type' => 'DELETE',
+                ],
+                'modify_groups' => [
+                    'name' => 'Modify Groups',
+                    'description' => 'Allows editing group details (name, color).',
+                    'type' => 'MODIFY',
+                ],
+                'manage_group_members' => [
+                    'name' => 'Manage Group Members',
+                    'description' => 'Allows adding/removing members and promoting group leaders.',
+                    'type' => 'MODIFY',
+                ],
+            ],
+        ],
         'administration' => [
             'name' => 'Administration',
             'permissions' => [
@@ -83,36 +113,6 @@ return [
                 'manage_invites' => [
                     'name' => 'Manage Invites',
                     'description' => 'Allows creating and deleting faction invite links.',
-                    'type' => 'MODIFY',
-                ],
-            ],
-        ],
-        'groups' => [
-            'name' => 'Group Management',
-            'permissions' => [
-                'view_groups' => [
-                    'name' => 'View Groups',
-                    'description' => 'Allows viewing all groups within the faction.',
-                    'type' => 'VIEW',
-                ],
-                'create_groups' => [
-                    'name' => 'Create Groups',
-                    'description' => 'Allows creating new groups.',
-                    'type' => 'CREATE',
-                ],
-                'remove_groups' => [
-                    'name' => 'Remove Groups',
-                    'description' => 'Allows deleting groups.',
-                    'type' => 'DELETE',
-                ],
-                'modify_groups' => [
-                    'name' => 'Modify Groups',
-                    'description' => 'Allows editing group details (name, color).',
-                    'type' => 'MODIFY',
-                ],
-                'manage_group_members' => [
-                    'name' => 'Manage Group Members',
-                    'description' => 'Allows adding/removing members and promoting group leaders.',
                     'type' => 'MODIFY',
                 ],
             ],

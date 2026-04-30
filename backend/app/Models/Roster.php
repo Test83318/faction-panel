@@ -44,4 +44,9 @@ class Roster extends Model
     {
         return $this->hasMany(RosterSection::class)->whereNull('parent_id')->orderBy('order');
     }
+
+    public function rosterPermissions()
+    {
+        return $this->hasMany(RosterPermission::class);
+    }
 }

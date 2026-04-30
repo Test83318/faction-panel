@@ -13,14 +13,40 @@ class RosterController extends Controller
     public function index($shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
+        $user = Auth::user();
+
+        // If user has view_faction_roster, they see everything by default.
+        // If not, they might still see specific rosters if they have permission.
+        $isGlobalViewer = User::hasFactionPermission($user, $faction, 'view_faction_roster');
         
-        // Check if user has permission to view rosters (generic view_faction_roster)
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'view_faction_roster')) {
-            return response()->json(['message' => 'Forbidden'], 403);
+        $rosters = $faction->rosters()
+            ->with(['rootSections.children.contents', 'rootSections.contents'])
+            ->orderBy('order')
+            ->get();
+        
+        $filteredRosters = $rosters->filter(function ($roster) use ($user, $isGlobalViewer) {
+            return $isGlobalViewer || User::hasRosterPermission($user, $roster, 'view_roster');
+        });
+
+        if ($filteredRosters->isEmpty() && !$isGlobalViewer) {
+             // If they have no global permission and no specific roster permissions, they get Forbidden
+             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $rosters = $faction->rosters()->with(['rootSections.children.contents', 'rootSections.contents'])->orderBy('order')->get();
-        return response()->json($rosters);
+        $filteredRosters->each(function ($roster) use ($user) {
+            $perms = [
+                'view_roster' => User::hasRosterPermission($user, $roster, 'view_roster'),
+                'modify_roster' => User::hasRosterPermission($user, $roster, 'modify_roster'),
+                'manage_columns' => User::hasRosterPermission($user, $roster, 'manage_columns'),
+                'add_sections' => User::hasRosterPermission($user, $roster, 'add_sections'),
+                'remove_sections' => User::hasRosterPermission($user, $roster, 'remove_sections'),
+                'edit_predefined' => User::hasRosterPermission($user, $roster, 'edit_predefined'),
+                'edit_defined_fields' => User::hasRosterPermission($user, $roster, 'edit_defined_fields'),
+            ];
+            $roster->user_roster_permissions = $perms;
+        });
+
+        return response()->json($filteredRosters->values());
     }
 
     public function store(Request $request, $shortname)
@@ -62,9 +88,7 @@ class RosterController extends Controller
 
     public function update(Request $request, Roster $roster)
     {
-        $faction = $roster->faction;
-
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+        if (!User::hasRosterPermission(Auth::user(), $roster, 'modify_roster')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -87,9 +111,7 @@ class RosterController extends Controller
 
     public function destroy(Roster $roster)
     {
-        $faction = $roster->faction;
-
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+        if (!User::hasRosterPermission(Auth::user(), $roster, 'modify_roster')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
