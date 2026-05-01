@@ -111,11 +111,11 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     }
   };
 
-  if (section.type === 'master') {
+  if (section.type === 'master' || section.type === 'subsection') {
     return (
       <div className="div-leadership w-full border border-border bg-card mb-4 group relative">
         <div className="section-header py-0.5 px-2 border-b border-border bg-border/20 flex justify-between items-center">
-          <span className="text-[9px] font-bold tracking-widest text-muted uppercase">{section.name}</span>
+          <span className="text-[9px] font-bold text-text uppercase">{section.name}</span>
           <div className="flex items-center gap-2">
             {canEditSection && (
                 <button 
@@ -148,7 +148,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   }
 
   return (
-    <div className="bureau-card flex-1 border border-border rounded-lg bg-card shadow-[var(--sh)] flex flex-col group relative">
+    <div className="bureau-card border border-border rounded-lg bg-card shadow-[var(--sh)] flex flex-col group relative">
       <div className="bureau-card-top flex h-[24px] items-stretch border-b border-border bg-surface shrink-0 rounded-t-lg overflow-hidden">
         <div className="w-[5px] shrink-0" style={{ backgroundColor: section.color || 'var(--accent)' }} />
         <div className="flex-1 flex items-center px-2 justify-center gap-1.5 overflow-hidden">
@@ -180,39 +180,79 @@ export const SectionCard: React.FC<SectionCardProps> = ({
       </div>
 
       {/* Sub-sections / Children */}
-      {section.children && section.children.map(child => (
-        <div key={child.id} className="unit-section">
-          <div className="section-header py-0.5 px-2 border-b border-t border-border bg-border/10 flex items-center gap-1.5 shrink-0 group/child relative">
-            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: child.color || section.color || 'var(--accent)' }} />
-            <span className="text-[9px] font-bold text-text uppercase text-center flex-1 truncate">
-              {child.name}
-            </span>
-            {canEditSection && (
-                <button 
-                    onClick={() => onEdit?.(child)}
-                    className="absolute right-1 opacity-0 group-hover/child:opacity-100 p-0.5 hover:bg-bg rounded text-muted hover:text-text transition-opacity"
-                >
-                    <MoreHorizontal size={10} />
-                </button>
-            )}
+      {section.children && section.children.map(child => {
+        const isSubsection = child.type === 'subsection';
+        
+        if (isSubsection) {
+          return (
+            <div key={child.id} className="unit-section border-t border-border bg-card group/child relative">
+              <div className="section-header py-0.5 px-2 border-b border-border bg-border/20 flex justify-between items-center">
+                <div className="flex items-center gap-1.5 overflow-hidden">
+                    <span className="text-[9px] font-bold text-text uppercase truncate">{child.name}</span>
+                </div>
+                {canEditSection && (
+                    <button 
+                        onClick={() => onEdit?.(child)}
+                        className="p-1 hover:bg-surface rounded text-muted hover:text-text opacity-0 group-hover/child:opacity-100 transition-opacity"
+                    >
+                        <MoreHorizontal size={12} />
+                    </button>
+                )}
+              </div>
+              <RosterTable 
+                contents={child.contents || []} 
+                allContents={allContents}
+                accentColor={child.color || section.color || 'var(--accent)'} 
+                columns={child.columns || columns} 
+                datasets={datasets}
+                flags={flags}
+                editMode={editMode}
+                canModerate={canModerate}
+                permissions={permissions}
+                onAddRow={() => handleAddRow(child.id)}
+                onUpdateRow={handleUpdateRow}
+                onDeleteRow={handleDeleteRow}
+                onBulkDeleteRow={handleBulkDeleteRows}
+              />
+            </div>
+          );
+        }
+
+        // Regular section style (compact)
+        return (
+          <div key={child.id} className="unit-section">
+            <div className="section-header py-0.5 px-2 border-b border-t border-border bg-border/10 flex items-center gap-1.5 shrink-0 group/child relative">
+              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: child.color || section.color || 'var(--accent)' }} />
+              <span className="text-[9px] font-bold text-text uppercase text-center flex-1 truncate">
+                {child.name}
+              </span>
+              {canEditSection && (
+                  <button 
+                      onClick={() => onEdit?.(child)}
+                      className="absolute right-1 opacity-0 group-hover/child:opacity-100 p-0.5 hover:bg-bg rounded text-muted hover:text-text transition-opacity"
+                  >
+                      <MoreHorizontal size={10} />
+                  </button>
+              )}
+            </div>
+            <RosterTable 
+              contents={child.contents || []} 
+              allContents={allContents}
+              accentColor={child.color || section.color || 'var(--accent)'} 
+              columns={child.columns || columns} 
+              datasets={datasets}
+              flags={flags}
+              editMode={editMode}
+              canModerate={canModerate}
+              permissions={permissions}
+              onAddRow={() => handleAddRow(child.id)}
+              onUpdateRow={handleUpdateRow}
+              onDeleteRow={handleDeleteRow}
+              onBulkDeleteRow={handleBulkDeleteRows}
+            />
           </div>
-          <RosterTable 
-            contents={child.contents || []} 
-            allContents={allContents}
-            accentColor={child.color || section.color || 'var(--accent)'} 
-            columns={child.columns || columns} 
-            datasets={datasets}
-            flags={flags}
-            editMode={editMode}
-            canModerate={canModerate}
-            permissions={permissions}
-            onAddRow={() => handleAddRow(child.id)}
-            onUpdateRow={handleUpdateRow}
-            onDeleteRow={handleDeleteRow}
-            onBulkDeleteRow={handleBulkDeleteRows}
-          />
-        </div>
-      ))}
+        );
+      })}
 
       {/* If it's a root section but has no children */}
       {(!section.children || section.children.length === 0) && (

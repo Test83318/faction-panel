@@ -305,7 +305,7 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                   {activeDivision.layout_settings?.rows?.map((row: any, rowIdx: number) => (
                     <div 
                       key={rowIdx} 
-                      className="grid gap-4 w-full"
+                      className="grid gap-4 w-full items-start"
                       style={{ 
                         gridTemplateColumns: `repeat(${row.columns || 2}, minmax(300px, 1fr))` 
                       }}
@@ -334,7 +334,7 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
 
                   {/* Fallback for sections not in custom rows */}
                   <div 
-                    className="grid gap-4 w-full"
+                    className="grid gap-4 w-full items-start"
                     style={{ 
                       gridTemplateColumns: `repeat(${activeDivision.default_sections_per_row || 2}, minmax(300px, 1fr))` 
                     }}
