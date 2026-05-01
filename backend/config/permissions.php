@@ -127,6 +127,26 @@ return [
                 ],
             ],
         ],
+        'records' => [
+            'name' => 'Faction Records',
+            'permissions' => [
+                'view_faction_records' => [
+                    'name' => 'View Faction Records',
+                    'description' => 'Allows viewing the faction records system.',
+                    'type' => 'VIEW',
+                ],
+                'create_faction_record_database' => [
+                    'name' => 'Create Faction Record Database',
+                    'description' => 'Allows creating new record databases.',
+                    'type' => 'CREATE',
+                ],
+                'global_faction_record_moderation' => [
+                    'name' => 'Global Faction Record Moderation',
+                    'description' => 'Grants full control over all record databases (modify, delete).',
+                    'type' => 'MODIFY',
+                ],
+            ],
+        ],
         'system' => [
             'name' => 'System',
             'permissions' => [

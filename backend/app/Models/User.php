@@ -188,4 +188,51 @@ class User extends Authenticatable
 
         return false;
     }
+
+    public static function hasRecordPermission(?User $user, FactionRecordDatabase $database, string $permissionKey): bool
+    {
+        $faction = $database->faction;
+
+        // 1. Superadmin/Faction Leader/Global Record Moderator/Creator always have access
+        if ($user) {
+            if ($user->is_superadmin || 
+                $faction->faction_leader === $user->id || 
+                self::hasFactionPermission($user, $faction, 'global_faction_record_moderation') ||
+                $database->created_by === $user->id
+            ) {
+                return true;
+            }
+        }
+
+        // 2. Collect all permission sets applicable to this user
+        $permissionSets = collect();
+
+        // Public permissions (group_id is null)
+        $publicPerms = $database->databasePermissions()->whereNull('group_id')->first();
+        if ($publicPerms) {
+            $permissionSets->push($publicPerms->permissions);
+        }
+
+        if ($user) {
+            // Group permissions
+            $userGroupIds = $user->groups()->where('faction_id', $faction->id)->pluck('groups.id');
+            $groupPerms = $database->databasePermissions()->whereIn('group_id', $userGroupIds)->get();
+            foreach ($groupPerms as $gp) {
+                $permissionSets->push($gp->permissions);
+            }
+        }
+
+        if ($permissionSets->isEmpty()) {
+            return false;
+        }
+
+        // If any set has the permission as true, return true
+        foreach ($permissionSets as $set) {
+            if (is_array($set) && in_array($permissionKey, $set)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

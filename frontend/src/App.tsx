@@ -15,6 +15,7 @@ import RosterLayoutModal from './components/RosterLayoutModal';
 import Home from './components/Home';
 import FactionManager from './components/FactionManager';
 import Administration from './components/Administration';
+import FactionRecords from './components/FactionRecords';
 import GroupManagement from './components/GroupManagement';
 import Loading from './components/Loading';
 import Invite from './components/Invite';
@@ -874,6 +875,7 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
   const isGroupLeader = user?.groups?.some((g: any) => g.faction_id === factionData?.id && g.pivot?.is_leader) || false;
   const canViewAdmin = user?.is_superadmin || permissions.includes('view_admin_page');
   const canViewGroups = user?.is_superadmin || permissions.includes('view_groups') || isGroupLeader;
+  const canViewRecords = user?.is_superadmin || permissions.includes('view_faction_records');
 
   // Handle root faction path redirect
   if (location.pathname === `/${shortname}`) {
@@ -891,7 +893,7 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
         onLogout={onLogout} 
       />
       <div className="flex flex-1 relative">
-        <Sidebar shortname={shortname!} canViewAdmin={canViewAdmin} canViewGroups={canViewGroups} user={user} />
+        <Sidebar shortname={shortname!} canViewAdmin={canViewAdmin} canViewGroups={canViewGroups} canViewRecords={canViewRecords} user={user} />
 
         <div className="flex flex-col flex-1 min-w-0">
           <Routes>
@@ -909,6 +911,13 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
                 datasets={datasets}
                 flags={flags}
               />
+            } />
+            <Route path="records" element={
+              canViewRecords ? (
+                <main className="main flex-1 overflow-auto p-5">
+                  <FactionRecords shortname={shortname!} permissions={permissions} user={user} />
+                </main>
+              ) : <Navigate to={`/${shortname}/roster`} />
             } />
             <Route path="groups" element={
               canViewGroups ? (

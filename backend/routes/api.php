@@ -11,6 +11,9 @@ use App\Http\Controllers\GroupController;
 use App\Http\Controllers\RosterPermissionController;
 use App\Http\Controllers\DatasetController;
 use App\Http\Controllers\RosterFlagController;
+use App\Http\Controllers\FactionRecordController;
+use App\Http\Controllers\FactionRecordPermissionController;
+use App\Http\Controllers\FactionRecordEntryController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -101,4 +104,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/factions/{shortname}/flags', [RosterFlagController::class, 'store']);
     Route::put('/flags/{flag}', [RosterFlagController::class, 'update']);
     Route::delete('/flags/{flag}', [RosterFlagController::class, 'destroy']);
+
+    // Faction Record Management
+    Route::get('/factions/{shortname}/records', [FactionRecordController::class, 'index']);
+    Route::post('/factions/{shortname}/records', [FactionRecordController::class, 'store']);
+    Route::get('/factions/{shortname}/records/{database}', [FactionRecordController::class, 'show']);
+    Route::put('/factions/{shortname}/records/{database}', [FactionRecordController::class, 'update']);
+    Route::delete('/factions/{shortname}/records/{database}', [FactionRecordController::class, 'destroy']);
+
+    // Faction Record Permissions
+    Route::get('/factions/{shortname}/records/{database}/permissions', [FactionRecordPermissionController::class, 'index']);
+    Route::put('/factions/{shortname}/records/{database}/permissions', [FactionRecordPermissionController::class, 'update']);
+    Route::delete('/factions/{shortname}/records/{database}/permissions/{permission}', [FactionRecordPermissionController::class, 'destroy']);
+
+    // Faction Record Entries
+    Route::get('/factions/{shortname}/records/{database}/entries', [FactionRecordEntryController::class, 'index']);
+    Route::post('/factions/{shortname}/records/{database}/entries', [FactionRecordEntryController::class, 'store']);
+    Route::get('/factions/{shortname}/records/{database}/entries/{entry}', [FactionRecordEntryController::class, 'show']);
+    Route::put('/factions/{shortname}/records/{database}/entries/{entry}', [FactionRecordEntryController::class, 'update']);
+    Route::delete('/factions/{shortname}/records/{database}/entries/{entry}', [FactionRecordEntryController::class, 'destroy']);
 });

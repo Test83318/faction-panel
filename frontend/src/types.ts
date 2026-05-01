@@ -96,6 +96,33 @@ export interface RosterPermission {
   group?: Group;
 }
 
+export interface FactionRecordDatabase {
+  id: number;
+  faction_id: number;
+  name: string;
+  description: string | null;
+  allow_details_view: boolean;
+  data_overview_display: string;
+  data_entry_display: string;
+  record_shortcode: string | null;
+  database_structure: any[];
+  permissions: any;
+  is_api_database: boolean;
+  created_by: number;
+  creator?: {
+    id: number;
+    username: string;
+  };
+}
+
+export interface FactionRecordPermission {
+  id: number;
+  database_id: number;
+  group_id: number | null;
+  permissions: string[];
+  group?: Group;
+}
+
 export interface Faction {
   id: string;
   name: string;
