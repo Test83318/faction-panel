@@ -220,24 +220,59 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortn
                     <div className="space-y-2 border-t border-border mt-4 pt-4">
                       <label className="block text-[10px] text-muted font-bold uppercase tracking-widest">Checkboxes (e.g. Acting, Alt)</label>
                       <div className="flex flex-wrap gap-2">
-                        {(col.checkboxes || []).map((cb: string, cbIdx: number) => (
-                          <div key={cbIdx} className="flex items-center gap-1 bg-bg px-2 py-1 rounded border border-border">
-                            <input 
-                              value={cb}
-                              onChange={(e) => {
+                        {(col.checkboxes || []).map((cb: any, cbIdx: number) => {
+                          const label = typeof cb === 'string' ? cb : cb.label;
+                          const color = typeof cb === 'string' ? null : cb.color;
+                          
+                          return (
+                            <div key={cbIdx} className="flex items-center gap-1.5 bg-bg px-2 py-1 rounded border border-border group/cb">
+                              <input 
+                                value={label}
+                                onChange={(e) => {
+                                  const newCbs = [...(col.checkboxes || [])];
+                                  if (typeof cb === 'string') {
+                                      newCbs[cbIdx] = e.target.value;
+                                  } else {
+                                      newCbs[cbIdx] = { ...cb, label: e.target.value };
+                                  }
+                                  updateColumn(index, 'checkboxes', newCbs);
+                                }}
+                                className="bg-transparent text-xs w-16 outline-none text-text"
+                                placeholder="Label"
+                              />
+                              <div className="relative flex items-center">
+                                <input 
+                                    type="color" 
+                                    value={color || '#ffffff'} 
+                                    onChange={(e) => {
+                                        const newCbs = [...(col.checkboxes || [])];
+                                        const newLabel = typeof cb === 'string' ? cb : cb.label;
+                                        newCbs[cbIdx] = { label: newLabel, color: e.target.value };
+                                        updateColumn(index, 'checkboxes', newCbs);
+                                    }}
+                                    className={`w-4 h-4 rounded-sm cursor-pointer p-0 bg-transparent border-none ${!color ? 'opacity-20' : ''}`} 
+                                />
+                                {color && (
+                                    <button 
+                                        onClick={() => {
+                                            const newCbs = [...(col.checkboxes || [])];
+                                            newCbs[cbIdx] = label; // Downgrade to string if color is removed
+                                            updateColumn(index, 'checkboxes', newCbs);
+                                        }}
+                                        className="absolute -top-1 -right-1 bg-danger text-white rounded-full p-0.5 opacity-0 group-hover/cb:opacity-100 transition-opacity"
+                                    >
+                                        <X size={6} />
+                                    </button>
+                                )}
+                              </div>
+                              <button onClick={() => {
                                 const newCbs = [...(col.checkboxes || [])];
-                                newCbs[cbIdx] = e.target.value;
+                                newCbs.splice(cbIdx, 1);
                                 updateColumn(index, 'checkboxes', newCbs);
-                              }}
-                              className="bg-transparent text-xs w-16 outline-none text-text"
-                            />
-                            <button onClick={() => {
-                              const newCbs = [...(col.checkboxes || [])];
-                              newCbs.splice(cbIdx, 1);
-                              updateColumn(index, 'checkboxes', newCbs);
-                            }} className="text-muted hover:text-danger"><X size={12} /></button>
-                          </div>
-                        ))}
+                              }} className="text-muted hover:text-danger"><X size={12} /></button>
+                            </div>
+                          );
+                        })}
                         <button 
                           onClick={() => {
                             const newCbs = [...(col.checkboxes || []), 'New'];

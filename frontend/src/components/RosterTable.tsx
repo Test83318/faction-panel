@@ -8,7 +8,7 @@ export interface RosterColumn {
   name: string;
   type: string;
   options?: any[];
-  checkboxes?: string[];
+  checkboxes?: any[];
   dataset_id?: number | null;
 }
 
@@ -236,17 +236,24 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             </div>
             {col.checkboxes && col.checkboxes.length > 0 && (
               <div className="flex flex-wrap gap-1 relative z-20">
-                {col.checkboxes.map(cb => (
-                  <button 
-                    key={cb}
-                    onClick={() => toggleCheckbox(col.id, cb)}
-                    className={`text-[6px] font-black px-1 rounded border transition-colors uppercase ${
-                      checked.includes(cb) ? 'bg-accent border-accent text-white' : 'bg-transparent border-border text-muted hover:border-accent'
-                    }`}
-                  >
-                    {cb}
-                  </button>
-                ))}
+                {col.checkboxes.map(cb => {
+                  const label = typeof cb === 'string' ? cb : cb.label;
+                  const color = typeof cb === 'string' ? null : cb.color;
+                  const isChecked = checked.includes(label);
+                  
+                  return (
+                    <button 
+                      key={label}
+                      onClick={() => toggleCheckbox(col.id, label)}
+                      className={`text-[6px] font-black px-1 rounded border transition-colors uppercase ${
+                        isChecked ? (color ? '' : 'bg-accent border-accent text-white') : 'bg-transparent border-border text-muted hover:border-accent'
+                      }`}
+                      style={isChecked && color ? { backgroundColor: color, borderColor: color, color: '#fff' } : {}}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -321,17 +328,24 @@ export const RosterTable: React.FC<RosterTableProps> = ({
           </div>
           {col.checkboxes && col.checkboxes.length > 0 && (
             <div className="flex flex-wrap gap-1">
-              {col.checkboxes.map(cb => (
-                <button 
-                  key={cb}
-                  onClick={() => toggleCheckbox(col.id, cb)}
-                  className={`text-[6px] font-black px-1 rounded border transition-colors uppercase ${
-                    checked.includes(cb) ? 'bg-accent border-accent text-white' : 'bg-transparent border-border text-muted hover:border-accent'
-                  }`}
-                >
-                  {cb}
-                </button>
-              ))}
+              {col.checkboxes.map(cb => {
+                const label = typeof cb === 'string' ? cb : cb.label;
+                const color = typeof cb === 'string' ? null : cb.color;
+                const isChecked = checked.includes(label);
+
+                return (
+                  <button 
+                    key={label}
+                    onClick={() => toggleCheckbox(col.id, label)}
+                    className={`text-[6px] font-black px-1 rounded border transition-colors uppercase ${
+                      isChecked ? (color ? '' : 'bg-accent border-accent text-white') : 'bg-transparent border-border text-muted hover:border-accent'
+                    }`}
+                    style={isChecked && color ? { backgroundColor: color, borderColor: color, color: '#fff' } : {}}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -353,11 +367,20 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         </div>
         {checked.length > 0 && (
           <div className="flex gap-0.5">
-            {checked.map((cb: string) => (
-              <span key={cb} className="text-[6px] text-accent font-black tracking-widest bg-accent/10 px-1 rounded uppercase">
-                {cb}
-              </span>
-            ))}
+            {checked.map((cbLabel: string) => {
+              const colCb = col.checkboxes?.find(c => (typeof c === 'string' ? c : c.label) === cbLabel);
+              const color = (colCb && typeof colCb !== 'string') ? colCb.color : null;
+              
+              return (
+                <span 
+                  key={cbLabel} 
+                  className="text-[6px] text-accent font-black tracking-widest bg-accent/10 px-1 rounded uppercase"
+                  style={color ? { color: color, backgroundColor: `${color}1A` } : {}}
+                >
+                  {cbLabel}
+                </span>
+              );
+            })}
           </div>
         )}
       </div>
