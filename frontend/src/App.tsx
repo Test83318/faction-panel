@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useParams, Navigate, useLocation } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 import { motion, AnimatePresence, Reorder } from 'motion/react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -9,6 +9,8 @@ import { BureauCard } from './components/BureauCard';
 import { RosterTable } from './components/RosterTable';
 import { ColumnsModal } from './components/ColumnsModal';
 import { RosterPermissionsModal } from './components/RosterPermissionsModal';
+import GlobalVariablesModal from './components/GlobalVariablesModal';
+import RosterLayoutModal from './components/RosterLayoutModal';
 import Home from './components/Home';
 import FactionManager from './components/FactionManager';
 import Administration from './components/Administration';
@@ -20,23 +22,55 @@ import Login from './components/Login';
 import api from './api';
 import { INITIAL_DATA } from './constants';
 import { Faction as FactionType, Roster as RosterType } from './types';
-import { Plus, MoreVertical, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Pencil } from 'lucide-react';
+import { Plus, MoreVertical, Menu, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Pencil, Database } from 'lucide-react';
 
 const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, activeDivId, setActiveDivId, permissions, shortname, fetchRosters }: any) => {
   const canCreate = permissions.includes('create_roster');
+  const canModifyVariables = permissions.includes('modify_roster_variables');
   const isGlobalMod = permissions.includes('global_roster_moderation');
   
   const rosterPerms = activeDivision?.user_roster_permissions || {};
-  const canModerate = isGlobalMod || rosterPerms.modify_roster || rosterPerms.add_sections || rosterPerms.remove_sections || rosterPerms.manage_columns;
+  const canModerate = isGlobalMod || rosterPerms.modify_roster || rosterPerms.add_sections || rosterPerms.remove_sections || rosterPerms.manage_columns || rosterPerms.manage_layout;
   const canAddSections = isGlobalMod || rosterPerms.add_sections;
   const canManageColumns = isGlobalMod || rosterPerms.manage_columns;
+  const canManageLayout = isGlobalMod || rosterPerms.manage_layout;
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSectionModal, setShowSectionModal] = useState(false);
   const [showColumnsModal, setShowColumnsModal] = useState<RosterType | null>(null);
   const [showPermissionsModal, setShowPermissionsModal] = useState<RosterType | null>(null);
+  const [showVariablesModal, setShowVariablesModal] = useState(false);
+  const [showLayoutModal, setShowLayoutModal] = useState<RosterType | null>(null);
+  const [showRosterContextMenu, setShowRosterContextMenu] = useState(false);
+  const [datasets, setDatasets] = useState<any[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const allContents = React.useMemo(() => {
+    if (!activeDivision?.root_sections) return [];
+    const contents: any[] = [];
+    activeDivision.root_sections.forEach((s: any) => {
+      if (s.contents) contents.push(...s.contents);
+      if (s.children) {
+        s.children.forEach((c: any) => {
+          if (c.contents) contents.push(...c.contents);
+        });
+      }
+    });
+    return contents;
+  }, [activeDivision]);
+
+  const fetchDatasets = async () => {
+    try {
+        const res = await api.get(`/factions/${shortname}/datasets`);
+        setDatasets(res.data);
+    } catch (err) {}
+  };
+
+  useEffect(() => {
+    if (shortname) fetchDatasets();
+  }, [shortname]);
+
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
   const [menuPosition, setMenuPosition] = useState({ left: 0 });
   
@@ -263,25 +297,72 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                         permissions={rosterPerms}
                         onEdit={handleEditSection}
                         columns={rosters.find((r: any) => r.id === activeDivId)?.columns}
+                        datasets={datasets}
+                        allContents={allContents}
                         editMode={editMode}
                         onRefresh={fetchRosters}
                     />
                 ))}
 
-                <div className="sections-container flex flex-wrap gap-4 justify-start items-start w-full">
-                  {activeDivision.root_sections?.filter((s: any) => s.type !== 'master').map((section: any) => (
-                    <div key={section.id} className="section-col flex flex-col min-w-[450px] flex-1 max-w-[calc(50%-8px)]">
+                <div className="sections-container w-full space-y-4">
+                  {/* Custom Row Layouts */}
+                  {activeDivision.layout_settings?.rows?.map((row: any, rowIdx: number) => (
+                    <div 
+                      key={rowIdx} 
+                      className="grid gap-4 w-full"
+                      style={{ 
+                        gridTemplateColumns: `repeat(${row.columns || 2}, minmax(300px, 1fr))` 
+                      }}
+                    >
+                      {row.section_ids?.map((sId: number) => {
+                        const section = activeDivision.root_sections?.find((s: any) => s.id === sId);
+                        if (!section || section.type === 'master') return null;
+                        return (
+                          <SectionCard 
+                            key={section.id} 
+                            section={section} 
+                            canModerate={isGlobalMod}
+                            permissions={rosterPerms}
+                            onAddChild={handleAddChildSection}
+                            onEdit={handleEditSection}
+                            columns={rosters.find((r: any) => r.id === activeDivId)?.columns}
+                            datasets={datasets}
+                            allContents={allContents}
+                            editMode={editMode}
+                            onRefresh={fetchRosters}
+                          />
+                        );
+                      })}
+                    </div>
+                  ))}
+
+                  {/* Fallback for sections not in custom rows */}
+                  <div 
+                    className="grid gap-4 w-full"
+                    style={{ 
+                      gridTemplateColumns: `repeat(${activeDivision.default_sections_per_row || 2}, minmax(300px, 1fr))` 
+                    }}
+                  >
+                    {activeDivision.root_sections?.filter((s: any) => {
+                      if (s.type === 'master') return false;
+                      const inCustomRow = activeDivision.layout_settings?.rows?.some((r: any) => r.section_ids?.includes(s.id));
+                      return !inCustomRow;
+                    }).map((section: any) => (
                       <SectionCard 
+                        key={section.id} 
                         section={section} 
                         canModerate={isGlobalMod}
                         permissions={rosterPerms}
                         onAddChild={handleAddChildSection}
                         onEdit={handleEditSection}
                         columns={rosters.find((r: any) => r.id === activeDivId)?.columns}
+                        datasets={datasets}
+                        allContents={allContents}
                         editMode={editMode}
                         onRefresh={fetchRosters}
-                      />                    </div>
-                  ))}
+                      />
+                    ))}
+                  </div>
                 </div>
 
                 {/* Fallback for static/empty state if no sections exist yet */}
@@ -394,6 +475,17 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                                         <Settings2 size={12} /> Manage Columns
                                     </button>
                                 )}
+                                {(isGlobalMod || roster.user_roster_permissions?.manage_layout) && (
+                                    <button 
+                                        onClick={() => {
+                                            setShowLayoutModal(roster);
+                                            setActiveMenuId(null);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface rounded transition-colors"
+                                    >
+                                        <Layout size={12} /> Manage Layout
+                                    </button>
+                                )}
                                 {(isGlobalMod || roster.user_roster_permissions?.modify_roster) && (
                                     <button 
                                         onClick={() => {
@@ -427,16 +519,49 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
           ))}
 
           {canCreate && (
-            <button 
-              onClick={() => {
-                setNewRoster({ id: null, name: '', shortname: '', color: '#3b82f6' });
-                setShowCreateModal(true);
-              }}
-              className="p-2 text-muted hover:text-accent transition-colors ml-2 shrink-0"
-              title="Create New Roster"
-            >
-              <Plus size={16} />
-            </button>
+            <div className="relative flex items-center gap-1 ml-2 shrink-0">
+                <button 
+                    onClick={() => {
+                        setNewRoster({ id: null, name: '', shortname: '', color: '#3b82f6' });
+                        setShowCreateModal(true);
+                    }}
+                    className="p-2 text-muted hover:text-accent transition-colors"
+                    title="Create New Roster"
+                >
+                    <Plus size={16} />
+                </button>
+                {canModifyVariables && (
+                    <div className="relative">
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowRosterContextMenu(!showRosterContextMenu);
+                            }}
+                            className={`p-2 transition-colors ${showRosterContextMenu ? 'text-accent' : 'text-muted hover:text-accent'}`}
+                            title="Global Options"
+                        >
+                            <Menu size={16} />
+                        </button>
+                        {showRosterContextMenu && (
+                            <div 
+                                className="fixed bottom-[var(--tab-h)] mb-2 bg-card border border-border rounded-lg shadow-2xl p-1 z-[999] min-w-[160px]"
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ transform: 'translateX(-50%)' }}
+                            >
+                                <button 
+                                    onClick={() => {
+                                        setShowVariablesModal(true);
+                                        setShowRosterContextMenu(false);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface rounded transition-colors"
+                                >
+                                    <Database size={12} /> Global Variables
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
           )}
         </Reorder.Group>
 
@@ -452,6 +577,7 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
       {showColumnsModal && (
         <ColumnsModal 
           roster={showColumnsModal} 
+          shortname={shortname}
           onClose={() => setShowColumnsModal(null)} 
           onSave={() => {
             setShowColumnsModal(null);
@@ -597,6 +723,26 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
             </form>
           </div>
         </div>
+      )}
+
+      {/* Global Variables Modal */}
+      {showVariablesModal && (
+          <GlobalVariablesModal 
+            shortname={shortname} 
+            onClose={() => setShowVariablesModal(false)} 
+          />
+      )}
+
+      {/* Layout Modal */}
+      {showLayoutModal && (
+          <RosterLayoutModal 
+            roster={showLayoutModal}
+            onClose={() => setShowLayoutModal(null)}
+            onSave={() => {
+                setShowLayoutModal(null);
+                fetchRosters();
+            }}
+          />
       )}
     </div>
   );

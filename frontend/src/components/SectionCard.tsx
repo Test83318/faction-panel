@@ -10,6 +10,8 @@ interface SectionCardProps {
   canModerate?: boolean;
   permissions?: any;
   columns?: any[];
+  datasets?: any[];
+  allContents?: any[];
   editMode?: boolean;
   onAddChild?: (parentId: number) => void;
   onEdit?: (section: RosterSection) => void;
@@ -21,6 +23,8 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   canModerate, 
   permissions,
   columns, 
+  datasets,
+  allContents,
   editMode,
   onAddChild, 
   onEdit,
@@ -53,6 +57,21 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     }
   };
 
+  const performDeleteRow = async (id: number, silent = false) => {
+    let loadToast = null;
+    if (!silent) loadToast = toast.loading('Deleting row...');
+    
+    try {
+      await api.delete(`/contents/${id}`);
+      if (!silent && loadToast) toast.success('Row deleted', { id: loadToast });
+      return true;
+    } catch (err) {
+      if (!silent && loadToast) toast.error('Failed to delete row', { id: loadToast });
+      console.error('Failed to delete row', err);
+      return false;
+    }
+  };
+
   const handleDeleteRow = async (id: number) => {
     toast((t) => (
       <div className="flex flex-col gap-1 text-left">
@@ -63,15 +82,8 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           <button 
             onClick={async () => {
               toast.dismiss(t.id);
-              const loadToast = toast.loading('Deleting row...');
-              try {
-                await api.delete(`/contents/${id}`);
-                toast.success('Row deleted', { id: loadToast });
-                onRefresh?.();
-              } catch (err) {
-                toast.error('Failed to delete row', { id: loadToast });
-                console.error('Failed to delete row', err);
-              }
+              const success = await performDeleteRow(id);
+              if (success) onRefresh?.();
             }}
             className="px-2 py-1 bg-danger text-white hover:bg-danger/90 rounded text-[9px] font-bold uppercase transition shadow-lg shadow-danger/20"
           >
@@ -80,6 +92,21 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         </div>
       </div>
     ), { duration: 6000, position: 'top-center' });
+  };
+
+  const handleBulkDeleteRows = async (ids: number[]) => {
+    const loadToast = toast.loading(`Deleting ${ids.length} rows...`);
+    try {
+        let successCount = 0;
+        for (const id of ids) {
+            const success = await performDeleteRow(id, true);
+            if (success) successCount++;
+        }
+        toast.success(`Successfully deleted ${successCount} rows`, { id: loadToast });
+        onRefresh?.();
+    } catch (err) {
+        toast.error('Bulk deletion encountered an error', { id: loadToast });
+    }
   };
 
   if (section.type === 'master') {
@@ -100,23 +127,26 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         </div>
         <RosterTable 
           contents={section.contents || []} 
+          allContents={allContents}
           isLeadership 
           accentColor={section.color || 'var(--accent)'} 
           columns={columns} 
+          datasets={datasets}
           editMode={editMode}
           canModerate={canModerate}
           permissions={permissions}
           onAddRow={() => handleAddRow(section.id)}
           onUpdateRow={handleUpdateRow}
           onDeleteRow={handleDeleteRow}
+          onBulkDeleteRow={handleBulkDeleteRows}
         />
       </div>
     );
   }
 
   return (
-    <div className="bureau-card flex-1 border border-border rounded-lg overflow-hidden bg-card shadow-[var(--sh)] flex flex-col group relative">
-      <div className="bureau-card-top flex h-[24px] items-stretch border-b border-border bg-surface shrink-0">
+    <div className="bureau-card flex-1 border border-border rounded-lg bg-card shadow-[var(--sh)] flex flex-col group relative">
+      <div className="bureau-card-top flex h-[24px] items-stretch border-b border-border bg-surface shrink-0 rounded-t-lg overflow-hidden">
         <div className="w-[5px] shrink-0" style={{ backgroundColor: section.color || 'var(--accent)' }} />
         <div className="flex-1 flex items-center px-2 justify-center gap-1.5 overflow-hidden">
           <span className="font-bold text-[11px] text-text uppercase truncate">
@@ -164,14 +194,17 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           </div>
           <RosterTable 
             contents={child.contents || []} 
+            allContents={allContents}
             accentColor={child.color || section.color || 'var(--accent)'} 
             columns={columns} 
+            datasets={datasets}
             editMode={editMode}
             canModerate={canModerate}
             permissions={permissions}
             onAddRow={() => handleAddRow(child.id)}
             onUpdateRow={handleUpdateRow}
             onDeleteRow={handleDeleteRow}
+            onBulkDeleteRow={handleBulkDeleteRows}
           />
         </div>
       ))}
@@ -180,14 +213,17 @@ export const SectionCard: React.FC<SectionCardProps> = ({
       {(!section.children || section.children.length === 0) && (
         <RosterTable 
           contents={section.contents || []} 
+          allContents={allContents}
           accentColor={section.color || 'var(--accent)'} 
           columns={columns} 
+          datasets={datasets}
           editMode={editMode}
           canModerate={canModerate}
           permissions={permissions}
           onAddRow={() => handleAddRow(section.id)}
           onUpdateRow={handleUpdateRow}
           onDeleteRow={handleDeleteRow}
+          onBulkDeleteRow={handleBulkDeleteRows}
         />
       )}
     </div>

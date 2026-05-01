@@ -20,6 +20,11 @@ return [
                     'description' => 'Allows creating new rosters for the faction.',
                     'type' => 'CREATE',
                 ],
+                'modify_roster_variables' => [
+                    'name' => 'Modify Roster Variables',
+                    'description' => 'Allows managing global datasets used across rosters.',
+                    'type' => 'MODIFY',
+                ],
             ],
         ],
         'groups' => [

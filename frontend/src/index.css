@@ -89,7 +89,7 @@ input, select, textarea {
 }
 
 .rt-td {
-  @apply border-b border-r border-border py-0 px-1 text-[10px] align-middle overflow-hidden whitespace-nowrap text-ellipsis h-[18px] text-center uppercase;
+  @apply border-b border-r border-border py-0 px-1 text-[10px] align-middle h-[18px] text-center uppercase;
 }
 
 .rt-tr {

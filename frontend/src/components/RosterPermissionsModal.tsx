@@ -18,6 +18,7 @@ const AVAILABLE_PERMISSIONS = [
     { key: 'add_sections', name: 'Add Sections', description: 'Create new sections and subsections' },
     { key: 'remove_sections', name: 'Remove Sections', description: 'Delete sections and their content' },
     { key: 'manage_columns', name: 'Manage Columns', description: 'Configure table columns and types' },
+    { key: 'manage_layout', name: 'Manage Layout', description: 'Reorder sections and manage row organization' },
 ];
 
 export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ roster, shortname, onClose }) => {

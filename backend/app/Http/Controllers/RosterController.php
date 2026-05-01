@@ -38,6 +38,7 @@ class RosterController extends Controller
                 'view_roster' => User::hasRosterPermission($user, $roster, 'view_roster'),
                 'modify_roster' => User::hasRosterPermission($user, $roster, 'modify_roster'),
                 'manage_columns' => User::hasRosterPermission($user, $roster, 'manage_columns'),
+                'manage_layout' => User::hasRosterPermission($user, $roster, 'manage_layout'),
                 'add_sections' => User::hasRosterPermission($user, $roster, 'add_sections'),
                 'remove_sections' => User::hasRosterPermission($user, $roster, 'remove_sections'),
                 'edit_predefined' => User::hasRosterPermission($user, $roster, 'edit_predefined'),
@@ -88,7 +89,7 @@ class RosterController extends Controller
 
     public function update(Request $request, Roster $roster)
     {
-        if (!User::hasRosterPermission(Auth::user(), $roster, 'modify_roster')) {
+        if (!User::hasRosterPermission(Auth::user(), $roster, 'modify_roster') && !User::hasRosterPermission(Auth::user(), $roster, 'manage_layout')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -98,6 +99,9 @@ class RosterController extends Controller
             'color' => ['sometimes', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'roster_options' => 'nullable|array',
             'columns' => 'nullable|array',
+            'layout_settings' => 'nullable|array',
+            'default_sections_per_row' => 'nullable|integer|min:1|max:4',
+            'section_order' => 'nullable|array',
         ]);
 
         if (isset($validated['shortname'])) {
@@ -105,6 +109,12 @@ class RosterController extends Controller
         }
 
         $roster->update($validated);
+
+        if (isset($validated['section_order'])) {
+            foreach ($validated['section_order'] as $index => $id) {
+                $roster->sections()->where('id', $id)->update(['order' => $index]);
+            }
+        }
 
         return response()->json($roster);
     }

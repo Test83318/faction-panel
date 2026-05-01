@@ -1,24 +1,38 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, GripVertical, Settings2, Check, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, GripVertical, Settings2, Check, X, Database } from 'lucide-react';
 import { Reorder } from 'motion/react';
 import api from '../api';
 import { Roster } from '../types';
 
 interface ColumnsModalProps {
   roster: Roster;
+  shortname: string;
   onClose: () => void;
   onSave: () => void;
 }
 
-export const ColumnsModal: React.FC<ColumnsModalProps> = ({ roster, onClose, onSave }) => {
+export const ColumnsModal: React.FC<ColumnsModalProps> = ({ roster, shortname, onClose, onSave }) => {
   const [columns, setColumns] = useState<any[]>(roster.columns || [
       { id: 'rank', name: 'Rank', type: 'dropdown', options: [], checkboxes: ['Acting'] },
       { id: 'name', name: 'Name', type: 'text', checkboxes: ['LOA'] },
       { id: 'position', name: 'Position', type: 'text', checkboxes: [] },
       { id: 'callsign', name: 'Callsign', type: 'text', checkboxes: [] }
   ]);
+  const [datasets, setDatasets] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchDatasets = async () => {
+        try {
+            const res = await api.get(`/factions/${shortname}/datasets`);
+            setDatasets(res.data);
+        } catch (err) {
+            console.error('Failed to fetch datasets', err);
+        }
+    };
+    fetchDatasets();
+  }, [shortname]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -93,9 +107,40 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ roster, onClose, onS
                       </div>
                     </div>
 
-                    {(col.type === 'dropdown' || col.type === 'predefined_dropdown') && (
+                    <div className="bg-bg/50 border border-border rounded-lg p-3 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <label className="text-[10px] text-muted font-black uppercase tracking-widest flex items-center gap-2">
+                                <Database size={12} className="text-accent" /> Bind to Global Dataset
+                            </label>
+                            {col.dataset_id && (
+                                <button 
+                                    onClick={() => updateColumn(index, 'dataset_id', null)}
+                                    className="text-[9px] font-black uppercase text-danger hover:underline"
+                                >
+                                    Unbind
+                                </button>
+                            )}
+                        </div>
+                        <select 
+                            value={col.dataset_id || ''} 
+                            onChange={(e) => updateColumn(index, 'dataset_id', e.target.value ? Number(e.target.value) : null)}
+                            className="w-full bg-bg border border-border p-2 rounded text-xs text-text focus:border-accent outline-none"
+                        >
+                            <option value="">No Dataset Linked</option>
+                            {datasets.map(d => (
+                                <option key={d.id} value={d.id}>{d.name}</option>
+                            ))}
+                        </select>
+                        <p className="text-[9px] text-muted font-medium leading-relaxed italic opacity-60">
+                            Linking a dataset will source options and autofill values from the selected global variable set.
+                        </p>
+                    </div>
+
+                    {(col.type === 'dropdown' || col.type === 'predefined_dropdown' || col.type === 'text' || col.type === 'predefined_text') && !col.dataset_id && (
                       <div className="space-y-2 border-t border-border mt-4 pt-4">
-                        <label className="block text-[10px] text-muted font-bold uppercase tracking-widest">Dropdown Options</label>
+                        <label className="block text-[10px] text-muted font-bold uppercase tracking-widest">
+                            {(col.type === 'text' || col.type === 'predefined_text') ? 'Suggestion Options' : 'Dropdown Options'}
+                        </label>
                         {(col.options || []).map((opt: any, optIdx: number) => (
                           <div key={optIdx} className="flex gap-2 items-center">
                             <input 
@@ -105,30 +150,48 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ roster, onClose, onS
                                 newOpts[optIdx].label = e.target.value;
                                 updateColumn(index, 'options', newOpts);
                               }}
-                              className="flex-1 bg-bg border border-border p-2 rounded text-sm text-text focus:border-accent outline-none" 
+                              className={`flex-1 bg-bg border border-border p-2 rounded text-sm text-text focus:border-accent outline-none ${opt.bold ? 'font-bold' : ''}`} 
+                              style={{ color: opt.color || 'inherit' }}
                               placeholder="Option Label"
                             />
-                            <input 
-                              type="color" 
-                              value={opt.color || '#ffffff'} 
-                              onChange={(e) => {
-                                const newOpts = [...(col.options || [])];
-                                newOpts[optIdx].color = e.target.value;
-                                updateColumn(index, 'options', newOpts);
-                              }}
-                              className="w-8 h-8 rounded cursor-pointer p-0 bg-transparent border-0" 
-                            />
-                            <label className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted">
-                              <input 
-                                type="checkbox" 
-                                checked={opt.bold || false} 
-                                onChange={(e) => {
-                                  const newOpts = [...(col.options || [])];
-                                  newOpts[optIdx].bold = e.target.checked;
-                                  updateColumn(index, 'options', newOpts);
-                                }}
-                              /> Bold
-                            </label>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <button 
+                                    onClick={() => {
+                                        const newOpts = [...(col.options || [])];
+                                        newOpts[optIdx].bold = !newOpts[optIdx].bold;
+                                        updateColumn(index, 'options', newOpts);
+                                    }}
+                                    className={`w-7 h-7 rounded border transition-all text-[10px] font-black uppercase ${opt.bold ? 'bg-accent border-accent text-white' : 'bg-bg border-border text-muted hover:border-accent/30'}`}
+                                    title="Toggle Bold"
+                                >
+                                    B
+                                </button>
+                                <div className="relative group/manual-color flex items-center">
+                                    <input 
+                                        type="color" 
+                                        value={opt.color || '#ffffff'} 
+                                        onChange={(e) => {
+                                            const newOpts = [...(col.options || [])];
+                                            newOpts[optIdx].color = e.target.value;
+                                            updateColumn(index, 'options', newOpts);
+                                        }}
+                                        className={`w-7 h-7 rounded cursor-pointer p-0 bg-bg border border-border ${!opt.color ? 'opacity-20' : ''}`} 
+                                    />
+                                    {opt.color && (
+                                        <button 
+                                            onClick={() => {
+                                                const newOpts = [...(col.options || [])];
+                                                newOpts[optIdx].color = null;
+                                                updateColumn(index, 'options', newOpts);
+                                            }}
+                                            className="absolute -top-1 -right-1 bg-danger text-white rounded-full p-0.5 opacity-0 group-hover/manual-color:opacity-100 transition-opacity"
+                                            title="Remove Color"
+                                        >
+                                            <X size={8} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
                             <button onClick={() => {
                               const newOpts = [...(col.options || [])];
                               newOpts.splice(optIdx, 1);
@@ -138,7 +201,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ roster, onClose, onS
                         ))}
                         <button 
                           onClick={() => {
-                            const newOpts = [...(col.options || []), { label: '', color: '#ffffff', bold: false }];
+                            const newOpts = [...(col.options || []), { label: '', color: null, bold: false }];
                             updateColumn(index, 'options', newOpts);
                           }}
                           className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 text-accent hover:text-accent/80"

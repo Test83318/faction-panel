@@ -9,6 +9,7 @@ use App\Http\Controllers\RosterSectionController;
 use App\Http\Controllers\RosterContentController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\RosterPermissionController;
+use App\Http\Controllers\DatasetController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -87,4 +88,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/rosters/{roster}/permissions', [RosterPermissionController::class, 'index']);
     Route::put('/rosters/{roster}/permissions', [RosterPermissionController::class, 'update']);
     Route::delete('/rosters/{roster}/permissions/{permissionId}', [RosterPermissionController::class, 'destroy']);
+
+    // Roster Dataset Management
+    Route::get('/factions/{shortname}/datasets', [DatasetController::class, 'index']);
+    Route::post('/factions/{shortname}/datasets', [DatasetController::class, 'store']);
+    Route::put('/datasets/{dataset}', [DatasetController::class, 'update']);
+    Route::delete('/datasets/{dataset}', [DatasetController::class, 'destroy']);
 });

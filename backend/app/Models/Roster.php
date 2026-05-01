@@ -17,12 +17,15 @@ class Roster extends Model
         'order',
         'roster_options',
         'columns',
+        'layout_settings',
+        'default_sections_per_row',
         'created_by'
     ];
 
     protected $casts = [
         'roster_options' => 'array',
         'columns' => 'array',
+        'layout_settings' => 'array',
     ];
 
     public function faction()
