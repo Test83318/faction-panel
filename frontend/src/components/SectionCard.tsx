@@ -3,6 +3,7 @@ import { MoreHorizontal, Plus } from 'lucide-react';
 import { RosterSection } from '../types';
 import { RosterTable } from './RosterTable';
 import api from '../api';
+import toast from 'react-hot-toast';
 
 interface SectionCardProps {
   section: RosterSection;
@@ -29,31 +30,56 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   const canAddChildSection = canModerate || permissions?.add_sections;
 
   const handleAddRow = async (sectionId: number) => {
+    const loadToast = toast.loading('Adding row...');
     try {
       await api.post(`/sections/${sectionId}/contents`, { type: 'predefined', content: {} });
+      toast.success('Row added', { id: loadToast });
       onRefresh?.();
     } catch (err) {
+      toast.error('Failed to add row', { id: loadToast });
       console.error('Failed to add row', err);
     }
   };
 
   const handleUpdateRow = async (id: number, data: any) => {
+    const loadToast = toast.loading('Saving changes...');
     try {
       await api.put(`/contents/${id}`, { content: data });
+      toast.success('Changes saved', { id: loadToast });
       onRefresh?.();
     } catch (err) {
+      toast.error('Failed to save changes', { id: loadToast });
       console.error('Failed to update row', err);
     }
   };
 
   const handleDeleteRow = async (id: number) => {
-    if (!window.confirm('Delete this row?')) return;
-    try {
-      await api.delete(`/contents/${id}`);
-      onRefresh?.();
-    } catch (err) {
-      console.error('Failed to delete row', err);
-    }
+    toast((t) => (
+      <div className="flex flex-col gap-1 text-left">
+        <p className="font-bold">Delete this row?</p>
+        <p className="text-[10px] opacity-80 uppercase tracking-tighter">This action cannot be undone.</p>
+        <div className="flex gap-2 justify-end mt-2">
+          <button onClick={() => toast.dismiss(t.id)} className="px-2 py-1 bg-surface hover:bg-bg border border-border rounded text-[9px] font-bold uppercase transition">Cancel</button>
+          <button 
+            onClick={async () => {
+              toast.dismiss(t.id);
+              const loadToast = toast.loading('Deleting row...');
+              try {
+                await api.delete(`/contents/${id}`);
+                toast.success('Row deleted', { id: loadToast });
+                onRefresh?.();
+              } catch (err) {
+                toast.error('Failed to delete row', { id: loadToast });
+                console.error('Failed to delete row', err);
+              }
+            }}
+            className="px-2 py-1 bg-danger text-white hover:bg-danger/90 rounded text-[9px] font-bold uppercase transition shadow-lg shadow-danger/20"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    ), { duration: 6000, position: 'top-center' });
   };
 
   if (section.type === 'master') {

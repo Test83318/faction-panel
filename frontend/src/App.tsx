@@ -54,16 +54,20 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    const loadToast = toast.loading(newRoster.id ? 'Saving roster...' : 'Creating roster...');
     try {
       if (newRoster.id) {
         await api.put(`/rosters/${newRoster.id}`, newRoster);
+        toast.success('Roster updated', { id: loadToast });
       } else {
         await api.post(`/factions/${shortname}/rosters`, newRoster);
+        toast.success('Roster created', { id: loadToast });
       }
       await fetchRosters();
       setShowCreateModal(false);
       setNewRoster({ id: null, name: '', shortname: '', color: '#3b82f6' });
     } catch (err) {
+      toast.error('Failed to save roster', { id: loadToast });
       console.error('Failed to save roster', err);
     } finally {
       setIsSaving(false);
@@ -87,7 +91,9 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
         await api.put(`/factions/${shortname}/rosters/reorder`, {
             roster_ids: newOrder.map(r => r.id)
         });
+        toast.success('Order saved');
     } catch (err) {
+        toast.error('Failed to save order');
         console.error('Failed to reorder rosters', err);
     }
   };
@@ -95,16 +101,20 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
   const handleSectionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    const loadToast = toast.loading(sectionData.id ? 'Saving section...' : 'Creating section...');
     try {
       if (sectionData.id) {
         await api.put(`/sections/${sectionData.id}`, sectionData);
+        toast.success('Section updated', { id: loadToast });
       } else {
         await api.post(`/rosters/${activeDivId}/sections`, sectionData);
+        toast.success('Section created', { id: loadToast });
       }
       await fetchRosters();
       setShowSectionModal(false);
       setSectionData({ id: null, name: '', shortname: '', color: '', type: 'section', parent_id: null });
     } catch (err) {
+      toast.error('Failed to save section', { id: loadToast });
       console.error('Failed to save section', err);
     } finally {
       setIsSaving(false);
@@ -112,25 +122,66 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this roster?')) return;
-    try {
-      await api.delete(`/rosters/${id}`);
-      await fetchRosters();
-      setActiveMenuId(null);
-    } catch (err) {
-      console.error('Failed to delete roster', err);
-    }
+    const roster = rosters.find(r => r.id === id);
+    if (!roster) return;
+
+    toast((t) => (
+      <div className="flex flex-col gap-1 text-left">
+        <p className="font-bold">Delete roster "{roster.name}"?</p>
+        <p className="text-[10px] opacity-80 uppercase tracking-tighter">This action cannot be undone and will delete all sections and contents.</p>
+        <div className="flex gap-2 justify-end mt-2">
+          <button onClick={() => toast.dismiss(t.id)} className="px-2 py-1 bg-surface hover:bg-bg border border-border rounded text-[9px] font-bold uppercase transition">Cancel</button>
+          <button 
+            onClick={async () => {
+              toast.dismiss(t.id);
+              const loadToast = toast.loading('Deleting roster...');
+              try {
+                await api.delete(`/rosters/${id}`);
+                toast.success('Roster deleted', { id: loadToast });
+                await fetchRosters();
+                setActiveMenuId(null);
+              } catch (err) {
+                toast.error('Failed to delete roster', { id: loadToast });
+                console.error('Failed to delete roster', err);
+              }
+            }}
+            className="px-2 py-1 bg-danger text-white hover:bg-danger/90 rounded text-[9px] font-bold uppercase transition shadow-lg shadow-danger/20"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    ), { duration: 6000, position: 'top-center' });
   };
 
   const handleDeleteSection = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this section?')) return;
-    try {
-      await api.delete(`/sections/${id}`);
-      await fetchRosters();
-      setShowSectionModal(false);
-    } catch (err) {
-      console.error('Failed to delete section', err);
-    }
+    toast((t) => (
+      <div className="flex flex-col gap-1 text-left">
+        <p className="font-bold">Delete this section?</p>
+        <p className="text-[10px] opacity-80 uppercase tracking-tighter">This action cannot be undone and will delete all content within this section.</p>
+        <div className="flex gap-2 justify-end mt-2">
+          <button onClick={() => toast.dismiss(t.id)} className="px-2 py-1 bg-surface hover:bg-bg border border-border rounded text-[9px] font-bold uppercase transition">Cancel</button>
+          <button 
+            onClick={async () => {
+              toast.dismiss(t.id);
+              const loadToast = toast.loading('Deleting section...');
+              try {
+                await api.delete(`/sections/${id}`);
+                toast.success('Section deleted', { id: loadToast });
+                await fetchRosters();
+                setShowSectionModal(false);
+              } catch (err) {
+                toast.error('Failed to delete section', { id: loadToast });
+                console.error('Failed to delete section', err);
+              }
+            }}
+            className="px-2 py-1 bg-danger text-white hover:bg-danger/90 rounded text-[9px] font-bold uppercase transition shadow-lg shadow-danger/20"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    ), { duration: 6000, position: 'top-center' });
   };
 
   const handleAddChildSection = (parentId: number) => {

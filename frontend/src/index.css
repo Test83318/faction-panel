@@ -96,6 +96,16 @@ input, select, textarea {
   @apply hover:bg-accent/4 transition-colors;
 }
 
+@keyframes progress {
+  0% { transform: translateX(-100%) scaleX(0.2); }
+  50% { transform: translateX(0%) scaleX(0.5); }
+  100% { transform: translateX(100%) scaleX(0.2); }
+}
+
+.animate-progress {
+  animation: progress 1s infinite linear;
+}
+
 .bureaus-container {
   @apply flex flex-wrap gap-3 justify-start items-start w-full;
 }

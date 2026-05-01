@@ -58,6 +58,7 @@ export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ 
             newPerms = [permKey];
         }
 
+        const loadToast = toast.loading('Updating permission...');
         try {
             const res = await api.put(`/rosters/${roster.id}/permissions`, {
                 group_id: groupId,
@@ -73,18 +74,20 @@ export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ 
                 }
                 return [...prev, res.data];
             });
+            toast.success('Permission updated', { id: loadToast });
         } catch (err) {
-            toast.error('Failed to update permission');
+            toast.error('Failed to update permission', { id: loadToast });
         }
     };
 
     const handleRemoveEntry = async (id: number) => {
+        const loadToast = toast.loading('Removing entry...');
         try {
             await api.delete(`/rosters/${roster.id}/permissions/${id}`);
             setPermissions(prev => prev.filter(p => p.id !== id));
-            toast.success('Permission entry removed');
+            toast.success('Permission entry removed', { id: loadToast });
         } catch (err) {
-            toast.error('Failed to remove permission');
+            toast.error('Failed to remove permission', { id: loadToast });
         }
     };
 
@@ -94,6 +97,7 @@ export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ 
             return;
         }
 
+        const loadToast = toast.loading('Adding group...');
         try {
             const res = await api.put(`/rosters/${roster.id}/permissions`, {
                 group_id: groupId,
@@ -101,9 +105,9 @@ export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ 
             });
             setPermissions([...permissions, res.data]);
             setShowAddGroup(false);
-            toast.success(groupId === null ? 'Public access added' : 'Group added');
+            toast.success(groupId === null ? 'Public access added' : 'Group added', { id: loadToast });
         } catch (err) {
-            toast.error('Failed to add group');
+            toast.error('Failed to add group', { id: loadToast });
         }
     };
 

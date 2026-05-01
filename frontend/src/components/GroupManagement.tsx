@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, UserPlus, UserMinus, Shield, ShieldAlert, X, Search, MoreVertical } from 'lucide-react';
 import api from '../api';
 import toast from 'react-hot-toast';
+import Loading from './Loading';
 import { Group } from '../types';
 
 interface GroupManagementProps {
@@ -16,6 +17,7 @@ const GroupManagement: React.FC<GroupManagementProps> = ({ shortname, user, perm
     const [showGroupModal, setShowGroupModal] = useState(false);
     const [showMemberModal, setShowMemberModal] = useState<Group | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
     const [factionUsers, setFactionUsers] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -28,10 +30,15 @@ const GroupManagement: React.FC<GroupManagementProps> = ({ shortname, user, perm
     const hasPerm = (perm: string) => permissions.includes(perm);
     const isGlobalManager = hasPerm('manage_group_members');
 
-    const fetchGroups = async () => {
+    const fetchGroups = async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const res = await api.get(`/factions/${shortname}/groups`);
             setGroups(res.data);
+            if (showMemberModal) {
+                const updated = res.data.find((g: any) => g.id === showMemberModal.id);
+                if (updated) setShowMemberModal(updated);
+            }
         } catch (err) {
             console.error('Failed to fetch groups', err);
         } finally {
@@ -58,61 +65,94 @@ const GroupManagement: React.FC<GroupManagementProps> = ({ shortname, user, perm
     const handleSaveGroup = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
+        const loadToast = toast.loading(groupForm.id ? 'Updating group...' : 'Creating group...');
         try {
             if (groupForm.id) {
                 await api.put(`/groups/${groupForm.id}`, groupForm);
-                toast.success('Group updated');
+                toast.success('Group updated', { id: loadToast });
             } else {
                 await api.post(`/factions/${shortname}/groups`, groupForm);
-                toast.success('Group created');
+                toast.success('Group created', { id: loadToast });
             }
             setShowGroupModal(false);
-            fetchGroups();
+            fetchGroups(true);
         } catch (err) {
-            toast.error('Failed to save group');
+            toast.error('Failed to save group', { id: loadToast });
         } finally {
             setIsSaving(false);
         }
     };
 
     const handleDeleteGroup = async (id: number) => {
-        if (!window.confirm('Are you sure you want to delete this group?')) return;
-        try {
-            await api.delete(`/groups/${id}`);
-            toast.success('Group deleted');
-            fetchGroups();
-        } catch (err) {
-            toast.error('Failed to delete group');
-        }
+        const group = groups.find(g => g.id === id);
+        if (!group) return;
+
+        toast((t) => (
+            <div className="flex flex-col gap-1 text-left">
+                <p className="font-bold">Delete group "{group.name}"?</p>
+                <p className="text-[10px] opacity-80 uppercase tracking-tighter">This action cannot be undone and will remove all members from the group.</p>
+                <div className="flex gap-2 justify-end mt-2">
+                    <button onClick={() => toast.dismiss(t.id)} className="px-2 py-1 bg-surface hover:bg-bg border border-border rounded text-[9px] font-bold uppercase transition">Cancel</button>
+                    <button 
+                        onClick={async () => {
+                            toast.dismiss(t.id);
+                            const loadToast = toast.loading('Deleting group...');
+                            try {
+                                await api.delete(`/groups/${id}`);
+                                toast.success('Group deleted', { id: loadToast });
+                                fetchGroups(true);
+                            } catch (err) {
+                                toast.error('Failed to delete group', { id: loadToast });
+                            }
+                        }}
+                        className="px-2 py-1 bg-danger text-white hover:bg-danger/90 rounded text-[9px] font-bold uppercase transition shadow-lg shadow-danger/20"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </div>
+        ), { duration: 6000, position: 'top-center' });
     };
 
     const handleAddMember = async (groupId: number, userId: number, isLeader = false) => {
+        setIsProcessing(true);
+        const loadToast = toast.loading('Adding member...');
         try {
             await api.post(`/groups/${groupId}/members`, { user_id: userId, is_leader: isLeader });
-            toast.success('Member added');
-            fetchGroups();
+            toast.success('Member added', { id: loadToast });
+            await fetchGroups(true);
         } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Failed to add member');
+            toast.error(err.response?.data?.message || 'Failed to add member', { id: loadToast });
+        } finally {
+            setIsProcessing(false);
         }
     };
 
     const handleRemoveMember = async (groupId: number, userId: number) => {
+        setIsProcessing(true);
+        const loadToast = toast.loading('Removing member...');
         try {
             await api.delete(`/groups/${groupId}/members/${userId}`);
-            toast.success('Member removed');
-            fetchGroups();
+            toast.success('Member removed', { id: loadToast });
+            await fetchGroups(true);
         } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Failed to remove member');
+            toast.error(err.response?.data?.message || 'Failed to remove member', { id: loadToast });
+        } finally {
+            setIsProcessing(false);
         }
     };
 
     const handleToggleLeader = async (groupId: number, userId: number) => {
+        setIsProcessing(true);
+        const loadToast = toast.loading('Updating leader status...');
         try {
             await api.put(`/groups/${groupId}/members/${userId}/toggle-leader`);
-            toast.success('Leader status updated');
-            fetchGroups();
+            toast.success('Leader status updated', { id: loadToast });
+            await fetchGroups(true);
         } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Failed to toggle leader');
+            toast.error(err.response?.data?.message || 'Failed to toggle leader', { id: loadToast });
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -121,10 +161,15 @@ const GroupManagement: React.FC<GroupManagementProps> = ({ shortname, user, perm
         !showMemberModal?.members?.some(m => m.id === u.id)
     );
 
-    if (loading) return <div className="p-8 text-center text-muted font-bold uppercase tracking-widest text-[10px]">Loading groups...</div>;
+    if (loading) return <Loading message="Loading groups..." fullScreen={false} />;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative">
+            {isProcessing && (
+                <div className="absolute -top-5 left-0 right-0 h-1 bg-accent/20 overflow-hidden z-[100] rounded-full">
+                    <div className="h-full bg-accent animate-progress origin-left" />
+                </div>
+            )}
             <div className="flex justify-between items-center mb-8">
                 <div>
                     <h1 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3">
