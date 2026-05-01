@@ -285,6 +285,74 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortn
                       </div>
                     </div>
 
+                    <div className="space-y-2 border-t border-border mt-4 pt-4">
+                      <label className="block text-[10px] text-muted font-bold uppercase tracking-widest">Right-side Tags (e.g. Trainee, Lead)</label>
+                      <div className="flex flex-wrap gap-2">
+                        {(col.tags || []).map((tag: any, tagIdx: number) => {
+                          const label = typeof tag === 'string' ? tag : tag.label;
+                          const color = typeof tag === 'string' ? null : tag.color;
+                          
+                          return (
+                            <div key={tagIdx} className="flex items-center gap-1.5 bg-bg px-2 py-1 rounded border border-border group/tag">
+                              <input 
+                                value={label}
+                                onChange={(e) => {
+                                  const newTags = [...(col.tags || [])];
+                                  if (typeof tag === 'string') {
+                                      newTags[tagIdx] = e.target.value;
+                                  } else {
+                                      newTags[tagIdx] = { ...tag, label: e.target.value };
+                                  }
+                                  updateColumn(index, 'tags', newTags);
+                                }}
+                                className="bg-transparent text-xs w-16 outline-none text-text"
+                                placeholder="Label"
+                              />
+                              <div className="relative flex items-center">
+                                <input 
+                                    type="color" 
+                                    value={color || '#ffffff'} 
+                                    onChange={(e) => {
+                                        const newTags = [...(col.tags || [])];
+                                        const newLabel = typeof tag === 'string' ? tag : tag.label;
+                                        newTags[tagIdx] = { label: newLabel, color: e.target.value };
+                                        updateColumn(index, 'tags', newTags);
+                                    }}
+                                    className={`w-4 h-4 rounded-sm cursor-pointer p-0 bg-transparent border-none ${!color ? 'opacity-20' : ''}`} 
+                                />
+                                {color && (
+                                    <button 
+                                        onClick={() => {
+                                            const newTags = [...(col.tags || [])];
+                                            newTags[tagIdx] = label;
+                                            updateColumn(index, 'tags', newTags);
+                                        }}
+                                        className="absolute -top-1 -right-1 bg-danger text-white rounded-full p-0.5 opacity-0 group-hover/tag:opacity-100 transition-opacity"
+                                    >
+                                        <X size={6} />
+                                    </button>
+                                )}
+                              </div>
+                              <button onClick={() => {
+                                const newTags = [...(col.tags || [])];
+                                newTags.splice(tagIdx, 1);
+                                updateColumn(index, 'tags', newTags);
+                              }} className="text-muted hover:text-danger"><X size={12} /></button>
+                            </div>
+                          );
+                        })}
+                        <button 
+                          onClick={() => {
+                            const newTags = [...(col.tags || []), { label: 'Trainee', color: '#ffaa00' }];
+                            updateColumn(index, 'tags', newTags);
+                          }}
+                          className="flex items-center gap-1 bg-bg px-2 py-1 rounded border border-border border-dashed text-muted hover:text-text hover:border-accent text-xs"
+                        >
+                          <Plus size={12} /> Add Tag
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="flex justify-end pt-2 border-t border-border">
                       <button onClick={() => setEditingIndex(null)} className="px-4 py-1.5 bg-accent hover:bg-accent/90 text-white rounded font-bold text-xs uppercase tracking-widest transition flex items-center gap-1">
                         <Check size={14} /> Done Editing
