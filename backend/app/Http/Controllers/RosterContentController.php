@@ -13,8 +13,9 @@ class RosterContentController extends Controller
     public function store(Request $request, RosterSection $section)
     {
         $roster = $section->roster;
+        $user = Auth::user();
 
-        if (!User::hasRosterPermission(Auth::user(), $roster, 'edit_predefined')) {
+        if (!User::hasRosterPermission($user, $roster, 'edit_predefined')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -22,6 +23,23 @@ class RosterContentController extends Controller
             'type' => 'required|string|in:predefined,defined',
             'content' => 'nullable|array',
         ]);
+
+        if (isset($validated['content'])) {
+            $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
+            
+            if (!$canViewHidden) {
+                $hiddenColIds = collect($roster->columns ?? [])
+                    ->filter(fn($col) => str_contains($col['type'] ?? '', 'hidden'))
+                    ->pluck('id')
+                    ->toArray();
+
+                foreach ($hiddenColIds as $colId) {
+                    if (array_key_exists($colId, $validated['content'])) {
+                        unset($validated['content'][$colId]);
+                    }
+                }
+            }
+        }
 
         $maxOrder = $section->contents()->max('order') ?? -1;
 
@@ -39,8 +57,10 @@ class RosterContentController extends Controller
         $roster = $content->section->roster;
 
         $user = Auth::user();
-        if (!User::hasRosterPermission($user, $roster, 'edit_defined_fields') && 
-            !User::hasRosterPermission($user, $roster, 'edit_predefined')) {
+        $canEditDefined = User::hasRosterPermission($user, $roster, 'edit_defined_fields');
+        $canEditPredefined = User::hasRosterPermission($user, $roster, 'edit_predefined');
+
+        if (!$canEditDefined && !$canEditPredefined) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -49,6 +69,24 @@ class RosterContentController extends Controller
             'content' => 'sometimes|array',
             'order' => 'sometimes|integer',
         ]);
+
+        if (isset($validated['content'])) {
+            $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
+            
+            if (!$canViewHidden) {
+                $hiddenColIds = collect($roster->columns ?? [])
+                    ->filter(fn($col) => str_contains($col['type'] ?? '', 'hidden'))
+                    ->pluck('id')
+                    ->toArray();
+
+                foreach ($hiddenColIds as $colId) {
+                    if (array_key_exists($colId, $validated['content'])) {
+                        // Remove hidden columns from update if user lacks permission
+                        unset($validated['content'][$colId]);
+                    }
+                }
+            }
+        }
 
         $content->update($validated);
 

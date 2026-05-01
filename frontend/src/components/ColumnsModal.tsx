@@ -5,14 +5,15 @@ import api from '../api';
 import { Roster } from '../types';
 
 interface ColumnsModalProps {
-  roster: Roster;
+  target: { id: number; name: string; columns?: any[] };
+  type: 'roster' | 'section';
   shortname: string;
   onClose: () => void;
   onSave: () => void;
 }
 
-export const ColumnsModal: React.FC<ColumnsModalProps> = ({ roster, shortname, onClose, onSave }) => {
-  const [columns, setColumns] = useState<any[]>(roster.columns || [
+export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortname, onClose, onSave }) => {
+  const [columns, setColumns] = useState<any[]>(target.columns || [
       { id: 'rank', name: 'Rank', type: 'dropdown', options: [], checkboxes: ['Acting'] },
       { id: 'name', name: 'Name', type: 'text', checkboxes: ['LOA'] },
       { id: 'position', name: 'Position', type: 'text', checkboxes: [] },
@@ -37,7 +38,8 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ roster, shortname, o
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await api.put(`/rosters/${roster.id}`, { columns });
+      const endpoint = type === 'roster' ? `/rosters/${target.id}` : `/sections/${target.id}`;
+      await api.put(endpoint, { columns });
       onSave();
     } catch (err) {
       console.error('Failed to save columns', err);
@@ -72,7 +74,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ roster, shortname, o
       <div className="bg-card p-6 rounded-lg max-w-2xl w-full border border-border shadow-2xl max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold flex items-center gap-2 text-text">
-            <Settings2 size={18} /> Manage Columns: {roster.name}
+            <Settings2 size={18} /> Manage Columns: {target.name}
           </h2>
           <button onClick={onClose} className="text-muted hover:text-text"><X size={20} /></button>
         </div>
@@ -101,8 +103,12 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ roster, shortname, o
                         >
                           <option value="text">Text</option>
                           <option value="dropdown">Dropdown</option>
+                          <option value="hidden_text">Hidden Text</option>
+                          <option value="hidden_dropdown">Hidden Dropdown</option>
                           <option value="predefined_text">Predefined Text</option>
                           <option value="predefined_dropdown">Predefined Dropdown</option>
+                          <option value="predefined_hidden_text">Predefined Hidden Text</option>
+                          <option value="predefined_hidden_dropdown">Predefined Hidden Dropdown</option>
                         </select>
                       </div>
                     </div>

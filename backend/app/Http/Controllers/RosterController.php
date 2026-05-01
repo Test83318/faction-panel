@@ -13,7 +13,7 @@ class RosterController extends Controller
     public function index($shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        $user = Auth::user();
+        $user = Auth::guard('sanctum')->user();
 
         // If user has view_faction_roster, they see everything by default.
         // If not, they might still see specific rosters if they have permission.
@@ -34,6 +34,8 @@ class RosterController extends Controller
         }
 
         $filteredRosters->each(function ($roster) use ($user) {
+            $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
+            
             $perms = [
                 'view_roster' => User::hasRosterPermission($user, $roster, 'view_roster'),
                 'modify_roster' => User::hasRosterPermission($user, $roster, 'modify_roster'),
@@ -43,11 +45,51 @@ class RosterController extends Controller
                 'remove_sections' => User::hasRosterPermission($user, $roster, 'remove_sections'),
                 'edit_predefined' => User::hasRosterPermission($user, $roster, 'edit_predefined'),
                 'edit_defined_fields' => User::hasRosterPermission($user, $roster, 'edit_defined_fields'),
+                'view_hidden_data' => $canViewHidden,
             ];
             $roster->user_roster_permissions = $perms;
+
+            // Apply data masking if user cannot view hidden data
+            if (!$canViewHidden) {
+                $hiddenColIds = collect($roster->columns ?? [])
+                    ->filter(fn($col) => str_contains($col['type'] ?? '', 'hidden'))
+                    ->pluck('id')
+                    ->toArray();
+
+                if (!empty($hiddenColIds)) {
+                    foreach ($roster->rootSections as $section) {
+                        $this->maskSection($section, $hiddenColIds);
+                    }
+                }
+            }
         });
 
         return response()->json($filteredRosters->values());
+    }
+
+    private function maskSection($section, array $hiddenColIds)
+    {
+        // Mask contents of this section
+        if ($section->contents) {
+            foreach ($section->contents as $content) {
+                $data = $content->content;
+                if (is_array($data)) {
+                    foreach ($hiddenColIds as $colId) {
+                        if (isset($data[$colId]) && $data[$colId] !== '') {
+                            $data[$colId] = '????';
+                        }
+                    }
+                    $content->content = $data;
+                }
+            }
+        }
+
+        // Recursively mask children
+        if ($section->children) {
+            foreach ($section->children as $child) {
+                $this->maskSection($child, $hiddenColIds);
+            }
+        }
     }
 
     public function store(Request $request, $shortname)
@@ -89,7 +131,12 @@ class RosterController extends Controller
 
     public function update(Request $request, Roster $roster)
     {
-        if (!User::hasRosterPermission(Auth::user(), $roster, 'modify_roster') && !User::hasRosterPermission(Auth::user(), $roster, 'manage_layout')) {
+        $user = Auth::user();
+        $canModify = User::hasRosterPermission($user, $roster, 'modify_roster');
+        $canManageLayout = User::hasRosterPermission($user, $roster, 'manage_layout');
+        $canManageColumns = User::hasRosterPermission($user, $roster, 'manage_columns');
+
+        if (!$canModify && !$canManageLayout && !$canManageColumns) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -104,13 +151,35 @@ class RosterController extends Controller
             'section_order' => 'nullable|array',
         ]);
 
-        if (isset($validated['shortname'])) {
-            $validated['shortname'] = strtoupper($validated['shortname']);
+        // Authorization logic for specific fields
+        $toUpdate = [];
+
+        // Critical settings (name, color, shortname) -> modify_roster
+        if ($canModify) {
+            foreach(['name', 'shortname', 'color', 'roster_options'] as $field) {
+                if (isset($validated[$field])) $toUpdate[$field] = $validated[$field];
+            }
         }
 
-        $roster->update($validated);
+        // Layout settings -> manage_layout
+        if ($canManageLayout) {
+            foreach(['layout_settings', 'default_sections_per_row', 'section_order'] as $field) {
+                if (isset($validated[$field])) $toUpdate[$field] = $validated[$field];
+            }
+        }
 
-        if (isset($validated['section_order'])) {
+        // Columns -> manage_columns
+        if ($canManageColumns) {
+            if (isset($validated['columns'])) $toUpdate['columns'] = $validated['columns'];
+        }
+
+        if (empty($toUpdate) && !isset($validated['section_order'])) {
+             return response()->json(['message' => 'No authorized changes provided'], 403);
+        }
+
+        $roster->update(collect($toUpdate)->except('section_order')->toArray());
+
+        if (isset($validated['section_order']) && $canManageLayout) {
             foreach ($validated['section_order'] as $index => $id) {
                 $roster->sections()->where('id', $id)->update(['order' => $index]);
             }

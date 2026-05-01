@@ -69,8 +69,19 @@ class FactionController extends Controller
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::guard('sanctum')->user();
 
-        if (!User::hasFactionPermission($user, $faction, 'view_faction_roster')) {
-            return response()->json(['message' => 'Forbidden'], 403);
+        $canViewGlobal = User::hasFactionPermission($user, $faction, 'view_faction_roster');
+        
+        if (!$canViewGlobal) {
+            $canViewAnyRoster = false;
+            foreach ($faction->rosters as $roster) {
+                if (User::hasRosterPermission($user, $roster, 'view_roster')) {
+                    $canViewAnyRoster = true;
+                    break;
+                }
+            }
+            if (!$canViewAnyRoster) {
+                return response()->json(['message' => 'Forbidden'], 403);
+            }
         }
 
         if ($user) {

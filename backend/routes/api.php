@@ -24,6 +24,8 @@ Route::get('/permissions/config', [RoleController::class, 'getGlobalConfig']);
 // Public/Guest Faction Access
 Route::get('/factions/{shortname}', [FactionController::class, 'show']);
 Route::get('/factions/{shortname}/permissions', [FactionController::class, 'getPermissions']);
+Route::get('/factions/{shortname}/rosters', [RosterController::class, 'index']);
+Route::get('/factions/{shortname}/datasets', [DatasetController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
@@ -57,7 +59,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/roles/{role}/permissions', [RoleController::class, 'updatePermissions']);
 
     // Roster Management
-    Route::get('/factions/{shortname}/rosters', [RosterController::class, 'index']);
     Route::post('/factions/{shortname}/rosters', [RosterController::class, 'store']);
     Route::put('/rosters/{roster}', [RosterController::class, 'update']);
     Route::delete('/rosters/{roster}', [RosterController::class, 'destroy']);
@@ -90,7 +91,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/rosters/{roster}/permissions/{permissionId}', [RosterPermissionController::class, 'destroy']);
 
     // Roster Dataset Management
-    Route::get('/factions/{shortname}/datasets', [DatasetController::class, 'index']);
     Route::post('/factions/{shortname}/datasets', [DatasetController::class, 'store']);
     Route::put('/datasets/{dataset}', [DatasetController::class, 'update']);
     Route::delete('/datasets/{dataset}', [DatasetController::class, 'destroy']);

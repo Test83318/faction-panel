@@ -158,9 +158,10 @@ export const SectionCard: React.FC<SectionCardProps> = ({
                     {!section.parent_id && canAddChildSection && (
                         <button 
                             onClick={() => onAddChild?.(section.id)}
-                            className="p-0.5 hover:bg-bg rounded text-muted hover:text-accent"
+                            className="px-1.5 py-0.5 hover:bg-bg rounded text-muted hover:text-accent flex items-center gap-1 transition-colors"
                         >
-                            <Plus size={10} />
+                            <span className="text-[7px] font-black uppercase tracking-widest">section</span>
+                            <Plus size={8} />
                         </button>
                     )}
                     <button 
@@ -196,7 +197,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             contents={child.contents || []} 
             allContents={allContents}
             accentColor={child.color || section.color || 'var(--accent)'} 
-            columns={columns} 
+            columns={child.columns || columns} 
             datasets={datasets}
             editMode={editMode}
             canModerate={canModerate}

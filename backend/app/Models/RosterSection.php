@@ -18,11 +18,13 @@ class RosterSection extends Model
         'order',
         'parent_id',
         'section_options',
+        'columns',
         'created_by'
     ];
 
     protected $casts = [
         'section_options' => 'array',
+        'columns' => 'array',
     ];
 
     public function roster()

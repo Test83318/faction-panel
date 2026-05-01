@@ -179,6 +179,11 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   };
 
   const isColEditable = (col: RosterColumn) => {
+    const isHidden = col.type.includes('hidden');
+    const canViewHidden = canModerate || permissions?.view_hidden_data;
+    
+    if (isHidden && !canViewHidden) return false;
+
     if (editMode && canEditPredefined) return true;
     if (col.type.startsWith('predefined_') || col.type.includes('predefined')) {
         return canEditPredefined;
@@ -192,6 +197,11 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     const isEditing = editingRowId === row.id;
     const value = isEditing ? editData[col.id] : (row.content?.[col.id] || '');
     const checked = isEditing ? (editData[`${col.id}_cb`] || []) : (row.content?.[`${col.id}_cb`] || []);
+
+    const isHiddenType = col.type.includes('hidden');
+    const canViewHidden = canModerate || permissions?.view_hidden_data;
+    
+    const showValue = !isHiddenType || canViewHidden;
 
     const boundDataset = col.dataset_id ? datasets.find(d => d.id === col.dataset_id) : null;
     const datasetOptions = boundDataset?.options || [];
@@ -208,7 +218,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     };
 
     if (isEditing && isColEditable(col)) {
-      if (col.type === 'dropdown' || col.type === 'predefined_dropdown') {
+      if (col.type === 'dropdown' || col.type === 'predefined_dropdown' || col.type === 'hidden_dropdown' || col.type === 'predefined_hidden_dropdown') {
         return (
           <div className="flex flex-col items-center justify-center h-full w-full gap-0.5 relative group/cell">
             <select 
@@ -333,7 +343,14 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         className={`flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all overflow-hidden whitespace-nowrap text-ellipsis ${canEditAny ? 'cursor-pointer hover:bg-accent/5' : ''}`}
         onClick={() => canEditAny && handleStartEdit(row)}
       >
-        <span className="text-[10px] uppercase font-medium" style={textStyle}>{value || '-'}</span>
+        <div className="flex items-center gap-1.5 overflow-hidden px-1">
+            <span 
+                className={`text-[10px] uppercase font-medium transition-all ${!showValue && value ? 'blur-[3px] select-none opacity-50 font-black tracking-widest' : ''}`} 
+                style={textStyle}
+            >
+                {showValue ? (value || '-') : '??????'}
+            </span>
+        </div>
         {checked.length > 0 && (
           <div className="flex gap-0.5">
             {checked.map((cb: string) => (

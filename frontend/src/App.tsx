@@ -37,7 +37,8 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSectionModal, setShowSectionModal] = useState(false);
-  const [showColumnsModal, setShowColumnsModal] = useState<RosterType | null>(null);
+  const [showColumnsModal, setShowColumnsModal] = useState<any | null>(null);
+  const [showSectionColumnsModal, setShowSectionColumnsModal] = useState<any | null>(null);
   const [showPermissionsModal, setShowPermissionsModal] = useState<RosterType | null>(null);
   const [showVariablesModal, setShowVariablesModal] = useState(false);
   const [showLayoutModal, setShowLayoutModal] = useState<RosterType | null>(null);
@@ -82,7 +83,8 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
     shortname: '', 
     color: '', 
     type: 'section' as 'master' | 'section' | 'subsection',
-    parent_id: null as number | null
+    parent_id: null as number | null,
+    columns: null as any[] | null
   });
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -146,7 +148,7 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
       }
       await fetchRosters();
       setShowSectionModal(false);
-      setSectionData({ id: null, name: '', shortname: '', color: '', type: 'section', parent_id: null });
+      setSectionData({ id: null, name: '', shortname: '', color: '', type: 'section', parent_id: null, columns: null });
     } catch (err) {
       toast.error('Failed to save section', { id: loadToast });
       console.error('Failed to save section', err);
@@ -219,17 +221,17 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
   };
 
   const handleAddChildSection = (parentId: number) => {
-    setSectionData({ 
+    setSectionData({
         id: null,
-        name: '', 
-        shortname: '', 
-        color: '', 
-        type: 'section', 
-        parent_id: parentId 
+        name: '',
+        shortname: '',
+        color: '',
+        type: 'section',
+        parent_id: parentId,
+        columns: null
     });
     setShowSectionModal(true);
   };
-
   const handleEditSection = (section: any) => {
     setSectionData({
         id: section.id,
@@ -237,7 +239,8 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
         shortname: section.shortname,
         color: section.color || '',
         type: section.type,
-        parent_id: section.parent_id
+        parent_id: section.parent_id,
+        columns: section.columns
     });
     setShowSectionModal(true);
   };
@@ -274,12 +277,13 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                         {canAddSections && (
                             <button 
                                 onClick={() => {
-                                    setSectionData({ id: null, name: '', shortname: '', color: '', type: 'section', parent_id: null });
+                                    setSectionData({ id: null, name: '', shortname: '', color: '', type: 'section', parent_id: null, columns: null });
                                     setShowSectionModal(true);
                                 }}
-                                className="p-1 hover:bg-surface rounded text-muted hover:text-accent transition-colors"
+                                className="px-2 py-1 hover:bg-surface rounded text-muted hover:text-accent transition-colors flex items-center gap-1"
                             >
-                                <Plus size={14} />
+                                <span className="text-[9px] font-black uppercase tracking-widest">section</span>
+                                <Plus size={12} />
                             </button>
                         )}
                     </div>
@@ -296,7 +300,7 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                         canModerate={isGlobalMod}
                         permissions={rosterPerms}
                         onEdit={handleEditSection}
-                        columns={rosters.find((r: any) => r.id === activeDivId)?.columns}
+                        columns={section.columns || rosters.find((r: any) => r.id === activeDivId)?.columns}
                         datasets={datasets}
                         allContents={allContents}
                         editMode={editMode}
@@ -325,7 +329,7 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                             permissions={rosterPerms}
                             onAddChild={handleAddChildSection}
                             onEdit={handleEditSection}
-                            columns={rosters.find((r: any) => r.id === activeDivId)?.columns}
+                            columns={section.columns || rosters.find((r: any) => r.id === activeDivId)?.columns}
                             datasets={datasets}
                             allContents={allContents}
                             editMode={editMode}
@@ -355,7 +359,7 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                         permissions={rosterPerms}
                         onAddChild={handleAddChildSection}
                         onEdit={handleEditSection}
-                        columns={rosters.find((r: any) => r.id === activeDivId)?.columns}
+                        columns={section.columns || rosters.find((r: any) => r.id === activeDivId)?.columns}
                         datasets={datasets}
                         allContents={allContents}
                         editMode={editMode}
@@ -372,7 +376,7 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                         {canModerate && (
                             <button 
                                 onClick={() => {
-                                    setSectionData({ id: null, name: '', shortname: '', color: '', type: 'section', parent_id: null });
+                                    setSectionData({ id: null, name: '', shortname: '', color: '', type: 'section', parent_id: null, columns: null });
                                     setShowSectionModal(true);
                                 }}
                                 className="mt-4 px-4 py-2 bg-accent/10 hover:bg-accent/20 text-accent rounded font-bold text-[10px] uppercase tracking-widest transition-all"
@@ -573,14 +577,29 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
         )}
       </div>
 
-      {/* Columns Modal */}
+      {/* Columns Modal (Roster) */}
       {showColumnsModal && (
         <ColumnsModal 
-          roster={showColumnsModal} 
-          shortname={shortname}
+          target={showColumnsModal} 
+          type="roster"
+          shortname={shortname!}
           onClose={() => setShowColumnsModal(null)} 
           onSave={() => {
             setShowColumnsModal(null);
+            fetchRosters();
+          }} 
+        />
+      )}
+
+      {/* Columns Modal (Section) */}
+      {showSectionColumnsModal && (
+        <ColumnsModal 
+          target={showSectionColumnsModal} 
+          type="section"
+          shortname={shortname!}
+          onClose={() => setShowSectionColumnsModal(null)} 
+          onSave={() => {
+            setShowSectionColumnsModal(null);
             fetchRosters();
           }} 
         />
@@ -712,9 +731,20 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
               </div>
               <div className="flex gap-3 pt-4">
                 {sectionData.id && (
-                    <button type="button" onClick={() => handleDeleteSection(sectionData.id!)} className="px-4 py-2 bg-danger/10 hover:bg-danger/20 text-danger rounded font-bold text-xs uppercase tracking-widest transition">Delete</button>
+                  <div className="flex gap-2 mr-auto">
+                    <button type="button" onClick={() => handleDeleteSection(sectionData.id!)} className="px-3 py-2 bg-danger/10 hover:bg-danger/20 text-danger rounded font-bold text-[9px] uppercase tracking-widest transition">Delete</button>
+                    <button 
+                        type="button" 
+                        onClick={() => {
+                            setShowSectionColumnsModal(sectionData);
+                            setShowSectionModal(false);
+                        }} 
+                        className="px-3 py-2 bg-accent/10 hover:bg-accent/20 text-accent rounded font-bold text-[9px] uppercase tracking-widest transition flex items-center gap-1.5"
+                    >
+                        <Settings2 size={11} /> Columns
+                    </button>
+                  </div>
                 )}
-                <div className="flex-1" />
                 <button type="button" onClick={() => setShowSectionModal(false)} className="px-4 py-2 bg-surface hover:bg-bg border border-border text-text rounded font-bold text-xs uppercase tracking-widest transition">Cancel</button>
                 <button type="submit" disabled={isSaving} className="px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded font-bold text-xs uppercase tracking-widest transition disabled:opacity-50">
                   {isSaving ? 'Saving...' : 'Save Section'}
@@ -836,8 +866,9 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
       acc + (b.leadership?.length || 0) + (b.units?.reduce((uAcc: number, u: any) => uAcc + (u.members?.length || 0), 0) || 0), 0) || 0)
   ) : 0;
 
+  const isGroupLeader = user?.groups?.some((g: any) => g.faction_id === factionData?.id && g.pivot?.is_leader) || false;
   const canViewAdmin = user?.is_superadmin || permissions.includes('view_admin_page');
-  const canViewGroups = user?.is_superadmin || permissions.includes('view_groups') || (rosters.length > 0); // Simplified check, GroupController handles strict access
+  const canViewGroups = user?.is_superadmin || permissions.includes('view_groups') || isGroupLeader;
 
   // Handle root faction path redirect
   if (location.pathname === `/${shortname}`) {

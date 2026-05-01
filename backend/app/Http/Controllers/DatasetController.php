@@ -5,15 +5,33 @@ namespace App\Http\Controllers;
 use App\Models\Faction;
 use App\Models\RosterDataset;
 use App\Models\RosterDatasetOption;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class DatasetController extends Controller
 {
     public function index($shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        
+        $user = Auth::guard('sanctum')->user();
+
+        // Anyone who can view the faction should be able to see datasets for dropdowns
+        if (!User::hasFactionPermission($user, $faction, 'view_faction_roster')) {
+            // Check if they have at least one roster they can view
+            $canViewAnyRoster = false;
+            foreach ($faction->rosters as $roster) {
+                if (User::hasRosterPermission($user, $roster, 'view_roster')) {
+                    $canViewAnyRoster = true;
+                    break;
+                }
+            }
+            if (!$canViewAnyRoster) {
+                return response()->json(['message' => 'Forbidden'], 403);
+            }
+        }
+
         $datasets = RosterDataset::where('faction_id', $faction->id)
             ->with('options')
             ->get();
@@ -25,6 +43,10 @@ class DatasetController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         
+        if (!User::hasFactionPermission(Auth::user(), $faction, 'modify_roster_variables')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
         ]);
@@ -39,6 +61,11 @@ class DatasetController extends Controller
 
     public function update(RosterDataset $dataset, Request $request)
     {
+        $faction = $dataset->faction;
+        if (!User::hasFactionPermission(Auth::user(), $faction, 'modify_roster_variables')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
             'options' => 'array',
@@ -77,6 +104,11 @@ class DatasetController extends Controller
 
     public function destroy(RosterDataset $dataset)
     {
+        $faction = $dataset->faction;
+        if (!User::hasFactionPermission(Auth::user(), $faction, 'modify_roster_variables')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $dataset->delete();
         return response()->json(['message' => 'Dataset deleted']);
     }

@@ -142,17 +142,19 @@ class User extends Authenticatable
             ->max('weight') ?? 0;
     }
 
-    public static function hasRosterPermission(User $user, Roster $roster, string $permissionKey): bool
+    public static function hasRosterPermission(?User $user, Roster $roster, string $permissionKey): bool
     {
         $faction = $roster->faction;
 
         // 1. Superadmin/Faction Leader/Global Roster Moderator/Creator always have access
-        if ($user->is_superadmin || 
-            $faction->faction_leader === $user->id || 
-            self::hasFactionPermission($user, $faction, 'global_roster_moderation') ||
-            $roster->created_by === $user->id
-        ) {
-            return true;
+        if ($user) {
+            if ($user->is_superadmin || 
+                $faction->faction_leader === $user->id || 
+                self::hasFactionPermission($user, $faction, 'global_roster_moderation') ||
+                $roster->created_by === $user->id
+            ) {
+                return true;
+            }
         }
 
         // 2. Collect all permission sets applicable to this user
@@ -164,11 +166,13 @@ class User extends Authenticatable
             $permissionSets->push($publicPerms->permissions);
         }
 
-        // Group permissions
-        $userGroupIds = $user->groups()->where('faction_id', $faction->id)->pluck('groups.id');
-        $groupPerms = $roster->rosterPermissions()->whereIn('group_id', $userGroupIds)->get();
-        foreach ($groupPerms as $gp) {
-            $permissionSets->push($gp->permissions);
+        if ($user) {
+            // Group permissions
+            $userGroupIds = $user->groups()->where('faction_id', $faction->id)->pluck('groups.id');
+            $groupPerms = $roster->rosterPermissions()->whereIn('group_id', $userGroupIds)->get();
+            foreach ($groupPerms as $gp) {
+                $permissionSets->push($gp->permissions);
+            }
         }
 
         if ($permissionSets->isEmpty()) {

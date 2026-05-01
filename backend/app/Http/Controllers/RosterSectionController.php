@@ -23,6 +23,7 @@ class RosterSectionController extends Controller
             'type' => 'required|in:master,section,subsection',
             'parent_id' => 'nullable|exists:roster_sections,id',
             'section_options' => 'nullable|array',
+            'columns' => 'nullable|array',
         ]);
 
         $validated['shortname'] = strtoupper($validated['shortname']);
@@ -59,6 +60,7 @@ class RosterSectionController extends Controller
             'type' => 'sometimes|in:master,section,subsection',
             'parent_id' => 'sometimes|nullable|exists:roster_sections,id',
             'section_options' => 'nullable|array',
+            'columns' => 'nullable|array',
         ]);
 
         if (isset($validated['shortname'])) {
