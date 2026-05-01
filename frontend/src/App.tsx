@@ -10,6 +10,7 @@ import { RosterTable } from './components/RosterTable';
 import { ColumnsModal } from './components/ColumnsModal';
 import { RosterPermissionsModal } from './components/RosterPermissionsModal';
 import GlobalVariablesModal from './components/GlobalVariablesModal';
+import FlagManagerModal from './components/FlagManagerModal';
 import RosterLayoutModal from './components/RosterLayoutModal';
 import Home from './components/Home';
 import FactionManager from './components/FactionManager';
@@ -23,10 +24,12 @@ import api from './api';
 import { INITIAL_DATA } from './constants';
 import { Faction as FactionType, Roster as RosterType } from './types';
 import { Plus, MoreVertical, Menu, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Pencil, Database } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 
-const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, activeDivId, setActiveDivId, permissions, shortname, fetchRosters }: any) => {
+const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, activeDivId, setActiveDivId, permissions, shortname, fetchRosters, datasets }: any) => {
   const canCreate = permissions.includes('create_roster');
   const canModifyVariables = permissions.includes('modify_roster_variables');
+  const canModifyFlags = permissions.includes('modify_roster_flags');
   const isGlobalMod = permissions.includes('global_roster_moderation');
   
   const rosterPerms = activeDivision?.user_roster_permissions || {};
@@ -41,9 +44,9 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
   const [showSectionColumnsModal, setShowSectionColumnsModal] = useState<any | null>(null);
   const [showPermissionsModal, setShowPermissionsModal] = useState<RosterType | null>(null);
   const [showVariablesModal, setShowVariablesModal] = useState(false);
+  const [showFlagsModal, setShowFlagsModal] = useState(false);
   const [showLayoutModal, setShowLayoutModal] = useState<RosterType | null>(null);
   const [showRosterContextMenu, setShowRosterContextMenu] = useState(false);
-  const [datasets, setDatasets] = useState<any[]>([]);
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -60,17 +63,6 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
     });
     return contents;
   }, [activeDivision]);
-
-  const fetchDatasets = async () => {
-    try {
-        const res = await api.get(`/factions/${shortname}/datasets`);
-        setDatasets(res.data);
-    } catch (err) {}
-  };
-
-  useEffect(() => {
-    if (shortname) fetchDatasets();
-  }, [shortname]);
 
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
   const [menuPosition, setMenuPosition] = useState({ left: 0 });
@@ -561,6 +553,17 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                                 >
                                     <Database size={12} /> Global Variables
                                 </button>
+                                {canModifyFlags && (
+                                    <button 
+                                        onClick={() => {
+                                            setShowFlagsModal(true);
+                                            setShowRosterContextMenu(false);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface rounded transition-colors"
+                                    >
+                                        <LucideIcons.Flag size={12} /> Flag Manager
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
@@ -763,6 +766,14 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
           />
       )}
 
+      {/* Flag Manager Modal */}
+      {showFlagsModal && (
+          <FlagManagerModal 
+            shortname={shortname} 
+            onClose={() => setShowFlagsModal(false)} 
+          />
+      )}
+
       {/* Layout Modal */}
       {showLayoutModal && (
           <RosterLayoutModal 
@@ -792,54 +803,48 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
   const [error, setError] = useState<string | null>(null);
   const [activeDivId, setActiveDivId] = useState<number | null>(null);
   const [rosters, setRosters] = useState<any[]>([]);
+  const [datasets, setDatasets] = useState<any[]>([]);
+  const [flags, setFlags] = useState<any[]>([]);
 
   // Mock static data for now
   const [staticFaction] = useState<FactionType>(INITIAL_DATA[0]);
 
-  const fetchRosters = async () => {
+  const fetchAllData = async () => {
     try {
-      const res = await api.get(`/factions/${shortname}/rosters`);
-      setRosters(res.data);
-      if (res.data.length > 0) {
-        if (activeDivId === null || !res.data.find((r: any) => r.id === activeDivId)) {
-          setActiveDivId(res.data[0].id);
+      const res = await api.get(`/factions/${shortname}`);
+      const { faction, permissions: perms, rosters: rosterData, datasets: datasetData, flags: flagData } = res.data;
+      
+      setFactionData(faction);
+      setPermissions(perms);
+      setRosters(rosterData);
+      setDatasets(datasetData);
+      setFlags(flagData);
+
+      if (rosterData.length > 0) {
+        if (activeDivId === null || !rosterData.find((r: any) => r.id === activeDivId)) {
+          setActiveDivId(rosterData[0].id);
         }
       } else {
         setActiveDivId(null);
       }
-    } catch (err) {
-      console.error('Failed to fetch rosters', err);
+
+      // Apply faction color to CSS variables
+      if (faction.color) {
+        document.documentElement.style.setProperty('--accent', faction.color);
+        const rgb = hexToRgb(faction.color);
+        if (rgb) document.documentElement.style.setProperty('--accent-rgb', rgb);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Faction not found');
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    const fetchFactionAndPermissions = async () => {
-      try {
-        const [factionRes, permsRes] = await Promise.all([
-          api.get(`/factions/${shortname}`),
-          api.get(`/factions/${shortname}/permissions`)
-        ]);
-        
-        const faction = factionRes.data;
-        setFactionData(faction);
-        setPermissions(permsRes.data);
-        
-        await fetchRosters();
-
-        // Apply faction color to CSS variables
-        if (faction.color) {
-          document.documentElement.style.setProperty('--accent', faction.color);
-          const rgb = hexToRgb(faction.color);
-          if (rgb) document.documentElement.style.setProperty('--accent-rgb', rgb);
-        }
-
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Faction not found');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchFactionAndPermissions();
+    if (shortname) {
+      fetchAllData();
+    }
 
     // Reset accent color when leaving dashboard
     return () => {
@@ -859,10 +864,10 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
 
   // The active division is the one currently selected from the dynamic rosters
   const activeDivision = rosters.find(r => r.id === activeDivId) || null;
-  
+
   const totalMembers = activeDivision ? (
-    (activeDivision.leadership?.length || 0) + 
-    (activeDivision.bureaus?.reduce((acc: number, b: any) => 
+    (activeDivision.leadership?.length || 0) +
+    (activeDivision.bureaus?.reduce((acc: number, b: any) =>
       acc + (b.leadership?.length || 0) + (b.units?.reduce((uAcc: number, u: any) => uAcc + (u.members?.length || 0), 0) || 0), 0) || 0)
   ) : 0;
 
@@ -885,7 +890,6 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
         userRole={factionData.user_primary_role}
         onLogout={onLogout} 
       />
-
       <div className="flex flex-1 relative">
         <Sidebar shortname={shortname!} canViewAdmin={canViewAdmin} canViewGroups={canViewGroups} user={user} />
 
@@ -901,7 +905,9 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
                 setActiveDivId={setActiveDivId}
                 permissions={permissions}
                 shortname={shortname}
-                fetchRosters={fetchRosters}
+                fetchRosters={fetchAllData}
+                datasets={datasets}
+                flags={flags}
               />
             } />
             <Route path="groups" element={
@@ -939,7 +945,7 @@ const TitleUpdater = ({ user }: { user: any }) => {
 
     const firstSegment = segments[0];
 
-    if (['login', 'register', 'invite'].includes(firstSegment)) {
+    if (segments.length > 0 && ['login', 'register', 'invite'].includes(firstSegment)) {
       document.title = `Faction Panel · ${firstSegment.charAt(0).toUpperCase() + firstSegment.slice(1)}`;
       return;
     }
@@ -1058,4 +1064,3 @@ export default function App() {
     </Router>
   );
 }
-

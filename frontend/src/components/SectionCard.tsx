@@ -11,6 +11,7 @@ interface SectionCardProps {
   permissions?: any;
   columns?: any[];
   datasets?: any[];
+  flags?: any[];
   allContents?: any[];
   editMode?: boolean;
   onAddChild?: (parentId: number) => void;
@@ -24,6 +25,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   permissions,
   columns, 
   datasets,
+  flags,
   allContents,
   editMode,
   onAddChild, 
@@ -132,6 +134,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           accentColor={section.color || 'var(--accent)'} 
           columns={columns} 
           datasets={datasets}
+          flags={flags}
           editMode={editMode}
           canModerate={canModerate}
           permissions={permissions}
@@ -199,6 +202,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             accentColor={child.color || section.color || 'var(--accent)'} 
             columns={child.columns || columns} 
             datasets={datasets}
+            flags={flags}
             editMode={editMode}
             canModerate={canModerate}
             permissions={permissions}
@@ -218,6 +222,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           accentColor={section.color || 'var(--accent)'} 
           columns={columns} 
           datasets={datasets}
+          flags={flags}
           editMode={editMode}
           canModerate={canModerate}
           permissions={permissions}

@@ -58,4 +58,14 @@ class Faction extends Model
     {
         return $this->hasMany(Group::class);
     }
+
+    public function rosterFlags()
+    {
+        return $this->hasMany(RosterFlag::class);
+    }
+
+    public function rosterDatasets()
+    {
+        return $this->hasMany(RosterDataset::class);
+    }
 }

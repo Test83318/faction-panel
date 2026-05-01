@@ -25,6 +25,11 @@ return [
                     'description' => 'Allows managing global datasets used across rosters.',
                     'type' => 'MODIFY',
                 ],
+                'modify_roster_flags' => [
+                    'name' => 'Modify Roster Flags',
+                    'description' => 'Allows managing conditional formatting flags for rosters.',
+                    'type' => 'MODIFY',
+                ],
             ],
         ],
         'groups' => [

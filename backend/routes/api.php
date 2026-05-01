@@ -10,6 +10,7 @@ use App\Http\Controllers\RosterContentController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\RosterPermissionController;
 use App\Http\Controllers\DatasetController;
+use App\Http\Controllers\RosterFlagController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +27,7 @@ Route::get('/factions/{shortname}', [FactionController::class, 'show']);
 Route::get('/factions/{shortname}/permissions', [FactionController::class, 'getPermissions']);
 Route::get('/factions/{shortname}/rosters', [RosterController::class, 'index']);
 Route::get('/factions/{shortname}/datasets', [DatasetController::class, 'index']);
+Route::get('/factions/{shortname}/flags', [RosterFlagController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
@@ -94,4 +96,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/factions/{shortname}/datasets', [DatasetController::class, 'store']);
     Route::put('/datasets/{dataset}', [DatasetController::class, 'update']);
     Route::delete('/datasets/{dataset}', [DatasetController::class, 'destroy']);
+
+    // Roster Flag Management
+    Route::post('/factions/{shortname}/flags', [RosterFlagController::class, 'store']);
+    Route::put('/flags/{flag}', [RosterFlagController::class, 'update']);
+    Route::delete('/flags/{flag}', [RosterFlagController::class, 'destroy']);
 });

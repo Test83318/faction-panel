@@ -85,7 +85,7 @@ input, select, textarea {
 }
 
 .rt-th {
-  @apply bg-border/25 text-[7px] font-bold uppercase tracking-[0.15em] text-muted py-0.5 px-1 border-b border-r border-border text-center overflow-hidden whitespace-nowrap h-[16px];
+  @apply bg-border/25 text-[7px] font-bold uppercase tracking-[0.15em] text-muted py-0.5 px-1 border-b border-r border-border text-center whitespace-nowrap h-[16px];
 }
 
 .rt-td {
@@ -93,7 +93,7 @@ input, select, textarea {
 }
 
 .rt-tr {
-  @apply hover:bg-accent/4 transition-colors;
+  @apply relative transition-colors hover:bg-accent/4 hover:z-[50];
 }
 
 @keyframes progress {

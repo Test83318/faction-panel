@@ -69,8 +69,20 @@ class FactionController extends Controller
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::guard('sanctum')->user();
 
-        $canViewGlobal = User::hasFactionPermission($user, $faction, 'view_faction_roster');
+        $allPermissionsConfig = config('permissions.categories');
+        $permissions = [];
+
+        foreach ($allPermissionsConfig as $category) {
+            foreach ($category['permissions'] as $key => $details) {
+                if (User::hasFactionPermission($user, $faction, $key)) {
+                    $permissions[] = $key;
+                }
+            }
+        }
+
+        $canViewGlobal = in_array('view_faction_roster', $permissions);
         
+        // Faction Detail View Check
         if (!$canViewGlobal) {
             $canViewAnyRoster = false;
             foreach ($faction->rosters as $roster) {
@@ -99,7 +111,48 @@ class FactionController extends Controller
             $faction->user_primary_role = $primaryRole ?? $highestRole;
         }
 
-        return $faction;
+        // Include Roster Data
+        $rosters = $faction->rosters()
+            ->with(['rootSections.children.contents', 'rootSections.contents'])
+            ->orderBy('order')
+            ->get();
+        
+        $filteredRosters = $rosters->filter(function ($roster) use ($user, $canViewGlobal) {
+            return $canViewGlobal || User::hasRosterPermission($user, $roster, 'view_roster');
+        })->values();
+
+        $filteredRosters->each(function ($roster) use ($user) {
+            $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
+            
+            $perms = [
+                'view_roster' => User::hasRosterPermission($user, $roster, 'view_roster'),
+                'modify_roster' => User::hasRosterPermission($user, $roster, 'modify_roster'),
+                'manage_columns' => User::hasRosterPermission($user, $roster, 'manage_columns'),
+                'manage_layout' => User::hasRosterPermission($user, $roster, 'manage_layout'),
+                'add_sections' => User::hasRosterPermission($user, $roster, 'add_sections'),
+                'remove_sections' => User::hasRosterPermission($user, $roster, 'remove_sections'),
+                'edit_predefined' => User::hasRosterPermission($user, $roster, 'edit_predefined'),
+                'edit_defined_fields' => User::hasRosterPermission($user, $roster, 'edit_defined_fields'),
+                'view_hidden_data' => $canViewHidden,
+            ];
+            $roster->user_roster_permissions = $perms;
+        });
+
+        // Include Datasets
+        $datasets = $faction->rosterDatasets()
+            ->with('options')
+            ->get();
+
+        // Include Flags
+        $flags = $faction->rosterFlags()->get();
+
+        return response()->json([
+            'faction' => $faction,
+            'permissions' => $permissions,
+            'rosters' => $filteredRosters,
+            'datasets' => $datasets,
+            'flags' => $flags
+        ]);
     }
     public function update(Request $request, Faction $faction)
     {

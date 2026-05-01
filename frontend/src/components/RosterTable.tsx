@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { RosterContent } from '../types';
 import { Plus, Trash2, Check, X, Pencil, Tag } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
+import api from '../api';
 import toast from 'react-hot-toast';
 
 export interface RosterColumn {
@@ -10,6 +12,7 @@ export interface RosterColumn {
   options?: any[];
   checkboxes?: any[];
   tags?: any[];
+  flags?: number[];
   dataset_id?: number | null;
 }
 
@@ -23,6 +26,7 @@ interface RosterTableProps {
   editMode?: boolean;
   canModerate?: boolean;
   permissions?: any;
+  flags?: any[];
   onUpdateRow?: (id: number, data: any) => void;
   onDeleteRow?: (id: number) => void;
   onBulkDeleteRow?: (ids: number[]) => void;
@@ -39,6 +43,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   editMode, 
   canModerate,
   permissions,
+  flags = [],
   onUpdateRow,
   onDeleteRow,
   onBulkDeleteRow,
@@ -54,6 +59,44 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   const [rowCountToAdd, setRowCountToAdd] = useState(1);
   const [activeTagMenu, setActiveTagMenu] = useState<{ rowId: number, colId: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const evaluateFlag = React.useCallback((row: RosterContent, col: RosterColumn, flag: any) => {
+    if (!flag.rules || flag.rules.length === 0) return false;
+    
+    const value = (row.content?.[col.id] || '').toString().toLowerCase();
+    
+    return flag.rules.some((rule: any) => {
+        switch (rule.type) {
+            case 'equals':
+                return value === (rule.value || '').toLowerCase();
+            case 'not_equals':
+                return value !== (rule.value || '').toLowerCase();
+            case 'contains':
+                return value.includes((rule.value || '').toLowerCase());
+            case 'in_dataset':
+                const dataset = datasets.find(d => d.id === rule.dataset_id);
+                return dataset?.options?.some((opt: any) => opt.value.toLowerCase() === value);
+            case 'not_in_dataset':
+                const datasetNot = datasets.find(d => d.id === rule.dataset_id);
+                return !datasetNot?.options?.some((opt: any) => opt.value.toLowerCase() === value);
+            case 'exists_elsewhere':
+                if (!value) return false;
+                const pool = rule.scope === 'global' ? (allContents || []) : 
+                             rule.scope === 'roster' ? (allContents || []) : 
+                             contents;
+                
+                return pool.some(c => {
+                    if (c.id === row.id) return false;
+                    if (rule.target_col) {
+                        return (c.content?.[rule.target_col] || '').toString().toLowerCase() === value;
+                    }
+                    return Object.values(c.content || {}).some(v => (v || '').toString().toLowerCase() === value);
+                });
+            default:
+                return false;
+        }
+    });
+  }, [datasets, contents, allContents]);
 
   const activeCols = columns && columns.length > 0 ? columns : [
     { id: 'rank', name: 'Rank', type: 'dropdown', checkboxes: ['Acting'] },
@@ -218,7 +261,6 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     const boundDataset = col.dataset_id ? datasets.find(d => d.id === col.dataset_id) : null;
     const datasetOptions = boundDataset?.options || [];
     
-    // If bound to a dataset, use dataset options for styling/dropdowns
     const effectiveOptions = boundDataset 
       ? datasetOptions.map((o: any) => ({ label: o.value, color: o.color, bold: o.is_bold })) 
       : (col.options || []);
@@ -229,10 +271,12 @@ export const RosterTable: React.FC<RosterTableProps> = ({
       fontWeight: selectedOpt?.bold ? 'bold' : 'normal',
     };
 
+    const activeFlags = flags.filter(f => (col.flags || []).includes(f.id) && evaluateFlag(row, col, f));
+
     if (isEditing && isColEditable(col)) {
       if (col.type === 'dropdown' || col.type === 'predefined_dropdown' || col.type === 'hidden_dropdown' || col.type === 'predefined_hidden_dropdown') {
         return (
-          <div className="flex flex-col items-center justify-center h-full w-full gap-0.5 relative group/cell">
+          <div className="flex flex-col items-center justify-center h-full w-full gap-0.5 relative group/cell overflow-visible">
             <select 
               value={value} 
               onChange={e => updateField(col.id, e.target.value)}
@@ -243,7 +287,25 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 <option key={opt.label} value={opt.label} style={{ color: opt.color || 'inherit' }}>{opt.label}</option>
               ))}
             </select>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 overflow-visible">
+                <div className="text-[10px] uppercase font-medium transition-colors" style={textStyle}>
+                {value || <span className="opacity-20 italic">Select...</span>}
+                </div>
+                {activeFlags.length > 0 && (
+                    <div className="flex items-center gap-0.5">
+                        {activeFlags.map(f => (
+                            <div key={f.id} className="group/flag-icon relative flex items-center justify-center">
+                                {React.createElement((LucideIcons as any)[f.icon] || LucideIcons.HelpCircle, { 
+                                    size: 10, 
+                                    style: { color: f.color } 
+                                })}
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black/90 border border-white/10 rounded text-[7px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover/flag-icon:opacity-100 transition-all pointer-events-none z-[9999] shadow-2xl text-white backdrop-blur-sm">
+                                    {f.name}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
                 {col.tags && col.tags.length > 0 && (
                     <button 
                         onClick={(e) => {
@@ -255,9 +317,6 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                         <Pencil size={10} />
                     </button>
                 )}
-                <div className="text-[10px] uppercase font-medium transition-colors" style={textStyle}>
-                {value || <span className="opacity-20 italic">Select...</span>}
-                </div>
             </div>
             {col.checkboxes && col.checkboxes.length > 0 && (
               <div className="flex flex-wrap gap-1 relative z-20">
@@ -308,7 +367,6 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         );
       }
 
-      // Combine dataset options with existing values in this column for suggestions
       const sourceForSuggestions = (allContents && allContents.length > 0) ? allContents : contents;
       const existingValues = sourceForSuggestions
         .map(c => c.content?.[col.id])
@@ -318,7 +376,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
       const suggestionPool = [...effectiveOptions];
       
       uniqueExisting.forEach(val => {
-        if (!suggestionPool.find(opt => opt.label.toLowerCase() === val.toLowerCase())) {
+        if (typeof val === 'string' && !suggestionPool.find(opt => opt.label.toLowerCase() === val.toLowerCase())) {
           suggestionPool.push({ label: val, color: 'inherit', bold: false });
         }
       });
@@ -328,12 +386,12 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         ? suggestionPool.filter(opt => 
             opt.label.toLowerCase().includes(searchTerm) && 
             opt.label.toLowerCase() !== searchTerm
-          ).slice(0, 8) // Limit to 8 suggestions for performance and UI
+          ).slice(0, 8) 
         : [];
 
       return (
-        <div className="flex flex-col items-center justify-center h-full w-full gap-0.5 relative">
-          <div className="relative w-full flex flex-row items-center justify-center px-1">
+        <div className="flex flex-col items-center justify-center h-full w-full gap-0.5 relative overflow-visible">
+          <div className="relative w-full flex flex-row items-center justify-center px-1 overflow-visible">
             <input 
               ref={col.id === activeCols[0].id ? inputRef : null}
               value={value} 
@@ -344,11 +402,26 @@ export const RosterTable: React.FC<RosterTableProps> = ({
               onKeyDown={e => e.key === 'Enter' && handleSaveEdit(row.id)}
               onClick={() => setFocusedColId(col.id)}
               onFocus={() => setFocusedColId(col.id)}
-              onBlur={() => setTimeout(() => setFocusedColId(null), 200)} // Small delay to allow clicking suggestions
+              onBlur={() => setTimeout(() => setFocusedColId(null), 200)} 
               className="flex-1 bg-transparent border-none text-[10px] text-center uppercase font-medium outline-none focus:ring-0 p-0 text-text placeholder:opacity-10"
               style={textStyle}
               placeholder="..."
             />
+            {activeFlags.length > 0 && (
+                <div className="flex items-center gap-0.5 ml-1">
+                    {activeFlags.map(f => (
+                        <div key={f.id} className="group/flag-icon relative flex items-center justify-center">
+                            {React.createElement((LucideIcons as any)[f.icon] || LucideIcons.HelpCircle, { 
+                                size: 10, 
+                                style: { color: f.color } 
+                            })}
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black/90 border border-white/10 rounded text-[7px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover/flag-icon:opacity-100 transition-all pointer-events-none z-[9999] shadow-2xl text-white backdrop-blur-sm">
+                                {f.name}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
             {col.tags && col.tags.length > 0 && (
                 <button 
                     onClick={(e) => {
@@ -436,16 +509,31 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
     return (
       <div 
-        className={`flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all overflow-hidden whitespace-nowrap text-ellipsis ${canEditAny ? 'cursor-pointer hover:bg-accent/5' : ''}`}
+        className={`flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap overflow-visible ${canEditAny ? 'cursor-pointer hover:bg-accent/5' : ''}`}
         onClick={() => canEditAny && handleStartEdit(row)}
       >
-        <div className="flex items-center gap-1.5 overflow-hidden px-1">
+        <div className="flex items-center gap-1.5 px-1 overflow-visible">
             <span 
-                className={`text-[10px] uppercase font-medium transition-all ${!showValue && value ? 'blur-[3px] select-none opacity-50 font-black tracking-widest' : ''}`} 
+                className={`text-[10px] uppercase font-medium transition-all ${!showValue ? 'blur-[3px] select-none opacity-50 font-black tracking-widest' : ''}`} 
                 style={textStyle}
             >
                 {showValue ? (value || '-') : '??????'}
             </span>
+            {activeFlags.length > 0 && (
+                <div className="flex items-center gap-0.5">
+                    {activeFlags.map(f => (
+                        <div key={f.id} className="group/flag-icon relative flex items-center justify-center">
+                            {React.createElement((LucideIcons as any)[f.icon] || LucideIcons.HelpCircle, { 
+                                size: 10, 
+                                style: { color: f.color } 
+                            })}
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black/90 border border-white/10 rounded text-[7px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover/flag-icon:opacity-100 transition-all pointer-events-none z-[9999] shadow-2xl text-white backdrop-blur-sm">
+                                {f.name}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
             {appliedTags.length > 0 && (
                 <div className="flex items-center gap-0.5">
                     {appliedTags.map((t: string) => {
@@ -454,11 +542,10 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                         return (
                             <div 
                                 key={t} 
-                                className="group/tag-icon relative"
-                                title={t}
+                                className="group/tag-icon relative flex items-center justify-center"
                             >
                                 <div className="w-1.5 h-1.5 rounded-[1px] opacity-80" style={{ backgroundColor: color }} />
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-1.5 py-0.5 bg-bg/95 border border-border rounded text-[7px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover/tag-icon:opacity-100 transition-opacity pointer-events-none z-[6000] shadow-xl">
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black/90 border border-white/10 rounded text-[7px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover/tag-icon:opacity-100 transition-all pointer-events-none z-[9999] shadow-2xl text-white backdrop-blur-sm">
                                     {t}
                                 </div>
                             </div>
@@ -549,7 +636,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 )}
               </td>
               {activeCols.map((col) => (
-                <td key={col.id} className="rt-td p-0 h-[34px] relative" style={{ zIndex: editingRowId === row.id ? 5001 : 0 }}>
+                <td key={col.id} className="rt-td p-0 h-[34px] relative hover:z-[100]" style={{ zIndex: editingRowId === row.id ? 5001 : 0 }}>
                   {renderCell(row, col)}
                 </td>
               ))}

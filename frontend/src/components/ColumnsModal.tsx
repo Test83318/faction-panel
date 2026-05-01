@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, GripVertical, Settings2, Check, X, Database } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Settings2, Check, X, Database, Flag } from 'lucide-react';
 import { Reorder } from 'motion/react';
 import api from '../api';
 import { Roster } from '../types';
@@ -20,19 +20,24 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortn
       { id: 'callsign', name: 'Callsign', type: 'text', checkboxes: [] }
   ]);
   const [datasets, setDatasets] = useState<any[]>([]);
+  const [flags, setFlags] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    const fetchDatasets = async () => {
+    const fetchDatasetsAndFlags = async () => {
         try {
-            const res = await api.get(`/factions/${shortname}/datasets`);
-            setDatasets(res.data);
+            const [datasetsRes, flagsRes] = await Promise.all([
+                api.get(`/factions/${shortname}/datasets`),
+                api.get(`/factions/${shortname}/flags`)
+            ]);
+            setDatasets(datasetsRes.data);
+            setFlags(flagsRes.data);
         } catch (err) {
-            console.error('Failed to fetch datasets', err);
+            console.error('Failed to fetch data', err);
         }
     };
-    fetchDatasets();
+    fetchDatasetsAndFlags();
   }, [shortname]);
 
   const handleSave = async () => {
@@ -350,6 +355,37 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortn
                         >
                           <Plus size={12} /> Add Tag
                         </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 border-t border-border mt-4 pt-4">
+                      <label className="block text-[10px] text-muted font-bold uppercase tracking-widest flex items-center gap-2">
+                        <Flag size={10} className="text-accent" /> Enabled Flags
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {flags.map(f => {
+                          const isEnabled = (col.flags || []).includes(f.id);
+                          return (
+                            <button 
+                              key={f.id}
+                              onClick={() => {
+                                const newFlags = isEnabled 
+                                  ? (col.flags || []).filter((id: number) => id !== f.id)
+                                  : [...(col.flags || []), f.id];
+                                updateColumn(index, 'flags', newFlags);
+                              }}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] font-bold uppercase transition-all ${isEnabled ? 'bg-accent/10 border-accent text-accent' : 'bg-surface border-border text-muted hover:border-accent/30'}`}
+                            >
+                                <div className={`w-3 h-3 rounded flex items-center justify-center border ${isEnabled ? 'bg-accent border-accent text-white' : 'bg-card border-border'}`}>
+                                    {isEnabled && <Check size={8} />}
+                                </div>
+                                {f.name}
+                            </button>
+                          );
+                        })}
+                        {flags.length === 0 && (
+                          <div className="col-span-2 py-2 text-center text-[8px] font-bold uppercase text-muted/50 border border-dashed border-border rounded-lg">No flags defined in Flag Manager</div>
+                        )}
                       </div>
                     </div>
 
