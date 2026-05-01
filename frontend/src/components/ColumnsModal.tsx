@@ -20,6 +20,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortn
       { id: 'callsign', name: 'Callsign', type: 'text', checkboxes: [] }
   ]);
   const [datasets, setDatasets] = useState<any[]>([]);
+  const [recordDatabases, setRecordDatabases] = useState<any[]>([]);
   const [flags, setFlags] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -27,12 +28,14 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortn
   useEffect(() => {
     const fetchDatasetsAndFlags = async () => {
         try {
-            const [datasetsRes, flagsRes] = await Promise.all([
+            const [datasetsRes, flagsRes, recordsRes] = await Promise.all([
                 api.get(`/factions/${shortname}/datasets`),
-                api.get(`/factions/${shortname}/flags`)
+                api.get(`/factions/${shortname}/flags`),
+                api.get(`/factions/${shortname}/records`)
             ]);
             setDatasets(datasetsRes.data);
             setFlags(flagsRes.data);
+            setRecordDatabases(recordsRes.data.filter((db: any) => db.is_published));
         } catch (err) {
             console.error('Failed to fetch data', err);
         }
@@ -69,9 +72,19 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortn
   };
 
   const updateColumn = (index: number, key: string, value: any) => {
-    const newCols = [...columns];
-    newCols[index] = { ...newCols[index], [key]: value };
-    setColumns(newCols);
+    setColumns(prev => {
+        const newCols = [...prev];
+        newCols[index] = { ...newCols[index], [key]: value };
+        return newCols;
+    });
+  };
+
+  const updateColumnFields = (index: number, fields: Record<string, any>) => {
+    setColumns(prev => {
+        const newCols = [...prev];
+        newCols[index] = { ...newCols[index], ...fields };
+        return newCols;
+    });
   };
 
   return (
@@ -114,18 +127,81 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortn
                           <option value="predefined_dropdown">Predefined Dropdown</option>
                           <option value="predefined_hidden_text">Predefined Hidden Text</option>
                           <option value="predefined_hidden_dropdown">Predefined Hidden Dropdown</option>
+                          <option value="database_data">Database Data Column</option>
                         </select>
                       </div>
                     </div>
 
-                    <div className="bg-bg/50 border border-border rounded-lg p-3 space-y-3">
+                    {col.type === 'database_data' && (
+                        <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 space-y-4">
+                            <div className="flex items-center gap-2 text-accent">
+                                <Database size={14} />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Database Data Mapping</span>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[9px] text-muted font-bold uppercase tracking-widest mb-1.5">Source Column</label>
+                                    <select 
+                                        value={col.source_column_id || ''} 
+                                        onChange={(e) => {
+                                            const sourceCol = columns.find(c => c.id === e.target.value);
+                                            const dataset = datasets.find(d => d.id === sourceCol?.dataset_id);
+                                            updateColumnFields(index, {
+                                                source_column_id: e.target.value,
+                                                linked_database_id: dataset?.record_database_id || null
+                                            });
+                                        }}
+                                        className="w-full bg-surface border border-border p-2 rounded text-xs text-text focus:border-accent outline-none"
+                                    >
+                                        <option value="">Select Column...</option>
+                                        {columns.filter(c => {
+                                            const ds = datasets.find(d => d.id === c.dataset_id);
+                                            return c.id !== col.id && ds?.record_database_id;
+                                        }).map(c => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[9px] text-muted font-bold uppercase tracking-widest mb-1.5">Field to Display</label>
+                                    <select 
+                                        disabled={!col.source_column_id}
+                                        value={col.data_field_id || ''} 
+                                        onChange={(e) => updateColumn(index, 'data_field_id', e.target.value)}
+                                        className="w-full bg-surface border border-border p-2 rounded text-xs text-text focus:border-accent outline-none disabled:opacity-50"
+                                    >
+                                        <option value="">Select Field...</option>
+                                        {recordDatabases.find(db => db.id === col.linked_database_id)?.database_structure.map((f: any) => (
+                                            <option key={f.id} value={f.id}>{f.name}</option>
+                                        ))}
+                                        <option value="id">Record ID</option>
+                                        <option value="created_at">Date Created</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <p className="text-[9px] text-muted font-medium italic opacity-60">
+                                This column will automatically display data from the database entry selected in the source column.
+                            </p>
+                        </div>
+                    )}
+
+                    {col.type !== 'database_data' && (
+                        <div className="bg-bg/50 border border-border rounded-lg p-3 space-y-3">
                         <div className="flex items-center justify-between">
                             <label className="text-[10px] text-muted font-black uppercase tracking-widest flex items-center gap-2">
                                 <Database size={12} className="text-accent" /> Bind to Global Dataset
                             </label>
                             {col.dataset_id && (
                                 <button 
-                                    onClick={() => updateColumn(index, 'dataset_id', null)}
+                                    onClick={() => {
+                                        updateColumnFields(index, {
+                                            dataset_id: null,
+                                            database_field_id: null
+                                        });
+                                    }}
                                     className="text-[9px] font-black uppercase text-danger hover:underline"
                                 >
                                     Unbind
@@ -134,18 +210,52 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortn
                         </div>
                         <select 
                             value={col.dataset_id || ''} 
-                            onChange={(e) => updateColumn(index, 'dataset_id', e.target.value ? Number(e.target.value) : null)}
+                            onChange={(e) => {
+                                const dsId = e.target.value ? Number(e.target.value) : null;
+                                const ds = datasets.find(d => d.id === dsId);
+                                
+                                const updates: any = { dataset_id: dsId };
+                                
+                                // If it's a database-linked dataset, default the field
+                                if (ds?.record_database_id) {
+                                    const db = recordDatabases.find(d => d.id === ds.record_database_id);
+                                    const firstFieldId = db?.database_structure?.[0]?.id;
+                                    updates.database_field_id = firstFieldId || 'id';
+                                } else {
+                                    updates.database_field_id = null;
+                                }
+                                
+                                updateColumnFields(index, updates);
+                            }}
                             className="w-full bg-bg border border-border p-2 rounded text-xs text-text focus:border-accent outline-none"
                         >
                             <option value="">No Dataset Linked</option>
                             {datasets.map(d => (
-                                <option key={d.id} value={d.id}>{d.name}</option>
+                                <option key={d.id} value={d.id}>{d.name} {d.record_database_id ? '(Database)' : ''}</option>
                             ))}
                         </select>
+                        
+                        {datasets.find(d => d.id === col.dataset_id)?.record_database_id && (
+                            <div className="pt-2 border-t border-border/30">
+                                <label className="block text-[8px] text-muted font-black uppercase tracking-[0.2em] mb-1">Database Reference Field</label>
+                                <select 
+                                    value={col.database_field_id || ''} 
+                                    onChange={(e) => updateColumn(index, 'database_field_id', e.target.value)}
+                                    className="w-full bg-bg border border-border p-1.5 rounded text-[10px] font-bold text-accent focus:border-accent outline-none"
+                                >
+                                    {recordDatabases.find(db => db.id === datasets.find(d => d.id === col.dataset_id)?.record_database_id)?.database_structure.map((f: any) => (
+                                        <option key={f.id} value={f.id}>{f.name}</option>
+                                    ))}
+                                    <option value="id">Record ID</option>
+                                </select>
+                            </div>
+                        )}
+
                         <p className="text-[9px] text-muted font-medium leading-relaxed italic opacity-60">
                             Linking a dataset will source options and autofill values from the selected global variable set.
                         </p>
                     </div>
+                    )}
 
                     {(col.type === 'dropdown' || col.type === 'predefined_dropdown' || col.type === 'text' || col.type === 'predefined_text') && !col.dataset_id && (
                       <div className="space-y-2 border-t border-border mt-4 pt-4">

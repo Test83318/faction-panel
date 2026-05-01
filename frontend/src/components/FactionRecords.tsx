@@ -38,6 +38,7 @@ export default function FactionRecords({ shortname, permissions, user }: Faction
         data_overview_display: 'table',
         data_entry_display: 'card',
         record_shortcode: '',
+        is_published: false,
         database_structure: [] as any[],
     });
 
@@ -138,6 +139,7 @@ export default function FactionRecords({ shortname, permissions, user }: Faction
             data_overview_display: db.data_overview_display,
             data_entry_display: db.data_entry_display,
             record_shortcode: db.record_shortcode || '',
+            is_published: db.is_published ?? false,
             database_structure: db.database_structure || [],
         });
         setShowCreateModal(true);
@@ -251,17 +253,24 @@ if (selectedDatabase) {
                                 {db.description || 'No description provided.'}
                             </p>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="flex items-center gap-2 text-[10px] font-bold text-muted uppercase tracking-widest">
-                                    <Layout size={12} className="opacity-50" />
-                                    <span>{db.data_overview_display}</span>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="flex items-center gap-2 text-[10px] font-bold text-muted uppercase tracking-widest">
+                                            <Layout size={12} className="opacity-50" />
+                                            <span>{db.data_overview_display}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-[10px] font-bold text-muted uppercase tracking-widest">
+                                            <Info size={12} className="opacity-50" />
+                                            <span>{db.record_shortcode || 'NO PREFIX'}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    {db.is_published && (
+                                        <div className="mt-4 flex items-center gap-2 px-2 py-1 bg-accent/10 border border-accent/20 rounded text-[8px] font-black text-accent uppercase tracking-widest w-fit">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                                            Published to Roster
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex items-center gap-2 text-[10px] font-bold text-muted uppercase tracking-widest">
-                                    <Info size={12} className="opacity-50" />
-                                    <span>{db.record_shortcode || 'NO PREFIX'}</span>
-                                </div>
-                            </div>
-                        </div>
 
                         <div className="px-6 py-4 bg-surface border-t border-border flex items-center justify-between mt-auto">
                             <div className="flex items-center gap-2">
@@ -371,7 +380,7 @@ if (selectedDatabase) {
                                         </div>
                                     </div>
 
-                                    <div>
+                                    <div className="grid grid-cols-2 gap-4">
                                         <label className="flex items-center gap-3 cursor-pointer group p-3 bg-surface border border-border rounded-lg hover:border-accent transition-all">
                                             <input 
                                                 type="checkbox"
@@ -384,7 +393,23 @@ if (selectedDatabase) {
                                             </div>
                                             <div className="flex flex-col">
                                                 <span className="text-xs font-bold text-text uppercase tracking-widest">Allow Entry Details View</span>
-                                                <span className="text-[9px] text-muted font-bold uppercase tracking-widest">If enabled, members can click records to open a detailed view.</span>
+                                                <span className="text-[9px] text-muted font-bold uppercase tracking-widest">Allow members to click records for details.</span>
+                                            </div>
+                                        </label>
+
+                                        <label className="flex items-center gap-3 cursor-pointer group p-3 bg-surface border border-border rounded-lg hover:border-accent transition-all">
+                                            <input 
+                                                type="checkbox"
+                                                checked={formData.is_published}
+                                                onChange={e => setFormData({ ...formData, is_published: e.target.checked })}
+                                                className="hidden"
+                                            />
+                                            <div className={`w-5 h-5 rounded border transition-all flex items-center justify-center ${formData.is_published ? 'bg-accent border-accent' : 'bg-card border-border group-hover:border-accent'}`}>
+                                                {formData.is_published && <X size={14} className="text-white rotate-45" />}
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-text uppercase tracking-widest">Publish to Roster</span>
+                                                <span className="text-[9px] text-muted font-bold uppercase tracking-widest">Allow linking this database to roster datasets.</span>
                                             </div>
                                         </label>
                                     </div>

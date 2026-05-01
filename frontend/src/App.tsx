@@ -27,7 +27,7 @@ import { Faction as FactionType, Roster as RosterType } from './types';
 import { Plus, MoreVertical, Menu, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Pencil, Database } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 
-const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, activeDivId, setActiveDivId, permissions, shortname, fetchRosters, datasets }: any) => {
+const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, activeDivId, setActiveDivId, permissions, shortname, fetchRosters, datasets, recordData, flags }: any) => {
   const canCreate = permissions.includes('create_roster');
   const canModifyVariables = permissions.includes('modify_roster_variables');
   const canModifyFlags = permissions.includes('modify_roster_flags');
@@ -295,6 +295,7 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                         onEdit={handleEditSection}
                         columns={section.columns || rosters.find((r: any) => r.id === activeDivId)?.columns}
                         datasets={datasets}
+                        recordData={recordData}
                         allContents={allContents}
                         editMode={editMode}
                         onRefresh={fetchRosters}
@@ -354,6 +355,7 @@ const FactionRoster = ({ activeDivision, totalMembers, rosters, setRosters, acti
                         onEdit={handleEditSection}
                         columns={section.columns || rosters.find((r: any) => r.id === activeDivId)?.columns}
                         datasets={datasets}
+                        recordData={recordData}
                         allContents={allContents}
                         editMode={editMode}
                         onRefresh={fetchRosters}
@@ -806,6 +808,7 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
   const [rosters, setRosters] = useState<any[]>([]);
   const [datasets, setDatasets] = useState<any[]>([]);
   const [flags, setFlags] = useState<any[]>([]);
+  const [recordData, setRecordData] = useState<any[]>([]);
 
   // Mock static data for now
   const [staticFaction] = useState<FactionType>(INITIAL_DATA[0]);
@@ -813,13 +816,14 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
   const fetchAllData = async () => {
     try {
       const res = await api.get(`/factions/${shortname}`);
-      const { faction, permissions: perms, rosters: rosterData, datasets: datasetData, flags: flagData } = res.data;
+      const { faction, permissions: perms, rosters: rosterData, datasets: datasetData, flags: flagData, record_data: recordDataRes } = res.data;
       
       setFactionData(faction);
       setPermissions(perms);
       setRosters(rosterData);
       setDatasets(datasetData);
       setFlags(flagData);
+      setRecordData(recordDataRes);
 
       if (rosterData.length > 0) {
         if (activeDivId === null || !rosterData.find((r: any) => r.id === activeDivId)) {
@@ -910,6 +914,7 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
                 fetchRosters={fetchAllData}
                 datasets={datasets}
                 flags={flags}
+                recordData={recordData}
               />
             } />
             <Route path="records" element={

@@ -108,11 +108,28 @@ export interface FactionRecordDatabase {
   database_structure: any[];
   permissions: any;
   is_api_database: boolean;
+  is_published: boolean;
   created_by: number;
   creator?: {
     id: number;
     username: string;
   };
+}
+
+export interface RosterDatasetOption {
+    id?: number;
+    value: string;
+    color: string | null;
+    is_bold: boolean;
+    order: number;
+}
+
+export interface RosterDataset {
+    id: number;
+    name: string;
+    record_database_id: number | null;
+    record_database?: FactionRecordDatabase;
+    options: RosterDatasetOption[];
 }
 
 export interface FactionRecordPermission {

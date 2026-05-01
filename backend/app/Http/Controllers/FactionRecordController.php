@@ -60,6 +60,7 @@ class FactionRecordController extends Controller
             'record_shortcode' => 'nullable|string|max:10',
             'database_structure' => 'sometimes|array',
             'permissions' => 'nullable|array',
+            'is_published' => 'sometimes|boolean',
         ]);
 
         $database->update($validated);

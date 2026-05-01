@@ -14,6 +14,10 @@ export interface RosterColumn {
   tags?: any[];
   flags?: number[];
   dataset_id?: number | null;
+  source_column_id?: string | null;
+  linked_database_id?: number | null;
+  data_field_id?: string | null;
+  database_field_id?: string | null;
 }
 
 interface RosterTableProps {
@@ -21,6 +25,7 @@ interface RosterTableProps {
   allContents?: RosterContent[];
   columns?: RosterColumn[];
   datasets?: any[];
+  recordData?: any[];
   isLeadership?: boolean;
   accentColor?: string;
   editMode?: boolean;
@@ -38,6 +43,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   allContents,
   columns, 
   datasets = [],
+  recordData = [],
   isLeadership, 
   accentColor, 
   editMode, 
@@ -261,9 +267,85 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     const boundDataset = col.dataset_id ? datasets.find(d => d.id === col.dataset_id) : null;
     const datasetOptions = boundDataset?.options || [];
     
-    const effectiveOptions = boundDataset 
+    let effectiveOptions = boundDataset 
       ? datasetOptions.map((o: any) => ({ label: o.value, color: o.color, bold: o.is_bold })) 
       : (col.options || []);
+
+    // If dynamic dataset, pull from recordData
+    if (boundDataset?.record_database_id) {
+        const db = recordData.find(d => d.id === boundDataset.record_database_id);
+        if (db && db.entries) {
+            effectiveOptions = db.entries.map((entry: any) => {
+                let fieldId = col.database_field_id;
+                // Fallback to first field if no specific field is set or if it's pointing to a template name
+                if (!fieldId || ['table', 'compact', 'cards', 'detailed', 'rows'].includes(fieldId)) {
+                    fieldId = db.database_structure?.[0]?.id;
+                }
+
+                const field = db.database_structure?.find((f: any) => f.id === fieldId);
+                
+                let label = '';
+                if (fieldId === 'id') label = String(entry.entry_id);
+                else if (fieldId === 'created_at') label = new Date(entry.created_at).toLocaleDateString();
+                else {
+                    // Try ID first, then fallback to Name (for legacy data)
+                    label = entry.data?.[fieldId || ''] || entry.data?.[field?.name || ''] || `Entry #${entry.entry_id}`;
+                }
+                
+                return { label, color: null, bold: false, entryId: entry.id };
+            });
+        }
+    }
+
+    // Handle Database Data Column Type
+    if (col.type === 'database_data' && col.source_column_id) {
+        const sourceCol = activeCols.find(c => c.id === col.source_column_id);
+        const sourceValue = isEditing ? editData[sourceCol?.id || ''] : (row.content?.[sourceCol?.id || ''] || '');
+        
+        if (sourceValue) {
+            // Find the database linked to the source column's dataset
+            const sourceDataset = datasets.find(d => d.id === sourceCol?.dataset_id);
+            const db = recordData.find(d => d.id === sourceDataset?.record_database_id);
+            
+            if (db && db.entries) {
+                // Find entry that matches sourceValue (by the source column's referenced field)
+                const entry = db.entries.find((e: any) => {
+                    let fieldId = sourceCol?.database_field_id;
+                    if (!fieldId || ['table', 'compact', 'cards', 'detailed', 'rows'].includes(fieldId)) {
+                        fieldId = db.database_structure?.[0]?.id;
+                    }
+
+                    const label = (fieldId === 'id') ? String(e.entry_id) : 
+                                 (fieldId === 'created_at') ? new Date(e.created_at).toLocaleDateString() :
+                                 e.data?.[fieldId || ''];
+                    
+                    return label === sourceValue;
+                });
+
+                if (entry) {
+                    const fieldId = col.data_field_id;
+                    let displayValue = '-';
+                    if (fieldId === 'id') displayValue = entry.entry_id;
+                    else if (fieldId === 'created_at') displayValue = new Date(entry.created_at).toLocaleDateString();
+                    else displayValue = entry.data?.[fieldId || ''] || '-';
+
+                    return (
+                        <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-60 italic">
+                            <span className="text-[10px] uppercase font-bold text-accent">
+                                {displayValue}
+                            </span>
+                        </div>
+                    );
+                }
+            }
+        }
+
+        return (
+            <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-20">
+                <span className="text-[10px] uppercase font-bold">-</span>
+            </div>
+        );
+    }
 
     const selectedOpt = effectiveOptions.find(o => o.label === value);
     const textStyle: React.CSSProperties = {
@@ -376,7 +458,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
       const suggestionPool = [...effectiveOptions];
       
       uniqueExisting.forEach(val => {
-        if (typeof val === 'string' && !suggestionPool.find(opt => opt.label.toLowerCase() === val.toLowerCase())) {
+        if (typeof val === 'string' && !suggestionPool.some(opt => opt.label.toLowerCase() === val.toLowerCase())) {
           suggestionPool.push({ label: val, color: 'inherit', bold: false });
         }
       });
@@ -384,8 +466,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
       const searchTerm = (value || '').toLowerCase();
       const filteredSuggestions = (focusedColId === col.id && searchTerm.length >= 1) 
         ? suggestionPool.filter(opt => 
-            opt.label.toLowerCase().includes(searchTerm) && 
-            opt.label.toLowerCase() !== searchTerm
+            opt.label.toLowerCase().includes(searchTerm)
           ).slice(0, 8) 
         : [];
 

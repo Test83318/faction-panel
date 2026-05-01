@@ -20,6 +20,7 @@ class FactionRecordDatabase extends Model
         'permissions',
         'database_structure',
         'is_api_database',
+        'is_published',
         'created_by',
     ];
 
@@ -28,6 +29,7 @@ class FactionRecordDatabase extends Model
         'database_structure' => 'array',
         'is_api_database' => 'boolean',
         'allow_details_view' => 'boolean',
+        'is_published' => 'boolean',
     ];
 
     public function faction()

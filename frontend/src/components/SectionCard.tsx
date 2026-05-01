@@ -11,6 +11,7 @@ interface SectionCardProps {
   permissions?: any;
   columns?: any[];
   datasets?: any[];
+  recordData?: any[];
   flags?: any[];
   allContents?: any[];
   editMode?: boolean;
@@ -25,6 +26,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   permissions,
   columns, 
   datasets,
+  recordData,
   flags,
   allContents,
   editMode,
@@ -134,6 +136,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           accentColor={section.color || 'var(--accent)'} 
           columns={columns} 
           datasets={datasets}
+          recordData={recordData}
           flags={flags}
           editMode={editMode}
           canModerate={canModerate}
@@ -205,6 +208,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
                 accentColor={child.color || section.color || 'var(--accent)'} 
                 columns={child.columns || columns} 
                 datasets={datasets}
+                recordData={recordData}
                 flags={flags}
                 editMode={editMode}
                 canModerate={canModerate}
@@ -241,6 +245,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
               accentColor={child.color || section.color || 'var(--accent)'} 
               columns={child.columns || columns} 
               datasets={datasets}
+              recordData={recordData}
               flags={flags}
               editMode={editMode}
               canModerate={canModerate}
@@ -262,6 +267,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           accentColor={section.color || 'var(--accent)'} 
           columns={columns} 
           datasets={datasets}
+          recordData={recordData}
           flags={flags}
           editMode={editMode}
           canModerate={canModerate}

@@ -33,7 +33,7 @@ class DatasetController extends Controller
         }
 
         $datasets = RosterDataset::where('faction_id', $faction->id)
-            ->with('options')
+            ->with(['options', 'recordDatabase'])
             ->get();
 
         return response()->json($datasets);
@@ -49,14 +49,16 @@ class DatasetController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
+            'record_database_id' => 'nullable|exists:faction_record_databases,id',
         ]);
 
         $dataset = RosterDataset::create([
             'faction_id' => $faction->id,
             'name' => $request->name,
+            'record_database_id' => $request->record_database_id,
         ]);
 
-        return response()->json($dataset->load('options'));
+        return response()->json($dataset->load(['options', 'recordDatabase']));
     }
 
     public function update(RosterDataset $dataset, Request $request)
@@ -68,6 +70,7 @@ class DatasetController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
+            'record_database_id' => 'nullable|exists:faction_record_databases,id',
             'options' => 'array',
             'options.*.value' => 'required|string',
             'options.*.color' => 'nullable|string|max:7',
@@ -76,7 +79,10 @@ class DatasetController extends Controller
         ]);
 
         DB::transaction(function () use ($dataset, $request) {
-            $dataset->update(['name' => $request->name]);
+            $dataset->update([
+                'name' => $request->name,
+                'record_database_id' => $request->record_database_id,
+            ]);
 
             if ($request->has('options')) {
                 $optionIds = collect($request->options)->pluck('id')->filter();

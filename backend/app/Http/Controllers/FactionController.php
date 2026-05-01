@@ -146,12 +146,21 @@ class FactionController extends Controller
         // Include Flags
         $flags = $faction->rosterFlags()->get();
 
+        // Include Published Record Databases & Entries
+        $publishedDatabases = $faction->recordDatabases()
+            ->where('is_published', true)
+            ->with(['entries' => function ($query) {
+                $query->where('is_active', true);
+            }])
+            ->get();
+
         return response()->json([
             'faction' => $faction,
             'permissions' => $permissions,
             'rosters' => $filteredRosters,
             'datasets' => $datasets,
-            'flags' => $flags
+            'flags' => $flags,
+            'record_data' => $publishedDatabases
         ]);
     }
     public function update(Request $request, Faction $faction)

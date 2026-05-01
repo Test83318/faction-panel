@@ -14,7 +14,14 @@ interface DatasetOption {
 interface Dataset {
     id: number;
     name: string;
+    record_database_id: number | null;
     options: DatasetOption[];
+}
+
+interface RecordDatabase {
+    id: number;
+    name: string;
+    is_published: boolean;
 }
 
 interface GlobalVariablesModalProps {
@@ -24,29 +31,35 @@ interface GlobalVariablesModalProps {
 
 const GlobalVariablesModal: React.FC<GlobalVariablesModalProps> = ({ shortname, onClose }) => {
     const [datasets, setDatasets] = useState<Dataset[]>([]);
+    const [recordDatabases, setRecordDatabases] = useState<RecordDatabase[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [newDatasetName, setNewDatasetName] = useState('');
 
-    const fetchDatasets = async () => {
+    const fetchData = async () => {
         try {
-            const res = await api.get(`/factions/${shortname}/datasets`);
-            setDatasets(res.data);
+            const [datasetsRes, recordsRes] = await Promise.all([
+                api.get(`/factions/${shortname}/datasets`),
+                api.get(`/factions/${shortname}/records`)
+            ]);
+            setDatasets(datasetsRes.data);
+            setRecordDatabases(recordsRes.data.filter((db: any) => db.is_published));
+            
             if (selectedDataset) {
-                const updated = res.data.find((d: any) => d.id === selectedDataset.id);
+                const updated = datasetsRes.data.find((d: any) => d.id === selectedDataset.id);
                 if (updated) setSelectedDataset(updated);
             }
         } catch (err) {
-            toast.error('Failed to fetch datasets');
+            toast.error('Failed to fetch data');
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchDatasets();
+        fetchData();
     }, [shortname]);
 
     const handleCreateDataset = async (e: React.FormEvent) => {
@@ -72,7 +85,7 @@ const GlobalVariablesModal: React.FC<GlobalVariablesModalProps> = ({ shortname, 
         try {
             const res = await api.put(`/datasets/${selectedDataset.id}`, selectedDataset);
             toast.success('Dataset saved', { id: loadToast });
-            fetchDatasets();
+            fetchData();
         } catch (err) {
             toast.error('Failed to save dataset', { id: loadToast });
         } finally {
@@ -201,20 +214,35 @@ const GlobalVariablesModal: React.FC<GlobalVariablesModalProps> = ({ shortname, 
                         {selectedDataset ? (
                             <>
                                 <div className="p-4 border-b border-border bg-surface/30 flex justify-between items-center">
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex flex-col gap-1 flex-1 mr-4">
                                         <input 
                                             value={selectedDataset.name}
                                             onChange={e => setSelectedDataset({ ...selectedDataset, name: e.target.value })}
-                                            className="bg-transparent border-none font-black uppercase tracking-tight text-lg outline-none focus:text-accent"
+                                            className="bg-transparent border-none font-black uppercase tracking-tight text-lg outline-none focus:text-accent w-full"
                                         />
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[9px] font-black text-muted uppercase tracking-widest">Source:</span>
+                                            <select 
+                                                value={selectedDataset.record_database_id || ''}
+                                                onChange={e => setSelectedDataset({ ...selectedDataset, record_database_id: e.target.value ? parseInt(e.target.value) : null })}
+                                                className="bg-surface border border-border rounded px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-accent outline-none focus:border-accent"
+                                            >
+                                                <option value="">Manual Options</option>
+                                                {recordDatabases.map(db => (
+                                                    <option key={db.id} value={db.id}>Database: {db.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button 
-                                            onClick={addOption}
-                                            className="px-3 py-1.5 bg-surface hover:bg-bg border border-border text-[10px] font-black uppercase tracking-widest rounded-lg transition"
-                                        >
-                                            Add Option
-                                        </button>
+                                        {!selectedDataset.record_database_id && (
+                                            <button 
+                                                onClick={addOption}
+                                                className="px-3 py-1.5 bg-surface hover:bg-bg border border-border text-[10px] font-black uppercase tracking-widest rounded-lg transition"
+                                            >
+                                                Add Option
+                                            </button>
+                                        )}
                                         <button 
                                             onClick={handleSaveDataset}
                                             disabled={isSaving}
@@ -225,7 +253,15 @@ const GlobalVariablesModal: React.FC<GlobalVariablesModalProps> = ({ shortname, 
                                     </div>
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                                    {selectedDataset.options.map((option, idx) => (
+                                    {selectedDataset.record_database_id ? (
+                                        <div className="py-20 flex flex-col items-center justify-center border border-dashed border-accent/20 rounded-2xl bg-accent/5">
+                                            <Database size={32} className="text-accent opacity-40 mb-3" />
+                                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">Linked to Dynamic Database</p>
+                                            <p className="text-[9px] font-bold text-muted uppercase tracking-widest mt-1">Options will be pulled automatically from database entries</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {selectedDataset.options.map((option, idx) => (
                                         <div key={idx} className="flex items-center gap-3 p-2 bg-surface border border-border rounded-xl group">
                                             <div className="text-muted"><GripVertical size={14} /></div>
                                             <input 
@@ -274,8 +310,9 @@ const GlobalVariablesModal: React.FC<GlobalVariablesModalProps> = ({ shortname, 
                                             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted opacity-40">No options added yet</p>
                                         </div>
                                     )}
-                                </div>
-                            </>
+                                    </>
+                                    )}
+                                    </div>                            </>
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-muted uppercase text-[10px] tracking-widest opacity-40 space-y-4">
                                 <Database size={48} />

@@ -42,10 +42,10 @@ class FactionRecordEntryController extends Controller
         // Basic validation against structure
         $structure = $database->database_structure;
         foreach ($structure as $field) {
-            if (($field['required'] ?? false) && (!isset($validated['data'][$field['name']]) || $validated['data'][$field['name']] === '')) {
+            if (($field['required'] ?? false) && (!isset($validated['data'][$field['id']]) || $validated['data'][$field['id']] === '')) {
                 return response()->json([
                     'message' => "The {$field['name']} field is required.",
-                    'errors' => [$field['name'] => ["The {$field['name']} field is required."]]
+                    'errors' => [$field['id'] => ["The {$field['name']} field is required."]]
                 ], 422);
             }
         }
@@ -99,10 +99,10 @@ class FactionRecordEntryController extends Controller
         if (isset($validated['data'])) {
             $structure = $database->database_structure;
             foreach ($structure as $field) {
-                if (($field['required'] ?? false) && (!isset($validated['data'][$field['name']]) || $validated['data'][$field['name']] === '')) {
+                if (($field['required'] ?? false) && (!isset($validated['data'][$field['id']]) || $validated['data'][$field['id']] === '')) {
                     return response()->json([
                         'message' => "The {$field['name']} field is required.",
-                        'errors' => [$field['name'] => ["The {$field['name']} field is required."]]
+                        'errors' => [$field['id'] => ["The {$field['name']} field is required."]]
                     ], 422);
                 }
             }

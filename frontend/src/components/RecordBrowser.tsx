@@ -88,7 +88,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
     const openCreateModal = () => {
         const initialData: any = {};
         database.database_structure.forEach(field => {
-            initialData[field.name] = field.type === 'boolean' ? false : '';
+            initialData[field.id] = field.type === 'boolean' ? false : '';
         });
         setEntryData(initialData);
         setEntryIsActive(true);
@@ -96,7 +96,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
     };
 
     const openEditModal = (entry: any) => {
-        setEntryData(entry.data);
+        setEntryData(entry.data || {});
         setEntryIsActive(entry.is_active ?? true);
         setShowEntryModal(entry);
     };
@@ -105,7 +105,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
 
     const filteredEntries = entries.filter(entry => {
         const searchStr = searchQuery.toLowerCase();
-        return Object.values(entry.data).some(val => 
+        return Object.values(entry.data || {}).some(val => 
             String(val).toLowerCase().includes(searchStr)
         ) || String(entry.entry_id).includes(searchStr);
     });
@@ -135,7 +135,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
             <div key={field.id}>
                 <label className="block text-[10px] font-black text-muted uppercase tracking-[0.2em] mb-1.5">{field.name}</label>
                 <div className="text-sm text-text font-medium bg-surface/30 p-3 rounded-lg border border-border/50">
-                    {renderFieldValue(field, selectedEntry.data[field.name])}
+                    {renderFieldValue(field, selectedEntry.data?.[field.id])}
                 </div>
             </div>
         );
@@ -187,12 +187,12 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                     <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-2xl">
                         <div className="h-32 bg-gradient-to-r from-accent/20 to-accent/5 flex items-end p-8">
                             <div className="w-24 h-24 rounded-2xl bg-card border-4 border-card shadow-lg flex items-center justify-center text-3xl font-black text-accent translate-y-12">
-                                {String(selectedEntry.data[firstField?.name] || 'R').charAt(0).toUpperCase()}
+                                {String(selectedEntry.data?.[firstField?.id] || 'R').charAt(0).toUpperCase()}
                             </div>
                         </div>
                         <div className="p-8 pt-16">
                             <div className="mb-8">
-                                <h3 className="text-3xl font-black text-text uppercase tracking-tighter">{selectedEntry.data[firstField?.name] || 'Unnamed Record'}</h3>
+                                <h3 className="text-3xl font-black text-text uppercase tracking-tighter">{selectedEntry.data?.[firstField?.id] || 'Unnamed Record'}</h3>
                                 <p className="text-muted font-bold text-[10px] uppercase tracking-[0.2em]">{database.name} Profile</p>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -223,7 +223,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                     {database.database_structure.slice(0, Math.ceil(database.database_structure.length / 2)).map(f => (
                                         <div key={f.id} className="border-b border-black/10 pb-2">
                                             <label className="block text-[9px] font-bold uppercase mb-1">{f.name}</label>
-                                            <div className="font-serif text-lg">{renderFieldValue(f, selectedEntry.data[f.name])}</div>
+                                            <div className="font-serif text-lg">{renderFieldValue(f, selectedEntry.data?.[f.id])}</div>
                                         </div>
                                     ))}
                                 </div>
@@ -231,7 +231,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                     {database.database_structure.slice(Math.ceil(database.database_structure.length / 2)).map(f => (
                                         <div key={f.id} className="border-b border-black/10 pb-2">
                                             <label className="block text-[9px] font-bold uppercase mb-1">{f.name}</label>
-                                            <div className="font-serif text-lg">{renderFieldValue(f, selectedEntry.data[f.name])}</div>
+                                            <div className="font-serif text-lg">{renderFieldValue(f, selectedEntry.data?.[f.id])}</div>
                                         </div>
                                     ))}
                                 </div>
@@ -287,7 +287,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                         {database.database_structure.map(f => (
                             <div key={f.id} className="flex items-center justify-between py-3 border-b border-border/50">
                                 <span className="text-[10px] font-black text-muted uppercase tracking-widest">{f.name}</span>
-                                <span className="text-sm font-bold text-text">{renderFieldValue(f, selectedEntry.data[f.name])}</span>
+                                <span className="text-sm font-bold text-text">{renderFieldValue(f, selectedEntry.data?.[f.id])}</span>
                             </div>
                         ))}
                     </div>
@@ -353,7 +353,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                     </td>
                                     {database.database_structure.map(field => (
                                         <td key={field.id} className={`${isCompact ? 'p-2' : 'p-4'} text-xs text-text`}>
-                                            {renderFieldValue(field, entry.data[field.name])}
+                                            {renderFieldValue(field, entry.data?.[field.id])}
                                         </td>
                                     ))}
                                     <td className={`${isCompact ? 'p-2' : 'p-4'} text-[10px] font-bold text-muted uppercase tracking-widest text-right whitespace-nowrap`}>
@@ -394,7 +394,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                         <div key={field.id} className="min-w-[120px]">
                                             <label className="block text-[8px] font-black text-muted uppercase tracking-widest mb-0.5">{field.name}</label>
                                             <div className="text-xs text-text truncate">
-                                                {renderFieldValue(field, entry.data[field.name])}
+                                                {renderFieldValue(field, entry.data?.[field.id])}
                                             </div>
                                         </div>
                                     ))}
@@ -445,7 +445,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                 <div key={field.id} className={isDetailed ? 'pt-3 first:pt-0' : ''}>
                                     <label className="block text-[8px] font-black text-muted uppercase tracking-[0.2em] mb-1">{field.name}</label>
                                     <div className={`${isDetailed ? 'text-sm' : 'text-xs'} text-text font-medium`}>
-                                        {renderFieldValue(field, entry.data[field.name])}
+                                        {renderFieldValue(field, entry.data?.[field.id])}
                                     </div>
                                 </div>
                             ))}
@@ -581,15 +581,15 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                         {field.type === 'textarea' ? (
                                             <textarea 
                                                 required={field.required}
-                                                value={entryData[field.name] || ''}
-                                                onChange={e => setEntryData({ ...entryData, [field.name]: e.target.value })}
+                                                value={entryData[field.id] || ''}
+                                                onChange={e => setEntryData({ ...entryData, [field.id]: e.target.value })}
                                                 className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition min-h-[100px]"
                                             />
                                         ) : field.type === 'select' ? (
                                             <select 
                                                 required={field.required}
-                                                value={entryData[field.name] || ''}
-                                                onChange={e => setEntryData({ ...entryData, [field.name]: e.target.value })}
+                                                value={entryData[field.id] || ''}
+                                                onChange={e => setEntryData({ ...entryData, [field.id]: e.target.value })}
                                                 className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition"
                                             >
                                                 <option value="">Select an option...</option>
@@ -601,12 +601,12 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                             <label className="flex items-center gap-3 cursor-pointer group p-3 bg-surface border border-border rounded-lg hover:border-accent transition-all">
                                                 <input 
                                                     type="checkbox"
-                                                    checked={entryData[field.name] || false}
-                                                    onChange={e => setEntryData({ ...entryData, [field.name]: e.target.checked })}
+                                                    checked={entryData[field.id] || false}
+                                                    onChange={e => setEntryData({ ...entryData, [field.id]: e.target.checked })}
                                                     className="hidden"
                                                 />
-                                                <div className={`w-5 h-5 rounded border transition-all flex items-center justify-center ${entryData[field.name] ? 'bg-accent border-accent' : 'bg-card border-border group-hover:border-accent'}`}>
-                                                    {entryData[field.name] && <Check size={14} className="text-white" />}
+                                                <div className={`w-5 h-5 rounded border transition-all flex items-center justify-center ${entryData[field.id] ? 'bg-accent border-accent' : 'bg-card border-border group-hover:border-accent'}`}>
+                                                    {entryData[field.id] && <Check size={14} className="text-white" />}
                                                 </div>
                                                 <span className="text-xs font-bold text-text uppercase tracking-widest">Enable / Active</span>
                                             </label>
@@ -614,8 +614,8 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                             <input 
                                                 type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
                                                 required={field.required}
-                                                value={entryData[field.name] || ''}
-                                                onChange={e => setEntryData({ ...entryData, [field.name]: e.target.value })}
+                                                value={entryData[field.id] || ''}
+                                                onChange={e => setEntryData({ ...entryData, [field.id]: e.target.value })}
                                                 className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition"
                                             />
                                         )}
