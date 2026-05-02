@@ -11,12 +11,29 @@ class Faction extends Model
     /** @use HasFactory<\Database\Factories\FactionFactory> */
     use HasFactory, SoftDeletes;
 
+    protected $appends = ['allow_branding'];
+
+    public function getAllowBrandingAttribute(): bool
+    {
+        return $this->creator ? $this->creator->allow_custom_branding : false;
+    }
+
     protected $fillable = [
         'shortname',
         'name',
         'description',
         'color',
         'image_url',
+        'header_image_dark',
+        'header_image_light',
+        'favicon',
+        'header_link_to_faction',
+        'hide_panel_header',
+        'custom_footer_text',
+        'header_bg_color',
+        'header_gradient_enabled',
+        'header_gradient_color',
+        'header_gradient_direction',
         'visibility',
         'access',
         'gtaw_faction_id',

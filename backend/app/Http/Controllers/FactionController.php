@@ -17,6 +17,15 @@ class FactionController extends Controller
 
     public function store(Request $request)
     {
+        $user = Auth::user();
+        $createdFactionsCount = Faction::where('created_by', $user->id)->count();
+
+        if ($createdFactionsCount >= $user->max_factions) {
+            return response()->json([
+                'message' => "You have reached your limit of {$user->max_factions} created factions."
+            ], 403);
+        }
+
         $validated = $request->validate([
             'shortname' => ['required', 'string', 'unique:factions,shortname', 'max:20', 'regex:/^[a-z0-9\-_]+$/'],
             'name' => 'required|string|max:255',
@@ -169,11 +178,49 @@ class FactionController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $user = Auth::user();
+        $premiumFields = [
+            'header_image_dark', 
+            'header_image_light',
+            'favicon', 
+            'header_link_to_faction', 
+            'hide_panel_header', 
+            'custom_footer_text', 
+            'header_bg_color', 
+            'header_gradient_enabled', 
+            'header_gradient_color', 
+            'header_gradient_direction'
+        ];
+
+        $attemptingPremium = false;
+        foreach ($premiumFields as $field) {
+            if ($request->has($field)) {
+                $attemptingPremium = true;
+                break;
+            }
+        }
+
+        if ($attemptingPremium && !$user->allow_custom_branding) {
+             return response()->json([
+                'message' => 'Advanced branding is a restricted feature.'
+            ], 403);
+        }
+
         $validated = $request->validate([
             'shortname' => ['sometimes', 'string', Rule::unique('factions')->ignore($faction->id), 'max:20', 'alpha_dash'],
             'name' => 'sometimes|string|max:255',
             'color' => ['sometimes', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'image_url' => 'nullable|url|max:2048',
+            'header_image_dark' => 'nullable|url|max:2048',
+            'header_image_light' => 'nullable|url|max:2048',
+            'favicon' => 'nullable|url|max:2048',
+            'header_link_to_faction' => 'sometimes|boolean',
+            'hide_panel_header' => 'sometimes|boolean',
+            'custom_footer_text' => 'nullable|string|max:255',
+            'header_bg_color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
+            'header_gradient_enabled' => 'sometimes|boolean',
+            'header_gradient_color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
+            'header_gradient_direction' => ['sometimes', Rule::in(['to-r', 'to-l', 'to-t', 'to-b', 'to-tr', 'to-tl', 'to-br', 'to-bl'])],
             'visibility' => ['sometimes', Rule::in(['public', 'hidden', 'private'])],
             'access' => ['sometimes', Rule::in(['joinable', 'invite-only', 'private'])],
             'gtaw_faction_id' => ['sometimes', 'nullable', 'integer', Rule::unique('factions')->ignore($faction->id)],
@@ -236,8 +283,9 @@ class FactionController extends Controller
     public function getAllFactions()
     {
         // Users only see factions with 'public' visibility
-        return Faction::where('visibility', 'public')
-            ->get(['name', 'shortname', 'color', 'image_url', 'visibility', 'access']);
+        return Faction::with('creator.membershipTier')
+            ->where('visibility', 'public')
+            ->get();
     }
 
     public function getPermissions(string $shortname)

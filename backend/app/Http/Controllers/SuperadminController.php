@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Faction;
 use App\Models\User;
+use App\Models\MembershipTier;
+use App\Models\SiteSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class SuperadminController extends Controller
 {
@@ -16,11 +19,38 @@ class SuperadminController extends Controller
         }
     }
 
+    public function getSettings(Request $request)
+    {
+        $this->checkSuperadmin($request);
+        return SiteSetting::all()->pluck('value', 'key');
+    }
+
+    public function getPublicSettings()
+    {
+        return SiteSetting::where('key', 'version')->pluck('value', 'key');
+    }
+
+    public function updateSettings(Request $request)
+    {
+        $this->checkSuperadmin($request);
+        
+        $validated = $request->validate([
+            'settings' => 'required|array',
+            'settings.*' => 'nullable|string'
+        ]);
+
+        foreach ($validated['settings'] as $key => $value) {
+            SiteSetting::updateOrCreate(['key' => $key], ['value' => $value]);
+        }
+
+        return response()->json(['message' => 'Settings updated successfully']);
+    }
+
     public function getUsers(Request $request)
     {
         $this->checkSuperadmin($request);
-        // Include counts for display
-        return User::withCount('factions')->get();
+        // Include counts and membership tier for display
+        return User::with(['membershipTier'])->withCount('factions')->get();
     }
 
     public function updateUser(Request $request, User $user)
@@ -31,11 +61,51 @@ class SuperadminController extends Controller
             'username' => 'required|string|max:255|unique:users,username,' . $user->id,
             'gtaw_id' => 'nullable|integer',
             'gtaw_username' => 'nullable|string|max:255',
-            'is_superadmin' => 'boolean'
+            'is_superadmin' => 'boolean',
+            'membership_tier_id' => 'nullable|exists:membership_tiers,id'
         ]);
 
         $user->update($validated);
-        return response()->json(['message' => 'User updated successfully', 'user' => $user]);
+        return response()->json(['message' => 'User updated successfully', 'user' => $user->load('membershipTier')]);
+    }
+
+    public function getMembershipTiers(Request $request)
+    {
+        $this->checkSuperadmin($request);
+        return MembershipTier::withCount('users')->get();
+    }
+
+    public function storeMembershipTier(Request $request)
+    {
+        $this->checkSuperadmin($request);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'max_factions' => 'required|integer|min:0',
+            'allow_custom_branding' => 'boolean'
+        ]);
+
+        $tier = MembershipTier::create($validated);
+        return response()->json($tier, 201);
+    }
+
+    public function updateMembershipTier(Request $request, MembershipTier $tier)
+    {
+        $this->checkSuperadmin($request);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'max_factions' => 'required|integer|min:0',
+            'allow_custom_branding' => 'boolean'
+        ]);
+
+        $tier->update($validated);
+        return response()->json($tier);
+    }
+
+    public function deleteMembershipTier(Request $request, MembershipTier $tier)
+    {
+        $this->checkSuperadmin($request);
+        $tier->delete();
+        return response()->json(['message' => 'Membership tier deleted successfully']);
     }
 
     public function deleteUser(Request $request, User $user)

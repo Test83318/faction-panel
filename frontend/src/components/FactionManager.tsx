@@ -26,6 +26,9 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
     const [shortname, setShortname] = useState('');
     const [color, setColor] = useState('#1e5fa8');
 
+    const createdFactionsCount = myFactions.filter(f => f.created_by === user?.id).length;
+    const isLimitReached = createdFactionsCount >= (user?.max_factions || 1);
+
     const fetchData = async () => {
         try {
             const myRes = await api.get('/factions');
@@ -176,26 +179,56 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
                         </button>
                         <button 
                             onClick={() => setShowCreate(true)}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent/90 text-white rounded font-bold text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-accent/20"
+                            disabled={isLimitReached}
+                            className={`flex items-center gap-2 px-5 py-2.5 rounded font-bold text-[10px] uppercase tracking-widest transition-all shadow-lg ${
+                                isLimitReached 
+                                    ? 'bg-border text-muted cursor-not-allowed shadow-none' 
+                                    : 'bg-accent hover:bg-accent/90 text-white shadow-accent/20'
+                            }`}
                         >
                             <Plus size={14} />
-                            Create Faction
+                            {isLimitReached ? 'Limit Reached' : 'Create Faction'}
                         </button>
                     </div>
                 </div>
+
+                {isLimitReached && (
+                    <div className="mb-8 p-4 bg-accent/5 border border-accent/20 rounded-xl flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Shield size={18} className="text-accent" />
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-widest">Faction Limit Reached</p>
+                                <p className="text-[10px] text-muted">You have reached your limit of {user?.max_factions} created factions.</p>
+                            </div>
+                        </div>
+                        <span className="px-3 py-1 bg-accent/10 text-accent border border-accent/20 rounded font-black text-[9px] uppercase tracking-widest">
+                            {user?.membership_tier?.name || 'Standard'}
+                        </span>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {myFactions.length > 0 ? (
                         myFactions.map(faction => (
                             <div key={faction.id} className="group bg-card rounded-xl border border-border overflow-hidden hover:border-accent transition-all shadow-sm hover:shadow-xl hover:-translate-y-1 flex flex-col">
                                 <Link to={`/${faction.shortname}`} className="block h-1.5" style={{ backgroundColor: faction.color }} />
-                                <div className="p-6 flex-1">
-                                    <Link to={`/${faction.shortname}`} className="block mb-4">
-                                        <h3 className="text-xl font-bold mb-1 group-hover:text-accent transition-colors">{faction.name}</h3>
+                                
+                                <div className="flex items-center gap-4 p-6 border-b border-border/50 bg-surface/30">
+                                    <div className="w-12 h-12 rounded-lg bg-surface border border-border flex items-center justify-center shrink-0 overflow-hidden">
+                                        {faction.image_url ? (
+                                            <img src={faction.image_url} alt={faction.name} className="max-w-full max-h-full object-contain" />
+                                        ) : (
+                                            <Shield size={20} style={{ color: faction.color }} className="opacity-30" />
+                                        )}
+                                    </div>
+                                    <Link to={`/${faction.shortname}`} className="block overflow-hidden">
+                                        <h3 className="text-lg font-bold truncate group-hover:text-accent transition-colors">{faction.name}</h3>
                                         <p className="text-muted text-[9px] font-black uppercase tracking-[0.2em]">{faction.shortname}</p>
                                     </Link>
-                                    
-                                    <div className="flex gap-2 mt-auto pt-4 border-t border-border/50">
+                                </div>
+
+                                <div className="p-4 bg-card flex-1">
+                                    <div className="flex gap-2">
                                         <Link 
                                             to={`/${faction.shortname}/roster`}
                                             className="flex-1 flex items-center justify-center gap-2 py-2 bg-surface hover:bg-accent/10 border border-border hover:border-accent/50 rounded-lg text-[8px] font-black uppercase tracking-widest text-muted hover:text-accent transition-all"

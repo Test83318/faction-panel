@@ -3,24 +3,28 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Loading from './Loading';
 import toast from 'react-hot-toast';
-import { Shield, ArrowLeft, Users, Building2, Edit2, Trash2, UserPlus, Check, X } from 'lucide-react';
+import { Shield, ArrowLeft, Users, Building2, Edit2, Trash2, UserPlus, Check, X, CreditCard, Plus, Settings, ScrollText } from 'lucide-react';
+import { User, Faction, MembershipTier } from '../types';
 
 interface SuperadminProps {
-    user: any;
+    user: User;
     onLogin: (token: string, user: any) => void;
 }
 
 const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'factions' | 'users'>('factions');
+    const [activeTab, setActiveTab] = useState<'factions' | 'users' | 'tiers' | 'settings'>('factions');
     
-    const [factions, setFactions] = useState<any[]>([]);
-    const [usersList, setUsersList] = useState<any[]>([]);
+    const [factions, setFactions] = useState<Faction[]>([]);
+    const [usersList, setUsersList] = useState<User[]>([]);
+    const [tiers, setTiers] = useState<MembershipTier[]>([]);
+    const [settings, setSettings] = useState<Record<string, string>>({ version: '1.0.0' });
     
     // Edit States
     const [editingFaction, setEditingFaction] = useState<any>(null);
     const [editingUser, setEditingUser] = useState<any>(null);
+    const [editingTier, setEditingTier] = useState<any>(null);
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
@@ -33,12 +37,16 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
 
     const fetchData = async () => {
         try {
-            const [factionsRes, usersRes] = await Promise.all([
+            const [factionsRes, usersRes, tiersRes, settingsRes] = await Promise.all([
                 api.get('/superadmin/factions'),
-                api.get('/superadmin/users')
+                api.get('/superadmin/users'),
+                api.get('/superadmin/membership-tiers'),
+                api.get('/superadmin/settings')
             ]);
             setFactions(factionsRes.data);
             setUsersList(usersRes.data);
+            setTiers(tiersRes.data);
+            setSettings(settingsRes.data);
         } catch (err) {
             toast.error('Failed to fetch superadmin data');
             console.error(err);
@@ -47,7 +55,21 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
         }
     };
 
-    const handleImpersonate = async (targetUser: any) => {
+    const handleUpdateSettings = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setProcessing(true);
+        const loadToast = toast.loading('Updating settings...');
+        try {
+            await api.put('/superadmin/settings', { settings });
+            toast.success('Settings updated', { id: loadToast });
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to update settings', { id: loadToast });
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const handleImpersonate = async (targetUser: User) => {
         if (!window.confirm(`Are you sure you want to impersonate ${targetUser.username}?`)) return;
         
         const loadToast = toast.loading('Impersonating...');
@@ -61,7 +83,7 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
         }
     };
 
-    const handleDeleteFaction = async (faction: any) => {
+    const handleDeleteFaction = async (faction: Faction) => {
         if (!window.confirm(`WARNING: Are you sure you want to permanently delete faction ${faction.name}?`)) return;
         
         const loadToast = toast.loading('Deleting faction...');
@@ -74,7 +96,7 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
         }
     };
 
-    const handleDeleteUser = async (targetUser: any) => {
+    const handleDeleteUser = async (targetUser: User) => {
         if (targetUser.id === user.id) {
             toast.error("Cannot delete yourself");
             return;
@@ -88,6 +110,19 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
             fetchData();
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Failed to delete user', { id: loadToast });
+        }
+    };
+
+    const handleDeleteTier = async (tier: MembershipTier) => {
+        if (!window.confirm(`Are you sure you want to delete membership tier ${tier.name}?`)) return;
+        
+        const loadToast = toast.loading('Deleting tier...');
+        try {
+            await api.delete(`/superadmin/membership-tiers/${tier.id}`);
+            toast.success('Membership tier deleted', { id: loadToast });
+            fetchData();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to delete membership tier', { id: loadToast });
         }
     };
 
@@ -118,6 +153,26 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
             fetchData();
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Failed to update user', { id: loadToast });
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const submitTierEdit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setProcessing(true);
+        const loadToast = toast.loading('Saving membership tier...');
+        try {
+            if (editingTier.id) {
+                await api.put(`/superadmin/membership-tiers/${editingTier.id}`, editingTier);
+            } else {
+                await api.post('/superadmin/membership-tiers', editingTier);
+            }
+            toast.success('Membership tier saved', { id: loadToast });
+            setEditingTier(null);
+            fetchData();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to save membership tier', { id: loadToast });
         } finally {
             setProcessing(false);
         }
@@ -176,7 +231,89 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                     >
                         <Users size={14} /> Users
                     </button>
+                    <button
+                        onClick={() => setActiveTab('tiers')}
+                        className={`flex items-center gap-2 px-6 py-3 font-bold text-[10px] uppercase tracking-widest transition-all ${
+                            activeTab === 'tiers' 
+                                ? 'border-b-2 border-accent text-accent bg-accent/5' 
+                                : 'text-muted hover:text-text hover:bg-surface'
+                        }`}
+                    >
+                        <CreditCard size={14} /> Membership Tiers
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('settings')}
+                        className={`flex items-center gap-2 px-6 py-3 font-bold text-[10px] uppercase tracking-widest transition-all ${
+                            activeTab === 'settings' 
+                                ? 'border-b-2 border-accent text-accent bg-accent/5' 
+                                : 'text-muted hover:text-text hover:bg-surface'
+                        }`}
+                    >
+                        <Settings size={14} /> System Settings
+                    </button>
                 </div>
+
+                {/* Settings Tab */}
+                {activeTab === 'settings' && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="space-y-6">
+                            <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
+                                <h3 className="text-xl font-black uppercase tracking-tighter italic mb-6 flex items-center gap-2">
+                                    <Settings className="text-accent" size={20} />
+                                    Version Control
+                                </h3>
+                                <form onSubmit={handleUpdateSettings} className="space-y-6">
+                                    <div>
+                                        <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Website Version</label>
+                                        <div className="flex gap-4">
+                                            <input 
+                                                value={settings.version} 
+                                                onChange={e => setSettings({...settings, version: e.target.value})} 
+                                                className="flex-1 bg-surface border border-border p-3 rounded-xl text-sm font-mono" 
+                                                placeholder="e.g. 1.0.0"
+                                                required 
+                                            />
+                                            <button 
+                                                type="submit" 
+                                                disabled={processing}
+                                                className="px-6 py-3 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20 disabled:opacity-50"
+                                            >
+                                                {processing ? '...' : 'Update'}
+                                            </button>
+                                        </div>
+                                        <p className="mt-2 text-[9px] text-muted font-bold uppercase tracking-wider">
+                                            This version will be displayed in the footer of all pages.
+                                        </p>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div className="bg-card border border-border rounded-xl p-8 shadow-sm opacity-50">
+                                <h3 className="text-xl font-black uppercase tracking-tighter italic mb-2 flex items-center gap-2">
+                                    <ScrollText className="text-muted" size={20} />
+                                    Advanced Configuration
+                                </h3>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted italic">More settings coming soon...</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="bg-card border border-border rounded-xl p-8 shadow-sm min-h-[400px] flex flex-col">
+                                <h3 className="text-xl font-black uppercase tracking-tighter italic mb-6 flex items-center gap-2">
+                                    <ScrollText className="text-accent" size={20} />
+                                    System Changelog
+                                </h3>
+                                <div className="flex-1 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-muted p-8 text-center">
+                                    <ScrollText size={48} className="opacity-10 mb-4" />
+                                    <p className="font-bold uppercase tracking-widest text-xs">Changelog Module Pending</p>
+                                    <p className="text-[10px] mt-2 italic max-w-[200px]">
+                                        A full historical log of system updates and database modifications will be implemented here.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Factions Tab */}
                 {activeTab === 'factions' && (
@@ -234,7 +371,7 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                                     <tr>
                                         <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">ID</th>
                                         <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Username</th>
-                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">GTA:W Link</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Membership</th>
                                         <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Status</th>
                                         <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest text-right">Actions</th>
                                     </tr>
@@ -243,15 +380,23 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                                     {usersList.map(u => (
                                         <tr key={u.id} className="hover:bg-surface/50 transition-colors">
                                             <td className="px-6 py-4 font-mono text-muted text-xs">#{u.id}</td>
-                                            <td className="px-6 py-4 font-bold">{u.username}</td>
                                             <td className="px-6 py-4">
-                                                {u.gtaw_id ? (
-                                                    <div className="flex flex-col">
-                                                        <span className="text-xs font-bold">{u.gtaw_username}</span>
-                                                        <span className="text-[9px] uppercase tracking-widest text-muted">ID: {u.gtaw_id}</span>
-                                                    </div>
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold">{u.username}</span>
+                                                    {u.gtaw_id ? (
+                                                        <span className="text-[9px] uppercase tracking-widest text-muted">{u.gtaw_username} (ID: {u.gtaw_id})</span>
+                                                    ) : (
+                                                        <span className="text-[9px] uppercase tracking-widest text-muted italic">Unlinked</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {u.membership_tier ? (
+                                                    <span className="px-2 py-1 bg-accent/10 text-accent border border-accent/20 rounded font-black text-[8px] uppercase tracking-widest">
+                                                        {u.membership_tier.name}
+                                                    </span>
                                                 ) : (
-                                                    <span className="text-[10px] uppercase font-bold text-muted">Unlinked</span>
+                                                    <span className="text-muted text-[10px] uppercase font-bold italic">Standard</span>
                                                 )}
                                             </td>
                                             <td className="px-6 py-4">
@@ -286,6 +431,71 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* Membership Tiers Tab */}
+                {activeTab === 'tiers' && (
+                    <div className="space-y-4">
+                        <div className="flex justify-end">
+                            <button 
+                                onClick={() => setEditingTier({ name: '', max_factions: 1 })}
+                                className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-lg font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20"
+                            >
+                                <Plus size={14} /> Create Tier
+                            </button>
+                        </div>
+                        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-surface border-b border-border">
+                                        <tr>
+                                            <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">ID</th>
+                                            <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Tier Name</th>
+                                            <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Max Factions</th>
+                                            <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Users</th>
+                                            <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border">
+                                        {tiers.map(tier => (
+                                            <tr key={tier.id} className="hover:bg-surface/50 transition-colors">
+                                                <td className="px-6 py-4 font-mono text-muted text-xs">#{tier.id}</td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold">{tier.name}</span>
+                                                        {tier.allow_custom_branding && (
+                                                            <span className="px-1.5 py-0.5 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded font-black text-[7px] uppercase tracking-widest">Branding</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="px-2 py-1 bg-surface border border-border rounded font-mono text-[10px]">
+                                                        {tier.max_factions}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-xs font-bold text-muted">{tier.users_count || 0} users</td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        <button onClick={() => setEditingTier(tier)} className="p-2 bg-surface hover:bg-bg border border-border rounded-lg text-text transition-colors">
+                                                            <Edit2 size={14} />
+                                                        </button>
+                                                        <button onClick={() => handleDeleteTier(tier)} className="p-2 bg-danger/10 hover:bg-danger/20 border border-danger/20 rounded-lg text-danger transition-colors">
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {tiers.length === 0 && (
+                                            <tr>
+                                                <td colSpan={5} className="px-6 py-12 text-center text-muted text-xs font-bold uppercase tracking-widest">No membership tiers defined.</td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -370,6 +580,19 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                                     />
                                 </div>
                             </div>
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Membership Tier</label>
+                                <select 
+                                    value={editingUser.membership_tier_id || ''} 
+                                    onChange={e => setEditingUser({...editingUser, membership_tier_id: e.target.value ? parseInt(e.target.value) : null})}
+                                    className="w-full bg-surface border border-border p-3 rounded-xl text-sm"
+                                >
+                                    <option value="">Standard (1 Faction)</option>
+                                    {tiers.map(tier => (
+                                        <option key={tier.id} value={tier.id}>{tier.name} ({tier.max_factions} Factions)</option>
+                                    ))}
+                                </select>
+                            </div>
                             <div className="pt-2">
                                 <label className="flex items-center gap-3 cursor-pointer p-3 bg-surface border border-border rounded-xl">
                                     <input 
@@ -383,6 +606,59 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                             </div>
                             <div className="flex gap-4 pt-4">
                                 <button type="button" onClick={() => setEditingUser(null)} className="flex-1 px-4 py-3 bg-surface border border-border hover:bg-bg rounded-xl font-bold uppercase tracking-widest text-[10px] transition">Cancel</button>
+                                <button type="submit" disabled={processing} className="flex-1 px-4 py-3 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20 disabled:opacity-50">
+                                    Save
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit/Create Tier Modal */}
+            {editingTier && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
+                    <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl">
+                        <h2 className="text-2xl font-black uppercase tracking-tighter italic mb-6">
+                            {editingTier.id ? 'Edit' : 'Create'} Membership Tier
+                        </h2>
+                        <form onSubmit={submitTierEdit} className="space-y-4">
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Tier Name</label>
+                                <input 
+                                    value={editingTier.name} 
+                                    onChange={e => setEditingTier({...editingTier, name: e.target.value})} 
+                                    className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
+                                    required 
+                                    placeholder="e.g. Donator, Premium"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Max Created Factions</label>
+                                <input 
+                                    type="number"
+                                    value={editingTier.max_factions} 
+                                    onChange={e => setEditingTier({...editingTier, max_factions: parseInt(e.target.value) || 0})} 
+                                    className="w-full bg-surface border border-border p-3 rounded-xl text-sm font-mono" 
+                                    required 
+                                    min="0"
+                                />
+                                <p className="mt-1 text-[9px] text-muted font-bold uppercase tracking-wider">Number of factions this user can lead/create.</p>
+                            </div>
+                            <div className="pt-2">
+                                <label className="flex items-center gap-3 cursor-pointer p-3 bg-surface border border-border rounded-xl">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={editingTier.allow_custom_branding}
+                                        onChange={e => setEditingTier({...editingTier, allow_custom_branding: e.target.checked})}
+                                        className="w-4 h-4 rounded text-accent focus:ring-accent focus:ring-offset-surface bg-bg border-border"
+                                    />
+                                    <span className="text-sm font-bold">Allow Custom Branding</span>
+                                </label>
+                                <p className="mt-1 text-[9px] text-muted font-bold uppercase tracking-wider ml-1">Enables custom header banner and favicon.</p>
+                            </div>
+                            <div className="flex gap-4 pt-4">
+                                <button type="button" onClick={() => setEditingTier(null)} className="flex-1 px-4 py-3 bg-surface border border-border hover:bg-bg rounded-xl font-bold uppercase tracking-widest text-[10px] transition">Cancel</button>
                                 <button type="submit" disabled={processing} className="flex-1 px-4 py-3 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20 disabled:opacity-50">
                                     Save
                                 </button>

@@ -11,7 +11,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['username', 'password', 'is_superadmin', 'gtaw_id', 'gtaw_username'])]
+#[Fillable(['username', 'password', 'is_superadmin', 'gtaw_id', 'gtaw_username', 'membership_tier_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -23,12 +23,39 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
+    protected $appends = ['max_factions', 'allow_custom_branding'];
+
     protected function casts(): array
     {
         return [
             'password' => 'hashed',
             'is_superadmin' => 'boolean',
+            'membership_tier_id' => 'integer',
+            'allow_custom_branding' => 'boolean',
         ];
+    }
+
+    public function membershipTier()
+    {
+        return $this->belongsTo(MembershipTier::class);
+    }
+
+    public function getMaxFactionsAttribute(): int
+    {
+        if ($this->is_superadmin) {
+            return PHP_INT_MAX;
+        }
+
+        return $this->membershipTier ? $this->membershipTier->max_factions : 1;
+    }
+
+    public function getAllowCustomBrandingAttribute(): bool
+    {
+        if ($this->is_superadmin) {
+            return true;
+        }
+
+        return $this->membershipTier ? $this->membershipTier->allow_custom_branding : false;
     }
 
     public function factions()

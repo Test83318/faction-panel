@@ -9,9 +9,10 @@ interface HomeProps {
     onLogin: (token: string, user: any) => void;
     isDark: boolean;
     toggleTheme: () => void;
+    siteVersion?: string;
 }
 
-const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme }) => {
+const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme, siteVersion = '1.0.0' }) => {
     const [view, setView] = useState<'login' | 'register'>('login');
     const [loading, setLoading] = useState(true);
     const [registrationEnabled, setRegistrationEnabled] = useState(true);
@@ -133,7 +134,7 @@ const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme }) => {
                         
                         <div className="mt-8 pt-8 border-t border-border/50 text-center">
                             <p className="text-muted text-[9px] uppercase tracking-[0.2em] font-bold">
-                                &copy; 2026 Faction Panel. System Operations v1.0
+                                &copy; 2025-{new Date().getFullYear() + 1} Faction Panel. Antelope v{siteVersion}
                             </p>
                         </div>
                     </div>

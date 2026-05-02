@@ -86,9 +86,13 @@ const GroupManagement: React.FC<GroupManagementProps> = ({ shortname, user, perm
     useEffect(() => {
         if (groups.length > 0) {
             const groupParam = searchParams.get('group');
-            const targetGroup = groups.find((g: any) => String(g.id) === groupParam || g.name.toLowerCase() === groupParam.toLowerCase());
-            if (targetGroup) {
-                if (showMemberModal?.id !== targetGroup.id) setShowMemberModal(targetGroup);
+            if (groupParam) {
+                const targetGroup = groups.find((g: any) => String(g.id) === groupParam || g.name.toLowerCase() === groupParam.toLowerCase());
+                if (targetGroup) {
+                    if (showMemberModal?.id !== targetGroup.id) setShowMemberModal(targetGroup);
+                } else if (showMemberModal) {
+                    setShowMemberModal(null);
+                }
             } else if (showMemberModal) {
                 setShowMemberModal(null);
             }

@@ -8,18 +8,20 @@ interface SidebarProps {
   canViewGroups: boolean;
   canViewRecords: boolean;
   user: any | null;
+  siteVersion?: string;
+  customFooterText?: string | null;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ shortname, canViewAdmin, canViewGroups, canViewRecords, user }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ shortname, canViewAdmin, canViewGroups, canViewRecords, user, siteVersion = '1.0.0', customFooterText }) => {
   return (
-    <aside className="sidebar">
-      <div className="py-4 flex flex-col gap-1">
+    <aside className="sidebar border-r border-border bg-card flex flex-col sticky top-[var(--nav-h)] h-[calc(100vh-var(--nav-h))]">
+      <div className="py-2 space-y-0.5">
         <NavLink 
           to={`/${shortname}/roster`}
           className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
         >
           <Users size={14} />
-          Faction Roster
+          Personnel Roster
         </NavLink>
 
         {canViewRecords && (
@@ -52,10 +54,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ shortname, canViewAdmin, canVi
           </NavLink>
         )}
       </div>
-      
+
       <div className="mt-auto p-4 border-t border-border">
         <div className="text-[9px] text-muted font-bold tracking-widest uppercase opacity-40">
-          Management v1.0
+          {customFooterText || `Antelope v${siteVersion}`}
         </div>
       </div>
     </aside>

@@ -801,7 +801,7 @@ const hexToRgb = (hex: string) => {
   return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : null;
 };
 
-const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
+const Dashboard = ({ user, onLogout, isDark, toggleTheme, siteVersion }: any) => {
   const { shortname } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -861,12 +861,22 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
       fetchAllData();
     }
 
-    // Reset accent color when leaving dashboard
+    // Reset accent color and favicon when leaving dashboard
     return () => {
       document.documentElement.style.removeProperty('--accent');
       document.documentElement.style.removeProperty('--accent-rgb');
+      const favicon = document.getElementById('favicon') as HTMLLinkElement;
+      if (favicon) favicon.href = '/favicon.ico';
     };
   }, [shortname]);
+
+  // Update favicon when faction data is loaded
+  useEffect(() => {
+    if (factionData?.favicon) {
+      const favicon = document.getElementById('favicon') as HTMLLinkElement;
+      if (favicon) favicon.href = factionData.favicon;
+    }
+  }, [factionData]);
 
   const handleSetActiveDivId = (id: number | null) => {
     setActiveDivId(id);
@@ -924,12 +934,31 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
         isDark={isDark} 
         toggleTheme={toggleTheme} 
         factionName={factionData.name} 
+        bannerLogoDark={factionData.header_image_dark}
+        bannerLogoLight={factionData.header_image_light}
+        branding={{
+          header_link_to_faction: factionData.header_link_to_faction,
+          hide_panel_header: factionData.hide_panel_header,
+          header_bg_color: factionData.header_bg_color,
+          header_gradient_enabled: factionData.header_gradient_enabled,
+          header_gradient_color: factionData.header_gradient_color,
+          header_gradient_direction: factionData.header_gradient_direction,
+          shortname: factionData.shortname
+        }}
         user={user} 
         userRole={factionData.user_primary_role}
         onLogout={onLogout} 
       />
       <div className="flex flex-1 relative">
-        <Sidebar shortname={shortname!} canViewAdmin={canViewAdmin} canViewGroups={canViewGroups} canViewRecords={canViewRecords} user={user} />
+        <Sidebar 
+          shortname={shortname!} 
+          canViewAdmin={canViewAdmin} 
+          canViewGroups={canViewGroups} 
+          canViewRecords={canViewRecords} 
+          user={user} 
+          siteVersion={siteVersion} 
+          customFooterText={factionData.custom_footer_text}
+        />
 
         <div className="flex flex-col flex-1 min-w-0">
           <Routes>
@@ -1031,6 +1060,7 @@ export default function App() {
   const [isDark, setIsDark] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [siteVersion, setSiteVersion] = useState('1.0.0');
 
   useEffect(() => {
     const saved = localStorage.getItem('bp-rosters-theme');
@@ -1052,7 +1082,18 @@ export default function App() {
       }
       setLoading(false);
     };
+
+    const fetchVersion = async () => {
+      try {
+        const res = await api.get('/site-settings/public');
+        if (res.data.version) setSiteVersion(res.data.version);
+      } catch (err) {
+        console.error('Failed to fetch site version');
+      }
+    };
+
     checkAuth();
+    fetchVersion();
   }, []);
 
   const handleLogin = (token: string, userData: any) => {
@@ -1112,6 +1153,7 @@ export default function App() {
               onLogin={handleLogin} 
               isDark={isDark} 
               toggleTheme={toggleTheme} 
+              siteVersion={siteVersion}
             />
           )
         } />
@@ -1142,7 +1184,7 @@ export default function App() {
         <Route path="/login" element={<Login onLogin={handleLogin} />} />
         <Route path="/auth/gtaw/callback" element={<GtawCallback onLogin={handleLogin} />} />
         <Route path="/:shortname/*" element={
-          <Dashboard user={user} onLogout={handleLogout} isDark={isDark} toggleTheme={toggleTheme} />
+          <Dashboard user={user} onLogout={handleLogout} isDark={isDark} toggleTheme={toggleTheme} siteVersion={siteVersion} />
         } />
       </Routes>
     </Router>

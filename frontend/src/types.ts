@@ -140,8 +140,41 @@ export interface FactionRecordPermission {
   group?: Group;
 }
 
-export interface Faction {
-  id: string;
+export interface MembershipTier {
+  id: number;
   name: string;
-  divisions: Division[];
+  max_factions: number;
+  allow_custom_branding: boolean;
+  users_count?: number;
+}
+
+export interface User {
+  id: number;
+  username: string;
+  gtaw_id: number | null;
+  gtaw_username: string | null;
+  is_superadmin: boolean;
+  membership_tier_id: number | null;
+  membership_tier?: MembershipTier;
+  max_factions: number;
+  allow_custom_branding: boolean;
+  factions_count?: number;
+  roles?: Role[];
+}
+
+export interface Faction {
+  id: number;
+  name: string;
+  shortname: string;
+  color: string;
+  image_url: string | null;
+  header_image: string | null;
+  favicon: string | null;
+  visibility: 'public' | 'hidden' | 'private';
+  access: 'joinable' | 'invite-only' | 'private';
+  gtaw_faction_id: number | null;
+  faction_leader: number;
+  allow_branding: boolean;
+  leader?: User;
+  users_count?: number;
 }

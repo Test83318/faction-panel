@@ -29,7 +29,7 @@ class AuthController extends Controller
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
-            'user' => $user->load('groups'),
+            'user' => $user->load('groups', 'membershipTier'),
         ]);
     }
 
@@ -54,7 +54,7 @@ class AuthController extends Controller
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
-            'user' => $user->load('groups'),
+            'user' => $user->load('groups', 'membershipTier'),
         ]);
     }
 
@@ -184,7 +184,7 @@ class AuthController extends Controller
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
-            'user' => $user->load('groups'),
+            'user' => $user->load('groups', 'membershipTier'),
         ]);
     }
 
@@ -199,7 +199,7 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return response()->json($request->user()->load('groups', 'factions'));
+        return response()->json($request->user()->load('groups', 'factions', 'membershipTier'));
     }
 
     public function unlinkGtaw(Request $request)

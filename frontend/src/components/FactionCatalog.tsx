@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Loading from './Loading';
 import toast from 'react-hot-toast';
-import { Shield, Search, ArrowLeft, Plus, User, ChevronDown, Settings, LogOut, ShieldAlert } from 'lucide-react';
+import { Shield, Search, ArrowLeft, Plus, User, ChevronDown, Settings, LogOut, ShieldAlert, Crown } from 'lucide-react';
 
 interface FactionCatalogProps {
     isDark: boolean;
@@ -177,13 +177,38 @@ const FactionCatalog: React.FC<FactionCatalogProps> = ({ isDark, toggleTheme, us
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredFactions.length > 0 ? (
                         filteredFactions.map(faction => (
-                            <div key={faction.shortname} className="group bg-card rounded-xl border border-border overflow-hidden hover:border-accent transition-all shadow-sm">
+                            <div key={faction.shortname} className="group bg-card rounded-xl border border-border overflow-hidden hover:border-accent transition-all shadow-sm flex flex-col">
                                 <div className="h-1.5" style={{ backgroundColor: faction.color }} />
-                                <div className="p-6">
-                                    <h3 className="text-xl font-bold mb-1">{faction.name}</h3>
-                                    <p className="text-muted text-[9px] font-black uppercase tracking-[0.2em] mb-6">{faction.shortname}</p>
+                                
+                                {/* Large Logo Section */}
+                                <div className="h-48 bg-surface relative overflow-hidden flex items-center justify-center p-8">
+                                    <div 
+                                        className="absolute inset-0 opacity-[0.03] z-0" 
+                                        style={{ backgroundColor: faction.color }}
+                                    />
                                     
-                                    <div className="flex items-center justify-between">
+                                    <div className="relative z-10 w-full h-full flex items-center justify-center">
+                                        {faction.image_url ? (
+                                            <img 
+                                                src={faction.image_url} 
+                                                alt={faction.name} 
+                                                className="max-w-[140px] max-h-[140px] object-contain drop-shadow-2xl group-hover:scale-110 transition-transform duration-500" 
+                                            />
+                                        ) : (
+                                            <Shield size={64} style={{ color: faction.color }} className="opacity-20" />
+                                        )}
+                                    </div>
+
+                                    {/* Membership Badge overlay if needed (optional, keeping it clean) */}
+                                </div>
+
+                                <div className="p-6 flex-1 flex flex-col border-t border-border/50">
+                                    <div className="flex-1">
+                                        <h3 className="text-xl font-bold mb-1 group-hover:text-accent transition-colors">{faction.name}</h3>
+                                        <p className="text-muted text-[9px] font-black uppercase tracking-[0.2em] mb-4">{faction.shortname}</p>
+                                    </div>
+                                    
+                                    <div className="flex items-center justify-between mt-6">
                                         <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded border ${
                                             faction.access === 'joinable' 
                                                 ? 'bg-green-500/10 text-green-500 border-green-500/20' 

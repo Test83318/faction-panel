@@ -6,18 +6,30 @@ interface HeaderProps {
   isDark: boolean;
   toggleTheme: () => void;
   factionName: string;
+  bannerLogoDark?: string | null;
+  bannerLogoLight?: string | null;
+  branding?: {
+    header_link_to_faction: boolean;
+    hide_panel_header: boolean;
+    header_bg_color: string | null;
+    header_gradient_enabled: boolean;
+    header_gradient_color: string | null;
+    header_gradient_direction: string;
+    shortname: string;
+  };
   user: any;
   userRole?: any;
   onLogout: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName, user, userRole, onLogout }) => {
+export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName, bannerLogoDark, bannerLogoLight, branding, user, userRole, onLogout }) => {
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isSuperAdmin = user?.is_superadmin;
   const roleColor = userRole?.color || 'var(--muted)';
   const isFactionPage = factionName !== 'Faction Selection';
+  const activeBanner = isDark ? bannerLogoDark : (bannerLogoLight || bannerLogoDark);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -29,19 +41,63 @@ export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  return (
-    <header className="topbar h-[var(--nav-h)] bg-surface border-b border-border flex items-center px-5 gap-2.5 sticky top-0 z-[300] shrink-0">
-      <div 
-        onClick={() => navigate('/')}
-        className="logo flex items-center gap-1.5 text-accent font-extrabold text-[16px] tracking-tight hover:opacity-80 transition-opacity cursor-pointer"
-      >
-        <Shield size={18} fill="currentColor" fillOpacity={0.2} />
-        Faction Panel
-      </div>
+  const getHeaderStyle = () => {
+    if (!branding?.header_bg_color) return {};
+    
+    if (branding.header_gradient_enabled && branding.header_gradient_color) {
+      return {
+        background: `linear-gradient(${branding.header_gradient_direction.replace('to-', 'to ')}, ${branding.header_bg_color}, ${branding.header_gradient_color})`,
+        borderBottom: 'none'
+      };
+    }
+    
+    return {
+      backgroundColor: branding.header_bg_color,
+      borderBottom: 'none'
+    };
+  };
 
-      <span className="text-[10px] font-semibold tracking-wider uppercase text-muted pl-1.5 border-l border-border ml-0.5">
-        {factionName}
-      </span>
+  const handlePanelLogoClick = () => {
+    if (branding?.header_link_to_faction && branding.shortname) {
+      navigate(`/${branding.shortname}/roster`);
+    } else {
+      navigate('/');
+    }
+  };
+
+  const handleFactionLogoClick = () => {
+    if (branding?.shortname) {
+      navigate(`/${branding.shortname}/roster`);
+    }
+  };
+
+  return (
+    <header 
+      className="topbar h-[var(--nav-h)] bg-surface border-b border-border flex items-center px-5 gap-2.5 sticky top-0 z-[300] shrink-0"
+      style={getHeaderStyle()}
+    >
+      {!branding?.hide_panel_header && (
+        <div 
+          onClick={handlePanelLogoClick}
+          className="logo flex items-center gap-1.5 text-accent font-extrabold text-[16px] tracking-tight hover:opacity-80 transition-opacity cursor-pointer"
+        >
+          <Shield size={18} fill="currentColor" fillOpacity={0.2} />
+          Faction Panel
+        </div>
+      )}
+
+      <div 
+        className={`flex items-center h-6 pl-2.5 cursor-pointer hover:opacity-80 transition-opacity ${!branding?.hide_panel_header ? 'ml-1.5 border-l border-border' : ''}`}
+        onClick={handleFactionLogoClick}
+      >
+        {activeBanner ? (
+          <img src={activeBanner} alt={factionName} className="max-h-[20px] w-auto object-contain drop-shadow-sm" />
+        ) : (
+          <span className="text-[10px] font-semibold tracking-wider uppercase text-muted">
+            {factionName}
+          </span>
+        )}
+      </div>
 
       <div className="flex-1" />
 

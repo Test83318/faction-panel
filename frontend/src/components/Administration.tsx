@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import toast from 'react-hot-toast';
 import api from '../api';
 import Loading from './Loading';
-import { Shield, Settings, Trash2, Edit2, Check, X, Plus, Save, Info, Key, Users, UserMinus, ShieldAlert, Crown, UserCog, Copy, Link as LinkIcon, Clock } from 'lucide-react';
+import { Shield, Settings, Trash2, Edit2, Check, X, Plus, Save, Info, Key, Users, UserMinus, ShieldAlert, Crown, UserCog, Copy, Link as LinkIcon, Clock, Upload, LayoutGrid, Eye, Moon, Sun } from 'lucide-react';
 
 const Administration: React.FC<{ faction: any; user: any; permissions: string[] }> = ({ faction, user, permissions }) => {
     const hasPerm = (perm: string) => user?.is_superadmin || permissions.includes(perm);
@@ -48,6 +48,16 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
         description: faction.description || '',
         color: faction.color,
         image_url: faction.image_url || '',
+        header_image_dark: faction.header_image_dark || '',
+        header_image_light: faction.header_image_light || '',
+        favicon: faction.favicon || '',
+        header_link_to_faction: faction.header_link_to_faction || false,
+        hide_panel_header: faction.hide_panel_header || false,
+        custom_footer_text: faction.custom_footer_text || '',
+        header_bg_color: faction.header_bg_color || '',
+        header_gradient_enabled: faction.header_gradient_enabled || false,
+        header_gradient_color: faction.header_gradient_color || '',
+        header_gradient_direction: faction.header_gradient_direction || 'to-r',
         visibility: faction.visibility || 'private',
         access: faction.access || 'invite-only'
     });
@@ -241,6 +251,68 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
         }
     };
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'icon' | 'header_dark' | 'header_light' | 'favicon') => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', type);
+
+        const loadToast = toast.loading(`Uploading ${type.replace('_', ' ')}...`);
+        try {
+            const res = await api.post(`/factions/${faction.shortname}/upload-branding`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            
+            const url = res.data.url;
+            console.log(`[Upload] Received ${type} URL:`, url);
+
+            setFactionForm(prev => {
+                const updated = { ...prev };
+                if (type === 'icon') updated.image_url = url;
+                else if (type === 'header_dark') updated.header_image_dark = url;
+                else if (type === 'header_light') updated.header_image_light = url;
+                else if (type === 'favicon') updated.favicon = url;
+                return updated;
+            });
+
+            toast.success(`${type.replace('_', ' ')} uploaded and saved successfully`, { id: loadToast });
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || `Failed to upload ${type.replace('_', ' ')}`, { id: loadToast });
+        }
+    };
+
+    const handleRemoveBranding = async (type: 'icon' | 'header_dark' | 'header_light' | 'favicon') => {
+        if (!window.confirm(`Are you sure you want to remove the ${type.replace('_', ' ')}?`)) return;
+
+        const loadToast = toast.loading(`Removing ${type.replace('_', ' ')}...`);
+        try {
+            // Update database to nullify the field
+            const payload: any = {};
+            if (type === 'icon') payload.image_url = null;
+            else if (type === 'header_dark') payload.header_image_dark = null;
+            else if (type === 'header_light') payload.header_image_light = null;
+            else if (type === 'favicon') payload.favicon = null;
+
+            await api.put(`/factions/${faction.id}`, payload);
+
+            setFactionForm(prev => ({
+                ...prev,
+                ...(type === 'icon' ? { image_url: '' } : {}),
+                ...(type === 'header_dark' ? { header_image_dark: '' } : {}),
+                ...(type === 'header_light' ? { header_image_light: '' } : {}),
+                ...(type === 'favicon' ? { favicon: '' } : {})
+            }));
+
+            toast.success(`${type.replace('_', ' ')} removed successfully`, { id: loadToast });
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || `Failed to remove ${type.replace('_', ' ')}`, { id: loadToast });
+        }
+    };
+
+    const [viewImage, setViewImage] = useState<string | null>(null);
+
     const handleFactionUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
         setSavingDetails(true);
@@ -383,83 +455,61 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                         </h3>
                         <form onSubmit={handleFactionUpdate} className="space-y-8">
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <div className="space-y-6">
-                                    <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1">Identity & Branding</div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="col-span-2 sm:col-span-1">
-                                            <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Faction Name</label>
-                                            <input 
-                                                value={factionForm.name}
-                                                onChange={e => setFactionForm({ ...factionForm, name: e.target.value })}
-                                                className="w-full bg-surface border border-border p-3 rounded text-sm focus:border-accent outline-none transition text-text disabled:opacity-50 disabled:cursor-not-allowed"
-                                                required
-                                                disabled={!hasPerm('modify_faction_details')}
-                                            />
-                                        </div>
-                                        <div className="col-span-2 sm:col-span-1">
-                                            <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Short Name (URL Slug)</label>
-                                            <input 
-                                                value={faction.shortname}
-                                                disabled
-                                                className="w-full bg-surface/50 border border-border p-3 rounded text-sm text-muted cursor-not-allowed"
-                                            />
-                                        </div>
-                                        <div className="col-span-2">
-                                            <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Faction Color</label>
-                                            <div className="flex gap-3">
-                                                <input 
-                                                    type="color"
-                                                    value={factionForm.color}
-                                                    onChange={e => setFactionForm({ ...factionForm, color: e.target.value })}
-                                                    className="w-12 h-11 bg-surface border border-border rounded p-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    disabled={!hasPerm('modify_faction_details')}
-                                                />
-                                                <input 
-                                                    value={factionForm.color}
-                                                    onChange={e => setFactionForm({ ...factionForm, color: e.target.value })}
-                                                    className="flex-1 bg-surface border border-border p-3 rounded text-sm font-mono focus:border-accent outline-none transition text-text disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    disabled={!hasPerm('modify_faction_details')}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="col-span-2">
-                                            <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Description</label>
-                                            <textarea 
-                                                value={factionForm.description}
-                                                onChange={e => setFactionForm({ ...factionForm, description: e.target.value })}
-                                                rows={4}
-                                                className="w-full bg-surface border border-border p-3 rounded text-sm focus:border-accent outline-none transition resize-none text-text disabled:opacity-50 disabled:cursor-not-allowed"
-                                                placeholder="Tell people about your organization..."
-                                                disabled={!hasPerm('modify_faction_details')}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-6">
-                                    <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1">Media & Visuals</div>
-                                    <div>
-                                        <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Faction Image URL</label>
-                                        <input 
-                                            value={factionForm.image_url}
-                                            onChange={e => setFactionForm({ ...factionForm, image_url: e.target.value })}
-                                            placeholder="https://example.com/logo.png"
-                                            className="w-full bg-surface border border-border p-3 rounded text-sm focus:border-accent outline-none transition text-text disabled:opacity-50 disabled:cursor-not-allowed"
-                                            disabled={!hasPerm('modify_faction_details')}
-                                        />
-                                    </div>
-                                    {factionForm.image_url && (
-                                        <div className="mt-4">
-                                            <div className="w-full h-24 bg-surface border border-border rounded-lg overflow-hidden flex items-center justify-center p-2">
-                                                <img src={factionForm.image_url} alt="Preview" className="max-w-full max-h-full object-contain" />
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                {/* Left Column: Identity & Visibility */}
                                 <div className="space-y-12">
+                                    <div className="space-y-6">
+                                        <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1">Identity & Branding</div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="col-span-2 sm:col-span-1">
+                                                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Faction Name</label>
+                                                <input 
+                                                    value={factionForm.name}
+                                                    onChange={e => setFactionForm({ ...factionForm, name: e.target.value })}
+                                                    className="w-full bg-surface border border-border p-3 rounded text-sm focus:border-accent outline-none transition text-text disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    required
+                                                    disabled={!hasPerm('modify_faction_details')}
+                                                />
+                                            </div>
+                                            <div className="col-span-2 sm:col-span-1">
+                                                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Short Name (URL Slug)</label>
+                                                <input 
+                                                    value={faction.shortname}
+                                                    disabled
+                                                    className="w-full bg-surface/50 border border-border p-3 rounded text-sm text-muted cursor-not-allowed"
+                                                />
+                                            </div>
+                                            <div className="col-span-2">
+                                                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Faction Color</label>
+                                                <div className="flex gap-3">
+                                                    <input 
+                                                        type="color"
+                                                        value={factionForm.color}
+                                                        onChange={e => setFactionForm({ ...factionForm, color: e.target.value })}
+                                                        className="w-12 h-11 bg-surface border border-border rounded p-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        disabled={!hasPerm('modify_faction_details')}
+                                                    />
+                                                    <input 
+                                                        value={factionForm.color}
+                                                        onChange={e => setFactionForm({ ...factionForm, color: e.target.value })}
+                                                        className="flex-1 bg-surface border border-border p-3 rounded text-sm font-mono focus:border-accent outline-none transition text-text disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        disabled={!hasPerm('modify_faction_details')}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="col-span-2">
+                                                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Description</label>
+                                                <textarea 
+                                                    value={factionForm.description}
+                                                    onChange={e => setFactionForm({ ...factionForm, description: e.target.value })}
+                                                    rows={4}
+                                                    className="w-full bg-surface border border-border p-3 rounded text-sm focus:border-accent outline-none transition resize-none text-text disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    placeholder="Tell people about your organization..."
+                                                    disabled={!hasPerm('modify_faction_details')}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-6">
                                         <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1">Visibility Settings</div>
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -533,6 +583,338 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                                     </p>
                                                 </label>
                                             ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right Column: Branding & Advanced */}
+                                <div className="space-y-12">
+                                    <div className="space-y-6">
+                                        <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1 flex items-center justify-between">
+                                            Branding & Visuals
+                                            {!user?.allow_custom_branding && (
+                                                <span className="flex items-center gap-1 text-accent text-[8px] font-black italic">
+                                                    <Crown size={10} /> RESTRICTED FEATURES AVAILABLE
+                                                </span>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            {/* Primary Logo Upload */}
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest px-1 flex justify-between">
+                                                    Primary Logo
+                                                    {factionForm.image_url && hasPerm('modify_faction_details') && (
+                                                        <button type="button" onClick={() => handleRemoveBranding('icon')} className="text-danger hover:scale-110 transition-transform">
+                                                            <Trash2 size={10} />
+                                                        </button>
+                                                    )}
+                                                </label>
+                                                <div className="relative group aspect-square bg-surface border border-border rounded-xl overflow-hidden flex flex-col items-center justify-center p-4 transition-all hover:border-accent/50">
+                                                    {factionForm.image_url ? (
+                                                        <img src={factionForm.image_url} alt="Primary Logo" className="max-w-full max-h-full object-contain z-10" />
+                                                    ) : (
+                                                        <Shield size={32} className="text-muted/20 z-10" />
+                                                    )}
+                                                    
+                                                    {hasPerm('modify_faction_details') && (
+                                                        <div className="absolute inset-0 z-20 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity backdrop-blur-sm">
+                                                            <div className="flex gap-2 mb-2">
+                                                                {factionForm.image_url && (
+                                                                    <button type="button" onClick={() => setViewImage(factionForm.image_url)} className="p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors">
+                                                                        <Eye size={18} />
+                                                                    </button>
+                                                                )}
+                                                                <label className="p-2 bg-accent hover:bg-accent/90 rounded-lg text-white cursor-pointer transition-colors">
+                                                                    <Upload size={18} />
+                                                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'icon')} />
+                                                                </label>
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-white uppercase tracking-widest">Update Logo</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <p className="text-[9px] text-muted text-center italic uppercase tracking-tighter">Large logo for catalog. Suggested: 512x512</p>
+                                            </div>
+
+                                            {/* Banner Logo Upload (Dark) */}
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest px-1 flex justify-between">
+                                                    <div className="flex items-center gap-1">
+                                                        Banner (Dark)
+                                                        {!user?.allow_custom_branding && <Crown size={10} className="text-accent" />}
+                                                    </div>
+                                                    {factionForm.header_image_dark && hasPerm('modify_faction_details') && user?.allow_custom_branding && (
+                                                        <button type="button" onClick={() => handleRemoveBranding('header_dark')} className="text-danger hover:scale-110 transition-transform">
+                                                            <Trash2 size={10} />
+                                                        </button>
+                                                    )}
+                                                </label>
+                                                <div className={`relative group aspect-square bg-surface border border-border rounded-xl overflow-hidden flex flex-col items-center justify-center p-4 transition-all ${user?.allow_custom_branding ? 'hover:border-accent/50' : ''}`}>
+                                                    {factionForm.header_image_dark ? (
+                                                        <img src={factionForm.header_image_dark} alt="Banner Dark" className={`max-w-full max-h-full object-contain z-10 ${!user?.allow_custom_branding ? 'blur-md' : ''}`} />
+                                                    ) : (
+                                                        <div className="w-12 h-12 rounded bg-muted/10 border border-dashed border-border flex items-center justify-center z-10">
+                                                            <Moon size={16} className="text-muted/20" />
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {!user?.allow_custom_branding ? (
+                                                        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[1px] p-4 text-center">
+                                                            <Crown size={20} className="text-accent mb-1" />
+                                                            <span className="text-[8px] font-black text-white uppercase tracking-widest leading-tight">Restricted<br/>Feature</span>
+                                                        </div>
+                                                    ) : hasPerm('modify_faction_details') && (
+                                                        <div className="absolute inset-0 z-20 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity backdrop-blur-sm">
+                                                            <div className="flex gap-2 mb-2">
+                                                                {factionForm.header_image_dark && (
+                                                                    <button type="button" onClick={() => setViewImage(factionForm.header_image_dark)} className="p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors">
+                                                                        <Eye size={18} />
+                                                                    </button>
+                                                                )}
+                                                                <label className="p-2 bg-accent hover:bg-accent/90 rounded-lg text-white cursor-pointer transition-colors">
+                                                                    <Upload size={18} />
+                                                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'header_dark')} />
+                                                                </label>
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-white uppercase tracking-widest text-center">Update Dark Banner</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <p className="text-[9px] text-muted text-center italic uppercase tracking-tighter">Shown in Dark Mode.</p>
+                                            </div>
+
+                                            {/* Banner Logo Upload (Light) */}
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest px-1 flex justify-between">
+                                                    <div className="flex items-center gap-1">
+                                                        Banner (Light)
+                                                        {!user?.allow_custom_branding && <Crown size={10} className="text-accent" />}
+                                                    </div>
+                                                    {factionForm.header_image_light && hasPerm('modify_faction_details') && user?.allow_custom_branding && (
+                                                        <button type="button" onClick={() => handleRemoveBranding('header_light')} className="text-danger hover:scale-110 transition-transform">
+                                                            <Trash2 size={10} />
+                                                        </button>
+                                                    )}
+                                                </label>
+                                                <div className={`relative group aspect-square bg-surface border border-border rounded-xl overflow-hidden flex flex-col items-center justify-center p-4 transition-all ${user?.allow_custom_branding ? 'hover:border-accent/50' : ''}`}>
+                                                    {factionForm.header_image_light ? (
+                                                        <img src={factionForm.header_image_light} alt="Banner Light" className={`max-w-full max-h-full object-contain z-10 ${!user?.allow_custom_branding ? 'blur-md' : ''}`} />
+                                                    ) : (
+                                                        <div className="w-12 h-12 rounded bg-muted/10 border border-dashed border-border flex items-center justify-center z-10">
+                                                            <Sun size={16} className="text-muted/20" />
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {!user?.allow_custom_branding ? (
+                                                        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[1px] p-4 text-center">
+                                                            <Crown size={20} className="text-accent mb-1" />
+                                                            <span className="text-[8px] font-black text-white uppercase tracking-widest leading-tight">Restricted<br/>Feature</span>
+                                                        </div>
+                                                    ) : hasPerm('modify_faction_details') && (
+                                                        <div className="absolute inset-0 z-20 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity backdrop-blur-sm">
+                                                            <div className="flex gap-2 mb-2">
+                                                                {factionForm.header_image_light && (
+                                                                    <button type="button" onClick={() => setViewImage(factionForm.header_image_light)} className="p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors">
+                                                                        <Eye size={18} />
+                                                                    </button>
+                                                                )}
+                                                                <label className="p-2 bg-accent hover:bg-accent/90 rounded-lg text-white cursor-pointer transition-colors">
+                                                                    <Upload size={18} />
+                                                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'header_light')} />
+                                                                </label>
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-white uppercase tracking-widest text-center">Update Light Banner</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <p className="text-[9px] text-muted text-center italic uppercase tracking-tighter">Shown in Light Mode.</p>
+                                            </div>
+
+                                            {/* Favicon Upload */}
+                                            <div className="space-y-2">
+                                                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest px-1 flex justify-between">
+                                                    <div className="flex items-center gap-1">
+                                                        Favicon
+                                                        {!user?.allow_custom_branding && <Crown size={10} className="text-accent" />}
+                                                    </div>
+                                                    {factionForm.favicon && hasPerm('modify_faction_details') && user?.allow_custom_branding && (
+                                                        <button type="button" onClick={() => handleRemoveBranding('favicon')} className="text-danger hover:scale-110 transition-transform">
+                                                            <Trash2 size={10} />
+                                                        </button>
+                                                    )}
+                                                </label>
+                                                <div className={`relative group aspect-square bg-surface border border-border rounded-xl overflow-hidden flex flex-col items-center justify-center p-4 transition-all ${user?.allow_custom_branding ? 'hover:border-accent/50' : ''}`}>
+                                                    {factionForm.favicon ? (
+                                                        <img src={factionForm.favicon} alt="Favicon" className={`w-12 h-12 object-contain z-10 ${!user?.allow_custom_branding ? 'blur-sm' : ''}`} />
+                                                    ) : (
+                                                        <div className="w-12 h-12 rounded bg-muted/10 border border-dashed border-border flex items-center justify-center z-10">
+                                                            <Shield size={16} className="text-muted/20" />
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {!user?.allow_custom_branding ? (
+                                                        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[1px] p-4 text-center">
+                                                            <Crown size={20} className="text-accent mb-1" />
+                                                            <span className="text-[8px] font-black text-white uppercase tracking-widest leading-tight">Restricted<br/>Feature</span>
+                                                        </div>
+                                                    ) : hasPerm('modify_faction_details') && (
+                                                        <div className="absolute inset-0 z-20 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity backdrop-blur-sm">
+                                                            <div className="flex gap-2 mb-2">
+                                                                {factionForm.favicon && (
+                                                                    <button type="button" onClick={() => setViewImage(factionForm.favicon)} className="p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors">
+                                                                        <Eye size={18} />
+                                                                    </button>
+                                                                )}
+                                                                <label className="p-2 bg-accent hover:bg-accent/90 rounded-lg text-white cursor-pointer transition-colors">
+                                                                    <Upload size={18} />
+                                                                    <input type="file" className="hidden" accept="image/*,.ico" onChange={(e) => handleFileUpload(e, 'favicon')} />
+                                                                </label>
+                                                            </div>
+                                                            <span className="text-[10px] font-bold text-white uppercase tracking-widest">Update Favicon</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <p className="text-[9px] text-muted text-center italic uppercase tracking-tighter">Browser tab icon. Suggested: 32x32</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-6">
+                                        <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1 flex items-center justify-between">
+                                            Advanced Branding
+                                            {!user?.allow_custom_branding && (
+                                                <span className="flex items-center gap-1 text-accent text-[8px] font-black italic">
+                                                    <Crown size={10} /> RESTRICTED FEATURES
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <div className={`space-y-6 ${!user?.allow_custom_branding ? 'opacity-50 grayscale pointer-events-none' : ''}`}>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <label className="flex items-center gap-3 cursor-pointer p-4 bg-surface border border-border rounded-xl transition-all hover:border-accent/50">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={factionForm.header_link_to_faction}
+                                                        onChange={e => setFactionForm({...factionForm, header_link_to_faction: e.target.checked})}
+                                                        className="w-4 h-4 rounded text-accent focus:ring-accent bg-bg border-border"
+                                                    />
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest">Link Header to Faction</span>
+                                                        <span className="text-[9px] text-muted italic">Clicking logos goes to faction root instead of site root.</span>
+                                                    </div>
+                                                </label>
+
+                                                <label className="flex items-center gap-3 cursor-pointer p-4 bg-surface border border-border rounded-xl transition-all hover:border-accent/50">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={factionForm.hide_panel_header}
+                                                        onChange={e => setFactionForm({...factionForm, hide_panel_header: e.target.checked})}
+                                                        className="w-4 h-4 rounded text-accent focus:ring-accent bg-bg border-border"
+                                                    />
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest">Hide Panel Logo</span>
+                                                        <span className="text-[9px] text-muted italic">Removes the "Faction Panel" logo from the top header.</span>
+                                                    </div>
+                                                </label>
+
+                                                <div className="col-span-2">
+                                                    <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Custom Footer Text</label>
+                                                    <input 
+                                                        value={factionForm.custom_footer_text}
+                                                        onChange={e => setFactionForm({ ...factionForm, custom_footer_text: e.target.value })}
+                                                        className="w-full bg-surface border border-border p-3 rounded text-sm focus:border-accent outline-none transition text-text placeholder:italic"
+                                                        placeholder="Replaces 'Antelope v1.0.0' in the sidebar footer..."
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4 pt-4 border-t border-border">
+                                                <div className="flex items-center justify-between">
+                                                    <h4 className="text-[10px] font-black uppercase tracking-widest">Header Styling</h4>
+                                                    <label className="flex items-center gap-2 cursor-pointer">
+                                                        <span className="text-[9px] font-bold uppercase text-muted">Enable Gradient</span>
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={factionForm.header_gradient_enabled}
+                                                            onChange={e => setFactionForm({...factionForm, header_gradient_enabled: e.target.checked})}
+                                                            className="w-4 h-4 rounded text-accent focus:ring-accent bg-bg border-border"
+                                                        />
+                                                    </label>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">
+                                                            {factionForm.header_gradient_enabled ? 'Starting Color' : 'Background Color'}
+                                                        </label>
+                                                        <div className="flex gap-2">
+                                                            <input 
+                                                                type="color"
+                                                                value={factionForm.header_bg_color || '#ffffff'}
+                                                                onChange={e => setFactionForm({ ...factionForm, header_bg_color: e.target.value })}
+                                                                className="w-10 h-10 bg-surface border border-border rounded p-1 cursor-pointer"
+                                                            />
+                                                            <input 
+                                                                value={factionForm.header_bg_color}
+                                                                onChange={e => setFactionForm({ ...factionForm, header_bg_color: e.target.value })}
+                                                                className="flex-1 bg-surface border border-border p-2 rounded text-xs font-mono"
+                                                                placeholder="Hex Color..."
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {factionForm.header_gradient_enabled && (
+                                                        <>
+                                                            <div>
+                                                                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Ending Color</label>
+                                                                <div className="flex gap-2">
+                                                                    <input 
+                                                                        type="color"
+                                                                        value={factionForm.header_gradient_color || '#ffffff'}
+                                                                        onChange={e => setFactionForm({ ...factionForm, header_gradient_color: e.target.value })}
+                                                                        className="w-10 h-10 bg-surface border border-border rounded p-1 cursor-pointer"
+                                                                    />
+                                                                    <input 
+                                                                        value={factionForm.header_gradient_color}
+                                                                        onChange={e => setFactionForm({ ...factionForm, header_gradient_color: e.target.value })}
+                                                                        className="flex-1 bg-surface border border-border p-2 rounded text-xs font-mono"
+                                                                        placeholder="Hex Color..."
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="col-span-2">
+                                                                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Gradient Direction</label>
+                                                                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                                                                    {[
+                                                                        { id: 'to-r', name: 'Right' },
+                                                                        { id: 'to-l', name: 'Left' },
+                                                                        { id: 'to-t', name: 'Top' },
+                                                                        { id: 'to-b', name: 'Bottom' },
+                                                                        { id: 'to-tr', name: 'Top Right' },
+                                                                        { id: 'to-tl', name: 'Top Left' },
+                                                                        { id: 'to-br', name: 'Bottom Right' },
+                                                                        { id: 'to-bl', name: 'Bottom Left' }
+                                                                    ].map(dir => (
+                                                                        <button
+                                                                            key={dir.id}
+                                                                            type="button"
+                                                                            onClick={() => setFactionForm({...factionForm, header_gradient_direction: dir.id})}
+                                                                            className={`p-2 border rounded text-[8px] font-black uppercase tracking-tighter transition-all ${
+                                                                                factionForm.header_gradient_direction === dir.id 
+                                                                                    ? 'bg-accent border-accent text-white' 
+                                                                                    : 'bg-surface border-border text-muted hover:border-accent/50'
+                                                                            }`}
+                                                                        >
+                                                                            {dir.name}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -972,6 +1354,24 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                             <button onClick={saveMemberRoles} disabled={savingMemberRoles} className="flex-1 px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded font-bold text-xs uppercase tracking-widest transition disabled:opacity-50">{savingMemberRoles ? 'Saving...' : 'Update Ranks'}</button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Full-screen Image Viewer */}
+            {viewImage && (
+                <div 
+                    className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-8 z-[1000] cursor-zoom-out"
+                    onClick={() => setViewImage(null)}
+                >
+                    <button className="absolute top-6 right-6 text-white hover:text-accent transition-colors">
+                        <X size={32} />
+                    </button>
+                    <img 
+                        src={viewImage} 
+                        alt="Full size preview" 
+                        className="max-w-full max-h-full object-contain shadow-2xl rounded-lg border border-white/10"
+                        onClick={e => e.stopPropagation()} 
+                    />
                 </div>
             )}
         </div>

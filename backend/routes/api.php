@@ -15,6 +15,7 @@ use App\Http\Controllers\FactionRecordController;
 use App\Http\Controllers\FactionRecordPermissionController;
 use App\Http\Controllers\FactionRecordEntryController;
 use App\Http\Controllers\SuperadminController;
+use App\Http\Controllers\UploadController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -23,8 +24,10 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::get('/auth/registration-status', [AuthController::class, 'registrationStatus']);
 Route::get('/auth/gtaw/redirect', [AuthController::class, 'gtawRedirect']);
 Route::post('/auth/gtaw/callback', [AuthController::class, 'gtawCallback']);
+Route::get('/site-settings/public', [SuperadminController::class, 'getPublicSettings']);
 
 Route::get('/invites/{code}', [InviteController::class, 'show']);
+
 Route::get('/factions/all', [FactionController::class, 'getAllFactions']);
 Route::get('/permissions/config', [RoleController::class, 'getGlobalConfig']);
 
@@ -50,6 +53,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/superadmin/factions/{faction}', [SuperadminController::class, 'deleteFaction']);
     Route::post('/superadmin/impersonate/{user}', [SuperadminController::class, 'impersonate']);
 
+    // Site Settings
+    Route::get('/superadmin/settings', [SuperadminController::class, 'getSettings']);
+    Route::put('/superadmin/settings', [SuperadminController::class, 'updateSettings']);
+
+    // Membership Tier Routes
+    Route::get('/superadmin/membership-tiers', [SuperadminController::class, 'getMembershipTiers']);
+    Route::post('/superadmin/membership-tiers', [SuperadminController::class, 'storeMembershipTier']);
+    Route::put('/superadmin/membership-tiers/{tier}', [SuperadminController::class, 'updateMembershipTier']);
+    Route::delete('/superadmin/membership-tiers/{tier}', [SuperadminController::class, 'deleteMembershipTier']);
+
     Route::post('/invites/{code}/join', [InviteController::class, 'join']);
 
     // Invite Management
@@ -61,6 +74,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/factions', [FactionController::class, 'index']);
     Route::post('/factions', [FactionController::class, 'store']);
     Route::put('/factions/{faction}', [FactionController::class, 'update']);
+    Route::post('/factions/{shortname}/upload-branding', [UploadController::class, 'uploadBranding']);
+
     Route::delete('/factions/{faction}', [FactionController::class, 'destroy']);
     Route::post('/factions/join', [FactionController::class, 'join']);
     Route::post('/factions/{faction}/leave', [FactionController::class, 'leave']);
