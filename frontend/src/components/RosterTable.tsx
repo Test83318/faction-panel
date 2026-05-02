@@ -223,7 +223,85 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   };
 
   const updateField = (colId: string, value: any) => {
-    setEditData({ ...editData, [colId]: value });
+    let newData = { ...editData, [colId]: value };
+
+    // Auto-apply checkboxes/tags if this column is linked to a database
+    const col = activeCols.find(c => c.id === colId);
+    if (col && col.dataset_id) {
+        const dataset = datasets.find(d => d.id === col.dataset_id);
+        if (dataset && dataset.record_database_id) {
+            const db = recordData.find(d => d.id === dataset.record_database_id);
+            if (db && db.entries) {
+                // Find matching entry
+                const fieldId = col.database_field_id || db.database_structure?.[0]?.id;
+                const entry = db.entries.find((e: any) => {
+                    const entryValue = (fieldId === 'id') ? String(e.entry_id) : e.data?.[fieldId];
+                    return entryValue === value;
+                });
+
+                if (entry) {
+                    // Re-evaluate checkboxes
+                    if (col.checkboxes && col.checkboxes.length > 0) {
+                        const cbKey = `${col.id}_cb`;
+                        const currentCbs = [...(newData[cbKey] || [])];
+                        let changed = false;
+
+                        col.checkboxes.forEach((cb: any) => {
+                            if (typeof cb === 'object' && cb.auto_apply) {
+                                const { db_column, match_value } = cb.auto_apply;
+                                const dbVal = (db_column === 'id') ? String(entry.entry_id) : entry.data?.[db_column];
+                                
+                                const isMatch = dbVal && match_value && dbVal.toString().toLowerCase().includes(match_value.toLowerCase());
+                                
+                                if (isMatch && !currentCbs.includes(cb.label)) {
+                                    currentCbs.push(cb.label);
+                                    changed = true;
+                                } else if (!isMatch && currentCbs.includes(cb.label)) {
+                                    // Remove if it no longer matches?
+                                    // User said "if someone removes the tag it should be removed until the name is changed"
+                                    // This implies we SHOULD re-evaluate and potentially remove if it doesn't match the NEW name.
+                                    const idx = currentCbs.indexOf(cb.label);
+                                    currentCbs.splice(idx, 1);
+                                    changed = true;
+                                }
+                            }
+                        });
+
+                        if (changed) newData[cbKey] = currentCbs;
+                    }
+
+                    // Re-evaluate tags
+                    if (col.tags && col.tags.length > 0) {
+                        const tagKey = `${col.id}_tags`;
+                        const currentTags = [...(newData[tagKey] || [])];
+                        let changed = false;
+
+                        col.tags.forEach((tag: any) => {
+                            if (typeof tag === 'object' && tag.auto_apply) {
+                                const { db_column, match_value } = tag.auto_apply;
+                                const dbVal = (db_column === 'id') ? String(entry.entry_id) : entry.data?.[db_column];
+                                
+                                const isMatch = dbVal && match_value && dbVal.toString().toLowerCase().includes(match_value.toLowerCase());
+                                
+                                if (isMatch && !currentTags.includes(tag.label)) {
+                                    currentTags.push(tag.label);
+                                    changed = true;
+                                } else if (!isMatch && currentTags.includes(tag.label)) {
+                                    const idx = currentTags.indexOf(tag.label);
+                                    currentTags.splice(idx, 1);
+                                    changed = true;
+                                }
+                            }
+                        });
+
+                        if (changed) newData[tagKey] = currentTags;
+                    }
+                }
+            }
+        }
+    }
+
+    setEditData(newData);
   };
 
   const toggleCheckbox = (colId: string, cb: string) => {

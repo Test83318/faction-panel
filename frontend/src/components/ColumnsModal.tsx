@@ -338,53 +338,123 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortn
                         {(col.checkboxes || []).map((cb: any, cbIdx: number) => {
                           const label = typeof cb === 'string' ? cb : cb.label;
                           const color = typeof cb === 'string' ? null : cb.color;
+                          const autoApply = typeof cb === 'string' ? null : cb.auto_apply;
                           
+                          const linkedDataset = datasets.find(d => d.id === col.dataset_id);
+                          const linkedDb = recordDatabases.find(db => db.id === linkedDataset?.record_database_id);
+                          const dbStructure = linkedDb?.database_structure || [];
+
                           return (
-                            <div key={cbIdx} className="flex items-center gap-1.5 bg-bg px-2 py-1 rounded border border-border group/cb">
-                              <input 
-                                value={label}
-                                onChange={(e) => {
-                                  const newCbs = [...(col.checkboxes || [])];
-                                  if (typeof cb === 'string') {
-                                      newCbs[cbIdx] = e.target.value;
-                                  } else {
-                                      newCbs[cbIdx] = { ...cb, label: e.target.value };
-                                  }
-                                  updateColumn(index, 'checkboxes', newCbs);
-                                }}
-                                className="bg-transparent text-xs w-16 outline-none text-text"
-                                placeholder="Label"
-                              />
-                              <div className="relative flex items-center">
+                            <div key={cbIdx} className="flex flex-col gap-2 bg-bg p-2 rounded border border-border group/cb">
+                              <div className="flex items-center gap-1.5">
                                 <input 
-                                    type="color" 
-                                    value={color || '#ffffff'} 
+                                    value={label}
                                     onChange={(e) => {
-                                        const newCbs = [...(col.checkboxes || [])];
-                                        const newLabel = typeof cb === 'string' ? cb : cb.label;
-                                        newCbs[cbIdx] = { label: newLabel, color: e.target.value };
-                                        updateColumn(index, 'checkboxes', newCbs);
+                                    const newCbs = [...(col.checkboxes || [])];
+                                    if (typeof cb === 'string') {
+                                        newCbs[cbIdx] = e.target.value;
+                                    } else {
+                                        newCbs[cbIdx] = { ...cb, label: e.target.value };
+                                    }
+                                    updateColumn(index, 'checkboxes', newCbs);
                                     }}
-                                    className={`w-4 h-4 rounded-sm cursor-pointer p-0 bg-transparent border-none ${!color ? 'opacity-20' : ''}`} 
+                                    className="bg-transparent text-xs w-16 outline-none text-text"
+                                    placeholder="Label"
                                 />
-                                {color && (
-                                    <button 
-                                        onClick={() => {
+                                <div className="relative flex items-center">
+                                    <input 
+                                        type="color" 
+                                        value={color || '#ffffff'} 
+                                        onChange={(e) => {
                                             const newCbs = [...(col.checkboxes || [])];
-                                            newCbs[cbIdx] = label; // Downgrade to string if color is removed
+                                            const newLabel = typeof cb === 'string' ? cb : cb.label;
+                                            const existingAutoApply = typeof cb === 'string' ? null : cb.auto_apply;
+                                            newCbs[cbIdx] = { label: newLabel, color: e.target.value, auto_apply: existingAutoApply };
                                             updateColumn(index, 'checkboxes', newCbs);
                                         }}
-                                        className="absolute -top-1 -right-1 bg-danger text-white rounded-full p-0.5 opacity-0 group-hover/cb:opacity-100 transition-opacity"
-                                    >
-                                        <X size={6} />
-                                    </button>
-                                )}
+                                        className={`w-4 h-4 rounded-sm cursor-pointer p-0 bg-transparent border-none ${!color ? 'opacity-20' : ''}`} 
+                                    />
+                                    {color && (
+                                        <button 
+                                            onClick={() => {
+                                                const newCbs = [...(col.checkboxes || [])];
+                                                if (autoApply) {
+                                                    newCbs[cbIdx] = { label: label, color: null, auto_apply: autoApply };
+                                                } else {
+                                                    newCbs[cbIdx] = label; 
+                                                }
+                                                updateColumn(index, 'checkboxes', newCbs);
+                                            }}
+                                            className="absolute -top-1 -right-1 bg-danger text-white rounded-full p-0.5 opacity-0 group-hover/cb:opacity-100 transition-opacity"
+                                        >
+                                            <X size={6} />
+                                        </button>
+                                    )}
+                                </div>
+                                <button onClick={() => {
+                                    const newCbs = [...(col.checkboxes || [])];
+                                    newCbs.splice(cbIdx, 1);
+                                    updateColumn(index, 'checkboxes', newCbs);
+                                }} className="text-muted hover:text-danger ml-auto"><X size={12} /></button>
                               </div>
-                              <button onClick={() => {
-                                const newCbs = [...(col.checkboxes || [])];
-                                newCbs.splice(cbIdx, 1);
-                                updateColumn(index, 'checkboxes', newCbs);
-                              }} className="text-muted hover:text-danger"><X size={12} /></button>
+                              
+                              {linkedDb && (
+                                  <div className="pt-1.5 border-t border-border/30 flex flex-col gap-1.5">
+                                      <div className="flex items-center gap-1">
+                                          <button 
+                                            onClick={() => {
+                                                const newCbs = [...(col.checkboxes || [])];
+                                                const newLabel = typeof cb === 'string' ? cb : cb.label;
+                                                const newColor = typeof cb === 'string' ? null : cb.color;
+                                                
+                                                if (autoApply) {
+                                                    if (!newColor) newCbs[cbIdx] = newLabel;
+                                                    else newCbs[cbIdx] = { label: newLabel, color: newColor };
+                                                } else {
+                                                    newCbs[cbIdx] = { 
+                                                        label: newLabel, 
+                                                        color: newColor, 
+                                                        auto_apply: { db_column: dbStructure[0]?.id || '', match_value: '' } 
+                                                    };
+                                                }
+                                                updateColumn(index, 'checkboxes', newCbs);
+                                            }}
+                                            className={`text-[7px] font-black uppercase px-1 py-0.5 rounded border transition-colors ${autoApply ? 'bg-accent border-accent text-white' : 'border-border text-muted hover:border-accent'}`}
+                                          >
+                                              Auto-Apply
+                                          </button>
+                                      </div>
+                                      
+                                      {autoApply && (
+                                          <div className="flex flex-col gap-1">
+                                              <select 
+                                                value={autoApply.db_column}
+                                                onChange={(e) => {
+                                                    const newCbs = [...(col.checkboxes || [])];
+                                                    newCbs[cbIdx] = { ...cb, auto_apply: { ...autoApply, db_column: e.target.value } };
+                                                    updateColumn(index, 'checkboxes', newCbs);
+                                                }}
+                                                className="w-full bg-surface border border-border p-1 rounded text-[8px] font-bold text-text focus:border-accent outline-none"
+                                              >
+                                                  {dbStructure.map((f: any) => (
+                                                      <option key={f.id} value={f.id}>{f.name}</option>
+                                                  ))}
+                                                  <option value="id">Record ID</option>
+                                              </select>
+                                              <input 
+                                                value={autoApply.match_value}
+                                                onChange={(e) => {
+                                                    const newCbs = [...(col.checkboxes || [])];
+                                                    newCbs[cbIdx] = { ...cb, auto_apply: { ...autoApply, match_value: e.target.value } };
+                                                    updateColumn(index, 'checkboxes', newCbs);
+                                                }}
+                                                placeholder="Match Value..."
+                                                className="w-full bg-surface border border-border p-1 rounded text-[8px] font-bold text-text focus:border-accent outline-none"
+                                              />
+                                          </div>
+                                      )}
+                                  </div>
+                              )}
                             </div>
                           );
                         })}
@@ -393,7 +463,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortn
                             const newCbs = [...(col.checkboxes || []), 'New'];
                             updateColumn(index, 'checkboxes', newCbs);
                           }}
-                          className="flex items-center gap-1 bg-bg px-2 py-1 rounded border border-border border-dashed text-muted hover:text-text hover:border-accent text-xs"
+                          className="flex items-center gap-1 bg-bg px-2 py-1 rounded border border-border border-dashed text-muted hover:text-text hover:border-accent text-xs h-fit"
                         >
                           <Plus size={12} /> Add
                         </button>
@@ -406,53 +476,123 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortn
                         {(col.tags || []).map((tag: any, tagIdx: number) => {
                           const label = typeof tag === 'string' ? tag : tag.label;
                           const color = typeof tag === 'string' ? null : tag.color;
+                          const autoApply = typeof tag === 'string' ? null : tag.auto_apply;
+
+                          const linkedDataset = datasets.find(d => d.id === col.dataset_id);
+                          const linkedDb = recordDatabases.find(db => db.id === linkedDataset?.record_database_id);
+                          const dbStructure = linkedDb?.database_structure || [];
                           
                           return (
-                            <div key={tagIdx} className="flex items-center gap-1.5 bg-bg px-2 py-1 rounded border border-border group/tag">
-                              <input 
-                                value={label}
-                                onChange={(e) => {
-                                  const newTags = [...(col.tags || [])];
-                                  if (typeof tag === 'string') {
-                                      newTags[tagIdx] = e.target.value;
-                                  } else {
-                                      newTags[tagIdx] = { ...tag, label: e.target.value };
-                                  }
-                                  updateColumn(index, 'tags', newTags);
-                                }}
-                                className="bg-transparent text-xs w-16 outline-none text-text"
-                                placeholder="Label"
-                              />
-                              <div className="relative flex items-center">
+                            <div key={tagIdx} className="flex flex-col gap-2 bg-bg p-2 rounded border border-border group/tag">
+                              <div className="flex items-center gap-1.5">
                                 <input 
-                                    type="color" 
-                                    value={color || '#ffffff'} 
+                                    value={label}
                                     onChange={(e) => {
-                                        const newTags = [...(col.tags || [])];
-                                        const newLabel = typeof tag === 'string' ? tag : tag.label;
-                                        newTags[tagIdx] = { label: newLabel, color: e.target.value };
-                                        updateColumn(index, 'tags', newTags);
+                                    const newTags = [...(col.tags || [])];
+                                    if (typeof tag === 'string') {
+                                        newTags[tagIdx] = e.target.value;
+                                    } else {
+                                        newTags[tagIdx] = { ...tag, label: e.target.value };
+                                    }
+                                    updateColumn(index, 'tags', newTags);
                                     }}
-                                    className={`w-4 h-4 rounded-sm cursor-pointer p-0 bg-transparent border-none ${!color ? 'opacity-20' : ''}`} 
+                                    className="bg-transparent text-xs w-16 outline-none text-text"
+                                    placeholder="Label"
                                 />
-                                {color && (
-                                    <button 
-                                        onClick={() => {
+                                <div className="relative flex items-center">
+                                    <input 
+                                        type="color" 
+                                        value={color || '#ffffff'} 
+                                        onChange={(e) => {
                                             const newTags = [...(col.tags || [])];
-                                            newTags[tagIdx] = label;
+                                            const newLabel = typeof tag === 'string' ? tag : tag.label;
+                                            const existingAutoApply = typeof tag === 'string' ? null : tag.auto_apply;
+                                            newTags[tagIdx] = { label: newLabel, color: e.target.value, auto_apply: existingAutoApply };
                                             updateColumn(index, 'tags', newTags);
                                         }}
-                                        className="absolute -top-1 -right-1 bg-danger text-white rounded-full p-0.5 opacity-0 group-hover/tag:opacity-100 transition-opacity"
-                                    >
-                                        <X size={6} />
-                                    </button>
-                                )}
+                                        className={`w-4 h-4 rounded-sm cursor-pointer p-0 bg-transparent border-none ${!color ? 'opacity-20' : ''}`} 
+                                    />
+                                    {color && (
+                                        <button 
+                                            onClick={() => {
+                                                const newTags = [...(col.tags || [])];
+                                                if (autoApply) {
+                                                    newTags[tagIdx] = { label: label, color: null, auto_apply: autoApply };
+                                                } else {
+                                                    newTags[tagIdx] = label;
+                                                }
+                                                updateColumn(index, 'tags', newTags);
+                                            }}
+                                            className="absolute -top-1 -right-1 bg-danger text-white rounded-full p-0.5 opacity-0 group-hover/tag:opacity-100 transition-opacity"
+                                        >
+                                            <X size={6} />
+                                        </button>
+                                    )}
+                                </div>
+                                <button onClick={() => {
+                                    const newTags = [...(col.tags || [])];
+                                    newTags.splice(tagIdx, 1);
+                                    updateColumn(index, 'tags', newTags);
+                                }} className="text-muted hover:text-danger ml-auto"><X size={12} /></button>
                               </div>
-                              <button onClick={() => {
-                                const newTags = [...(col.tags || [])];
-                                newTags.splice(tagIdx, 1);
-                                updateColumn(index, 'tags', newTags);
-                              }} className="text-muted hover:text-danger"><X size={12} /></button>
+
+                              {linkedDb && (
+                                  <div className="pt-1.5 border-t border-border/30 flex flex-col gap-1.5">
+                                      <div className="flex items-center gap-1">
+                                          <button 
+                                            onClick={() => {
+                                                const newTags = [...(col.tags || [])];
+                                                const newLabel = typeof tag === 'string' ? tag : tag.label;
+                                                const newColor = typeof tag === 'string' ? null : tag.color;
+                                                
+                                                if (autoApply) {
+                                                    if (!newColor) newTags[tagIdx] = newLabel;
+                                                    else newTags[tagIdx] = { label: newLabel, color: newColor };
+                                                } else {
+                                                    newTags[tagIdx] = { 
+                                                        label: newLabel, 
+                                                        color: newColor, 
+                                                        auto_apply: { db_column: dbStructure[0]?.id || '', match_value: '' } 
+                                                    };
+                                                }
+                                                updateColumn(index, 'tags', newTags);
+                                            }}
+                                            className={`text-[7px] font-black uppercase px-1 py-0.5 rounded border transition-colors ${autoApply ? 'bg-accent border-accent text-white' : 'border-border text-muted hover:border-accent'}`}
+                                          >
+                                              Auto-Apply
+                                          </button>
+                                      </div>
+                                      
+                                      {autoApply && (
+                                          <div className="flex flex-col gap-1">
+                                              <select 
+                                                value={autoApply.db_column}
+                                                onChange={(e) => {
+                                                    const newTags = [...(col.tags || [])];
+                                                    newTags[tagIdx] = { ...tag, auto_apply: { ...autoApply, db_column: e.target.value } };
+                                                    updateColumn(index, 'tags', newTags);
+                                                }}
+                                                className="w-full bg-surface border border-border p-1 rounded text-[8px] font-bold text-text focus:border-accent outline-none"
+                                              >
+                                                  {dbStructure.map((f: any) => (
+                                                      <option key={f.id} value={f.id}>{f.name}</option>
+                                                  ))}
+                                                  <option value="id">Record ID</option>
+                                              </select>
+                                              <input 
+                                                value={autoApply.match_value}
+                                                onChange={(e) => {
+                                                    const newTags = [...(col.tags || [])];
+                                                    newTags[tagIdx] = { ...tag, auto_apply: { ...autoApply, match_value: e.target.value } };
+                                                    updateColumn(index, 'tags', newTags);
+                                                }}
+                                                placeholder="Match Value..."
+                                                className="w-full bg-surface border border-border p-1 rounded text-[8px] font-bold text-text focus:border-accent outline-none"
+                                              />
+                                          </div>
+                                      )}
+                                  </div>
+                              )}
                             </div>
                           );
                         })}
@@ -461,7 +601,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortn
                             const newTags = [...(col.tags || []), { label: 'Trainee', color: '#ffaa00' }];
                             updateColumn(index, 'tags', newTags);
                           }}
-                          className="flex items-center gap-1 bg-bg px-2 py-1 rounded border border-border border-dashed text-muted hover:text-text hover:border-accent text-xs"
+                          className="flex items-center gap-1 bg-bg px-2 py-1 rounded border border-border border-dashed text-muted hover:text-text hover:border-accent text-xs h-fit"
                         >
                           <Plus size={12} /> Add Tag
                         </button>
