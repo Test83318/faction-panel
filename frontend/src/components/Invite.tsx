@@ -11,12 +11,17 @@ const Invite: React.FC<{ user: any }> = ({ user }) => {
     const [faction, setFaction] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [joining, setJoining] = useState(false);
+    const [gtawEnabled, setGtawEnabled] = useState(false);
 
     useEffect(() => {
         const fetchInvite = async () => {
             try {
-                const res = await api.get(`/invites/${code}`);
-                setFaction(res.data);
+                const [inviteRes, statusRes] = await Promise.all([
+                    api.get(`/invites/${code}`),
+                    api.get('/auth/registration-status')
+                ]);
+                setFaction(inviteRes.data);
+                setGtawEnabled(statusRes.data.gtaw_oauth_enabled);
             } catch (err: any) {
                 toast.error('Invalid or expired invite code');
                 navigate('/');
@@ -45,7 +50,27 @@ const Invite: React.FC<{ user: any }> = ({ user }) => {
         }
     };
 
-    if (loading) return <Loading message="Validating Invite..." />;
+    const handleGtawLogin = async () => {
+        try {
+            localStorage.setItem('gtaw_auth_redirect', `/invite/${code}`);
+            const response = await api.get('/auth/gtaw/redirect');
+            window.location.href = response.data.url;
+        } catch (err) {
+            toast.error('Failed to initialize GTA:W login');
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-bg flex items-center justify-center p-6 transition-colors duration-200">
+                <div className="max-w-2xl w-full">
+                    <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-2xl min-h-[500px] flex flex-col items-center justify-center">
+                        <Loading message="Validating Invite..." fullScreen={false} />
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-bg flex items-center justify-center p-6 transition-colors duration-200">
@@ -121,6 +146,16 @@ const Invite: React.FC<{ user: any }> = ({ user }) => {
                                         Create Account
                                     </Link>
                                 </div>
+                            )}
+
+                            {!user && gtawEnabled && (
+                                <button
+                                    onClick={handleGtawLogin}
+                                    className="w-full flex items-center justify-center gap-3 py-5 bg-white hover:bg-white/90 text-black font-black rounded-2xl transition-all shadow-xl uppercase tracking-[0.15em] text-[10px]"
+                                >
+                                    <img src="/gtaw-logo.png" alt="GTA:W" className="w-5 h-5 object-contain" />
+                                    Sign In via GTA:W
+                                </button>
                             )}
                             
                             <Link to="/" className="block text-center text-muted hover:text-text transition-colors text-[10px] font-bold uppercase tracking-widest pt-4">

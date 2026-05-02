@@ -62,6 +62,129 @@ class AuthController extends Controller
     {
         return response()->json([
             'allow_registration' => (bool) config('features.allow_registration'),
+            'gtaw_oauth_enabled' => (bool) config('features.gtaw_oauth_enabled'),
+            'gtaw_client_id' => config('features.gtaw_client_id'),
+            'gtaw_redirect_uri' => config('features.gtaw_redirect_uri'),
+        ]);
+    }
+
+    public function gtawRedirect()
+    {
+        if (!config('features.gtaw_oauth_enabled')) {
+            return response()->json(['message' => 'GTA:W OAuth is disabled.'], 403);
+        }
+
+        $query = http_build_query([
+            'client_id' => config('features.gtaw_client_id'),
+            'redirect_uri' => config('features.gtaw_redirect_uri'),
+            'response_type' => 'code',
+            'scope' => '',
+        ]);
+
+        $baseUrl = rtrim(config('features.gtaw_base_url'), '/');
+
+        return response()->json([
+            'url' => "{$baseUrl}/oauth/authorize?" . $query
+        ]);
+    }
+
+    public function gtawCallback(Request $request)
+    {
+        if (!config('features.gtaw_oauth_enabled')) {
+            return response()->json(['message' => 'GTA:W OAuth is disabled.'], 403);
+        }
+
+        $code = $request->input('code');
+
+        if (!$code) {
+            return response()->json(['message' => 'Authorization code missing.'], 400);
+        }
+
+        $baseUrl = rtrim(config('features.gtaw_base_url'), '/');
+
+        // Exchange code for token
+        $response = \Illuminate\Support\Facades\Http::asForm()->post("{$baseUrl}/oauth/token", [
+            'grant_type' => 'authorization_code',
+            'client_id' => config('features.gtaw_client_id'),
+            'client_secret' => config('features.gtaw_client_secret'),
+            'redirect_uri' => config('features.gtaw_redirect_uri'),
+            'code' => $code,
+        ]);
+
+        if ($response->failed()) {
+            \Illuminate\Support\Facades\Log::error('GTA:W Token Exchange Failed', [
+                'status' => $response->status(),
+                'body' => $response->json(),
+                'code' => $code,
+                'redirect_uri' => config('features.gtaw_redirect_uri'),
+                'client_id' => config('features.gtaw_client_id'),
+            ]);
+            return response()->json([
+                'message' => 'Failed to exchange code for token.',
+                'debug' => $response->json()
+            ], 500);
+        }
+
+        $accessToken = $response->json('access_token');
+
+        // Get user info
+        $userResponse = \Illuminate\Support\Facades\Http::withToken($accessToken)->get("{$baseUrl}/api/user");
+
+        if ($userResponse->failed()) {
+            return response()->json(['message' => 'Failed to fetch user data from GTA:W.'], 500);
+        }
+
+        $gtawUser = $userResponse->json();
+
+        if (!isset($gtawUser['id']) || !isset($gtawUser['username'])) {
+            // Some API responses wrap the data in a 'user' or 'data' key
+            $data = $gtawUser['user'] ?? $gtawUser['data'] ?? $gtawUser;
+            
+            if (!isset($data['id']) || !isset($data['username'])) {
+                return response()->json([
+                    'message' => 'Invalid user data received from GTA:W.',
+                    'debug' => $gtawUser
+                ], 500);
+            }
+            
+            $gtawUser = $data;
+        }
+
+        $gtawId = $gtawUser['id'];
+        $gtawUsername = $gtawUser['username'];
+
+        // Find or create user
+        $user = User::where('gtaw_id', $gtawId)->first();
+
+        if (!$user) {
+            // Check if a user with the same username already exists
+            $user = User::where('username', $gtawUsername)->first();
+            
+            if ($user) {
+                // Link GTA:W account to existing user if not already linked
+                if (!$user->gtaw_id) {
+                    $user->update([
+                        'gtaw_id' => $gtawId,
+                        'gtaw_username' => $gtawUsername
+                    ]);
+                }
+            } else {
+                // Create new user
+                $user = User::create([
+                    'username' => $gtawUsername,
+                    'gtaw_id' => $gtawId,
+                    'gtaw_username' => $gtawUsername,
+                    'password' => null, // No password for GTA:W users
+                ]);
+            }
+        }
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+            'user' => $user->load('groups'),
         ]);
     }
 
@@ -76,6 +199,45 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return response()->json($request->user()->load('groups'));
+        return response()->json($request->user()->load('groups', 'factions'));
+    }
+
+    public function unlinkGtaw(Request $request)
+    {
+        $user = $request->user();
+        
+        if (!$user->password) {
+            return response()->json(['message' => 'You must set a password before unlinking your GTA:W account.'], 400);
+        }
+
+        $user->update([
+            'gtaw_id' => null,
+            'gtaw_username' => null,
+        ]);
+
+        return response()->json(['message' => 'GTA:W account unlinked successfully.']);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required_with:password|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = $request->user();
+
+        // If the user has a password set, they must provide the current one
+        if ($user->password && !Hash::check($request->current_password, $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['The provided password does not match our records.'],
+            ]);
+        }
+
+        $user->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        return response()->json(['message' => 'Password updated successfully.']);
     }
 }

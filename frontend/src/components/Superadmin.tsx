@@ -1,0 +1,398 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../api';
+import Loading from './Loading';
+import toast from 'react-hot-toast';
+import { Shield, ArrowLeft, Users, Building2, Edit2, Trash2, UserPlus, Check, X } from 'lucide-react';
+
+interface SuperadminProps {
+    user: any;
+    onLogin: (token: string, user: any) => void;
+}
+
+const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
+    const navigate = useNavigate();
+    const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState<'factions' | 'users'>('factions');
+    
+    const [factions, setFactions] = useState<any[]>([]);
+    const [usersList, setUsersList] = useState<any[]>([]);
+    
+    // Edit States
+    const [editingFaction, setEditingFaction] = useState<any>(null);
+    const [editingUser, setEditingUser] = useState<any>(null);
+    const [processing, setProcessing] = useState(false);
+
+    useEffect(() => {
+        if (!user?.is_superadmin) {
+            navigate('/');
+            return;
+        }
+        fetchData();
+    }, [user]);
+
+    const fetchData = async () => {
+        try {
+            const [factionsRes, usersRes] = await Promise.all([
+                api.get('/superadmin/factions'),
+                api.get('/superadmin/users')
+            ]);
+            setFactions(factionsRes.data);
+            setUsersList(usersRes.data);
+        } catch (err) {
+            toast.error('Failed to fetch superadmin data');
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleImpersonate = async (targetUser: any) => {
+        if (!window.confirm(`Are you sure you want to impersonate ${targetUser.username}?`)) return;
+        
+        const loadToast = toast.loading('Impersonating...');
+        try {
+            const res = await api.post(`/superadmin/impersonate/${targetUser.id}`);
+            toast.success(`Now impersonating ${targetUser.username}`, { id: loadToast });
+            onLogin(res.data.access_token, res.data.user);
+            navigate('/');
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to impersonate user', { id: loadToast });
+        }
+    };
+
+    const handleDeleteFaction = async (faction: any) => {
+        if (!window.confirm(`WARNING: Are you sure you want to permanently delete faction ${faction.name}?`)) return;
+        
+        const loadToast = toast.loading('Deleting faction...');
+        try {
+            await api.delete(`/superadmin/factions/${faction.id}`);
+            toast.success('Faction deleted', { id: loadToast });
+            fetchData();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to delete faction', { id: loadToast });
+        }
+    };
+
+    const handleDeleteUser = async (targetUser: any) => {
+        if (targetUser.id === user.id) {
+            toast.error("Cannot delete yourself");
+            return;
+        }
+        if (!window.confirm(`WARNING: Are you sure you want to permanently delete user ${targetUser.username}?`)) return;
+        
+        const loadToast = toast.loading('Deleting user...');
+        try {
+            await api.delete(`/superadmin/users/${targetUser.id}`);
+            toast.success('User deleted', { id: loadToast });
+            fetchData();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to delete user', { id: loadToast });
+        }
+    };
+
+    const submitFactionEdit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setProcessing(true);
+        const loadToast = toast.loading('Saving faction...');
+        try {
+            await api.put(`/superadmin/factions/${editingFaction.id}`, editingFaction);
+            toast.success('Faction updated', { id: loadToast });
+            setEditingFaction(null);
+            fetchData();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to update faction', { id: loadToast });
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    const submitUserEdit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setProcessing(true);
+        const loadToast = toast.loading('Saving user...');
+        try {
+            await api.put(`/superadmin/users/${editingUser.id}`, editingUser);
+            toast.success('User updated', { id: loadToast });
+            setEditingUser(null);
+            fetchData();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to update user', { id: loadToast });
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    if (loading) return <Loading message="Loading Superadmin Panel..." />;
+
+    return (
+        <div className="min-h-screen bg-bg text-text transition-colors duration-200 pb-20">
+            <header className="h-[var(--nav-h)] bg-surface border-b border-border flex items-center px-6 sticky top-0 z-[300]">
+                <div 
+                    onClick={() => navigate('/')}
+                    className="flex items-center gap-2 text-accent font-black uppercase italic tracking-tighter text-lg cursor-pointer hover:opacity-80 transition-opacity"
+                >
+                    <Shield size={20} fill="currentColor" fillOpacity={0.2} />
+                    Faction Panel
+                </div>
+                <div className="flex-1" />
+                <span className="px-2 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded font-black text-[9px] uppercase tracking-widest">
+                    Superadmin Mode
+                </span>
+            </header>
+
+            <div className="max-w-7xl mx-auto p-8">
+                <div className="mb-8">
+                    <button 
+                        onClick={() => navigate('/')}
+                        className="flex items-center gap-2 text-accent text-[10px] font-bold uppercase tracking-widest mb-4 hover:gap-3 transition-all"
+                    >
+                        <ArrowLeft size={14} />
+                        Back to Selection
+                    </button>
+                    <h1 className="text-4xl font-black tracking-tighter uppercase italic mb-1 text-[#FFD700]">System Administration</h1>
+                    <p className="text-muted text-xs font-bold uppercase tracking-[0.2em]">Global Management Console</p>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex gap-2 border-b border-border mb-6">
+                    <button
+                        onClick={() => setActiveTab('factions')}
+                        className={`flex items-center gap-2 px-6 py-3 font-bold text-[10px] uppercase tracking-widest transition-all ${
+                            activeTab === 'factions' 
+                                ? 'border-b-2 border-accent text-accent bg-accent/5' 
+                                : 'text-muted hover:text-text hover:bg-surface'
+                        }`}
+                    >
+                        <Building2 size={14} /> Factions
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('users')}
+                        className={`flex items-center gap-2 px-6 py-3 font-bold text-[10px] uppercase tracking-widest transition-all ${
+                            activeTab === 'users' 
+                                ? 'border-b-2 border-accent text-accent bg-accent/5' 
+                                : 'text-muted hover:text-text hover:bg-surface'
+                        }`}
+                    >
+                        <Users size={14} /> Users
+                    </button>
+                </div>
+
+                {/* Factions Tab */}
+                {activeTab === 'factions' && (
+                    <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-surface border-b border-border">
+                                    <tr>
+                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">ID</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Name / Shortname</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Leader</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Members</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {factions.map(faction => (
+                                        <tr key={faction.id} className="hover:bg-surface/50 transition-colors">
+                                            <td className="px-6 py-4 font-mono text-muted text-xs">#{faction.id}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: faction.color }} />
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold">{faction.name}</span>
+                                                        <span className="text-[9px] uppercase tracking-widest text-muted">{faction.shortname}</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 font-bold text-xs">{faction.leader?.username || <span className="text-muted italic">None</span>}</td>
+                                            <td className="px-6 py-4 text-xs">{faction.users_count}</td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <button onClick={() => setEditingFaction(faction)} className="p-2 bg-surface hover:bg-bg border border-border rounded-lg text-text transition-colors">
+                                                        <Edit2 size={14} />
+                                                    </button>
+                                                    <button onClick={() => handleDeleteFaction(faction)} className="p-2 bg-danger/10 hover:bg-danger/20 border border-danger/20 rounded-lg text-danger transition-colors">
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* Users Tab */}
+                {activeTab === 'users' && (
+                    <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-surface border-b border-border">
+                                    <tr>
+                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">ID</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Username</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">GTA:W Link</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Status</th>
+                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {usersList.map(u => (
+                                        <tr key={u.id} className="hover:bg-surface/50 transition-colors">
+                                            <td className="px-6 py-4 font-mono text-muted text-xs">#{u.id}</td>
+                                            <td className="px-6 py-4 font-bold">{u.username}</td>
+                                            <td className="px-6 py-4">
+                                                {u.gtaw_id ? (
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-bold">{u.gtaw_username}</span>
+                                                        <span className="text-[9px] uppercase tracking-widest text-muted">ID: {u.gtaw_id}</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[10px] uppercase font-bold text-muted">Unlinked</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {u.is_superadmin ? (
+                                                    <span className="px-2 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded font-black text-[8px] uppercase tracking-widest">Superadmin</span>
+                                                ) : (
+                                                    <span className="px-2 py-1 bg-surface border border-border text-muted rounded font-black text-[8px] uppercase tracking-widest">User</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    {user.id !== u.id && (
+                                                        <button 
+                                                            onClick={() => handleImpersonate(u)} 
+                                                            className="p-2 bg-accent/10 hover:bg-accent/20 border border-accent/20 rounded-lg text-accent transition-colors"
+                                                            title="Impersonate User"
+                                                        >
+                                                            <UserPlus size={14} />
+                                                        </button>
+                                                    )}
+                                                    <button onClick={() => setEditingUser(u)} className="p-2 bg-surface hover:bg-bg border border-border rounded-lg text-text transition-colors">
+                                                        <Edit2 size={14} />
+                                                    </button>
+                                                    {user.id !== u.id && (
+                                                        <button onClick={() => handleDeleteUser(u)} className="p-2 bg-danger/10 hover:bg-danger/20 border border-danger/20 rounded-lg text-danger transition-colors">
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Edit Faction Modal */}
+            {editingFaction && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
+                    <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl">
+                        <h2 className="text-2xl font-black uppercase tracking-tighter italic mb-6">Edit Faction</h2>
+                        <form onSubmit={submitFactionEdit} className="space-y-4">
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Name</label>
+                                <input 
+                                    value={editingFaction.name} 
+                                    onChange={e => setEditingFaction({...editingFaction, name: e.target.value})} 
+                                    className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
+                                    required 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Shortname</label>
+                                <input 
+                                    value={editingFaction.shortname} 
+                                    onChange={e => setEditingFaction({...editingFaction, shortname: e.target.value.toLowerCase().replace(/[^a-z0-9\-_]/g, '')})} 
+                                    className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
+                                    required 
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Leader ID (User ID)</label>
+                                <input 
+                                    type="number"
+                                    value={editingFaction.faction_leader || ''} 
+                                    onChange={e => setEditingFaction({...editingFaction, faction_leader: e.target.value ? parseInt(e.target.value) : null})} 
+                                    className="w-full bg-surface border border-border p-3 rounded-xl text-sm font-mono" 
+                                    placeholder="Leave empty for no leader"
+                                />
+                            </div>
+                            <div className="flex gap-4 pt-4">
+                                <button type="button" onClick={() => setEditingFaction(null)} className="flex-1 px-4 py-3 bg-surface border border-border hover:bg-bg rounded-xl font-bold uppercase tracking-widest text-[10px] transition">Cancel</button>
+                                <button type="submit" disabled={processing} className="flex-1 px-4 py-3 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20 disabled:opacity-50">
+                                    Save
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit User Modal */}
+            {editingUser && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
+                    <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl">
+                        <h2 className="text-2xl font-black uppercase tracking-tighter italic mb-6">Edit User</h2>
+                        <form onSubmit={submitUserEdit} className="space-y-4">
+                            <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Username</label>
+                                <input 
+                                    value={editingUser.username} 
+                                    onChange={e => setEditingUser({...editingUser, username: e.target.value})} 
+                                    className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
+                                    required 
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">GTA:W ID</label>
+                                    <input 
+                                        type="number"
+                                        value={editingUser.gtaw_id || ''} 
+                                        onChange={e => setEditingUser({...editingUser, gtaw_id: e.target.value ? parseInt(e.target.value) : null})} 
+                                        className="w-full bg-surface border border-border p-3 rounded-xl text-sm font-mono" 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">GTA:W Username</label>
+                                    <input 
+                                        value={editingUser.gtaw_username || ''} 
+                                        onChange={e => setEditingUser({...editingUser, gtaw_username: e.target.value})} 
+                                        className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
+                                    />
+                                </div>
+                            </div>
+                            <div className="pt-2">
+                                <label className="flex items-center gap-3 cursor-pointer p-3 bg-surface border border-border rounded-xl">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={editingUser.is_superadmin}
+                                        onChange={e => setEditingUser({...editingUser, is_superadmin: e.target.checked})}
+                                        className="w-4 h-4 rounded text-accent focus:ring-accent focus:ring-offset-surface bg-bg border-border"
+                                    />
+                                    <span className="text-sm font-bold">Superadmin Privileges</span>
+                                </label>
+                            </div>
+                            <div className="flex gap-4 pt-4">
+                                <button type="button" onClick={() => setEditingUser(null)} className="flex-1 px-4 py-3 bg-surface border border-border hover:bg-bg rounded-xl font-bold uppercase tracking-widest text-[10px] transition">Cancel</button>
+                                <button type="submit" disabled={processing} className="flex-1 px-4 py-3 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20 disabled:opacity-50">
+                                    Save
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default Superadmin;

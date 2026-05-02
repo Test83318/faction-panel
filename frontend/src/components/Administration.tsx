@@ -187,17 +187,34 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
 
     const handleDeleteInvite = async (id: number) => {
         if (deleting) return;
-        setDeleting(true);
-        const loadToast = toast.loading('Deleting invite...');
-        try {
-            await api.delete(`/invites/${id}`);
-            setInvites(invites.filter(i => i.id !== id));
-            toast.success('Invite deleted', { id: loadToast });
-        } catch (err) {
-            toast.error('Failed to delete invite', { id: loadToast });
-        } finally {
-            setDeleting(false);
-        }
+        toast((t) => (
+            <div className="flex flex-col gap-1 text-left">
+                <p className="font-bold text-xs uppercase">Delete this invite?</p>
+                <p className="text-[9px] opacity-80 uppercase tracking-tighter">The invite code will no longer work.</p>
+                <div className="flex gap-2 justify-end mt-2">
+                    <button onClick={() => toast.dismiss(t.id)} className="px-2 py-1 bg-surface hover:bg-bg border border-border rounded text-[9px] font-bold uppercase transition">Cancel</button>
+                    <button 
+                        onClick={async () => {
+                            toast.dismiss(t.id);
+                            setDeleting(true);
+                            const loadToast = toast.loading('Deleting invite...');
+                            try {
+                                await api.delete(`/invites/${id}`);
+                                setInvites(invites.filter(i => i.id !== id));
+                                toast.success('Invite deleted', { id: loadToast });
+                            } catch (err) {
+                                toast.error('Failed to delete invite', { id: loadToast });
+                            } finally {
+                                setDeleting(false);
+                            }
+                        }}
+                        className="px-2 py-1 bg-danger text-white hover:bg-danger/90 rounded text-[9px] font-bold uppercase transition shadow-lg shadow-danger/20"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </div>
+        ), { duration: 6000, position: 'top-center' });
     };
 
     const handlePermissionChange = (key: string, value: string) => {

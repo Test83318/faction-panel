@@ -1,6 +1,6 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Shield, Moon, Sun, LogOut, User, LogIn } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Shield, Moon, Sun, LogOut, User, LogIn, ChevronDown, Settings, LayoutGrid, ShieldAlert } from 'lucide-react';
 
 interface HeaderProps {
   isDark: boolean;
@@ -12,12 +12,29 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName, user, userRole, onLogout }) => {
+  const navigate = useNavigate();
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const isSuperAdmin = user?.is_superadmin;
   const roleColor = userRole?.color || 'var(--muted)';
+  const isFactionPage = factionName !== 'Faction Selection';
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <header className="topbar h-[var(--nav-h)] bg-surface border-b border-border flex items-center px-5 gap-2.5 sticky top-0 z-[300] shrink-0">
-      <div className="logo flex items-center gap-1.5 text-accent font-extrabold text-[16px] tracking-tight hover:opacity-80 transition-opacity cursor-pointer">
+      <div 
+        onClick={() => navigate('/')}
+        className="logo flex items-center gap-1.5 text-accent font-extrabold text-[16px] tracking-tight hover:opacity-80 transition-opacity cursor-pointer"
+      >
         <Shield size={18} fill="currentColor" fillOpacity={0.2} />
         Faction Panel
       </div>
@@ -29,8 +46,11 @@ export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName
       <div className="flex-1" />
 
       {user ? (
-        <>
-          <div className="flex items-center gap-3 mr-4">
+        <div className="relative" ref={dropdownRef}>
+          <button 
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="flex items-center gap-3 mr-4 hover:bg-border/30 p-1.5 rounded-lg transition-colors group"
+          >
             <div className="flex flex-col items-end">
               <span className="text-[11px] font-bold text-text leading-none">{user.username}</span>
               {isSuperAdmin ? (
@@ -60,8 +80,68 @@ export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName
             >
               <User size={14} className={isSuperAdmin ? 'text-black' : 'text-muted'} />
             </div>
-          </div>
-        </>
+            <ChevronDown size={14} className={`text-muted transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showDropdown && (
+            <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-xl shadow-2xl py-2 z-[400] animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="px-4 py-2 border-b border-border mb-2">
+                <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Signed in as</p>
+                <p className="text-xs font-black truncate">{user.username}</p>
+              </div>
+
+              {isFactionPage && (
+                <button 
+                  onClick={() => {
+                    navigate('/');
+                    setShowDropdown(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface transition-colors"
+                >
+                  <LayoutGrid size={14} />
+                  Faction Selection
+                </button>
+              )}
+
+              <button 
+                onClick={() => {
+                  navigate('/account/settings');
+                  setShowDropdown(false);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface transition-colors"
+              >
+                <Settings size={14} />
+                Account Settings
+              </button>
+
+              {isSuperAdmin && (
+                <button 
+                  onClick={() => {
+                    navigate('/superadmin');
+                    setShowDropdown(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-[#FFD700] hover:bg-[#FFD700]/10 transition-colors"
+                >
+                  <ShieldAlert size={14} />
+                  Superadmin Panel
+                </button>
+              )}
+
+              <div className="border-t border-border mt-2 pt-2">
+                <button 
+                  onClick={() => {
+                    onLogout();
+                    setShowDropdown(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-red-500 hover:bg-red-500/10 transition-colors"
+                >
+                  <LogOut size={14} />
+                  Logout
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
         <div className="flex items-center gap-3 mr-4">
           <div className="flex flex-col items-end">
@@ -74,7 +154,7 @@ export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName
         </div>
       )}
 
-      <div className="flex items-center gap-1.5 border-l border-border pl-4">
+      <div className="flex items-center gap-1.5 border-l border-border pl-4 mr-2">
         <span className="text-[10px] text-muted hidden sm:block">Dark</span>
         <button 
           onClick={toggleTheme}
@@ -90,17 +170,7 @@ export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName
         </button>
       </div>
 
-      {user ? (
-        <div className="ml-2.5">
-          <button 
-            onClick={onLogout}
-            className="flex items-center gap-1.5 text-[9px] font-bold tracking-widest uppercase text-muted border border-border px-2.5 py-1 rounded hover:text-red-500 hover:border-red-500/50 hover:bg-red-500/5 transition-all"
-          >
-            <LogOut size={10} />
-            Logout
-          </button>
-        </div>
-      ) : (
+      {!user && (
         <div className="ml-2.5">
           <Link 
             to="/"

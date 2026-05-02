@@ -14,12 +14,15 @@ use App\Http\Controllers\RosterFlagController;
 use App\Http\Controllers\FactionRecordController;
 use App\Http\Controllers\FactionRecordPermissionController;
 use App\Http\Controllers\FactionRecordEntryController;
+use App\Http\Controllers\SuperadminController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::get('/auth/registration-status', [AuthController::class, 'registrationStatus']);
+Route::get('/auth/gtaw/redirect', [AuthController::class, 'gtawRedirect']);
+Route::post('/auth/gtaw/callback', [AuthController::class, 'gtawCallback']);
 
 Route::get('/invites/{code}', [InviteController::class, 'show']);
 Route::get('/factions/all', [FactionController::class, 'getAllFactions']);
@@ -35,6 +38,17 @@ Route::get('/factions/{shortname}/flags', [RosterFlagController::class, 'index']
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/user/unlink-gtaw', [AuthController::class, 'unlinkGtaw']);
+    Route::post('/user/change-password', [AuthController::class, 'changePassword']);
+
+    // Superadmin Routes
+    Route::get('/superadmin/users', [SuperadminController::class, 'getUsers']);
+    Route::put('/superadmin/users/{user}', [SuperadminController::class, 'updateUser']);
+    Route::delete('/superadmin/users/{user}', [SuperadminController::class, 'deleteUser']);
+    Route::get('/superadmin/factions', [SuperadminController::class, 'getFactions']);
+    Route::put('/superadmin/factions/{faction}', [SuperadminController::class, 'updateFaction']);
+    Route::delete('/superadmin/factions/{faction}', [SuperadminController::class, 'deleteFaction']);
+    Route::post('/superadmin/impersonate/{user}', [SuperadminController::class, 'impersonate']);
 
     Route::post('/invites/{code}/join', [InviteController::class, 'join']);
 

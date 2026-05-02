@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 import Loading from './Loading';
 import toast from 'react-hot-toast';
-import { Moon, Sun, Plus, Search, LogOut, Shield } from 'lucide-react';
+import { Moon, Sun, Plus, Search, LogOut, Shield, User, ChevronDown, Settings, ShieldAlert, Layers, Database } from 'lucide-react';
 
 interface FactionManagerProps {
     isDark: boolean;
@@ -12,12 +13,13 @@ interface FactionManagerProps {
 }
 
 const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, user, onLogout }) => {
+    const navigate = useNavigate();
     const [myFactions, setMyFactions] = useState<any[]>([]);
-    const [allFactions, setAllFactions] = useState<any[]>([]);
     const [showCreate, setShowCreate] = useState(false);
-    const [showJoin, setShowJoin] = useState(false);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     // Form states
     const [name, setName] = useState('');
@@ -26,12 +28,8 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
 
     const fetchData = async () => {
         try {
-            const [myRes, allRes] = await Promise.all([
-                api.get('/factions'),
-                api.get('/factions/all')
-            ]);
+            const myRes = await api.get('/factions');
             setMyFactions(myRes.data);
-            setAllFactions(allRes.data);
         } catch (err) {
             toast.error('Failed to fetch factions');
             console.error('Failed to fetch factions', err);
@@ -42,6 +40,14 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
 
     useEffect(() => {
         fetchData();
+
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setShowDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     const handleCreate = async (e: React.FormEvent) => {
@@ -61,26 +67,9 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
             setShortname('');
             setShowCreate(false);
             toast.success('Faction created successfully', { id: loadToast });
-            window.location.href = `/${response.data.shortname}/admin`;
+            navigate(`/${response.data.shortname}/admin`);
         } catch (err: any) {
             const message = err.response?.data?.message || 'Failed to create faction';
-            toast.error(message, { id: loadToast });
-        } finally {
-            setProcessing(false);
-        }
-    };
-
-    const handleJoin = async (shortname: string) => {
-        if (processing) return;
-        setProcessing(true);
-        const loadToast = toast.loading('Joining Faction...');
-        try {
-            await api.post('/factions/join', { shortname });
-            setShowJoin(false);
-            toast.success('Joined successfully', { id: loadToast });
-            fetchData();
-        } catch (err: any) {
-            const message = err.response?.data?.message || 'Failed to join faction';
             toast.error(message, { id: loadToast });
         } finally {
             setProcessing(false);
@@ -93,7 +82,10 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
         <div className="min-h-screen bg-bg text-text transition-colors duration-200">
             {/* Minimal Header for Faction Selection */}
             <header className="h-[var(--nav-h)] bg-surface border-b border-border flex items-center px-6 sticky top-0 z-[300]">
-                <div className="flex items-center gap-2 text-accent font-black uppercase italic tracking-tighter text-lg">
+                <div 
+                    onClick={() => navigate('/')}
+                    className="flex items-center gap-2 text-accent font-black uppercase italic tracking-tighter text-lg cursor-pointer hover:opacity-80 transition-opacity"
+                >
                     <Shield size={20} fill="currentColor" fillOpacity={0.2} />
                     Faction Panel
                 </div>
@@ -106,11 +98,64 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
                         {isDark ? <Sun size={18} /> : <Moon size={18} />}
                     </button>
                     <div className="h-4 w-[1px] bg-border mx-2" />
-                    <div className="flex items-center gap-3">
-                        <span className="text-[10px] font-bold text-muted uppercase tracking-widest">{user?.username}</span>
-                        <button onClick={onLogout} className="p-2 text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all">
-                            <LogOut size={16} />
+                    
+                    <div className="relative" ref={dropdownRef}>
+                        <button 
+                            onClick={() => setShowDropdown(!showDropdown)}
+                            className="flex items-center gap-3 hover:bg-border/30 p-1.5 rounded-lg transition-colors group"
+                        >
+                            <span className="text-[10px] font-bold text-muted uppercase tracking-widest">{user?.username}</span>
+                            <div className="w-7 h-7 rounded-full bg-border flex items-center justify-center text-muted">
+                                <User size={14} />
+                            </div>
+                            <ChevronDown size={14} className={`text-muted transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
                         </button>
+
+                        {showDropdown && (
+                            <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-xl shadow-2xl py-2 z-[400] animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="px-4 py-2 border-b border-border mb-2">
+                                    <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Signed in as</p>
+                                    <p className="text-xs font-black truncate">{user?.username}</p>
+                                </div>
+
+                                <button 
+                                    onClick={() => {
+                                        navigate('/account/settings');
+                                        setShowDropdown(false);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface transition-colors"
+                                >
+                                    <Settings size={14} />
+                                    Account Settings
+                                </button>
+
+                                {user?.is_superadmin && (
+                                    <button 
+                                        onClick={() => {
+                                            navigate('/superadmin');
+                                            setShowDropdown(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-[#FFD700] hover:bg-[#FFD700]/10 transition-colors"
+                                    >
+                                        <ShieldAlert size={14} />
+                                        Superadmin Panel
+                                    </button>
+                                )}
+
+                                <div className="border-t border-border mt-2 pt-2">
+                                    <button 
+                                        onClick={() => {
+                                            onLogout();
+                                            setShowDropdown(false);
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-red-500 hover:bg-red-500/10 transition-colors"
+                                    >
+                                        <LogOut size={14} />
+                                        Logout
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </header>
@@ -123,11 +168,11 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
                     </div>
                     <div className="flex gap-3">
                         <button 
-                            onClick={() => setShowJoin(true)}
+                            onClick={() => navigate('/factions/catalog')}
                             className="flex items-center gap-2 px-5 py-2.5 bg-surface border border-border hover:border-accent rounded font-bold text-[10px] uppercase tracking-widest transition-all"
                         >
                             <Search size={14} />
-                            Join Faction
+                            Search for Faction
                         </button>
                         <button 
                             onClick={() => setShowCreate(true)}
@@ -142,16 +187,29 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {myFactions.length > 0 ? (
                         myFactions.map(faction => (
-                            <div key={faction.id} className="group bg-card rounded-xl border border-border overflow-hidden hover:border-accent transition-all cursor-pointer shadow-sm hover:shadow-xl hover:-translate-y-1"
-                                 onClick={() => window.location.href = `/${faction.shortname}`}>
-                                <div className="h-1.5" style={{ backgroundColor: faction.color }} />
-                                <div className="p-6">
-                                    <h3 className="text-xl font-bold mb-1 group-hover:text-accent transition-colors">{faction.name}</h3>
-                                    <div className="flex items-center justify-between mt-4">
+                            <div key={faction.id} className="group bg-card rounded-xl border border-border overflow-hidden hover:border-accent transition-all shadow-sm hover:shadow-xl hover:-translate-y-1 flex flex-col">
+                                <Link to={`/${faction.shortname}`} className="block h-1.5" style={{ backgroundColor: faction.color }} />
+                                <div className="p-6 flex-1">
+                                    <Link to={`/${faction.shortname}`} className="block mb-4">
+                                        <h3 className="text-xl font-bold mb-1 group-hover:text-accent transition-colors">{faction.name}</h3>
                                         <p className="text-muted text-[9px] font-black uppercase tracking-[0.2em]">{faction.shortname}</p>
-                                        <div className="w-8 h-8 rounded-lg bg-accent/5 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-all">
-                                            <Plus size={14} className="rotate-45" />
-                                        </div>
+                                    </Link>
+                                    
+                                    <div className="flex gap-2 mt-auto pt-4 border-t border-border/50">
+                                        <Link 
+                                            to={`/${faction.shortname}/roster`}
+                                            className="flex-1 flex items-center justify-center gap-2 py-2 bg-surface hover:bg-accent/10 border border-border hover:border-accent/50 rounded-lg text-[8px] font-black uppercase tracking-widest text-muted hover:text-accent transition-all"
+                                        >
+                                            <Layers size={12} />
+                                            Roster
+                                        </Link>
+                                        <Link 
+                                            to={`/${faction.shortname}/records`}
+                                            className="flex-1 flex items-center justify-center gap-2 py-2 bg-surface hover:bg-accent/10 border border-border hover:border-accent/50 rounded-lg text-[8px] font-black uppercase tracking-widest text-muted hover:text-accent transition-all"
+                                        >
+                                            <Database size={12} />
+                                            Records
+                                        </Link>
                                     </div>
                                 </div>
                             </div>
@@ -203,41 +261,6 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
                                     </button>
                                 </div>
                             </form>
-                        </div>
-                    </div>
-                )}
-
-                {/* Join Modal */}
-                {showJoin && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[500]">
-                        <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl">
-                            <h2 className="text-2xl font-black uppercase tracking-tighter italic mb-6">Join Faction</h2>
-                            <div className="space-y-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
-                                {allFactions.filter(f => !myFactions.find(mf => mf.shortname === f.shortname)).length > 0 ? (
-                                    allFactions.filter(f => !myFactions.find(mf => mf.shortname === f.shortname)).map(faction => (
-                                        <div key={faction.shortname} className="flex justify-between items-center p-4 bg-surface rounded-xl border border-border hover:border-accent transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: faction.color }} />
-                                                <span className="font-bold text-sm uppercase tracking-tight">{faction.name}</span>
-                                            </div>
-                                            {faction.access === 'joinable' ? (
-                                                <button 
-                                                    onClick={() => handleJoin(faction.shortname)} 
-                                                    disabled={processing}
-                                                    className="text-[9px] bg-accent text-white px-4 py-1.5 rounded-lg font-black uppercase tracking-widest hover:bg-accent/90 transition-colors disabled:opacity-50"
-                                                >
-                                                    {processing ? '...' : 'Join'}
-                                                </button>
-                                            ) : (
-                                                <span className="text-[9px] bg-muted/20 text-muted px-4 py-1.5 rounded-lg font-black uppercase tracking-widest border border-border/50">Invite Only</span>
-                                            )}
-                                        </div>
-                                    ))
-                                ) : (
-                                    <p className="text-center py-8 text-muted text-[10px] uppercase font-bold tracking-widest">No other factions available</p>
-                                )}
-                            </div>
-                            <button onClick={() => setShowJoin(false)} className="w-full mt-8 px-4 py-4 bg-surface border border-border rounded-xl font-bold text-[10px] uppercase tracking-widest">Close</button>
                         </div>
                     </div>
                 )}

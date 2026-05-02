@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Login from './Login';
+import Register from './Register';
+import Loading from './Loading';
+import api from '../api';
 import { Shield, Users, Globe, Moon, Sun } from 'lucide-react';
 
 interface HomeProps {
@@ -9,6 +12,26 @@ interface HomeProps {
 }
 
 const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme }) => {
+    const [view, setView] = useState<'login' | 'register'>('login');
+    const [loading, setLoading] = useState(true);
+    const [registrationEnabled, setRegistrationEnabled] = useState(true);
+    const [gtawEnabled, setGtawEnabled] = useState(false);
+
+    useEffect(() => {
+        const checkStatus = async () => {
+            try {
+                const res = await api.get('/auth/registration-status');
+                setRegistrationEnabled(res.data.allow_registration);
+                setGtawEnabled(res.data.gtaw_oauth_enabled);
+            } catch (err) {
+                console.error('Failed to check registration status');
+            } finally {
+                setLoading(false);
+            }
+        };
+        checkStatus();
+    }, []);
+
     return (
         <div className="min-h-screen bg-bg text-text selection:bg-accent/30 transition-colors duration-200">
             {/* Theme Toggle for Landing Page */}
@@ -71,10 +94,42 @@ const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme }) => {
                     </div>
                 </div>
 
-                {/* Right Side: Login Form */}
+                {/* Right Side: Login/Register Form */}
                 <div className="lg:w-[500px] flex items-center justify-center p-8 bg-surface/50 backdrop-blur-xl border-l border-border relative">
                     <div className="w-full max-w-sm">
-                        <Login onLogin={onLogin} isEmbedded={true} />
+                        {loading ? (
+                            <Loading message="Initializing System..." fullScreen={false} />
+                        ) : (
+                            <>
+                                {view === 'login' ? (
+                                    <>
+                                        <Login onLogin={onLogin} isEmbedded={true} />
+                                        {!gtawEnabled && registrationEnabled && (
+                                            <div className="text-center mt-6">
+                                                <button 
+                                                    onClick={() => setView('register')}
+                                                    className="text-accent hover:text-accent/80 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                                                >
+                                                    Don't have an account? Register
+                                                </button>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        <Register onLogin={onLogin} isEmbedded={true} />
+                                        <div className="text-center mt-6">
+                                            <button 
+                                                onClick={() => setView('login')}
+                                                className="text-accent hover:text-accent/80 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                                            >
+                                                Already have an account? Sign In
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </>
+                        )}
                         
                         <div className="mt-8 pt-8 border-t border-border/50 text-center">
                             <p className="text-muted text-[9px] uppercase tracking-[0.2em] font-bold">

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Trash2, Edit2, UserPlus, UserMinus, Shield, ShieldAlert, X, Search, MoreVertical } from 'lucide-react';
 import api from '../api';
 import toast from 'react-hot-toast';
@@ -12,6 +13,7 @@ interface GroupManagementProps {
 }
 
 const GroupManagement: React.FC<GroupManagementProps> = ({ shortname, user, permissions }) => {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [groups, setGroups] = useState<Group[]>([]);
     const [loading, setLoading] = useState(true);
     const [showGroupModal, setShowGroupModal] = useState(false);
@@ -35,6 +37,14 @@ const GroupManagement: React.FC<GroupManagementProps> = ({ shortname, user, perm
         try {
             const res = await api.get(`/factions/${shortname}/groups`);
             setGroups(res.data);
+
+            // Sync with URL if needed
+            const groupParam = searchParams.get('group');
+            if (groupParam) {
+                const targetGroup = res.data.find((g: any) => String(g.id) === groupParam || g.name.toLowerCase() === groupParam.toLowerCase());
+                if (targetGroup && !showMemberModal) setShowMemberModal(targetGroup);
+            }
+
             if (showMemberModal) {
                 const updated = res.data.find((g: any) => g.id === showMemberModal.id);
                 if (updated) setShowMemberModal(updated);
@@ -55,12 +65,35 @@ const GroupManagement: React.FC<GroupManagementProps> = ({ shortname, user, perm
         }
     };
 
+    const handleSetShowMemberModal = (group: Group | null) => {
+        setShowMemberModal(group);
+        const newParams = new URLSearchParams(searchParams);
+        if (group) {
+            newParams.set('group', group.name.toLowerCase());
+        } else {
+            newParams.delete('group');
+        }
+        setSearchParams(newParams, { replace: true });
+    };
+
     useEffect(() => {
         fetchGroups();
         if (hasPerm('manage_group_members') || groups.some(g => g.leaders?.some(l => l.id === user.id))) {
             fetchUsers();
         }
     }, [shortname]);
+
+    useEffect(() => {
+        if (groups.length > 0) {
+            const groupParam = searchParams.get('group');
+            const targetGroup = groups.find((g: any) => String(g.id) === groupParam || g.name.toLowerCase() === groupParam.toLowerCase());
+            if (targetGroup) {
+                if (showMemberModal?.id !== targetGroup.id) setShowMemberModal(targetGroup);
+            } else if (showMemberModal) {
+                setShowMemberModal(null);
+            }
+        }
+    }, [searchParams, groups]);
 
     const handleSaveGroup = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -242,7 +275,7 @@ const GroupManagement: React.FC<GroupManagementProps> = ({ shortname, user, perm
                             </div>
 
                             <button 
-                                onClick={() => setShowMemberModal(group)}
+                                onClick={() => handleSetShowMemberModal(group)}
                                 className="w-full py-3 bg-surface hover:bg-accent hover:text-white border-t border-border transition-all text-[9px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2"
                             >
                                 <UserPlus size={12} /> Manage Members
@@ -316,7 +349,7 @@ const GroupManagement: React.FC<GroupManagementProps> = ({ shortname, user, perm
                                 </h2>
                                 <p className="text-[10px] font-bold text-muted uppercase tracking-widest mt-1">Member Management</p>
                             </div>
-                            <button onClick={() => setShowMemberModal(null)} className="text-muted hover:text-text transition-colors">
+                            <button onClick={() => handleSetShowMemberModal(null)} className="text-muted hover:text-text transition-colors">
                                 <X size={20} />
                             </button>
                         </div>

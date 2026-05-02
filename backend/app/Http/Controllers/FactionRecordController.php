@@ -32,6 +32,7 @@ class FactionRecordController extends Controller
             'data_entry_display' => 'required|string',
             'record_shortcode' => 'nullable|string|max:10',
             'database_structure' => 'present|array',
+            'detail_customization' => 'nullable|array',
             'permissions' => 'nullable|array',
         ]);
 
@@ -59,6 +60,7 @@ class FactionRecordController extends Controller
             'data_entry_display' => 'sometimes|required|string',
             'record_shortcode' => 'nullable|string|max:10',
             'database_structure' => 'sometimes|array',
+            'detail_customization' => 'sometimes|nullable|array',
             'permissions' => 'nullable|array',
             'is_published' => 'sometimes|boolean',
         ]);

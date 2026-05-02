@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\FactionRecordDatabase;
 use App\Models\FactionRecordEntry;
+use App\Models\Roster;
+use App\Models\RosterContent;
+use App\Models\RosterDataset;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -73,7 +76,119 @@ class FactionRecordEntryController extends Controller
             return response()->json(['message' => 'Entry does not belong to this database'], 404);
         }
 
-        return response()->json($entry->load('creator:id,username'));
+        $entry->load('creator:id,username');
+        $result = $entry->toArray();
+
+        // Handle detail customization
+        $customization = $database->detail_customization;
+        if ($customization) {
+            // 1. Linked Databases
+            if (isset($customization['linked_databases']) && is_array($customization['linked_databases'])) {
+                $linkedData = [];
+                foreach ($customization['linked_databases'] as $link) {
+                    $targetDb = FactionRecordDatabase::find($link['database_id']);
+                    if (!$targetDb || !User::hasRecordPermission(Auth::user(), $targetDb, 'view_database')) continue;
+
+                    $sourceField = $link['source_field'];
+                    $targetField = $link['target_field'];
+
+                    $sourceValue = ($sourceField === 'id') ? $entry->entry_id : ($entry->data[$sourceField] ?? null);
+                    
+                    if ($sourceValue !== null) {
+                        $query = $targetDb->entries()
+                            ->where('data->' . $targetField, $sourceValue)
+                            ->with('creator:id,username');
+
+                        // Handle exclusion of current record (useful for self-links)
+                        if (isset($link['exclude_current']) && $link['exclude_current']) {
+                            $query->where('id', '!=', $entry->id);
+                        }
+
+                        $linkedEntries = $query->get();
+                        
+                        $linkedData[] = [
+                            'database' => $targetDb->only(['id', 'name', 'record_shortcode', 'database_structure']),
+                            'entries' => $linkedEntries
+                        ];
+                    }
+                }
+                $result['linked_records'] = $linkedData;
+            }
+
+            // 2. Roster Integrations
+            if (isset($customization['roster_integration']['enabled']) && $customization['roster_integration']['enabled']) {
+                $rosterIntegrations = [];
+                
+                // 1. Find all datasets linked to this database
+                $linkedDatasetIds = RosterDataset::where('record_database_id', $database->id)->pluck('id')->toArray();
+
+                // Find all rosters in this faction
+                $rosters = Roster::where('faction_id', $database->faction_id)->get();
+                
+                foreach ($rosters as $roster) {
+                    if (!User::hasRosterPermission(Auth::user(), $roster, 'view_roster')) continue;
+
+                    $rosterMatches = collect();
+                    
+                    // Check all sections of this roster
+                    $sections = $roster->sections()->get();
+                    foreach ($sections as $section) {
+                        // Determine which columns to use (section-specific or roster-default)
+                        $colsToScan = collect($section->columns ?: $roster->columns);
+                        
+                        $linkedCols = $colsToScan->filter(function($col) use ($database, $linkedDatasetIds) {
+                            return (($col['linked_database_id'] ?? null) == $database->id) || 
+                                   (isset($col['dataset_id']) && in_array($col['dataset_id'], $linkedDatasetIds));
+                        });
+
+                        foreach ($linkedCols as $col) {
+                            // Determine which field of the record is used as the label in this column
+                            $fieldId = $col['database_field_id'] ?? null;
+                            if (!$fieldId || in_array($fieldId, ['table', 'compact', 'cards', 'detailed', 'rows'])) {
+                                $fieldId = $database->database_structure[0]['id'] ?? null;
+                            }
+
+                            if (!$fieldId) continue;
+
+                            // Generate label(s) to match. Try common formats for robustness.
+                            $labels = [];
+                            if ($fieldId === 'id') {
+                                $labels[] = (string)$entry->entry_id;
+                            } else if ($fieldId === 'created_at') {
+                                $labels[] = $entry->created_at->toDateString();
+                                $labels[] = $entry->created_at->format('m/d/Y');
+                                $labels[] = $entry->created_at->format('d/m/Y');
+                            } else {
+                                $val = $entry->data[$fieldId] ?? null;
+                                if ($val !== null) $labels[] = (string)$val;
+                            }
+
+                            foreach ($labels as $label) {
+                                $contents = RosterContent::where('section_id', $section->id)
+                                    ->where('content->' . $col['id'], $label)
+                                    ->with('section')
+                                    ->get();
+                                
+                                $rosterMatches = $rosterMatches->concat($contents);
+                            }
+                        }
+                    }
+
+                    if ($rosterMatches->isNotEmpty()) {
+                        // Deduplicate by content ID
+                        $uniqueContents = $rosterMatches->unique('id')->values();
+
+                        $rosterIntegrations[] = [
+                            'roster' => $roster->only(['id', 'name', 'shortname', 'columns']),
+                            'contents' => $uniqueContents
+                        ];
+                    }
+                }
+                $result['roster_integrations'] = $rosterIntegrations;
+            }
+        }
+
+        return response()->json($result);
     }
 
     public function update(Request $request, string $shortname, FactionRecordDatabase $database, FactionRecordEntry $entry)

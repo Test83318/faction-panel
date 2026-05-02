@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import api from '../api';
-import { Database, Plus, Search, Trash2, Layout, Info, Columns, Type, Hash, Calendar, CheckSquare, List, X, ChevronDown, ChevronUp, Settings2, Shield } from 'lucide-react';
+import { Database, Plus, Search, Trash2, Layout, Info, Columns, Type, Hash, Calendar, CheckSquare, List, X, ChevronDown, ChevronUp, Settings2, Shield, Settings, Link as LinkIcon, Share2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Loading from './Loading';
 import { RecordPermissionsModal } from './RecordPermissionsModal';
@@ -22,6 +23,7 @@ interface FactionRecordsProps {
 }
 
 export default function FactionRecords({ shortname, permissions, user }: FactionRecordsProps) {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [databases, setDatabases] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -40,7 +42,13 @@ export default function FactionRecords({ shortname, permissions, user }: Faction
         record_shortcode: '',
         is_published: false,
         database_structure: [] as any[],
+        detail_customization: {
+            linked_databases: [] as any[],
+            roster_integration: { enabled: false }
+        } as any,
     });
+
+    const [modalTab, setModalTab] = useState<'info' | 'structure' | 'customization'>('info');
 
     const addField = () => {
         setFormData({
@@ -81,6 +89,13 @@ export default function FactionRecords({ shortname, permissions, user }: Faction
         try {
             const res = await api.get(`/factions/${shortname}/records`);
             setDatabases(res.data);
+
+            // Sync with URL
+            const dbParam = searchParams.get('database');
+            if (dbParam) {
+                const targetDb = res.data.find((d: any) => d.record_shortcode === dbParam.toUpperCase() || String(d.id) === dbParam);
+                if (targetDb && !selectedDatabase) setSelectedDatabase(targetDb);
+            }
         } catch (err) {
             toast.error('Failed to fetch databases');
         } finally {
@@ -88,9 +103,33 @@ export default function FactionRecords({ shortname, permissions, user }: Faction
         }
     };
 
+    const handleSetSelectedDatabase = (db: any | null) => {
+        setSelectedDatabase(db);
+        const newParams = new URLSearchParams(searchParams);
+        if (db) {
+            newParams.set('database', db.record_shortcode || db.id);
+        } else {
+            newParams.delete('database');
+            newParams.delete('record'); // Clear record if closing DB
+        }
+        setSearchParams(newParams, { replace: true });
+    };
+
     useEffect(() => {
         fetchDatabases();
     }, [shortname]);
+
+    useEffect(() => {
+        if (databases.length > 0) {
+            const dbParam = searchParams.get('database');
+            const targetDb = databases.find((d: any) => d.record_shortcode === dbParam?.toUpperCase() || String(d.id) === dbParam);
+            if (targetDb) {
+                if (selectedDatabase?.id !== targetDb.id) setSelectedDatabase(targetDb);
+            } else if (selectedDatabase) {
+                setSelectedDatabase(null);
+            }
+        }
+    }, [searchParams, databases]);
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -120,8 +159,14 @@ export default function FactionRecords({ shortname, permissions, user }: Faction
                 data_overview_display: 'table',
                 data_entry_display: 'card',
                 record_shortcode: '',
+                is_published: false,
                 database_structure: [],
+                detail_customization: {
+                    linked_databases: [],
+                    roster_integration: { enabled: false }
+                },
             });
+            setModalTab('info');
             fetchDatabases();
         } catch (err) {
             toast.error('Failed to save database', { id: loadToast });
@@ -141,35 +186,56 @@ export default function FactionRecords({ shortname, permissions, user }: Faction
             record_shortcode: db.record_shortcode || '',
             is_published: db.is_published ?? false,
             database_structure: db.database_structure || [],
+            detail_customization: db.detail_customization || {
+                linked_databases: [],
+                roster_integration: { enabled: false }
+            },
         });
+        setModalTab('info');
         setShowCreateModal(true);
     };
 
     const handleDelete = async (id: number) => {
-        if (!window.confirm('Are you sure you want to delete this database? All entries will be lost.')) return;
-        
-        const loadToast = toast.loading('Deleting database...');
-        try {
-            await api.delete(`/factions/${shortname}/records/${id}`);
-            toast.success('Database deleted', { id: loadToast });
-            fetchDatabases();
-        } catch (err) {
-            toast.error('Failed to delete database', { id: loadToast });
-        }
+        toast((t) => (
+            <div className="flex flex-col gap-1 text-left">
+                <p className="font-bold text-xs uppercase">Delete this database?</p>
+                <p className="text-[9px] opacity-80 uppercase tracking-tighter">All entries will be lost. This action cannot be undone.</p>
+                <div className="flex gap-2 justify-end mt-2">
+                    <button onClick={() => toast.dismiss(t.id)} className="px-2 py-1 bg-surface hover:bg-bg border border-border rounded text-[9px] font-bold uppercase transition">Cancel</button>
+                    <button 
+                        onClick={async () => {
+                            toast.dismiss(t.id);
+                            const loadToast = toast.loading('Deleting database...');
+                            try {
+                                await api.delete(`/factions/${shortname}/records/${id}`);
+                                toast.success('Database deleted', { id: loadToast });
+                                fetchDatabases();
+                            } catch (err) {
+                                toast.error('Failed to delete database', { id: loadToast });
+                            }
+                        }}
+                        className="px-2 py-1 bg-danger text-white hover:bg-danger/90 rounded text-[9px] font-bold uppercase transition shadow-lg shadow-danger/20"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </div>
+        ), { duration: 6000, position: 'top-center' });
     };
-if (loading) return <Loading message="Loading Records..." />;
 
-if (selectedDatabase) {
-    return (
-        <RecordBrowser 
-            database={selectedDatabase}
-            shortname={shortname}
-            permissions={permissions}
-            user={user}
-            onBack={() => setSelectedDatabase(null)}
-        />
-    );
-}
+    if (loading) return <Loading message="Loading Records..." />;
+
+    if (selectedDatabase) {
+        return (
+            <RecordBrowser 
+                database={selectedDatabase}
+                shortname={shortname}
+                permissions={permissions}
+                user={user}
+                onBack={() => handleSetSelectedDatabase(null)}
+            />
+        );
+    }
 
     const filteredDatabases = databases.filter(db => 
         db.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -191,7 +257,25 @@ if (selectedDatabase) {
 
                 {canCreate && (
                     <button 
-                        onClick={() => setShowCreateModal(true)}
+                        onClick={() => {
+                            setEditMode(null);
+                            setFormData({
+                                name: '',
+                                description: '',
+                                allow_details_view: true,
+                                data_overview_display: 'table',
+                                data_entry_display: 'card',
+                                record_shortcode: '',
+                                is_published: false,
+                                database_structure: [],
+                                detail_customization: {
+                                    linked_databases: [],
+                                    roster_integration: { enabled: false }
+                                },
+                            });
+                            setModalTab('info');
+                            setShowCreateModal(true);
+                        }}
                         className="px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-accent/20"
                     >
                         <Plus size={14} />
@@ -253,24 +337,24 @@ if (selectedDatabase) {
                                 {db.description || 'No description provided.'}
                             </p>
 
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="flex items-center gap-2 text-[10px] font-bold text-muted uppercase tracking-widest">
-                                            <Layout size={12} className="opacity-50" />
-                                            <span>{db.data_overview_display}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-[10px] font-bold text-muted uppercase tracking-widest">
-                                            <Info size={12} className="opacity-50" />
-                                            <span>{db.record_shortcode || 'NO PREFIX'}</span>
-                                        </div>
-                                    </div>
-                                    
-                                    {db.is_published && (
-                                        <div className="mt-4 flex items-center gap-2 px-2 py-1 bg-accent/10 border border-accent/20 rounded text-[8px] font-black text-accent uppercase tracking-widest w-fit">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-                                            Published to Roster
-                                        </div>
-                                    )}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex items-center gap-2 text-[10px] font-bold text-muted uppercase tracking-widest">
+                                    <Layout size={12} className="opacity-50" />
+                                    <span>{db.data_overview_display}</span>
                                 </div>
+                                <div className="flex items-center gap-2 text-[10px] font-bold text-muted uppercase tracking-widest">
+                                    <Info size={12} className="opacity-50" />
+                                    <span>{db.record_shortcode || 'NO PREFIX'}</span>
+                                </div>
+                            </div>
+                            
+                            {db.is_published && (
+                                <div className="mt-4 flex items-center gap-2 px-2 py-1 bg-accent/10 border border-accent/20 rounded text-[8px] font-black text-accent uppercase tracking-widest w-fit">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                                    Published to Roster
+                                </div>
+                            )}
+                        </div>
 
                         <div className="px-6 py-4 bg-surface border-t border-border flex items-center justify-between mt-auto">
                             <div className="flex items-center gap-2">
@@ -281,12 +365,12 @@ if (selectedDatabase) {
                                     {db.creator?.username}
                                 </span>
                             </div>
-                            <button 
+                            <Link 
+                                to={`/${shortname}/records?database=${db.record_shortcode || db.id}`}
                                 className="px-3 py-1.5 bg-accent/10 hover:bg-accent text-accent hover:text-white rounded text-[9px] font-black uppercase tracking-widest transition-all"
-                                onClick={() => setSelectedDatabase(db)}
                             >
                                 Open Database
-                            </button>
+                            </Link>
                         </div>
                     </div>
                 ))}
@@ -309,200 +393,401 @@ if (selectedDatabase) {
                             </h2>
                             <button onClick={() => { setShowCreateModal(false); setEditMode(null); }} className="text-muted hover:text-text">&times;</button>
                         </div>
+
+                        {/* Modal Tabs */}
+                        <div className="flex bg-surface border-b border-border shrink-0">
+                            <button 
+                                type="button"
+                                onClick={() => setModalTab('info')}
+                                className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${modalTab === 'info' ? 'border-accent text-accent bg-accent/5' : 'border-transparent text-muted hover:text-text'}`}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Info size={14} /> Basic Settings
+                                </div>
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => setModalTab('structure')}
+                                className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${modalTab === 'structure' ? 'border-accent text-accent bg-accent/5' : 'border-transparent text-muted hover:text-text'}`}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Columns size={14} /> Structure
+                                </div>
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => setModalTab('customization')}
+                                className={`px-6 py-3 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${modalTab === 'customization' ? 'border-accent text-accent bg-accent/5' : 'border-transparent text-muted hover:text-text'}`}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Settings size={14} /> Detail Customization
+                                </div>
+                            </button>
+                        </div>
                         
                         <form onSubmit={handleCreate} className="p-6 space-y-8 overflow-y-auto">
-                            <div className="space-y-6">
-                                <h3 className="text-[10px] font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
-                                    <Info size={12} /> Basic Information
-                                </h3>
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Database Name</label>
-                                        <input 
-                                            required
-                                            type="text"
-                                            value={formData.name}
-                                            onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                            className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition"
-                                            placeholder="e.g. Personnel Profiles"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Description</label>
-                                        <textarea 
-                                            value={formData.description}
-                                            onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                            className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition min-h-[80px]"
-                                            placeholder="Describe the purpose of this database..."
-                                        />
-                                    </div>
-
-                                    <div className="grid grid-cols-3 gap-4">
+                            {modalTab === 'info' && (
+                                <div className="space-y-6">
+                                    <div className="space-y-4">
                                         <div>
-                                            <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Record Prefix</label>
+                                            <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Database Name</label>
                                             <input 
+                                                required
                                                 type="text"
-                                                value={formData.record_shortcode}
-                                                onChange={e => setFormData({ ...formData, record_shortcode: e.target.value.toUpperCase() })}
-                                                className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition uppercase"
-                                                placeholder="e.g. PRF"
-                                                maxLength={10}
+                                                value={formData.name}
+                                                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                                className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition"
+                                                placeholder="e.g. Personnel Profiles"
                                             />
                                         </div>
+
                                         <div>
-                                            <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Overview View</label>
-                                            <select 
-                                                value={formData.data_overview_display}
-                                                onChange={e => setFormData({ ...formData, data_overview_display: e.target.value })}
-                                                className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition"
-                                            >
-                                                <option value="table">Full Table</option>
-                                                <option value="compact">Compact Table</option>
-                                                <option value="cards">Standard Cards</option>
-                                                <option value="detailed">Detailed Cards</option>
-                                                <option value="rows">Row List</option>
-                                            </select>
+                                            <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Description</label>
+                                            <textarea 
+                                                value={formData.description}
+                                                onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                                className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition min-h-[80px]"
+                                                placeholder="Describe the purpose of this database..."
+                                            />
                                         </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Detail Template</label>
-                                            <select 
-                                                value={formData.data_entry_display}
-                                                onChange={e => setFormData({ ...formData, data_entry_display: e.target.value })}
-                                                className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition"
-                                            >
-                                                <option value="card">Standard Card</option>
-                                                <option value="profile">Profile Page</option>
-                                                <option value="dossier">Formal Dossier</option>
-                                                <option value="split">Split Layout</option>
-                                                <option value="minimal">Minimalist</option>
-                                            </select>
+
+                                        <div className="grid grid-cols-3 gap-4">
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Record Prefix</label>
+                                                <input 
+                                                    type="text"
+                                                    value={formData.record_shortcode}
+                                                    onChange={e => setFormData({ ...formData, record_shortcode: e.target.value.toUpperCase() })}
+                                                    className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition uppercase"
+                                                    placeholder="e.g. PRF"
+                                                    maxLength={10}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Overview View</label>
+                                                <select 
+                                                    value={formData.data_overview_display}
+                                                    onChange={e => setFormData({ ...formData, data_overview_display: e.target.value })}
+                                                    className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition"
+                                                >
+                                                    <option value="table">Full Table</option>
+                                                    <option value="compact">Compact Table</option>
+                                                    <option value="cards">Standard Cards</option>
+                                                    <option value="detailed">Detailed Cards</option>
+                                                    <option value="rows">Row List</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Detail Template</label>
+                                                <select 
+                                                    value={formData.data_entry_display}
+                                                    onChange={e => setFormData({ ...formData, data_entry_display: e.target.value })}
+                                                    className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition"
+                                                >
+                                                    <option value="card">Standard Card</option>
+                                                    <option value="profile">Profile Page</option>
+                                                    <option value="dossier">Formal Dossier</option>
+                                                    <option value="split">Split Layout</option>
+                                                    <option value="minimal">Minimalist</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <label className="flex items-center gap-3 cursor-pointer group p-3 bg-surface border border-border rounded-lg hover:border-accent transition-all">
+                                                <input 
+                                                    type="checkbox"
+                                                    checked={formData.allow_details_view}
+                                                    onChange={e => setFormData({ ...formData, allow_details_view: e.target.checked })}
+                                                    className="hidden"
+                                                />
+                                                <div className={`w-5 h-5 rounded border transition-all flex items-center justify-center ${formData.allow_details_view ? 'bg-accent border-accent' : 'bg-card border-border group-hover:border-accent'}`}>
+                                                    {formData.allow_details_view && <X size={14} className="text-white rotate-45" />}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs font-bold text-text uppercase tracking-widest">Allow Entry Details View</span>
+                                                    <span className="text-[9px] text-muted font-bold uppercase tracking-widest">Allow members to click records for details.</span>
+                                                </div>
+                                            </label>
+
+                                            <label className="flex items-center gap-3 cursor-pointer group p-3 bg-surface border border-border rounded-lg hover:border-accent transition-all">
+                                                <input 
+                                                    type="checkbox"
+                                                    checked={formData.is_published}
+                                                    onChange={e => setFormData({ ...formData, is_published: e.target.checked })}
+                                                    className="hidden"
+                                                />
+                                                <div className={`w-5 h-5 rounded border transition-all flex items-center justify-center ${formData.is_published ? 'bg-accent border-accent' : 'bg-card border-border group-hover:border-accent'}`}>
+                                                    {formData.is_published && <X size={14} className="text-white rotate-45" />}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs font-bold text-text uppercase tracking-widest">Publish to Roster</span>
+                                                    <span className="text-[9px] text-muted font-bold uppercase tracking-widest">Allow linking this database to roster datasets.</span>
+                                                </div>
+                                            </label>
                                         </div>
                                     </div>
+                                </div>
+                            )}
 
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <label className="flex items-center gap-3 cursor-pointer group p-3 bg-surface border border-border rounded-lg hover:border-accent transition-all">
-                                            <input 
-                                                type="checkbox"
-                                                checked={formData.allow_details_view}
-                                                onChange={e => setFormData({ ...formData, allow_details_view: e.target.checked })}
-                                                className="hidden"
-                                            />
-                                            <div className={`w-5 h-5 rounded border transition-all flex items-center justify-center ${formData.allow_details_view ? 'bg-accent border-accent' : 'bg-card border-border group-hover:border-accent'}`}>
-                                                {formData.allow_details_view && <X size={14} className="text-white rotate-45" />}
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-text uppercase tracking-widest">Allow Entry Details View</span>
-                                                <span className="text-[9px] text-muted font-bold uppercase tracking-widest">Allow members to click records for details.</span>
-                                            </div>
-                                        </label>
+                            {modalTab === 'structure' && (
+                                <div className="space-y-6">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-[10px] font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
+                                            <Columns size={12} /> Database Structure
+                                        </h3>
+                                        <button 
+                                            type="button"
+                                            onClick={addField}
+                                            className="text-[9px] font-black uppercase tracking-widest bg-accent/10 text-accent hover:bg-accent hover:text-white px-2 py-1 rounded transition-all flex items-center gap-1"
+                                        >
+                                            <Plus size={10} /> Add Field
+                                        </button>
+                                    </div>
 
-                                        <label className="flex items-center gap-3 cursor-pointer group p-3 bg-surface border border-border rounded-lg hover:border-accent transition-all">
-                                            <input 
-                                                type="checkbox"
-                                                checked={formData.is_published}
-                                                onChange={e => setFormData({ ...formData, is_published: e.target.checked })}
-                                                className="hidden"
-                                            />
-                                            <div className={`w-5 h-5 rounded border transition-all flex items-center justify-center ${formData.is_published ? 'bg-accent border-accent' : 'bg-card border-border group-hover:border-accent'}`}>
-                                                {formData.is_published && <X size={14} className="text-white rotate-45" />}
+                                    <div className="space-y-3">
+                                        {formData.database_structure.map((field, idx) => (
+                                            <div key={field.id} className="bg-surface border border-border p-4 rounded-xl space-y-4 group/field relative">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex flex-col gap-1">
+                                                        <button type="button" onClick={() => moveField(idx, 'up')} className="text-muted hover:text-accent disabled:opacity-0" disabled={idx === 0}><ChevronUp size={14} /></button>
+                                                        <button type="button" onClick={() => moveField(idx, 'down')} className="text-muted hover:text-accent disabled:opacity-0" disabled={idx === formData.database_structure.length - 1}><ChevronDown size={14} /></button>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <input 
+                                                            value={field.name}
+                                                            onChange={e => updateField(field.id, { name: e.target.value })}
+                                                            placeholder="Field Name (e.g. Callsign)"
+                                                            className="w-full bg-transparent border-none p-0 text-sm font-bold text-text focus:ring-0 outline-none placeholder:text-muted/40"
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <select 
+                                                            value={field.type}
+                                                            onChange={e => updateField(field.id, { type: e.target.value })}
+                                                            className="bg-card border border-border rounded px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-muted focus:border-accent outline-none cursor-pointer"
+                                                        >
+                                                            {FIELD_TYPES.map(t => (
+                                                                <option key={t.value} value={t.value}>{t.label}</option>
+                                                            ))}
+                                                        </select>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => removeField(field.id)}
+                                                            className="p-1.5 text-muted hover:text-danger hover:bg-danger/10 rounded transition-colors"
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-6 pt-2 border-t border-border/50">
+                                                    <label className="flex items-center gap-2 cursor-pointer group">
+                                                        <input 
+                                                            type="checkbox"
+                                                            checked={field.required}
+                                                            onChange={e => updateField(field.id, { required: e.target.checked })}
+                                                            className="hidden"
+                                                        />
+                                                        <div className={`w-3.5 h-3.5 rounded border transition-all flex items-center justify-center ${field.required ? 'bg-accent border-accent' : 'border-muted group-hover:border-accent'}`}>
+                                                            {field.required && <X size={10} className="text-white rotate-45" />}
+                                                        </div>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-muted group-hover:text-accent transition-colors">Required Field</span>
+                                                    </label>
+                                                </div>
+
+                                                {field.type === 'select' && (
+                                                    <div className="pt-2">
+                                                        <label className="block text-[8px] font-black text-muted uppercase tracking-[0.2em] mb-2">Options (Comma separated)</label>
+                                                        <input 
+                                                            value={field.options?.join(', ') || ''}
+                                                            onChange={e => updateField(field.id, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
+                                                            className="w-full bg-card border border-border p-2 rounded text-[10px] text-text focus:border-accent outline-none"
+                                                            placeholder="Option 1, Option 2, Option 3"
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-text uppercase tracking-widest">Publish to Roster</span>
-                                                <span className="text-[9px] text-muted font-bold uppercase tracking-widest">Allow linking this database to roster datasets.</span>
+                                        ))}
+
+                                        {formData.database_structure.length === 0 && (
+                                            <div className="py-8 flex flex-col items-center justify-center border border-dashed border-border rounded-xl bg-surface/50">
+                                                <Columns size={24} className="text-muted opacity-20 mb-2" />
+                                                <p className="text-[10px] font-bold text-muted uppercase tracking-widest">No fields defined yet</p>
                                             </div>
-                                        </label>
+                                        )}
                                     </div>
                                 </div>
-                            </div>
+                            )}
 
-                            <div className="space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-[10px] font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
-                                        <Columns size={12} /> Database Structure
-                                    </h3>
-                                    <button 
-                                        type="button"
-                                        onClick={addField}
-                                        className="text-[9px] font-black uppercase tracking-widest bg-accent/10 text-accent hover:bg-accent hover:text-white px-2 py-1 rounded transition-all flex items-center gap-1"
-                                    >
-                                        <Plus size={10} /> Add Field
-                                    </button>
-                                </div>
+                            {modalTab === 'customization' && (
+                                <div className="space-y-10">
+                                    {/* Linked Databases Section */}
+                                    <div className="space-y-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <h3 className="text-xs font-black text-text uppercase tracking-widest flex items-center gap-2">
+                                                    <LinkIcon size={14} className="text-accent" /> Linked Records
+                                                </h3>
+                                                <p className="text-[9px] text-muted font-bold uppercase tracking-widest mt-1">Display entries from other databases that match this record.</p>
+                                            </div>
+                                            <button 
+                                                type="button"
+                                                onClick={() => {
+                                                    const current = formData.detail_customization.linked_databases || [];
+                                                    setFormData({
+                                                        ...formData,
+                                                        detail_customization: {
+                                                            ...formData.detail_customization,
+                                                            linked_databases: [...current, { id: crypto.randomUUID(), database_id: '', source_field: '', target_field: '' }]
+                                                        }
+                                                    });
+                                                }}
+                                                className="text-[9px] font-black uppercase tracking-widest bg-accent text-white hover:bg-accent/90 px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 shadow-lg shadow-accent/20"
+                                            >
+                                                <Plus size={12} /> Add Link
+                                            </button>
+                                        </div>
 
-                                <div className="space-y-3">
-                                    {formData.database_structure.map((field, idx) => (
-                                        <div key={field.id} className="bg-surface border border-border p-4 rounded-xl space-y-4 group/field relative">
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex flex-col gap-1">
-                                                    <button type="button" onClick={() => moveField(idx, 'up')} className="text-muted hover:text-accent disabled:opacity-0" disabled={idx === 0}><ChevronUp size={14} /></button>
-                                                    <button type="button" onClick={() => moveField(idx, 'down')} className="text-muted hover:text-accent disabled:opacity-0" disabled={idx === formData.database_structure.length - 1}><ChevronDown size={14} /></button>
-                                                </div>
-                                                <div className="flex-1">
-                                                    <input 
-                                                        value={field.name}
-                                                        onChange={e => updateField(field.id, { name: e.target.value })}
-                                                        placeholder="Field Name (e.g. Callsign)"
-                                                        className="w-full bg-transparent border-none p-0 text-sm font-bold text-text focus:ring-0 outline-none placeholder:text-muted/40"
-                                                    />
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <select 
-                                                        value={field.type}
-                                                        onChange={e => updateField(field.id, { type: e.target.value })}
-                                                        className="bg-card border border-border rounded px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-muted focus:border-accent outline-none cursor-pointer"
-                                                    >
-                                                        {FIELD_TYPES.map(t => (
-                                                            <option key={t.value} value={t.value}>{t.label}</option>
-                                                        ))}
-                                                    </select>
+                                        <div className="space-y-4">
+                                            {(formData.detail_customization.linked_databases || []).map((link: any, idx: number) => (
+                                                <div key={link.id || idx} className="bg-surface border border-border p-4 rounded-xl space-y-4 relative group/link">
                                                     <button 
                                                         type="button"
-                                                        onClick={() => removeField(field.id)}
-                                                        className="p-1.5 text-muted hover:text-danger hover:bg-danger/10 rounded transition-colors"
+                                                        onClick={() => {
+                                                            const next = formData.detail_customization.linked_databases.filter((_: any, i: number) => i !== idx);
+                                                            setFormData({ ...formData, detail_customization: { ...formData.detail_customization, linked_databases: next } });
+                                                        }}
+                                                        className="absolute top-2 right-2 p-1.5 text-muted hover:text-danger opacity-0 group-hover/link:opacity-100 transition-all"
                                                     >
-                                                        <X size={14} />
+                                                        <Trash2 size={14} />
                                                     </button>
-                                                </div>
-                                            </div>
 
-                                            <div className="flex items-center gap-6 pt-2 border-t border-border/50">
-                                                <label className="flex items-center gap-2 cursor-pointer group">
-                                                    <input 
-                                                        type="checkbox"
-                                                        checked={field.required}
-                                                        onChange={e => updateField(field.id, { required: e.target.checked })}
-                                                        className="hidden"
-                                                    />
-                                                    <div className={`w-3.5 h-3.5 rounded border transition-all flex items-center justify-center ${field.required ? 'bg-accent border-accent' : 'border-muted group-hover:border-accent'}`}>
-                                                        {field.required && <X size={10} className="text-white rotate-45" />}
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                        <div>
+                                                            <label className="block text-[8px] font-black text-muted uppercase tracking-[0.2em] mb-1.5">Target Database</label>
+                                                            <select 
+                                                                value={link.database_id}
+                                                                onChange={e => {
+                                                                    const next = [...formData.detail_customization.linked_databases];
+                                                                    next[idx].database_id = e.target.value;
+                                                                    next[idx].target_field = ''; // Reset target field when DB changes
+                                                                    setFormData({ ...formData, detail_customization: { ...formData.detail_customization, linked_databases: next } });
+                                                                }}
+                                                                className="w-full bg-card border border-border p-2.5 rounded-lg text-[10px] font-bold uppercase focus:border-accent outline-none"
+                                                            >
+                                                                <option value="">Select Database...</option>
+                                                                {editMode && <option value={editMode.id} className="text-accent font-black text-xs">-- Current Database --</option>}
+                                                                {databases.filter(d => d.id !== editMode?.id).map(db => (
+                                                                    <option key={db.id} value={db.id}>{db.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-[8px] font-black text-muted uppercase tracking-[0.2em] mb-1.5">Matching Logic (Source)</label>
+                                                            <select 
+                                                                value={link.source_field}
+                                                                onChange={e => {
+                                                                    const next = [...formData.detail_customization.linked_databases];
+                                                                    next[idx].source_field = e.target.value;
+                                                                    setFormData({ ...formData, detail_customization: { ...formData.detail_customization, linked_databases: next } });
+                                                                }}
+                                                                className="w-full bg-card border border-border p-2.5 rounded-lg text-[10px] font-bold uppercase focus:border-accent outline-none"
+                                                            >
+                                                                <option value="">Select Field...</option>
+                                                                <option value="id">SYSTEM ID</option>
+                                                                {formData.database_structure.map(f => (
+                                                                    <option key={f.id} value={f.id}>{f.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-[8px] font-black text-muted uppercase tracking-[0.2em] mb-1.5">Matching Logic (Target)</label>
+                                                            <select 
+                                                                disabled={!link.database_id}
+                                                                value={link.target_field}
+                                                                onChange={e => {
+                                                                    const next = [...formData.detail_customization.linked_databases];
+                                                                    next[idx].target_field = e.target.value;
+                                                                    setFormData({ ...formData, detail_customization: { ...formData.detail_customization, linked_databases: next } });
+                                                                }}
+                                                                className="w-full bg-card border border-border p-2.5 rounded-lg text-[10px] font-bold uppercase focus:border-accent outline-none disabled:opacity-50"
+                                                            >
+                                                                <option value="">Select Field...</option>
+                                                                {(() => {
+                                                                    const targetDb = databases.find(d => String(d.id) === String(link.database_id));
+                                                                    const structure = targetDb ? targetDb.database_structure : (String(link.database_id) === String(editMode?.id) ? formData.database_structure : []);
+                                                                    return structure?.map((f: any) => (
+                                                                        <option key={f.id} value={f.id}>{f.name}</option>
+                                                                    ));
+                                                                })()}
+                                                            </select>
+                                                        </div>
                                                     </div>
-                                                    <span className="text-[9px] font-black uppercase tracking-widest text-muted group-hover:text-accent transition-colors">Required Field</span>
-                                                </label>
-                                            </div>
 
-                                            {field.type === 'select' && (
-                                                <div className="pt-2">
-                                                    <label className="block text-[8px] font-black text-muted uppercase tracking-[0.2em] mb-2">Options (Comma separated)</label>
-                                                    <input 
-                                                        value={field.options?.join(', ') || ''}
-                                                        onChange={e => updateField(field.id, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-                                                        className="w-full bg-card border border-border p-2 rounded text-[10px] text-text focus:border-accent outline-none"
-                                                        placeholder="Option 1, Option 2, Option 3"
-                                                    />
+                                                    <div className="pt-2 flex items-center gap-4">
+                                                        <label className="flex items-center gap-2 cursor-pointer group">
+                                                            <input 
+                                                                type="checkbox"
+                                                                checked={link.exclude_current}
+                                                                onChange={e => {
+                                                                    const next = [...formData.detail_customization.linked_databases];
+                                                                    next[idx].exclude_current = e.target.checked;
+                                                                    setFormData({ ...formData, detail_customization: { ...formData.detail_customization, linked_databases: next } });
+                                                                }}
+                                                                className="hidden"
+                                                            />
+                                                            <div className={`w-3.5 h-3.5 rounded border transition-all flex items-center justify-center ${link.exclude_current ? 'bg-accent border-accent' : 'border-muted group-hover:border-accent'}`}>
+                                                                {link.exclude_current && <X size={10} className="text-white rotate-45" />}
+                                                            </div>
+                                                            <span className="text-[9px] font-black uppercase tracking-widest text-muted group-hover:text-accent transition-colors">Exclude currently opened record</span>
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            
+                                            {(!formData.detail_customization.linked_databases || formData.detail_customization.linked_databases.length === 0) && (
+                                                <div className="py-12 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center bg-surface/30">
+                                                    <LinkIcon size={32} className="text-muted opacity-20 mb-3" />
+                                                    <p className="text-[10px] font-bold text-muted uppercase tracking-widest">No record links configured</p>
                                                 </div>
                                             )}
                                         </div>
-                                    ))}
+                                    </div>
 
-                                    {formData.database_structure.length === 0 && (
-                                        <div className="py-8 flex flex-col items-center justify-center border border-dashed border-border rounded-xl bg-surface/50">
-                                            <Columns size={24} className="text-muted opacity-20 mb-2" />
-                                            <p className="text-[10px] font-bold text-muted uppercase tracking-widest">No fields defined yet</p>
+                                    {/* Roster Integration Section */}
+                                    <div className="space-y-6 pt-6 border-t border-border">
+                                        <div>
+                                            <h3 className="text-xs font-black text-text uppercase tracking-widest flex items-center gap-2">
+                                                <Share2 size={14} className="text-accent" /> Roster Integration
+                                            </h3>
+                                            <p className="text-[9px] text-muted font-bold uppercase tracking-widest mt-1">Automatically track and display which rosters this record appears in.</p>
                                         </div>
-                                    )}
+
+                                        <label className="flex items-center gap-3 cursor-pointer group p-4 bg-surface border border-border rounded-xl hover:border-accent transition-all">
+                                            <input 
+                                                type="checkbox"
+                                                checked={formData.detail_customization.roster_integration?.enabled}
+                                                onChange={e => setFormData({
+                                                    ...formData,
+                                                    detail_customization: {
+                                                        ...formData.detail_customization,
+                                                        roster_integration: { ...formData.detail_customization.roster_integration, enabled: e.target.checked }
+                                                    }
+                                                })}
+                                                className="hidden"
+                                            />
+                                            <div className={`w-6 h-6 rounded border transition-all flex items-center justify-center ${formData.detail_customization.roster_integration?.enabled ? 'bg-accent border-accent shadow-lg shadow-accent/20' : 'bg-card border-border group-hover:border-accent'}`}>
+                                                {formData.detail_customization.roster_integration?.enabled && <CheckSquare size={14} className="text-white" />}
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-text uppercase tracking-widest">Enable Roster Tracking</span>
+                                                <span className="text-[9px] text-muted font-bold uppercase tracking-widest">Display linked roster rows in the record detail view.</span>
+                                            </div>
+                                        </label>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             <div className="flex gap-3 pt-4 sticky bottom-0 bg-card py-4 border-t border-border shrink-0 mt-auto">
                                 <button 

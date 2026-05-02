@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { RosterContent } from '../types';
-import { Plus, Trash2, Check, X, Pencil, Tag } from 'lucide-react';
+import { Plus, Trash2, Check, X, Pencil, Tag, ExternalLink } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import api from '../api';
 import toast from 'react-hot-toast';
@@ -55,6 +56,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   onBulkDeleteRow,
   onAddRow
 }) => {
+  const { shortname } = useParams();
   const canEditDefined = canModerate || permissions?.edit_defined_fields;
   const canEditPredefined = canModerate || permissions?.edit_predefined;
   const canEditAny = canEditDefined || canEditPredefined;
@@ -292,7 +294,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                     label = entry.data?.[fieldId || ''] || entry.data?.[field?.name || ''] || `Entry #${entry.entry_id}`;
                 }
                 
-                return { label, color: null, bold: false, entryId: entry.id };
+                return { label, color: null, bold: false, entryId: entry.entry_id, dbShortcode: db.record_shortcode };
             });
         }
     }
@@ -330,10 +332,17 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                     else displayValue = entry.data?.[fieldId || ''] || '-';
 
                     return (
-                        <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-60 italic">
+                        <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-60 italic relative group/cell">
                             <span className="text-[10px] uppercase font-bold text-accent">
                                 {displayValue}
                             </span>
+                            <Link 
+                                to={`/${shortname}/records?database=${db.record_shortcode}&record=${entry.entry_id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute -top-1 -right-1 p-1 bg-card border border-border rounded text-muted hover:text-accent opacity-0 group-hover/cell:opacity-100 transition-all z-10 shadow-sm"
+                            >
+                                <ExternalLink size={8} />
+                            </Link>
                         </div>
                     );
                 }
@@ -590,7 +599,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
     return (
       <div 
-        className={`flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap overflow-visible ${canEditAny ? 'cursor-pointer hover:bg-accent/5' : ''}`}
+        className={`flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap overflow-visible relative group/cell ${canEditAny ? 'cursor-pointer hover:bg-accent/5' : ''}`}
         onClick={() => canEditAny && handleStartEdit(row)}
       >
         <div className="flex items-center gap-1.5 px-1 overflow-visible">
@@ -652,6 +661,15 @@ export const RosterTable: React.FC<RosterTableProps> = ({
               );
             })}
           </div>
+        )}
+        {selectedOpt?.entryId && (
+            <Link 
+                to={`/${shortname}/records?database=${selectedOpt.dbShortcode}&record=${selectedOpt.entryId}`}
+                onClick={(e) => e.stopPropagation()}
+                className="absolute -top-1 -right-1 p-1 bg-card border border-border rounded text-muted hover:text-accent opacity-0 group-hover/cell:opacity-100 transition-all z-10 shadow-sm"
+            >
+                <ExternalLink size={8} />
+            </Link>
         )}
       </div>
     );

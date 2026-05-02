@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import api from '../api';
-import { Database, Plus, Search, Trash2, Layout, Info, ChevronLeft, MoreVertical, Edit2, Calendar, User, Filter, Download, X } from 'lucide-react';
+import { Database, Plus, Search, Trash2, Layout, Info, ChevronLeft, MoreVertical, Edit2, Calendar, User, Filter, Download, X, Link as LinkIcon, Share2, CheckSquare, ExternalLink } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Loading from './Loading';
 import { FactionRecordDatabase } from '../types';
@@ -14,18 +15,20 @@ interface RecordBrowserProps {
 }
 
 export default function RecordBrowser({ database, shortname, permissions, user, onBack }: RecordBrowserProps) {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [entries, setEntries] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [showEntryModal, setShowEntryModal] = useState<any | null>(null); // null = hidden, 'create' = new, entry object = edit
+    const [showEntryModal, setShowEntryModal] = useState<any | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [entryData, setEntryData] = useState<any>({});
     const [entryIsActive, setEntryIsActive] = useState(true);
     const [selectedEntry, setSelectedEntry] = useState<any | null>(null);
+    const [selectedEntryDetails, setSelectedEntryDetails] = useState<any | null>(null);
+    const [loadingDetails, setLoadingDetails] = useState(false);
 
     const hasDBPermission = (perm: string) => {
         if (permissions.includes('administrator') || permissions.includes('global_faction_record_moderation')) return true;
-        if (database.created_by === user?.id) return true;
         return true; 
     };
 
@@ -33,9 +36,18 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
         try {
             const res = await api.get(`/factions/${shortname}/records/${database.id}/entries`);
             setEntries(res.data);
-            if (selectedEntry) {
-                const updated = res.data.find((e: any) => e.id === selectedEntry.id);
-                if (updated) setSelectedEntry(updated);
+
+            // Sync with URL
+            const recordParam = searchParams.get('record');
+            if (recordParam && !selectedEntry) {
+                const targetEntry = res.data.find((e: any) => String(e.entry_id) === recordParam || String(e.id) === recordParam);
+                if (targetEntry) {
+                    fetchEntryDetails(targetEntry);
+                }
+            } else if (!recordParam) {
+                // If no record param, ensure nothing is selected
+                setSelectedEntry(null);
+                setSelectedEntryDetails(null);
             }
         } catch (err) {
             toast.error('Failed to fetch entries');
@@ -44,9 +56,56 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
         }
     };
 
+    const handleSetSelectedEntry = (entry: any | null) => {
+        setSelectedEntry(entry);
+        if (!entry) {
+            setSelectedEntryDetails(null);
+        } else {
+            fetchEntryDetails(entry);
+        }
+        
+        const newParams = new URLSearchParams(searchParams);
+        if (entry) {
+            newParams.set('record', String(entry.entry_id));
+        } else {
+            newParams.delete('record');
+            newParams.delete('edit');
+        }
+        setSearchParams(newParams, { replace: true });
+    };
+
     useEffect(() => {
         fetchEntries();
     }, [database.id]);
+
+    useEffect(() => {
+        if (entries.length > 0) {
+            const recordParam = searchParams.get('record');
+            const targetEntry = entries.find((e: any) => String(e.entry_id) === recordParam || String(e.id) === recordParam);
+            if (targetEntry) {
+                if (selectedEntry?.id !== targetEntry.id) fetchEntryDetails(targetEntry);
+                
+                // If edit parameter is present, open the edit modal
+                if (searchParams.get('edit') === 'true' && !showEntryModal) {
+                    openEditModal(targetEntry);
+                }
+            }
+        }
+    }, [searchParams, entries]);
+
+    const fetchEntryDetails = async (entry: any) => {
+        setLoadingDetails(true);
+        try {
+            const res = await api.get(`/factions/${shortname}/records/${database.id}/entries/${entry.id}`);
+            setSelectedEntryDetails(res.data);
+            setSelectedEntry(res.data);
+        } catch (err) {
+            toast.error('Failed to fetch record details');
+            setSelectedEntry(entry); // Fallback to list object
+        } finally {
+            setLoadingDetails(false);
+        }
+    };
 
     const handleSaveEntry = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -60,8 +119,19 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
             } else {
                 await api.put(`/factions/${shortname}/records/${database.id}/entries/${showEntryModal.id}`, payload);
                 toast.success('Entry updated', { id: loadToast });
+                if (selectedEntry?.id === showEntryModal.id) {
+                    fetchEntryDetails(showEntryModal);
+                }
             }
             setShowEntryModal(null);
+            
+            // Remove edit param from URL if it was there
+            if (searchParams.get('edit')) {
+                const newParams = new URLSearchParams(searchParams);
+                newParams.delete('edit');
+                setSearchParams(newParams, { replace: true });
+            }
+
             setEntryData({});
             setEntryIsActive(true);
             fetchEntries();
@@ -73,16 +143,32 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
     };
 
     const handleDeleteEntry = async (id: number, andClose = false) => {
-        if (!window.confirm('Are you sure you want to delete this entry?')) return;
-        const loadToast = toast.loading('Deleting entry...');
-        try {
-            await api.delete(`/factions/${shortname}/records/${database.id}/entries/${id}`);
-            toast.success('Entry deleted', { id: loadToast });
-            if (andClose) setSelectedEntry(null);
-            fetchEntries();
-        } catch (err) {
-            toast.error('Failed to delete entry', { id: loadToast });
-        }
+        toast((t) => (
+            <div className="flex flex-col gap-1 text-left">
+                <p className="font-bold text-xs uppercase">Delete this entry?</p>
+                <p className="text-[9px] opacity-80 uppercase tracking-tighter">This action cannot be undone.</p>
+                <div className="flex gap-2 justify-end mt-2">
+                    <button onClick={() => toast.dismiss(t.id)} className="px-2 py-1 bg-surface hover:bg-bg border border-border rounded text-[9px] font-bold uppercase transition">Cancel</button>
+                    <button 
+                        onClick={async () => {
+                            toast.dismiss(t.id);
+                            const loadToast = toast.loading('Deleting entry...');
+                            try {
+                                await api.delete(`/factions/${shortname}/records/${database.id}/entries/${id}`);
+                                toast.success('Entry deleted', { id: loadToast });
+                                if (andClose) handleSetSelectedEntry(null);
+                                fetchEntries();
+                            } catch (err) {
+                                toast.error('Failed to delete entry', { id: loadToast });
+                            }
+                        }}
+                        className="px-2 py-1 bg-danger text-white hover:bg-danger/90 rounded text-[9px] font-bold uppercase transition shadow-lg shadow-danger/20"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </div>
+        ), { duration: 6000, position: 'top-center' });
     };
 
     const openCreateModal = () => {
@@ -102,6 +188,12 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
     };
 
     if (loading) return <Loading message={`Loading ${database.name}...`} />;
+
+    // Improved direct access UX: If record param is present but selectedEntry is not yet loaded, show loading
+    const recordParam = searchParams.get('record');
+    if (recordParam && !selectedEntry && entries.length > 0) {
+        return <Loading message={`Loading Record #${recordParam}...`} />;
+    }
 
     const filteredEntries = entries.filter(entry => {
         const searchStr = searchQuery.toLowerCase();
@@ -127,6 +219,129 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
         }
     };
 
+    const renderIntegrations = () => {
+        if (!selectedEntryDetails) return null;
+        const { linked_records, roster_integrations } = selectedEntryDetails;
+
+        if (!linked_records?.length && !roster_integrations?.length) return null;
+
+        return (
+            <div className="mt-12 space-y-12">
+                {/* Linked Records */}
+                {linked_records?.map((link: any, idx: number) => (
+                    <div key={idx} className="space-y-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-accent/10 rounded-lg text-accent">
+                                <LinkIcon size={18} />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-black uppercase tracking-widest text-text">Linked {link.database.name}</h3>
+                                <p className="text-[9px] text-muted font-bold uppercase tracking-widest">Related entries from {link.database.record_shortcode || 'DATABASE'}</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+                            <table className="w-full text-left text-xs">
+                                <thead className="bg-surface/50 border-b border-border">
+                                    <tr>
+                                        <th className="p-4 font-black uppercase tracking-widest text-muted">ID</th>
+                                        {link.database.database_structure.slice(0, 3).map((f: any) => (
+                                            <th key={f.id} className="p-4 font-black uppercase tracking-widest text-muted">{f.name}</th>
+                                        ))}
+                                        <th className="p-4 font-black uppercase tracking-widest text-muted text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border/30">
+                                    {link.entries.map((le: any) => (
+                                        <tr key={le.id} className="hover:bg-surface/30 transition-colors">
+                                            <td className="p-4 font-black text-accent">#{link.database.record_shortcode}{le.entry_id}</td>
+                                            {link.database.database_structure.slice(0, 3).map((f: any) => (
+                                                <td key={f.id} className="p-4">{renderFieldValue(f, le.data?.[f.id])}</td>
+                                            ))}
+                                            <td className="p-4 text-right flex justify-end">
+                                                <Link 
+                                                    to={`/${shortname}/records?database=${link.database.record_shortcode || link.database.id}&record=${le.entry_id}`}
+                                                    className="p-1.5 text-muted hover:text-accent transition-colors"
+                                                >
+                                                    <ExternalLink size={14} />
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {link.entries.length === 0 && (
+                                        <tr>
+                                            <td colSpan={10} className="p-8 text-center text-muted italic font-bold uppercase text-[10px] tracking-widest">No matching records found</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ))}
+
+                {/* Roster Integrations */}
+                {roster_integrations?.map((integ: any, idx: number) => (
+                    <div key={idx} className="space-y-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-500/10 rounded-lg text-green-500">
+                                <Share2 size={18} />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-black uppercase tracking-widest text-text">Roster Integration: {integ.roster.name}</h3>
+                                <p className="text-[9px] text-muted font-bold uppercase tracking-widest">Active membership in {integ.roster.shortname}</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-[10px]">
+                                    <thead className="bg-surface/50 border-b border-border">
+                                        <tr>
+                                            <th className="p-3 font-black uppercase tracking-widest text-muted">Section</th>
+                                            {integ.roster.columns.map((col: any) => (
+                                                <th key={col.id} className="p-3 font-black uppercase tracking-widest text-muted">{col.name}</th>
+                                            ))}
+                                            <th className="p-3 font-black uppercase tracking-widest text-muted text-right">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border/30">
+                                        {integ.contents.map((row: any) => (
+                                            <tr key={row.id} className="hover:bg-surface/30 transition-colors">
+                                                <td className="p-3">
+                                                    <span className="px-2 py-0.5 bg-accent/10 text-accent border border-accent/20 rounded font-black uppercase text-[8px]">{row.section?.name}</span>
+                                                </td>
+                                                {integ.roster.columns.map((col: any) => (
+                                                    <td key={col.id} className="p-3 font-medium">
+                                                        {row.content?.[col.id] || <span className="opacity-20">-</span>}
+                                                    </td>
+                                                ))}
+                                                <td className="p-3 text-right">
+                                                    <div className="flex items-center justify-end gap-1.5 text-green-500">
+                                                        <CheckSquare size={12} />
+                                                        <span className="font-black uppercase text-[8px]">Linked</span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="px-4 py-2 bg-surface/50 border-t border-border flex justify-between items-center">
+                                <span className="text-[8px] font-black text-muted uppercase tracking-widest italic">Source: {integ.roster.name} ({integ.roster.shortname})</span>
+                                <Link 
+                                    to={`/${shortname}/roster?roster=${integ.roster.shortname}`}
+                                    className="text-[8px] font-black text-accent uppercase tracking-widest hover:underline flex items-center gap-1"
+                                >
+                                    View Full Roster <ExternalLink size={10} />
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
     const renderDetailView = () => {
         if (!selectedEntry) return null;
         const mode = database.data_entry_display || 'card';
@@ -143,13 +358,14 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
         const Header = () => (
             <div className="flex items-center justify-between mb-8 pb-6 border-b border-border">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => setSelectedEntry(null)} className="p-2 hover:bg-surface rounded-lg text-muted hover:text-text transition-all">
+                    <button onClick={() => handleSetSelectedEntry(null)} className="p-2 hover:bg-surface rounded-lg text-muted hover:text-text transition-all">
                         <ChevronLeft size={20} />
                     </button>
                     <div>
                         <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-accent">#{database.record_shortcode ? `${database.record_shortcode}-` : ''}{selectedEntry.entry_id}</span>
+                            <span className="text-xs font-black text-accent">#{database.record_shortcode ? `${database.record_shortcode}` : ''}{selectedEntry.entry_id}</span>
                             {!selectedEntry.is_active && <span className="px-1.5 py-0.5 bg-danger/10 text-danger rounded text-[8px] font-black uppercase tracking-widest">Inactive</span>}
+                            {loadingDetails && <div className="w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin ml-2" />}
                         </div>
                         <h2 className="text-2xl font-black text-text uppercase tracking-tighter">Record Details</h2>
                     </div>
@@ -179,110 +395,96 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
             </div>
         );
 
+        let content = null;
+
         if (mode === 'profile') {
             const firstField = database.database_structure[0];
-            return (
-                <div className="max-w-4xl mx-auto py-8">
-                    <Header />
-                    <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-2xl">
-                        <div className="h-32 bg-gradient-to-r from-accent/20 to-accent/5 flex items-end p-8">
-                            <div className="w-24 h-24 rounded-2xl bg-card border-4 border-card shadow-lg flex items-center justify-center text-3xl font-black text-accent translate-y-12">
-                                {String(selectedEntry.data?.[firstField?.id] || 'R').charAt(0).toUpperCase()}
+            content = (
+                <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-2xl">
+                    <div className="h-32 bg-gradient-to-r from-accent/20 to-accent/5 flex items-end p-8">
+                        <div className="w-24 h-24 rounded-2xl bg-card border-4 border-card shadow-lg flex items-center justify-center text-3xl font-black text-accent translate-y-12">
+                            {String(selectedEntry.data?.[firstField?.id] || 'R').charAt(0).toUpperCase()}
+                        </div>
+                    </div>
+                    <div className="p-8 pt-16">
+                        <div className="mb-8">
+                            <h3 className="text-3xl font-black text-text uppercase tracking-tighter">{selectedEntry.data?.[firstField?.id] || 'Unnamed Record'}</h3>
+                            <p className="text-muted font-bold text-[10px] uppercase tracking-[0.2em]">{database.name} Profile</p>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {database.database_structure.slice(1).map(renderField)}
+                        </div>
+                        <Metadata />
+                    </div>
+                </div>
+            );
+        } else if (mode === 'dossier') {
+            content = (
+                <div className="bg-white text-black p-12 shadow-2xl border-t-8 border-accent relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8 opacity-10">
+                        <Database size={120} />
+                    </div>
+                    <div className="border-b-2 border-black pb-4 mb-8">
+                        <h2 className="text-3xl font-serif font-bold uppercase tracking-widest">Official Record</h2>
+                        <p className="font-serif italic text-sm">Classification: {database.name}</p>
+                    </div>
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-12">
+                            <div className="space-y-6">
+                                {database.database_structure.slice(0, Math.ceil(database.database_structure.length / 2)).map(f => (
+                                    <div key={f.id} className="border-b border-black/10 pb-2">
+                                        <label className="block text-[9px] font-bold uppercase mb-1">{f.name}</label>
+                                        <div className="font-serif text-lg">{renderFieldValue(f, selectedEntry.data?.[f.id])}</div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="space-y-6">
+                                {database.database_structure.slice(Math.ceil(database.database_structure.length / 2)).map(f => (
+                                    <div key={f.id} className="border-b border-black/10 pb-2">
+                                        <label className="block text-[9px] font-bold uppercase mb-1">{f.name}</label>
+                                        <div className="font-serif text-lg">{renderFieldValue(f, selectedEntry.data?.[f.id])}</div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
-                        <div className="p-8 pt-16">
-                            <div className="mb-8">
-                                <h3 className="text-3xl font-black text-text uppercase tracking-tighter">{selectedEntry.data?.[firstField?.id] || 'Unnamed Record'}</h3>
-                                <p className="text-muted font-bold text-[10px] uppercase tracking-[0.2em]">{database.name} Profile</p>
+                    </div>
+                    <div className="mt-12 pt-8 border-t-2 border-black flex justify-between items-end">
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-bold uppercase">Record ID: {database.record_shortcode}{selectedEntry.entry_id}</p>
+                            <p className="text-[10px] font-bold uppercase">Authorized By: {selectedEntry.creator?.username}</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[10px] font-bold uppercase">Dated: {new Date(selectedEntry.created_at).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        } else if (mode === 'split') {
+            content = (
+                <div className="flex flex-col lg:flex-row gap-8">
+                    <div className="lg:w-2/3 space-y-6">
+                        <div className="bg-card border border-border rounded-2xl p-8">
+                            <h3 className="text-[10px] font-black text-accent uppercase tracking-widest mb-6">Primary Information</h3>
+                            <div className="grid grid-cols-1 gap-6">
+                                {database.database_structure.filter(f => f.type === 'textarea').map(renderField)}
+                                {database.database_structure.filter(f => f.type !== 'textarea').slice(0, 4).map(renderField)}
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                {database.database_structure.slice(1).map(renderField)}
+                        </div>
+                    </div>
+                    <div className="lg:w-1/3 space-y-6">
+                        <div className="bg-surface border border-border rounded-2xl p-8">
+                            <h3 className="text-[10px] font-black text-accent uppercase tracking-widest mb-6">Technical Data</h3>
+                            <div className="space-y-6">
+                                {database.database_structure.filter(f => f.type !== 'textarea').slice(4).map(renderField)}
                             </div>
                             <Metadata />
                         </div>
                     </div>
                 </div>
             );
-        }
-
-        if (mode === 'dossier') {
-            return (
-                <div className="max-w-3xl mx-auto py-8">
-                    <Header />
-                    <div className="bg-white text-black p-12 shadow-2xl border-t-8 border-accent relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-8 opacity-10">
-                            <Database size={120} />
-                        </div>
-                        <div className="border-b-2 border-black pb-4 mb-8">
-                            <h2 className="text-3xl font-serif font-bold uppercase tracking-widest">Official Record</h2>
-                            <p className="font-serif italic text-sm">Classification: {database.name}</p>
-                        </div>
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-12">
-                                <div className="space-y-6">
-                                    {database.database_structure.slice(0, Math.ceil(database.database_structure.length / 2)).map(f => (
-                                        <div key={f.id} className="border-b border-black/10 pb-2">
-                                            <label className="block text-[9px] font-bold uppercase mb-1">{f.name}</label>
-                                            <div className="font-serif text-lg">{renderFieldValue(f, selectedEntry.data?.[f.id])}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="space-y-6">
-                                    {database.database_structure.slice(Math.ceil(database.database_structure.length / 2)).map(f => (
-                                        <div key={f.id} className="border-b border-black/10 pb-2">
-                                            <label className="block text-[9px] font-bold uppercase mb-1">{f.name}</label>
-                                            <div className="font-serif text-lg">{renderFieldValue(f, selectedEntry.data?.[f.id])}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                        <div className="mt-12 pt-8 border-t-2 border-black flex justify-between items-end">
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-bold uppercase">Record ID: {database.record_shortcode}-{selectedEntry.entry_id}</p>
-                                <p className="text-[10px] font-bold uppercase">Authorized By: {selectedEntry.creator?.username}</p>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-[10px] font-bold uppercase">Dated: {new Date(selectedEntry.created_at).toLocaleDateString()}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        if (mode === 'split') {
-            return (
-                <div className="max-w-6xl mx-auto py-8">
-                    <Header />
-                    <div className="flex flex-col lg:flex-row gap-8">
-                        <div className="lg:w-2/3 space-y-6">
-                            <div className="bg-card border border-border rounded-2xl p-8">
-                                <h3 className="text-[10px] font-black text-accent uppercase tracking-widest mb-6">Primary Information</h3>
-                                <div className="grid grid-cols-1 gap-6">
-                                    {database.database_structure.filter(f => f.type === 'textarea').map(renderField)}
-                                    {database.database_structure.filter(f => f.type !== 'textarea').slice(0, 4).map(renderField)}
-                                </div>
-                            </div>
-                        </div>
-                        <div className="lg:w-1/3 space-y-6">
-                            <div className="bg-surface border border-border rounded-2xl p-8">
-                                <h3 className="text-[10px] font-black text-accent uppercase tracking-widest mb-6">Technical Data</h3>
-                                <div className="space-y-6">
-                                    {database.database_structure.filter(f => f.type !== 'textarea').slice(4).map(renderField)}
-                                </div>
-                                <Metadata />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        if (mode === 'minimal') {
-            return (
-                <div className="max-w-2xl mx-auto py-8">
-                    <Header />
+        } else if (mode === 'minimal') {
+            content = (
+                <div className="max-w-2xl mx-auto space-y-4">
                     <div className="space-y-4">
                         {database.database_structure.map(f => (
                             <div key={f.id} className="flex items-center justify-between py-3 border-b border-border/50">
@@ -294,18 +496,23 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                     <Metadata />
                 </div>
             );
-        }
-
-        // DEFAULT: Card
-        return (
-            <div className="max-w-3xl mx-auto py-8">
-                <Header />
+        } else {
+            // DEFAULT: Card
+            content = (
                 <div className="bg-card border border-border rounded-2xl p-8 shadow-xl">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {database.database_structure.map(renderField)}
                     </div>
                     <Metadata />
                 </div>
+            );
+        }
+
+        return (
+            <div className={`py-8 ${mode === 'split' ? 'max-w-6xl' : mode === 'dossier' ? 'max-w-3xl' : 'max-w-4xl'} mx-auto`}>
+                <Header />
+                {content}
+                {renderIntegrations()}
             </div>
         );
     };
@@ -315,7 +522,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
         const clickable = database.allow_details_view;
 
         const onEntryClick = (entry: any) => {
-            if (clickable) setSelectedEntry(entry);
+            if (clickable) handleSetSelectedEntry(entry);
         };
 
         if (mode === 'table' || mode === 'compact') {
@@ -342,7 +549,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                     className={`border-b border-border hover:bg-surface/30 transition-colors group ${!entry.is_active ? 'opacity-60' : ''} ${clickable ? 'cursor-pointer' : ''}`}
                                 >
                                     <td className={`${isCompact ? 'p-2' : 'p-4'} text-xs font-black text-accent`}>
-                                        #{database.record_shortcode ? `${database.record_shortcode}-` : ''}{entry.entry_id}
+                                        #{database.record_shortcode ? `${database.record_shortcode}` : ''}{entry.entry_id}
                                     </td>
                                     <td className={`${isCompact ? 'p-2' : 'p-4'}`}>
                                         {entry.is_active ? (
@@ -363,7 +570,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                         </div>
                                     </td>
                                     <td className={`${isCompact ? 'p-2' : 'p-4'} text-right`}>
-                                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                                        <div className="flex items-center justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                                             <button onClick={() => openEditModal(entry)} className="p-1.5 text-muted hover:text-accent rounded transition-colors"><Edit2 size={14} /></button>
                                             <button onClick={() => handleDeleteEntry(entry.id)} className="p-1.5 text-muted hover:text-danger rounded transition-colors"><Trash2 size={14} /></button>
                                         </div>
@@ -387,7 +594,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                         >
                             <div className="flex items-center gap-6 overflow-hidden">
                                 <span className="text-xs font-black text-accent w-20 shrink-0">
-                                    #{database.record_shortcode ? `${database.record_shortcode}-` : ''}{entry.entry_id}
+                                    #{database.record_shortcode ? `${database.record_shortcode}` : ''}{entry.entry_id}
                                 </span>
                                 <div className="flex gap-8 overflow-hidden">
                                     {database.database_structure.slice(0, 4).map(field => (
@@ -405,7 +612,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                     <div className="text-[9px] font-bold text-muted uppercase tracking-widest">{entry.creator?.username}</div>
                                     <div className="text-[8px] font-bold text-muted/40 uppercase tracking-widest">{new Date(entry.created_at).toLocaleDateString()}</div>
                                 </div>
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity border-l border-border pl-4" onClick={e => e.stopPropagation()}>
+                                <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity border-l border-border pl-4" onClick={e => e.stopPropagation()}>
                                     <button onClick={() => openEditModal(entry)} className="p-1.5 text-muted hover:text-accent rounded transition-colors"><Edit2 size={14} /></button>
                                     <button onClick={() => handleDeleteEntry(entry.id)} className="p-1.5 text-muted hover:text-danger rounded transition-colors"><Trash2 size={14} /></button>
                                 </div>
@@ -428,13 +635,13 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                         <div className="flex items-start justify-between mb-4">
                             <div className="flex flex-col gap-1">
                                 <span className="text-xs font-black text-accent bg-accent/10 px-2 py-1 rounded w-fit">
-                                    #{database.record_shortcode ? `${database.record_shortcode}-` : ''}{entry.entry_id}
+                                    #{database.record_shortcode ? `${database.record_shortcode}` : ''}{entry.entry_id}
                                 </span>
                                 {!entry.is_active && (
                                     <span className="text-[8px] font-black text-danger uppercase tracking-widest">INACTIVE RECORD</span>
                                 )}
                             </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                                 <button onClick={() => openEditModal(entry)} className="p-1.5 text-muted hover:text-accent rounded transition-colors"><Edit2 size={14} /></button>
                                 <button onClick={() => handleDeleteEntry(entry.id)} className="p-1.5 text-muted hover:text-danger rounded transition-colors"><Trash2 size={14} /></button>
                             </div>
@@ -544,7 +751,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                         <div className="p-6 border-b border-border flex items-center justify-between bg-surface shrink-0">
                             <h2 className="text-xl font-bold flex items-center gap-2">
                                 {showEntryModal === 'create' ? <Plus size={20} className="text-accent" /> : <Edit2 size={20} className="text-accent" />}
-                                {showEntryModal === 'create' ? 'Add New Record' : `Edit Record #${database.record_shortcode ? `${database.record_shortcode}-` : ''}${showEntryModal.entry_id}`}
+                                {showEntryModal === 'create' ? 'Add New Record' : `Edit Record #${database.record_shortcode ? `${database.record_shortcode}` : ''}${showEntryModal.entry_id}`}
                             </h2>
                             <button onClick={() => setShowEntryModal(null)} className="text-muted hover:text-text">&times;</button>
                         </div>
@@ -560,7 +767,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                             className="hidden"
                                         />
                                         <div className={`w-5 h-5 rounded border transition-all flex items-center justify-center ${entryIsActive ? 'bg-accent border-accent' : 'bg-card border-border group-hover:border-accent'}`}>
-                                            {entryIsActive && <Check size={14} className="text-white" />}
+                                            {entryIsActive && <CheckSquare size={14} className="text-white" />}
                                         </div>
                                         <div className="flex flex-col">
                                             <span className="text-xs font-bold text-text uppercase tracking-widest">Active Record</span>
@@ -606,7 +813,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                                     className="hidden"
                                                 />
                                                 <div className={`w-5 h-5 rounded border transition-all flex items-center justify-center ${entryData[field.id] ? 'bg-accent border-accent' : 'bg-card border-border group-hover:border-accent'}`}>
-                                                    {entryData[field.id] && <Check size={14} className="text-white" />}
+                                                    {entryData[field.id] && <CheckSquare size={14} className="text-white" />}
                                                 </div>
                                                 <span className="text-xs font-bold text-text uppercase tracking-widest">Enable / Active</span>
                                             </label>
@@ -644,23 +851,5 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                 </div>
             )}
         </div>
-    );
-}
-
-function Check({ size, className }: { size: number, className?: string }) {
-    return (
-        <svg 
-            width={size} 
-            height={size} 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="3" 
-            strokeLinecap="round" 
-            strokeLinejoin="round" 
-            className={className}
-        >
-            <polyline points="20 6 9 17 4 12" />
-        </svg>
     );
 }

@@ -19,6 +19,7 @@ class FactionRecordDatabase extends Model
         'record_shortcode',
         'permissions',
         'database_structure',
+        'detail_customization',
         'is_api_database',
         'is_published',
         'created_by',
@@ -27,6 +28,7 @@ class FactionRecordDatabase extends Model
     protected $casts = [
         'permissions' => 'array',
         'database_structure' => 'array',
+        'detail_customization' => 'array',
         'is_api_database' => 'boolean',
         'allow_details_view' => 'boolean',
         'is_published' => 'boolean',

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useParams, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useParams, Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { motion, AnimatePresence, Reorder } from 'motion/react';
 import { Header } from './components/Header';
@@ -21,6 +21,10 @@ import Loading from './components/Loading';
 import Invite from './components/Invite';
 import Register from './components/Register';
 import Login from './components/Login';
+import GtawCallback from './components/GtawCallback';
+import FactionCatalog from './components/FactionCatalog';
+import AccountSettings from './components/AccountSettings';
+import Superadmin from './components/Superadmin';
 import api from './api';
 import { INITIAL_DATA } from './constants';
 import { Faction as FactionType, Roster as RosterType } from './types';
@@ -799,6 +803,7 @@ const hexToRgb = (hex: string) => {
 
 const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
   const { shortname } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const [factionData, setFactionData] = useState<any>(null);
   const [permissions, setPermissions] = useState<string[]>([]);
@@ -826,7 +831,12 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
       setRecordData(recordDataRes);
 
       if (rosterData.length > 0) {
-        if (activeDivId === null || !rosterData.find((r: any) => r.id === activeDivId)) {
+        const rosterParam = searchParams.get('roster');
+        const targetRoster = rosterData.find((r: any) => r.shortname === rosterParam || String(r.id) === rosterParam);
+        
+        if (targetRoster) {
+          setActiveDivId(targetRoster.id);
+        } else if (activeDivId === null || !rosterData.find((r: any) => r.id === activeDivId)) {
           setActiveDivId(rosterData[0].id);
         }
       } else {
@@ -857,6 +867,28 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
       document.documentElement.style.removeProperty('--accent-rgb');
     };
   }, [shortname]);
+
+  const handleSetActiveDivId = (id: number | null) => {
+    setActiveDivId(id);
+    if (id) {
+      const roster = rosters.find(r => r.id === id);
+      if (roster) {
+        const newParams = new URLSearchParams(searchParams);
+        newParams.set('roster', roster.shortname);
+        setSearchParams(newParams, { replace: true });
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (rosters.length > 0) {
+      const rosterParam = searchParams.get('roster');
+      const targetRoster = rosters.find((r: any) => r.shortname === rosterParam || String(r.id) === rosterParam);
+      if (targetRoster && targetRoster.id !== activeDivId) {
+        setActiveDivId(targetRoster.id);
+      }
+    }
+  }, [searchParams, rosters]);
 
   if (loading) return <Loading message="Initializing Faction..." />;
   if (error) return (
@@ -908,7 +940,7 @@ const Dashboard = ({ user, onLogout, isDark, toggleTheme }: any) => {
                 rosters={rosters} 
                 setRosters={setRosters}
                 activeDivId={activeDivId} 
-                setActiveDivId={setActiveDivId}
+                setActiveDivId={handleSetActiveDivId}
                 permissions={permissions}
                 shortname={shortname}
                 fetchRosters={fetchAllData}
@@ -961,6 +993,21 @@ const TitleUpdater = ({ user }: { user: any }) => {
 
     if (segments.length > 0 && ['login', 'register', 'invite'].includes(firstSegment)) {
       document.title = `Faction Panel · ${firstSegment.charAt(0).toUpperCase() + firstSegment.slice(1)}`;
+      return;
+    }
+
+    if (path === '/factions/catalog') {
+      document.title = 'Faction Panel · Catalog';
+      return;
+    }
+
+    if (path === '/account/settings') {
+      document.title = 'Faction Panel · Account Settings';
+      return;
+    }
+
+    if (path === '/auth/gtaw/callback') {
+      document.title = 'Faction Panel · Authentication Callback';
       return;
     }
 
@@ -1068,9 +1115,32 @@ export default function App() {
             />
           )
         } />
+        <Route path="/factions/catalog" element={
+          <FactionCatalog 
+            isDark={isDark} 
+            toggleTheme={toggleTheme} 
+            user={user} 
+            onLogout={handleLogout} 
+          />
+        } />
+        <Route path="/account/settings" element={
+          <AccountSettings 
+            isDark={isDark} 
+            toggleTheme={toggleTheme} 
+            user={user} 
+            onLogout={handleLogout} 
+          />
+        } />
+        <Route path="/superadmin" element={
+          <Superadmin 
+            user={user} 
+            onLogin={handleLogin} 
+          />
+        } />
         <Route path="/invite/:code" element={<Invite user={user} />} />
         <Route path="/register" element={<Register onLogin={handleLogin} />} />
         <Route path="/login" element={<Login onLogin={handleLogin} />} />
+        <Route path="/auth/gtaw/callback" element={<GtawCallback onLogin={handleLogin} />} />
         <Route path="/:shortname/*" element={
           <Dashboard user={user} onLogout={handleLogout} isDark={isDark} toggleTheme={toggleTheme} />
         } />
