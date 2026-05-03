@@ -147,6 +147,16 @@ return [
                 ],
             ],
         ],
+        'audit_logs' => [
+            'name' => 'Audit Logs',
+            'permissions' => [
+                'view_audit_logs' => [
+                    'name' => 'View Audit Logs',
+                    'description' => 'Allows viewing the faction audit logs.',
+                    'type' => 'VIEW',
+                ],
+            ],
+        ],
         'system' => [
             'name' => 'System',
             'permissions' => [

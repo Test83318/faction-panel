@@ -293,7 +293,7 @@ class FactionController extends Controller
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::guard('sanctum')->user();
 
-        $allPermissions = config('permissions.categories');
+        $allPermissions = config('permissions.categories', []);
         $permissions = [];
 
         foreach ($allPermissions as $category) {

@@ -1,18 +1,28 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Users, Settings, Layers, Database, HelpCircle } from 'lucide-react';
+import { Users, Settings, Layers, Database, History } from 'lucide-react';
 
 interface SidebarProps {
   shortname: string;
   canViewAdmin: boolean;
   canViewGroups: boolean;
   canViewRecords: boolean;
+  canViewAuditLogs: boolean;
   user: any | null;
   siteVersion?: string;
   customFooterText?: string | null;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ shortname, canViewAdmin, canViewGroups, canViewRecords, user, siteVersion = '1.0.0', customFooterText }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  shortname, 
+  canViewAdmin, 
+  canViewGroups, 
+  canViewRecords, 
+  canViewAuditLogs,
+  user, 
+  siteVersion = '1.0.0', 
+  customFooterText 
+}) => {
   return (
     <aside className="sidebar border-r border-border bg-card flex flex-col sticky top-[var(--nav-h)] h-[calc(100vh-var(--nav-h))]">
       <div className="py-2 space-y-0.5">
@@ -41,6 +51,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ shortname, canViewAdmin, canVi
           >
             <Layers size={14} />
             Group Management
+          </NavLink>
+        )}
+
+        {canViewAuditLogs && (
+          <NavLink 
+            to={`/${shortname}/audit-logs`}
+            className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
+          >
+            <History size={14} />
+            Audit Logs
           </NavLink>
         )}
 

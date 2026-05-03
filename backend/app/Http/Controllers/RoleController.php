@@ -42,7 +42,7 @@ class RoleController extends Controller
         $role = $faction->roles()->create($validated);
 
         // Initialize permissions with default NO
-        $allPermissions = config('permissions.categories');
+        $allPermissions = config('permissions.categories', []);
         foreach ($allPermissions as $category) {
             foreach ($category['permissions'] as $key => $details) {
                 $role->permissions()->create(['permission_key' => $key, 'value' => 'NO']);

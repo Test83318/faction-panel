@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class FactionRecordEntry extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, Auditable;
 
     protected $fillable = [
         'database_id',

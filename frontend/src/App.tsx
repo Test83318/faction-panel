@@ -20,6 +20,7 @@ import FactionRoster from './components/FactionRoster';
 import FactionRecords from './components/FactionRecords';
 import GroupManagement from './components/GroupManagement';
 import Administration from './components/Administration';
+import AuditLogs from './components/AuditLogs';
 import GlobalLayout from './layouts/GlobalLayout';
 import FactionLayout from './layouts/FactionLayout';
 import { ShieldAlert } from 'lucide-react';
@@ -124,10 +125,10 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, siteVersion }: 
 
   if (loading) return <Loading message="Initializing Faction..." />;
   if (error) return (
-    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center text-white">
+    <div className="min-h-screen bg-bg flex flex-col items-center justify-center text-text">
       <h1 className="text-4xl font-bold text-red-500 mb-4">Error</h1>
-      <p className="mb-8">{error}</p>
-      <button onClick={() => window.location.href = '/'} className="px-6 py-2 bg-accent hover:bg-accent/90 transition-colors rounded font-bold">Return to Faction Selector</button>
+      <p className="mb-8 font-medium">{error}</p>
+      <button onClick={() => window.location.href = '/'} className="px-6 py-2 bg-accent text-white hover:bg-accent/90 transition-colors rounded font-bold uppercase tracking-widest text-xs">Return to Faction Selector</button>
     </div>
   );
 
@@ -142,6 +143,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, siteVersion }: 
   const canViewAdmin = user?.is_superadmin || permissions.includes('view_admin_page');
   const canViewGroups = user?.is_superadmin || permissions.includes('view_groups') || isGroupLeader;
   const canViewRecords = user?.is_superadmin || permissions.includes('view_faction_records');
+  const canViewAuditLogs = user?.is_superadmin || permissions.includes('view_audit_logs');
 
   if (location.pathname === `/${shortname}`) {
     return <Navigate to={`/${shortname}/roster`} replace />;
@@ -158,6 +160,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, siteVersion }: 
       canViewAdmin={canViewAdmin}
       canViewGroups={canViewGroups}
       canViewRecords={canViewRecords}
+      canViewAuditLogs={canViewAuditLogs}
       siteVersion={siteVersion}
     >
       <Routes>
@@ -188,6 +191,13 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, siteVersion }: 
           canViewGroups ? (
             <main className="main flex-1 overflow-auto p-5">
               <GroupManagement shortname={shortname!} user={user} permissions={permissions} />
+            </main>
+          ) : <Navigate to={`/${shortname}/roster`} />
+        } />
+        <Route path="audit-logs" element={
+          canViewAuditLogs ? (
+            <main className="main flex-1 overflow-auto p-5">
+              <AuditLogs shortname={shortname!} />
             </main>
           ) : <Navigate to={`/${shortname}/roster`} />
         } />

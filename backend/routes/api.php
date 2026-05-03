@@ -18,6 +18,7 @@ use App\Http\Controllers\SuperadminController;
 use App\Http\Controllers\UploadController;
 use App\Http\Controllers\HelpController;
 use App\Http\Controllers\HelpAdminController;
+use App\Http\Controllers\AuditLogController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -154,6 +155,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/factions/{shortname}/records/{database}/entries/{entry}', [FactionRecordEntryController::class, 'show']);
     Route::put('/factions/{shortname}/records/{database}/entries/{entry}', [FactionRecordEntryController::class, 'update']);
     Route::delete('/factions/{shortname}/records/{database}/entries/{entry}', [FactionRecordEntryController::class, 'destroy']);
+
+    // Audit Logs
+    Route::get('/factions/{shortname}/audit-logs', [AuditLogController::class, 'index']);
+    Route::get('/factions/{shortname}/audit-logs/{auditLog}', [AuditLogController::class, 'show']);
 
     // Help Center Public Routes
     Route::get('/help/categories', [HelpController::class, 'getCategories']);

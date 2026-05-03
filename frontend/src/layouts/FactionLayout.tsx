@@ -12,6 +12,7 @@ interface FactionLayoutProps {
     canViewAdmin: boolean;
     canViewGroups: boolean;
     canViewRecords: boolean;
+    canViewAuditLogs: boolean;
     siteVersion: string;
     children: React.ReactNode;
 }
@@ -26,6 +27,7 @@ const FactionLayout: React.FC<FactionLayoutProps> = ({
     canViewAdmin,
     canViewGroups,
     canViewRecords,
+    canViewAuditLogs,
     siteVersion,
     children
 }) => {
@@ -56,6 +58,7 @@ const FactionLayout: React.FC<FactionLayoutProps> = ({
                     canViewAdmin={canViewAdmin} 
                     canViewGroups={canViewGroups} 
                     canViewRecords={canViewRecords} 
+                    canViewAuditLogs={canViewAuditLogs}
                     user={user} 
                     siteVersion={siteVersion} 
                     customFooterText={factionData.custom_footer_text}
