@@ -4,6 +4,7 @@ import { RosterSection } from '../types';
 import { RosterTable } from './RosterTable';
 import api from '../api';
 import toast from 'react-hot-toast';
+import { hexToRgb } from '../utils';
 
 interface SectionCardProps {
   section: RosterSection;
@@ -15,6 +16,7 @@ interface SectionCardProps {
   flags?: any[];
   allContents?: any[];
   editMode?: boolean;
+  rosterColor?: string;
   onAddChild?: (parentId: number) => void;
   onEdit?: (section: RosterSection) => void;
   onRefresh?: () => void;
@@ -30,6 +32,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   flags,
   allContents,
   editMode,
+  rosterColor,
   onAddChild, 
   onEdit,
   onRefresh
@@ -39,10 +42,18 @@ export const SectionCard: React.FC<SectionCardProps> = ({
 
   const renderChild = (child: RosterSection) => {
     const isSubsection = child.type === 'subsection';
+    const childColor = child.color || section.color || rosterColor || 'var(--accent)';
     
     if (isSubsection) {
       return (
-        <div key={child.id} className="unit-section border-t border-border bg-card group/child relative">
+        <div 
+          key={child.id} 
+          className="unit-section border-t border-border bg-card group/child relative"
+          style={{ 
+            '--accent': childColor,
+            '--accent-rgb': childColor.startsWith('#') ? hexToRgb(childColor) : undefined
+          } as React.CSSProperties}
+        >
           <div className="section-header py-0.5 px-2 border-b border-border bg-border/20 flex justify-between items-center">
             <div className="flex items-center gap-1.5 overflow-hidden">
                 <span className="text-[9px] font-bold text-text uppercase truncate">{child.name}</span>
@@ -50,7 +61,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             {canEditSection && (
                 <button 
                     onClick={() => onEdit?.(child)}
-                    className="p-1 hover:bg-surface rounded text-muted hover:text-text opacity-0 group-hover/child:opacity-100 transition-opacity"
+                    className="p-1 hover:bg-surface rounded text-muted hover:text-accent opacity-0 group-hover/child:opacity-100 transition-opacity"
                 >
                     <MoreHorizontal size={12} />
                 </button>
@@ -59,7 +70,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           <RosterTable 
             contents={child.contents || []} 
             allContents={allContents}
-            accentColor={child.color || section.color || 'var(--accent)'} 
+            accentColor={childColor} 
             columns={child.columns || columns} 
             datasets={datasets}
             recordData={recordData}
@@ -78,9 +89,16 @@ export const SectionCard: React.FC<SectionCardProps> = ({
 
     // Regular section style (compact)
     return (
-      <div key={child.id} className="unit-section group/child relative">
+      <div 
+        key={child.id} 
+        className="unit-section group/child relative"
+        style={{ 
+          '--accent': childColor,
+          '--accent-rgb': childColor.startsWith('#') ? hexToRgb(childColor) : undefined
+        } as React.CSSProperties}
+      >
         <div className="section-header py-0.5 px-2 border-b border-border bg-border/10 flex items-center gap-1.5 shrink-0 group/child relative">
-          <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: child.color || section.color || 'var(--accent)' }} />
+          <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: childColor }} />
           <span className="text-[9px] font-bold text-text uppercase text-center flex-1 truncate">
             {child.name}
           </span>
@@ -96,7 +114,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         <RosterTable 
           contents={child.contents || []} 
           allContents={allContents}
-          accentColor={child.color || section.color || 'var(--accent)'} 
+          accentColor={childColor} 
           columns={child.columns || columns} 
           datasets={datasets}
           recordData={recordData}
@@ -190,8 +208,15 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   };
 
   if (section.type === 'master' || section.type === 'subsection') {
+    const effectiveColor = section.color || rosterColor || 'var(--accent)';
     return (
-      <div className="div-leadership w-full border border-border bg-card mb-4 group relative">
+      <div 
+        className="div-leadership w-full border border-border bg-card mb-4 group relative"
+        style={{ 
+          '--accent': effectiveColor,
+          '--accent-rgb': effectiveColor.startsWith('#') ? hexToRgb(effectiveColor) : undefined
+        } as React.CSSProperties}
+      >
         <div className="section-header py-0.5 px-2 border-b border-border bg-border/20 flex justify-between items-center">
           <span className="text-[9px] font-bold text-text uppercase">{section.name}</span>
           <div className="flex items-center gap-2">
@@ -209,7 +234,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           contents={section.contents || []} 
           allContents={allContents}
           isLeadership 
-          accentColor={section.color || 'var(--accent)'} 
+          accentColor={effectiveColor} 
           columns={columns} 
           datasets={datasets}
           recordData={recordData}
@@ -226,10 +251,18 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     );
   }
 
+  const effectiveColor = section.color || rosterColor || 'var(--accent)';
+
   return (
-    <div className="bureau-card border border-border rounded-lg bg-card shadow-[var(--sh)] flex flex-col group relative">
+    <div 
+      className="bureau-card border border-border rounded-lg bg-card shadow-[var(--sh)] flex flex-col group relative"
+      style={{ 
+        '--accent': effectiveColor,
+        '--accent-rgb': effectiveColor.startsWith('#') ? hexToRgb(effectiveColor) : undefined
+      } as React.CSSProperties}
+    >
       <div className="bureau-card-top flex h-[24px] items-stretch border-b border-border bg-surface shrink-0 rounded-t-lg overflow-hidden">
-        <div className="w-[5px] shrink-0" style={{ backgroundColor: section.color || 'var(--accent)' }} />
+        <div className="w-[5px] shrink-0" style={{ backgroundColor: effectiveColor }} />
         <div className="flex-1 flex items-center px-2 justify-center gap-1.5 overflow-hidden">
           <span className="font-bold text-[11px] text-text uppercase truncate">
             {section.name}
@@ -297,7 +330,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         <RosterTable 
           contents={section.contents || []} 
           allContents={allContents}
-          accentColor={section.color || 'var(--accent)'} 
+          accentColor={effectiveColor} 
           columns={columns} 
           datasets={datasets}
           recordData={recordData}

@@ -125,6 +125,11 @@ return [
                     'description' => 'Allows creating and deleting faction invite links.',
                     'type' => 'MODIFY',
                 ],
+                'manage_integrations' => [
+                    'name' => 'Manage Integrations',
+                    'description' => 'Allows setting up and managing third-party integrations (e.g., GTA:W).',
+                    'type' => 'MODIFY',
+                ],
             ],
         ],
         'records' => [

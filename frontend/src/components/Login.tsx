@@ -124,9 +124,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, isEmbedded = false }) => {
                             </div>
                         )}
                         {!isEmbedded && (
-                            <div className="text-center pt-4">
-                                <Link to={`/register${location.search}`} className="text-accent hover:text-accent/80 text-[10px] font-bold uppercase tracking-widest transition-colors">
+                            <div className="text-center pt-4 space-y-3">
+                                <Link to={`/register${location.search}`} className="text-accent hover:text-accent/80 text-[10px] font-bold uppercase tracking-widest transition-colors block">
                                     Don't have an account? Register
+                                </Link>
+                                <Link to="/welcome" className="text-muted hover:text-text text-[9px] font-bold uppercase tracking-widest transition-colors block">
+                                    About Project Antelope
                                 </Link>
                             </div>
                         )}

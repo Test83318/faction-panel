@@ -370,10 +370,12 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                         <h2 className="text-2xl font-black text-text uppercase tracking-tighter">Record Details</h2>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button onClick={() => openEditModal(selectedEntry)} className="p-2 bg-accent/10 text-accent hover:bg-accent hover:text-white rounded-lg transition-all"><Edit2 size={16} /></button>
-                    <button onClick={() => handleDeleteEntry(selectedEntry.id, true)} className="p-2 bg-danger/10 text-danger hover:bg-danger hover:text-white rounded-lg transition-all"><Trash2 size={16} /></button>
-                </div>
+                {!database.is_api_database && (
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => openEditModal(selectedEntry)} className="p-2 bg-accent/10 text-accent hover:bg-accent hover:text-white rounded-lg transition-all"><Edit2 size={16} /></button>
+                        <button onClick={() => handleDeleteEntry(selectedEntry.id, true)} className="p-2 bg-danger/10 text-danger hover:bg-danger hover:text-white rounded-lg transition-all"><Trash2 size={16} /></button>
+                    </div>
+                )}
             </div>
         );
 
@@ -570,10 +572,12 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                         </div>
                                     </td>
                                     <td className={`${isCompact ? 'p-2' : 'p-4'} text-right`}>
-                                        <div className="flex items-center justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                                            <button onClick={() => openEditModal(entry)} className="p-1.5 text-muted hover:text-accent rounded transition-colors"><Edit2 size={14} /></button>
-                                            <button onClick={() => handleDeleteEntry(entry.id)} className="p-1.5 text-muted hover:text-danger rounded transition-colors"><Trash2 size={14} /></button>
-                                        </div>
+                                        {!database.is_api_database && (
+                                            <div className="flex items-center justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                                                <button onClick={() => openEditModal(entry)} className="p-1.5 text-muted hover:text-accent rounded transition-colors"><Edit2 size={14} /></button>
+                                                <button onClick={() => handleDeleteEntry(entry.id)} className="p-1.5 text-muted hover:text-danger rounded transition-colors"><Trash2 size={14} /></button>
+                                            </div>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
@@ -612,10 +616,12 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                     <div className="text-[9px] font-bold text-muted uppercase tracking-widest">{entry.creator?.username}</div>
                                     <div className="text-[8px] font-bold text-muted/40 uppercase tracking-widest">{new Date(entry.created_at).toLocaleDateString()}</div>
                                 </div>
-                                <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity border-l border-border pl-4" onClick={e => e.stopPropagation()}>
-                                    <button onClick={() => openEditModal(entry)} className="p-1.5 text-muted hover:text-accent rounded transition-colors"><Edit2 size={14} /></button>
-                                    <button onClick={() => handleDeleteEntry(entry.id)} className="p-1.5 text-muted hover:text-danger rounded transition-colors"><Trash2 size={14} /></button>
-                                </div>
+                                {!database.is_api_database && (
+                                    <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity border-l border-border pl-4" onClick={e => e.stopPropagation()}>
+                                        <button onClick={() => openEditModal(entry)} className="p-1.5 text-muted hover:text-accent rounded transition-colors"><Edit2 size={14} /></button>
+                                        <button onClick={() => handleDeleteEntry(entry.id)} className="p-1.5 text-muted hover:text-danger rounded transition-colors"><Trash2 size={14} /></button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -641,10 +647,12 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                                     <span className="text-[8px] font-black text-danger uppercase tracking-widest">INACTIVE RECORD</span>
                                 )}
                             </div>
-                            <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                                <button onClick={() => openEditModal(entry)} className="p-1.5 text-muted hover:text-accent rounded transition-colors"><Edit2 size={14} /></button>
-                                <button onClick={() => handleDeleteEntry(entry.id)} className="p-1.5 text-muted hover:text-danger rounded transition-colors"><Trash2 size={14} /></button>
-                            </div>
+                            {!database.is_api_database && (
+                                <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                                    <button onClick={() => openEditModal(entry)} className="p-1.5 text-muted hover:text-accent rounded transition-colors"><Edit2 size={14} /></button>
+                                    <button onClick={() => handleDeleteEntry(entry.id)} className="p-1.5 text-muted hover:text-danger rounded transition-colors"><Trash2 size={14} /></button>
+                                </div>
+                            )}
                         </div>
                         
                         <div className={`space-y-4 mb-6 ${isDetailed ? 'divide-y divide-border/30' : ''}`}>
@@ -694,10 +702,18 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                         <ChevronLeft size={20} />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-black uppercase tracking-tighter text-text flex items-center gap-3">
-                            <Database className="text-accent" size={24} />
-                            {database.name}
-                        </h1>
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-2xl font-black uppercase tracking-tighter text-text flex items-center gap-3">
+                                <Database className="text-accent" size={24} />
+                                {database.name}
+                            </h1>
+                            {database.is_api_database && (
+                                <div className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded text-[7px] font-black text-blue-500 uppercase tracking-[0.2em] flex items-center gap-1.5 h-fit">
+                                    <div className="w-1 h-1 rounded-full bg-blue-500 animate-pulse" />
+                                    API Synchronized
+                                </div>
+                            )}
+                        </div>
                         <p className="text-[10px] font-bold text-muted uppercase tracking-widest mt-1">
                             Browsing records for {database.record_shortcode || 'DATABASE'}
                         </p>
@@ -711,7 +727,7 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                     >
                         <Filter size={16} />
                     </button>
-                    {hasDBPermission('make_entries') && (
+                    {hasDBPermission('make_entries') && !database.is_api_database && (
                         <button 
                             onClick={openCreateModal}
                             className="px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded font-bold text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-accent/20"

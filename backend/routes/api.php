@@ -19,6 +19,7 @@ use App\Http\Controllers\UploadController;
 use App\Http\Controllers\HelpController;
 use App\Http\Controllers\HelpAdminController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\IntegrationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -159,6 +160,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Audit Logs
     Route::get('/factions/{shortname}/audit-logs', [AuditLogController::class, 'index']);
     Route::get('/factions/{shortname}/audit-logs/{auditLog}', [AuditLogController::class, 'show']);
+
+    // GTA:W Integration
+    Route::get('/factions/{shortname}/integrations/gtaw/available', [IntegrationController::class, 'getAvailableFactions']);
+    Route::post('/factions/{shortname}/integrations/gtaw/setup', [IntegrationController::class, 'setupGtaw']);
+    Route::post('/factions/{shortname}/integrations/gtaw/sync', [IntegrationController::class, 'syncGtaw']);
+    Route::post('/factions/{shortname}/integrations/gtaw/prune', [IntegrationController::class, 'pruneGtaw']);
 
     // Help Center Public Routes
     Route::get('/help/categories', [HelpController::class, 'getCategories']);

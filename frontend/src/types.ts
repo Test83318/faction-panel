@@ -203,6 +203,7 @@ export interface Faction {
   gtaw_faction_id: number | null;
   faction_leader: number;
   allow_branding: boolean;
+  roster_template?: any;
   leader?: User;
   users_count?: number;
 }

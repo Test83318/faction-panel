@@ -3,7 +3,7 @@ import { motion, AnimatePresence, Reorder } from 'motion/react';
 import toast from 'react-hot-toast';
 import api from '../api';
 import { Roster as RosterType } from '../types';
-import { Plus, Pencil, MoreVertical, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Database, Menu, Flag } from 'lucide-react';
+import { Plus, Pencil, MoreVertical, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Database, Menu, Flag, FileCode2 } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 import RosterLayoutModal from './RosterLayoutModal';
 import SectionLayoutModal from './SectionLayoutModal';
@@ -11,6 +11,8 @@ import GlobalVariablesModal from './GlobalVariablesModal';
 import FlagManagerModal from './FlagManagerModal';
 import { RosterPermissionsModal } from './RosterPermissionsModal';
 import { ColumnsModal } from './ColumnsModal';
+import { RosterTemplateModal } from './RosterTemplateModal';
+import { hexToRgb } from '../utils';
 
 interface FactionRosterProps {
     activeDivision: any;
@@ -58,6 +60,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
   const [showPermissionsModal, setShowPermissionsModal] = useState<RosterType | null>(null);
   const [showVariablesModal, setShowVariablesModal] = useState(false);
   const [showFlagsModal, setShowFlagsModal] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showLayoutModal, setShowLayoutModal] = useState<RosterType | null>(null);
   const [showRosterContextMenu, setShowRosterContextMenu] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -293,7 +296,14 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full relative" onClick={() => setActiveMenuId(null)}>
+    <div 
+        className="flex flex-col h-full relative" 
+        onClick={() => setActiveMenuId(null)}
+        style={{
+            '--accent': activeDivision?.color,
+            '--accent-rgb': activeDivision?.color?.startsWith('#') ? hexToRgb(activeDivision.color) : undefined
+        } as React.CSSProperties}
+    >
       <main className="main flex-1 overflow-auto p-5 pb-16">
         <AnimatePresence mode="wait">
           <motion.div 
@@ -352,6 +362,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         recordData={recordData}
                         allContents={allContents}
                         editMode={editMode}
+                        rosterColor={activeDivision.color}
                         onRefresh={fetchRosters}
                     />
                 ))}
@@ -380,6 +391,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                             datasets={datasets}
                             allContents={allContents}
                             editMode={editMode}
+                            rosterColor={activeDivision.color}
                             onRefresh={fetchRosters}
                           />
                         );
@@ -410,6 +422,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         recordData={recordData}
                         allContents={allContents}
                         editMode={editMode}
+                        rosterColor={activeDivision.color}
                         onRefresh={fetchRosters}
                       />
                     ))}
@@ -488,7 +501,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                         setActiveMenuId(null);
                                     } else {
                                         const rect = e.currentTarget.getBoundingClientRect();
-                                        setMenuPosition({ left: rect.right });
+                                        setMenuPosition({ left: rect.left + rect.width / 2 });
                                         setActiveMenuId(roster.id);
                                     }
                                 }} 
@@ -502,7 +515,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                 className="fixed bottom-[var(--tab-h)] mb-2 bg-card border border-border rounded-lg shadow-2xl p-1 z-[999] min-w-[140px]"
                                 style={{ 
                                     left: menuPosition.left,
-                                    transform: 'translateX(-100%)'
+                                    transform: 'translateX(-50%)'
                                 }}
                                 onClick={(e) => e.stopPropagation()}
                             >
@@ -585,6 +598,10 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         <button 
                             onClick={(e) => {
                                 e.stopPropagation();
+                                if (!showRosterContextMenu) {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setMenuPosition({ left: rect.left + rect.width / 2 });
+                                }
                                 setShowRosterContextMenu(!showRosterContextMenu);
                             }}
                             className={`p-2 transition-colors ${showRosterContextMenu ? 'text-accent' : 'text-muted hover:text-accent'}`}
@@ -596,7 +613,10 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                             <div 
                                 className="fixed bottom-[var(--tab-h)] mb-2 bg-card border border-border rounded-lg shadow-2xl p-1 z-[999] min-w-[160px]"
                                 onClick={(e) => e.stopPropagation()}
-                                style={{ transform: 'translateX(-50%)' }}
+                                style={{ 
+                                    left: menuPosition.left,
+                                    transform: 'translateX(-50%)' 
+                                }}
                             >
                                 <button 
                                     onClick={() => {
@@ -608,7 +628,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                     <Database size={12} /> Global Variables
                                 </button>
                                 {canModifyFlags && (
-                                    <button 
+                                    <button
                                         onClick={() => {
                                             setShowFlagsModal(true);
                                             setShowRosterContextMenu(false);
@@ -618,8 +638,16 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                         <Flag size={12} /> Flag Manager
                                     </button>
                                 )}
-                            </div>
-                        )}
+                                <button
+                                    onClick={() => {
+                                        setShowTemplateModal(true);
+                                        setShowRosterContextMenu(false);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-accent hover:text-accent-light hover:bg-accent/5 rounded transition-colors"
+                                >
+                                    <FileCode2 size={12} /> Roster Template
+                                </button>
+                                </div>                        )}
                     </div>
                 )}
             </div>
@@ -865,6 +893,13 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                 setShowSectionLayoutModal(null);
                 fetchRosters();
             }}
+          />
+      )}
+
+      {showTemplateModal && (
+          <RosterTemplateModal 
+            shortname={shortname!}
+            onClose={() => setShowTemplateModal(false)}
           />
       )}
     </div>

@@ -65,6 +65,13 @@ class FactionRecordController extends Controller
             'is_published' => 'sometimes|boolean',
         ]);
 
+        if ($database->is_api_database) {
+            // Restrictions for API-managed databases
+            unset($validated['name']);
+            unset($validated['description']);
+            unset($validated['database_structure']);
+        }
+
         $database->update($validated);
 
         return response()->json($database);

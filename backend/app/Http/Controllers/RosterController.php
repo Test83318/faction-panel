@@ -105,6 +105,9 @@ class RosterController extends Controller
             'shortname' => 'required|string|max:6', // limited to 6 characters, uppercase will be handled or validated
             'color' => ['required', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'roster_options' => 'nullable|array',
+            'columns' => 'nullable|array',
+            'layout_settings' => 'nullable|array',
+            'default_sections_per_row' => 'nullable|integer|min:1|max:4',
         ]);
 
         $validated['shortname'] = strtoupper($validated['shortname']);
@@ -119,10 +122,19 @@ class RosterController extends Controller
             ['id' => 'callsign', 'name' => 'Callsign', 'type' => 'text', 'checkboxes' => []]
         ];
 
+        $template = $faction->roster_template ?? [];
+        $columns = $validated['columns'] ?? $template['columns'] ?? $defaultColumns;
+        $layoutSettings = $template['layout_settings'] ?? null;
+        $defaultSectionsPerRow = $template['default_sections_per_row'] ?? 1;
+        $rosterOptions = $validated['roster_options'] ?? $template['roster_options'] ?? null;
+
         $roster = $faction->rosters()->create([
             ...$validated,
             'order' => $maxOrder + 1,
-            'columns' => $validated['columns'] ?? $defaultColumns,
+            'columns' => $columns,
+            'layout_settings' => $layoutSettings,
+            'default_sections_per_row' => $defaultSectionsPerRow,
+            'roster_options' => $rosterOptions,
             'created_by' => Auth::id(),
         ]);
 

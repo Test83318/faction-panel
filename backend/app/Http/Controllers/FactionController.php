@@ -225,6 +225,7 @@ class FactionController extends Controller
             'access' => ['sometimes', Rule::in(['joinable', 'invite-only', 'private'])],
             'gtaw_faction_id' => ['sometimes', 'nullable', 'integer', Rule::unique('factions')->ignore($faction->id)],
             'faction_leader' => 'sometimes|exists:users,id',
+            'roster_template' => 'sometimes|nullable|array',
         ]);
 
         if (isset($validated['faction_leader']) && $faction->faction_leader !== Auth::id() && !Auth::user()->is_superadmin) {

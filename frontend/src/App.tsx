@@ -20,15 +20,13 @@ import FactionRoster from './components/FactionRoster';
 import FactionRecords from './components/FactionRecords';
 import GroupManagement from './components/GroupManagement';
 import Administration from './components/Administration';
+import GtawSync from './components/GtawSync';
 import AuditLogs from './components/AuditLogs';
+import Welcome from './components/Welcome';
 import GlobalLayout from './layouts/GlobalLayout';
 import FactionLayout from './layouts/FactionLayout';
 import { ShieldAlert } from 'lucide-react';
-
-const hexToRgb = (hex: string) => {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : null;
-};
+import { hexToRgb } from './utils';
 
 const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, siteVersion }: any) => {
   const { shortname } = useParams();
@@ -144,6 +142,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, siteVersion }: 
   const canViewGroups = user?.is_superadmin || permissions.includes('view_groups') || isGroupLeader;
   const canViewRecords = user?.is_superadmin || permissions.includes('view_faction_records');
   const canViewAuditLogs = user?.is_superadmin || permissions.includes('view_audit_logs');
+  const canViewGtawSync = (user?.is_superadmin || permissions.includes('manage_integrations')) && factionData?.gtaw_faction_id;
 
   if (location.pathname === `/${shortname}`) {
     return <Navigate to={`/${shortname}/roster`} replace />;
@@ -161,6 +160,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, siteVersion }: 
       canViewGroups={canViewGroups}
       canViewRecords={canViewRecords}
       canViewAuditLogs={canViewAuditLogs}
+      canViewGtawSync={canViewGtawSync}
       siteVersion={siteVersion}
     >
       <Routes>
@@ -201,6 +201,13 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, siteVersion }: 
             </main>
           ) : <Navigate to={`/${shortname}/roster`} />
         } />
+        <Route path="gtaw-sync" element={
+          canViewGtawSync ? (
+            <main className="main flex-1 overflow-auto p-5">
+              <GtawSync faction={factionData} user={user} />
+            </main>
+          ) : <Navigate to={`/${shortname}/roster`} />
+        } />
         <Route path="admin" element={
           canViewAdmin ? (
             <main className="main flex-1 overflow-auto p-5">
@@ -238,6 +245,10 @@ const TitleUpdater = ({ user }: { user: any }) => {
     }
     if (path === '/auth/gtaw/callback') {
       document.title = 'Faction Panel · Authentication Callback';
+      return;
+    }
+    if (path === '/welcome') {
+      document.title = 'Faction Panel · Welcome';
       return;
     }
     const shortname = firstSegment.toUpperCase();
@@ -352,6 +363,7 @@ export default function App() {
            <Route path="/help" element={<HelpCenter />} />
            <Route path="/help/category/:id" element={<HelpCategoryView />} />
            <Route path="/help/article/:slug" element={<HelpArticleView />} />
+           <Route path="/welcome" element={<Welcome />} />
         </Route>
 
         <Route path="/:shortname/*" element={

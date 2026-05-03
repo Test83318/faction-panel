@@ -300,10 +300,18 @@ export default function FactionRecords({ shortname, permissions, user }: Faction
                     <div key={db.id} className="bg-card border border-border rounded-xl overflow-hidden group hover:border-accent/50 transition-all flex flex-col shadow-sm hover:shadow-xl hover:shadow-accent/5">
                         <div className="p-6 flex-1">
                             <div className="flex items-start justify-between mb-4">
-                                <div className="p-3 bg-accent/10 rounded-lg text-accent">
-                                    <Database size={20} />
+                                <div className="flex items-center gap-3">
+                                    <div className="p-3 bg-accent/10 rounded-lg text-accent">
+                                        <Database size={20} />
+                                    </div>
+                                    {db.is_api_database && (
+                                        <div className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded text-[7px] font-black text-blue-500 uppercase tracking-[0.2em] flex items-center gap-1.5">
+                                            <div className="w-1 h-1 rounded-full bg-blue-500 animate-pulse" />
+                                            API Synchronized
+                                        </div>
+                                    )}
                                 </div>
-                                {isGlobalMod && (
+                                        {isGlobalMod && (
                                     <div className="flex items-center gap-1">
                                         <button 
                                             onClick={() => setPermissionsModal(db)}
@@ -319,13 +327,15 @@ export default function FactionRecords({ shortname, permissions, user }: Faction
                                         >
                                             <Settings2 size={16} />
                                         </button>
-                                        <button 
-                                            onClick={() => handleDelete(db.id)}
-                                            className="p-2 text-muted hover:text-danger transition-colors"
-                                            title="Delete Database"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
+                                        {!db.is_api_database && (
+                                            <button 
+                                                onClick={() => handleDelete(db.id)}
+                                                className="p-2 text-muted hover:text-danger transition-colors"
+                                                title="Delete Database"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -433,10 +443,11 @@ export default function FactionRecords({ shortname, permissions, user }: Faction
                                             <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Database Name</label>
                                             <input 
                                                 required
+                                                disabled={editMode?.is_api_database}
                                                 type="text"
                                                 value={formData.name}
                                                 onChange={e => setFormData({ ...formData, name: e.target.value })}
-                                                className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition"
+                                                className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition disabled:opacity-50"
                                                 placeholder="e.g. Personnel Profiles"
                                             />
                                         </div>
@@ -444,9 +455,10 @@ export default function FactionRecords({ shortname, permissions, user }: Faction
                                         <div>
                                             <label className="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1.5">Description</label>
                                             <textarea 
+                                                disabled={editMode?.is_api_database}
                                                 value={formData.description}
                                                 onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                                className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition min-h-[80px]"
+                                                className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition min-h-[80px] disabled:opacity-50"
                                                 placeholder="Describe the purpose of this database..."
                                             />
                                         </div>
@@ -536,60 +548,69 @@ export default function FactionRecords({ shortname, permissions, user }: Faction
                                         <h3 className="text-[10px] font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
                                             <Columns size={12} /> Database Structure
                                         </h3>
-                                        <button 
-                                            type="button"
-                                            onClick={addField}
-                                            className="text-[9px] font-black uppercase tracking-widest bg-accent/10 text-accent hover:bg-accent hover:text-white px-2 py-1 rounded transition-all flex items-center gap-1"
-                                        >
-                                            <Plus size={10} /> Add Field
-                                        </button>
+                                        {!editMode?.is_api_database && (
+                                            <button 
+                                                type="button"
+                                                onClick={addField}
+                                                className="text-[9px] font-black uppercase tracking-widest bg-accent/10 text-accent hover:bg-accent hover:text-white px-2 py-1 rounded transition-all flex items-center gap-1"
+                                            >
+                                                <Plus size={10} /> Add Field
+                                            </button>
+                                        )}
                                     </div>
 
                                     <div className="space-y-3">
                                         {formData.database_structure.map((field, idx) => (
                                             <div key={field.id} className="bg-surface border border-border p-4 rounded-xl space-y-4 group/field relative">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="flex flex-col gap-1">
-                                                        <button type="button" onClick={() => moveField(idx, 'up')} className="text-muted hover:text-accent disabled:opacity-0" disabled={idx === 0}><ChevronUp size={14} /></button>
-                                                        <button type="button" onClick={() => moveField(idx, 'down')} className="text-muted hover:text-accent disabled:opacity-0" disabled={idx === formData.database_structure.length - 1}><ChevronDown size={14} /></button>
-                                                    </div>
+                                                    {!editMode?.is_api_database && (
+                                                        <div className="flex flex-col gap-1">
+                                                            <button type="button" onClick={() => moveField(idx, 'up')} className="text-muted hover:text-accent disabled:opacity-0" disabled={idx === 0}><ChevronUp size={14} /></button>
+                                                            <button type="button" onClick={() => moveField(idx, 'down')} className="text-muted hover:text-accent disabled:opacity-0" disabled={idx === formData.database_structure.length - 1}><ChevronDown size={14} /></button>
+                                                        </div>
+                                                    )}
                                                     <div className="flex-1">
                                                         <input 
+                                                            disabled={editMode?.is_api_database}
                                                             value={field.name}
                                                             onChange={e => updateField(field.id, { name: e.target.value })}
                                                             placeholder="Field Name (e.g. Callsign)"
-                                                            className="w-full bg-transparent border-none p-0 text-sm font-bold text-text focus:ring-0 outline-none placeholder:text-muted/40"
+                                                            className="w-full bg-transparent border-none p-0 text-sm font-bold text-text focus:ring-0 outline-none placeholder:text-muted/40 disabled:opacity-50"
                                                         />
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <select 
+                                                            disabled={editMode?.is_api_database}
                                                             value={field.type}
                                                             onChange={e => updateField(field.id, { type: e.target.value })}
-                                                            className="bg-card border border-border rounded px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-muted focus:border-accent outline-none cursor-pointer"
+                                                            className="bg-card border border-border rounded px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-muted focus:border-accent outline-none cursor-pointer disabled:opacity-50"
                                                         >
                                                             {FIELD_TYPES.map(t => (
                                                                 <option key={t.value} value={t.value}>{t.label}</option>
                                                             ))}
                                                         </select>
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => removeField(field.id)}
-                                                            className="p-1.5 text-muted hover:text-danger hover:bg-danger/10 rounded transition-colors"
-                                                        >
-                                                            <X size={14} />
-                                                        </button>
+                                                        {!editMode?.is_api_database && (
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => removeField(field.id)}
+                                                                className="p-1.5 text-muted hover:text-danger hover:bg-danger/10 rounded transition-colors"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
 
                                                 <div className="flex items-center gap-6 pt-2 border-t border-border/50">
-                                                    <label className="flex items-center gap-2 cursor-pointer group">
+                                                    <label className={`flex items-center gap-2 ${editMode?.is_api_database ? 'cursor-default' : 'cursor-pointer'} group`}>
                                                         <input 
+                                                            disabled={editMode?.is_api_database}
                                                             type="checkbox"
                                                             checked={field.required}
                                                             onChange={e => updateField(field.id, { required: e.target.checked })}
                                                             className="hidden"
                                                         />
-                                                        <div className={`w-3.5 h-3.5 rounded border transition-all flex items-center justify-center ${field.required ? 'bg-accent border-accent' : 'border-muted group-hover:border-accent'}`}>
+                                                        <div className={`w-3.5 h-3.5 rounded border transition-all flex items-center justify-center ${field.required ? 'bg-accent border-accent' : 'border-muted group-hover:border-accent'} ${editMode?.is_api_database ? 'opacity-50' : ''}`}>
                                                             {field.required && <X size={10} className="text-white rotate-45" />}
                                                         </div>
                                                         <span className="text-[9px] font-black uppercase tracking-widest text-muted group-hover:text-accent transition-colors">Required Field</span>
@@ -600,9 +621,10 @@ export default function FactionRecords({ shortname, permissions, user }: Faction
                                                     <div className="pt-2">
                                                         <label className="block text-[8px] font-black text-muted uppercase tracking-[0.2em] mb-2">Options (Comma separated)</label>
                                                         <input 
+                                                            disabled={editMode?.is_api_database}
                                                             value={field.options?.join(', ') || ''}
                                                             onChange={e => updateField(field.id, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })}
-                                                            className="w-full bg-card border border-border p-2 rounded text-[10px] text-text focus:border-accent outline-none"
+                                                            className="w-full bg-card border border-border p-2 rounded text-[10px] text-text focus:border-accent outline-none disabled:opacity-50"
                                                             placeholder="Option 1, Option 2, Option 3"
                                                         />
                                                     </div>

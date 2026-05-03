@@ -5,6 +5,7 @@ import { Plus, Trash2, Check, X, Pencil, Tag, ExternalLink } from 'lucide-react'
 import * as LucideIcons from 'lucide-react';
 import api from '../api';
 import toast from 'react-hot-toast';
+import { hexToRgb } from '../utils';
 
 export interface RosterColumn {
   id: string;
@@ -247,19 +248,23 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                         let changed = false;
 
                         col.checkboxes.forEach((cb: any) => {
-                            if (typeof cb === 'object' && cb.auto_apply) {
-                                const { db_column, match_value } = cb.auto_apply;
+                            if (typeof cb === 'object' && (cb.auto_apply || cb.auto_apply_field)) {
+                                const db_column = cb.auto_apply_field || cb.auto_apply?.db_column;
+                                const match_value = cb.auto_apply_value !== undefined ? cb.auto_apply_value : cb.auto_apply?.match_value;
+                                
                                 const dbVal = (db_column === 'id') ? String(entry.entry_id) : entry.data?.[db_column];
                                 
-                                const isMatch = dbVal && match_value && dbVal.toString().toLowerCase().includes(match_value.toLowerCase());
+                                let isMatch = false;
+                                if (match_value) {
+                                    isMatch = dbVal && dbVal.toString().toLowerCase().includes(match_value.toLowerCase());
+                                } else {
+                                    isMatch = !!dbVal;
+                                }
                                 
                                 if (isMatch && !currentCbs.includes(cb.label)) {
                                     currentCbs.push(cb.label);
                                     changed = true;
                                 } else if (!isMatch && currentCbs.includes(cb.label)) {
-                                    // Remove if it no longer matches?
-                                    // User said "if someone removes the tag it should be removed until the name is changed"
-                                    // This implies we SHOULD re-evaluate and potentially remove if it doesn't match the NEW name.
                                     const idx = currentCbs.indexOf(cb.label);
                                     currentCbs.splice(idx, 1);
                                     changed = true;
@@ -277,11 +282,18 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                         let changed = false;
 
                         col.tags.forEach((tag: any) => {
-                            if (typeof tag === 'object' && tag.auto_apply) {
-                                const { db_column, match_value } = tag.auto_apply;
+                            if (typeof tag === 'object' && (tag.auto_apply || tag.auto_apply_field)) {
+                                const db_column = tag.auto_apply_field || tag.auto_apply?.db_column;
+                                const match_value = tag.auto_apply_value !== undefined ? tag.auto_apply_value : tag.auto_apply?.match_value;
+                                
                                 const dbVal = (db_column === 'id') ? String(entry.entry_id) : entry.data?.[db_column];
                                 
-                                const isMatch = dbVal && match_value && dbVal.toString().toLowerCase().includes(match_value.toLowerCase());
+                                let isMatch = false;
+                                if (match_value) {
+                                    isMatch = dbVal && dbVal.toString().toLowerCase().includes(match_value.toLowerCase());
+                                } else {
+                                    isMatch = !!dbVal;
+                                }
                                 
                                 if (isMatch && !currentTags.includes(tag.label)) {
                                     currentTags.push(tag.label);
@@ -754,7 +766,13 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   };
 
   return (
-    <div className={`rt-wrap ${editingRowId ? 'z-[5000]' : 'overflow-x-auto'}`}>
+    <div 
+      className={`rt-wrap ${editingRowId ? 'z-[5000]' : 'overflow-x-auto'}`}
+      style={{ 
+        '--accent': accentColor,
+        '--accent-rgb': accentColor?.startsWith('#') ? hexToRgb(accentColor) : undefined
+      } as React.CSSProperties}
+    >
       <table className={`rt-table ${isLeadership ? 'bg-border/5' : ''}`}>
         <colgroup>
           <col className="w-[24px]" />

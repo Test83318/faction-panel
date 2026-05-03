@@ -165,8 +165,11 @@ class AuthController extends Controller
                 if (!$user->gtaw_id) {
                     $user->update([
                         'gtaw_id' => $gtawId,
-                        'gtaw_username' => $gtawUsername
+                        'gtaw_username' => $gtawUsername,
+                        'gtaw_access_token' => $accessToken
                     ]);
+                } else {
+                    $user->update(['gtaw_access_token' => $accessToken]);
                 }
             } else {
                 // Create new user
@@ -174,9 +177,12 @@ class AuthController extends Controller
                     'username' => $gtawUsername,
                     'gtaw_id' => $gtawId,
                     'gtaw_username' => $gtawUsername,
+                    'gtaw_access_token' => $accessToken,
                     'password' => null, // No password for GTA:W users
                 ]);
             }
+        } else {
+            $user->update(['gtaw_access_token' => $accessToken]);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;

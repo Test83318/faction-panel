@@ -39,7 +39,12 @@ class Faction extends Model
         'access',
         'gtaw_faction_id',
         'faction_leader',
+        'roster_template',
         'created_by',
+    ];
+
+    protected $casts = [
+        'roster_template' => 'array',
     ];
 
     public function invites()

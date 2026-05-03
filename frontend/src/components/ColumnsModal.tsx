@@ -113,6 +113,16 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortn
                         />
                       </div>
                       <div>
+                        <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">Column ID (System)</label>
+                        <input 
+                          value={col.id} 
+                          onChange={(e) => updateColumn(index, 'id', e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+                          className="w-full bg-bg border border-border p-2 rounded text-sm text-text focus:border-accent outline-none font-mono" 
+                          placeholder="column_id"
+                        />
+                      </div>
+                    </div>
+                    <div>
                         <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">Column Type</label>
                         <select 
                           value={col.type} 
@@ -130,7 +140,6 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortn
                           <option value="database_data">Database Data Column</option>
                         </select>
                       </div>
-                    </div>
 
                     {col.type === 'database_data' && (
                         <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 space-y-4">

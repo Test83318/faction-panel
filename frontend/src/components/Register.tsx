@@ -183,9 +183,12 @@ const Register: React.FC<RegisterProps> = ({ onLogin, isEmbedded = false }) => {
                             </div>
                         )}
                         {!isEmbedded && (
-                            <div className="text-center pt-2">
-                                <Link to={`/login${location.search}`} className="text-accent hover:text-accent/80 text-[10px] font-bold uppercase tracking-widest transition-colors">
+                            <div className="text-center pt-2 space-y-3">
+                                <Link to={`/login${location.search}`} className="text-accent hover:text-accent/80 text-[10px] font-bold uppercase tracking-widest transition-colors block">
                                     Already have an account? Sign In
+                                </Link>
+                                <Link to="/welcome" className="text-muted hover:text-text text-[9px] font-bold uppercase tracking-widest transition-colors block">
+                                    About Project Antelope
                                 </Link>
                             </div>
                         )}

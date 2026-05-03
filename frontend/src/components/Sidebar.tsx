@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Users, Settings, Layers, Database, History } from 'lucide-react';
+import { Users, Settings, Layers, Database, History, RefreshCw } from 'lucide-react';
 
 interface SidebarProps {
   shortname: string;
@@ -8,6 +8,7 @@ interface SidebarProps {
   canViewGroups: boolean;
   canViewRecords: boolean;
   canViewAuditLogs: boolean;
+  canViewGtawSync?: boolean;
   user: any | null;
   siteVersion?: string;
   customFooterText?: string | null;
@@ -19,6 +20,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   canViewGroups, 
   canViewRecords, 
   canViewAuditLogs,
+  canViewGtawSync = false,
   user, 
   siteVersion = '1.0.0', 
   customFooterText 
@@ -61,6 +63,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <History size={14} />
             Audit Logs
+          </NavLink>
+        )}
+
+        {canViewGtawSync && (
+          <NavLink 
+            to={`/${shortname}/gtaw-sync`}
+            className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
+          >
+            <RefreshCw size={14} />
+            GTA:W Sync
           </NavLink>
         )}
 

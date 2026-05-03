@@ -29,12 +29,12 @@ class FactionRecordEntryController extends Controller
 
     public function store(Request $request, string $shortname, FactionRecordDatabase $database)
     {
-        if (!User::hasRecordPermission(Auth::user(), $database, 'make_entries')) {
+        if (!User::hasRecordPermission(Auth::user(), $database, 'add_entries')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         if ($database->is_api_database) {
-            return response()->json(['message' => 'Cannot manually create entries in an API database'], 403);
+            return response()->json(['message' => 'This database is managed by an external API and cannot be modified manually.'], 403);
         }
 
         $validated = $request->validate([
@@ -202,7 +202,7 @@ class FactionRecordEntryController extends Controller
         }
 
         if ($database->is_api_database) {
-            return response()->json(['message' => 'Cannot manually modify entries in an API database'], 403);
+            return response()->json(['message' => 'This database is managed by an external API and cannot be modified manually.'], 403);
         }
 
         $validated = $request->validate([
@@ -236,6 +236,10 @@ class FactionRecordEntryController extends Controller
 
         if ($entry->database_id !== $database->id) {
             return response()->json(['message' => 'Entry does not belong to this database'], 404);
+        }
+
+        if ($database->is_api_database) {
+            return response()->json(['message' => 'This database is managed by an external API and cannot be modified manually.'], 403);
         }
 
         $entry->delete();

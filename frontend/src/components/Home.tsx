@@ -171,7 +171,14 @@ const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme, siteVersion =
                             </>
                         )}
                         
-                        <div className="mt-8 pt-8 border-t border-border/50 text-center">
+                        <div className="mt-8 pt-8 border-t border-border/50 text-center flex flex-col items-center">
+                            <Link 
+                                to="/welcome"
+                                className="inline-flex items-center gap-2 mb-2 text-muted hover:text-accent text-[10px] font-bold uppercase tracking-widest transition-colors"
+                            >
+                                <span className="p-1 bg-accent/5 rounded border border-accent/10"><Globe size={12} className="text-accent" /></span>
+                                Learn more about Project Antelope
+                            </Link>
                             <Link 
                                 to="/help"
                                 className="inline-flex items-center gap-2 mb-4 text-muted hover:text-accent text-[10px] font-bold uppercase tracking-widest transition-colors"
