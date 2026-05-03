@@ -18,6 +18,19 @@ const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme, siteVersion =
     const [loading, setLoading] = useState(true);
     const [registrationEnabled, setRegistrationEnabled] = useState(true);
     const [gtawEnabled, setGtawEnabled] = useState(false);
+    
+    const words = ['organization', 'faction', 'business', 'group', 'department'];
+    const [currentWord, setCurrentWord] = useState(words[0]);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setCurrentWord(prev => {
+                const currentIndex = words.indexOf(prev);
+                return words[(currentIndex + 1) % words.length];
+            });
+        }, 3000);
+        return () => clearInterval(interval);
+    }, []);
 
     useEffect(() => {
         const checkStatus = async () => {
@@ -62,15 +75,40 @@ const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme, siteVersion =
                         </div>
                         
                         <h2 className="text-5xl font-extrabold mb-6 leading-tight text-text">
-                            Manage your organization <br />
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-accent/60">
-                                with precision.
+                            <span className="flex items-center gap-x-[0.2em] whitespace-nowrap">
+                                <span>Manage your</span>
+                                <span className="relative inline-block min-w-[280px] h-[1.2em] overflow-hidden">
+                                    {words.map((word) => {
+                                        const isCurrent = currentWord === word;
+                                        const currentIndex = words.indexOf(currentWord);
+                                        const wordIndex = words.indexOf(word);
+                                        const isPrevious = wordIndex === (currentIndex === 0 ? words.length - 1 : currentIndex - 1);
+
+                                        return (
+                                            <span
+                                                key={word}
+                                                className={`absolute left-0 transition-all duration-700 ease-in-out ${
+                                                    isCurrent 
+                                                        ? 'opacity-100 translate-y-0' 
+                                                        : isPrevious
+                                                            ? 'opacity-0 -translate-y-8'
+                                                            : 'opacity-0 translate-y-8'
+                                                }`}
+                                            >
+                                                {word}
+                                            </span>
+                                        );
+                                    })}
+                                </span>
+                            </span>
+                            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-accent to-accent/60">
+                                with ease.
                             </span>
                         </h2>
                         
                         <p className="text-muted text-lg mb-12 leading-relaxed">
                             A centralized hub for factions, departments, and organizations. 
-                            Streamline your operations, manage rosters, and coordinate across multiple universes.
+                            Streamline your operations, manage rosters, and utilize the many integrations.
                         </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -88,7 +126,7 @@ const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme, siteVersion =
                                     <Globe size={20} className="text-accent" />
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-text uppercase text-xs tracking-widest mb-1">Multi-Universe</h4>
+                                    <h4 className="font-bold text-text uppercase text-xs tracking-widest mb-1">Multi-Database</h4>
                                     <p className="text-muted text-sm">Support for multiple independent faction environments.</p>
                                 </div>
                             </div>
@@ -98,7 +136,7 @@ const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme, siteVersion =
 
                 {/* Right Side: Login/Register Form */}
                 <div className="lg:w-[500px] flex items-center justify-center p-8 bg-surface/50 backdrop-blur-xl border-l border-border relative">
-                    <div className="w-full max-w-sm">
+                    <div className="w-full max-sm:max-w-xs">
                         {loading ? (
                             <Loading message="Initializing System..." fullScreen={false} />
                         ) : (
