@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Users, Settings, Layers, Database } from 'lucide-react';
+import { Users, Settings, Layers, Database, HelpCircle } from 'lucide-react';
 
 interface SidebarProps {
   shortname: string;

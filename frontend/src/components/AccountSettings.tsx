@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Loading from './Loading';
 import toast from 'react-hot-toast';
-import { Shield, ArrowLeft, Key, Link as LinkIcon, LogOut, User as UserIcon, Check } from 'lucide-react';
+import { ArrowLeft, Key, Link as LinkIcon, LogOut, User as UserIcon, Check, Shield } from 'lucide-react';
+import { Header } from './Header';
 
 interface AccountSettingsProps {
     isDark: boolean;
@@ -12,9 +13,9 @@ interface AccountSettingsProps {
     onLogout: () => void;
 }
 
-const AccountSettings: React.FC<AccountSettingsProps> = ({ isDark, toggleTheme, user: initialUser, onLogout }) => {
+const AccountSettings: React.FC = () => {
     const navigate = useNavigate();
-    const [user, setUser] = useState<any>(initialUser);
+    const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
     
@@ -104,23 +105,7 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({ isDark, toggleTheme, 
     if (loading) return <Loading message="Loading Settings..." />;
 
     return (
-        <div className="min-h-screen bg-bg text-text transition-colors duration-200">
-            {/* Minimal Header */}
-            <header className="h-[var(--nav-h)] bg-surface border-b border-border flex items-center px-6 sticky top-0 z-[300]">
-                <div 
-                    onClick={() => navigate('/')}
-                    className="flex items-center gap-2 text-accent font-black uppercase italic tracking-tighter text-lg cursor-pointer hover:opacity-80 transition-opacity"
-                >
-                    <Shield size={20} fill="currentColor" fillOpacity={0.2} />
-                    Faction Panel
-                </div>
-                <div className="flex-1" />
-                <div className="flex items-center gap-4">
-                    <span className="text-[10px] font-bold text-muted uppercase tracking-widest">{user?.username}</span>
-                </div>
-            </header>
-
-            <div className="max-w-4xl mx-auto p-8">
+        <div className="max-w-4xl mx-auto p-8">
                 <div className="mb-12">
                     <button 
                         onClick={() => navigate('/')}
@@ -297,7 +282,6 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({ isDark, toggleTheme, 
                     </div>
                 </div>
             </div>
-        </div>
     );
 };
 

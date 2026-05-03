@@ -60,6 +60,9 @@ export interface RosterSection {
   order: number;
   parent_id: number | null;
   section_options: any;
+  columns?: any;
+  layout_settings?: any;
+  subsections_per_row?: number;
   children?: RosterSection[];
   contents?: RosterContent[];
 }
@@ -73,6 +76,8 @@ export interface Roster {
   order: number;
   roster_options: any;
   columns?: any;
+  layout_settings?: any;
+  default_sections_per_row?: number;
   root_sections?: RosterSection[];
 }
 
@@ -160,6 +165,29 @@ export interface User {
   allow_custom_branding: boolean;
   factions_count?: number;
   roles?: Role[];
+}
+
+export interface HelpCategory {
+  id: number;
+  name: string;
+  icon: string | null;
+  order: number;
+  articles_count?: number;
+  articles?: HelpArticle[];
+}
+
+export interface HelpArticle {
+  id: number;
+  category_id: number;
+  title: string;
+  slug: string;
+  content: string;
+  order: number;
+  is_published: boolean;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+  category?: HelpCategory;
 }
 
 export interface Faction {

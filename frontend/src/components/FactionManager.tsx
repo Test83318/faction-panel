@@ -3,7 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 import Loading from './Loading';
 import toast from 'react-hot-toast';
-import { Moon, Sun, Plus, Search, LogOut, Shield, User, ChevronDown, Settings, ShieldAlert, Layers, Database } from 'lucide-react';
+import { Moon, Sun, Plus, Search, LogOut, Shield, User, ChevronDown, Settings, ShieldAlert, Layers, Database, HelpCircle } from 'lucide-react';
+import { Header } from './Header';
 
 interface FactionManagerProps {
     isDark: boolean;
@@ -12,14 +13,15 @@ interface FactionManagerProps {
     onLogout: () => void;
 }
 
-const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, user, onLogout }) => {
+const FactionManager: React.FC = () => {
     const navigate = useNavigate();
     const [myFactions, setMyFactions] = useState<any[]>([]);
     const [showCreate, setShowCreate] = useState(false);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
-    const [showDropdown, setShowDropdown] = useState(false);
-    const dropdownRef = useRef<HTMLDivElement>(null);
+    
+    // User state for limits
+    const [user, setUser] = useState<any>(null);
 
     // Form states
     const [name, setName] = useState('');
@@ -31,8 +33,12 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
 
     const fetchData = async () => {
         try {
-            const myRes = await api.get('/factions');
+            const [myRes, userRes] = await Promise.all([
+                api.get('/factions'),
+                api.get('/user')
+            ]);
             setMyFactions(myRes.data);
+            setUser(userRes.data);
         } catch (err) {
             toast.error('Failed to fetch factions');
             console.error('Failed to fetch factions', err);
@@ -43,14 +49,6 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
 
     useEffect(() => {
         fetchData();
-
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setShowDropdown(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     const handleCreate = async (e: React.FormEvent) => {
@@ -82,88 +80,7 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
     if (loading) return <Loading message="Loading Factions..." />;
 
     return (
-        <div className="min-h-screen bg-bg text-text transition-colors duration-200">
-            {/* Minimal Header for Faction Selection */}
-            <header className="h-[var(--nav-h)] bg-surface border-b border-border flex items-center px-6 sticky top-0 z-[300]">
-                <div 
-                    onClick={() => navigate('/')}
-                    className="flex items-center gap-2 text-accent font-black uppercase italic tracking-tighter text-lg cursor-pointer hover:opacity-80 transition-opacity"
-                >
-                    <Shield size={20} fill="currentColor" fillOpacity={0.2} />
-                    Faction Panel
-                </div>
-                <div className="flex-1" />
-                <div className="flex items-center gap-4">
-                    <button 
-                        onClick={toggleTheme}
-                        className="p-1.5 text-muted hover:text-accent transition-colors"
-                    >
-                        {isDark ? <Sun size={18} /> : <Moon size={18} />}
-                    </button>
-                    <div className="h-4 w-[1px] bg-border mx-2" />
-                    
-                    <div className="relative" ref={dropdownRef}>
-                        <button 
-                            onClick={() => setShowDropdown(!showDropdown)}
-                            className="flex items-center gap-3 hover:bg-border/30 p-1.5 rounded-lg transition-colors group"
-                        >
-                            <span className="text-[10px] font-bold text-muted uppercase tracking-widest">{user?.username}</span>
-                            <div className="w-7 h-7 rounded-full bg-border flex items-center justify-center text-muted">
-                                <User size={14} />
-                            </div>
-                            <ChevronDown size={14} className={`text-muted transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
-                        </button>
-
-                        {showDropdown && (
-                            <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-xl shadow-2xl py-2 z-[400] animate-in fade-in slide-in-from-top-2 duration-200">
-                                <div className="px-4 py-2 border-b border-border mb-2">
-                                    <p className="text-[10px] font-bold text-muted uppercase tracking-widest">Signed in as</p>
-                                    <p className="text-xs font-black truncate">{user?.username}</p>
-                                </div>
-
-                                <button 
-                                    onClick={() => {
-                                        navigate('/account/settings');
-                                        setShowDropdown(false);
-                                    }}
-                                    className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface transition-colors"
-                                >
-                                    <Settings size={14} />
-                                    Account Settings
-                                </button>
-
-                                {user?.is_superadmin && (
-                                    <button 
-                                        onClick={() => {
-                                            navigate('/superadmin');
-                                            setShowDropdown(false);
-                                        }}
-                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-[#FFD700] hover:bg-[#FFD700]/10 transition-colors"
-                                    >
-                                        <ShieldAlert size={14} />
-                                        Superadmin Panel
-                                    </button>
-                                )}
-
-                                <div className="border-t border-border mt-2 pt-2">
-                                    <button 
-                                        onClick={() => {
-                                            onLogout();
-                                            setShowDropdown(false);
-                                        }}
-                                        className="w-full flex items-center gap-3 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-red-500 hover:bg-red-500/10 transition-colors"
-                                    >
-                                        <LogOut size={14} />
-                                        Logout
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </header>
-
-            <div className="max-w-6xl mx-auto p-8">
+        <div className="max-w-6xl mx-auto p-8">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
                     <div>
                         <h1 className="text-4xl font-black tracking-tighter uppercase italic mb-1">Your Organizations</h1>
@@ -298,7 +215,6 @@ const FactionManager: React.FC<FactionManagerProps> = ({ isDark, toggleTheme, us
                     </div>
                 )}
             </div>
-        </div>
     );
 };
 

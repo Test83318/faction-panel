@@ -16,6 +16,8 @@ use App\Http\Controllers\FactionRecordPermissionController;
 use App\Http\Controllers\FactionRecordEntryController;
 use App\Http\Controllers\SuperadminController;
 use App\Http\Controllers\UploadController;
+use App\Http\Controllers\HelpController;
+use App\Http\Controllers\HelpAdminController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -152,4 +154,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/factions/{shortname}/records/{database}/entries/{entry}', [FactionRecordEntryController::class, 'show']);
     Route::put('/factions/{shortname}/records/{database}/entries/{entry}', [FactionRecordEntryController::class, 'update']);
     Route::delete('/factions/{shortname}/records/{database}/entries/{entry}', [FactionRecordEntryController::class, 'destroy']);
+
+    // Help Center Public Routes
+    Route::get('/help/categories', [HelpController::class, 'getCategories']);
+    Route::get('/help/categories/{category}/articles', [HelpController::class, 'getCategoryArticles']);
+    Route::get('/help/articles/search', [HelpController::class, 'search']);
+    Route::get('/help/articles/{slug}', [HelpController::class, 'getArticle']);
+
+    // Help Center Admin Routes
+    Route::prefix('help/admin')->group(function () {
+        Route::get('/categories', [HelpAdminController::class, 'getCategories']);
+        Route::post('/categories', [HelpAdminController::class, 'storeCategory']);
+        Route::put('/categories/{category}', [HelpAdminController::class, 'updateCategory']);
+        Route::delete('/categories/{category}', [HelpAdminController::class, 'deleteCategory']);
+
+        Route::get('/articles', [HelpAdminController::class, 'getArticles']);
+        Route::post('/articles', [HelpAdminController::class, 'storeArticle']);
+        Route::put('/articles/{article}', [HelpAdminController::class, 'updateArticle']);
+        Route::delete('/articles/{article}', [HelpAdminController::class, 'deleteArticle']);
+    });
 });

@@ -122,7 +122,7 @@ class FactionController extends Controller
 
         // Include Roster Data
         $rosters = $faction->rosters()
-            ->with(['rootSections.children.contents', 'rootSections.contents'])
+            ->with(['rootSections.children.children.contents', 'rootSections.children.contents', 'rootSections.contents'])
             ->orderBy('order')
             ->get();
         

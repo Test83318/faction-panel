@@ -37,6 +37,82 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   const canEditSection = canModerate || permissions?.add_sections;
   const canAddChildSection = canModerate || permissions?.add_sections;
 
+  const renderChild = (child: RosterSection) => {
+    const isSubsection = child.type === 'subsection';
+    
+    if (isSubsection) {
+      return (
+        <div key={child.id} className="unit-section border-t border-border bg-card group/child relative">
+          <div className="section-header py-0.5 px-2 border-b border-border bg-border/20 flex justify-between items-center">
+            <div className="flex items-center gap-1.5 overflow-hidden">
+                <span className="text-[9px] font-bold text-text uppercase truncate">{child.name}</span>
+            </div>
+            {canEditSection && (
+                <button 
+                    onClick={() => onEdit?.(child)}
+                    className="p-1 hover:bg-surface rounded text-muted hover:text-text opacity-0 group-hover/child:opacity-100 transition-opacity"
+                >
+                    <MoreHorizontal size={12} />
+                </button>
+            )}
+          </div>
+          <RosterTable 
+            contents={child.contents || []} 
+            allContents={allContents}
+            accentColor={child.color || section.color || 'var(--accent)'} 
+            columns={child.columns || columns} 
+            datasets={datasets}
+            recordData={recordData}
+            flags={flags}
+            editMode={editMode}
+            canModerate={canModerate}
+            permissions={permissions}
+            onAddRow={() => handleAddRow(child.id)}
+            onUpdateRow={handleUpdateRow}
+            onDeleteRow={handleDeleteRow}
+            onBulkDeleteRow={handleBulkDeleteRows}
+          />
+        </div>
+      );
+    }
+
+    // Regular section style (compact)
+    return (
+      <div key={child.id} className="unit-section group/child relative">
+        <div className="section-header py-0.5 px-2 border-b border-border bg-border/10 flex items-center gap-1.5 shrink-0 group/child relative">
+          <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: child.color || section.color || 'var(--accent)' }} />
+          <span className="text-[9px] font-bold text-text uppercase text-center flex-1 truncate">
+            {child.name}
+          </span>
+          {canEditSection && (
+              <button 
+                  onClick={() => onEdit?.(child)}
+                  className="absolute right-1 opacity-0 group-hover/child:opacity-100 p-0.5 hover:bg-bg rounded text-muted hover:text-text transition-opacity"
+              >
+                  <MoreHorizontal size={10} />
+              </button>
+          )}
+        </div>
+        <RosterTable 
+          contents={child.contents || []} 
+          allContents={allContents}
+          accentColor={child.color || section.color || 'var(--accent)'} 
+          columns={child.columns || columns} 
+          datasets={datasets}
+          recordData={recordData}
+          flags={flags}
+          editMode={editMode}
+          canModerate={canModerate}
+          permissions={permissions}
+          onAddRow={() => handleAddRow(child.id)}
+          onUpdateRow={handleUpdateRow}
+          onDeleteRow={handleDeleteRow}
+          onBulkDeleteRow={handleBulkDeleteRows}
+        />
+      </div>
+    );
+  };
+
   const handleAddRow = async (sectionId: number) => {
     const loadToast = toast.loading('Adding row...');
     try {
@@ -183,81 +259,38 @@ export const SectionCard: React.FC<SectionCardProps> = ({
       </div>
 
       {/* Sub-sections / Children */}
-      {section.children && section.children.map(child => {
-        const isSubsection = child.type === 'subsection';
-        
-        if (isSubsection) {
-          return (
-            <div key={child.id} className="unit-section border-t border-border bg-card group/child relative">
-              <div className="section-header py-0.5 px-2 border-b border-border bg-border/20 flex justify-between items-center">
-                <div className="flex items-center gap-1.5 overflow-hidden">
-                    <span className="text-[9px] font-bold text-text uppercase truncate">{child.name}</span>
-                </div>
-                {canEditSection && (
-                    <button 
-                        onClick={() => onEdit?.(child)}
-                        className="p-1 hover:bg-surface rounded text-muted hover:text-text opacity-0 group-hover/child:opacity-100 transition-opacity"
-                    >
-                        <MoreHorizontal size={12} />
-                    </button>
-                )}
-              </div>
-              <RosterTable 
-                contents={child.contents || []} 
-                allContents={allContents}
-                accentColor={child.color || section.color || 'var(--accent)'} 
-                columns={child.columns || columns} 
-                datasets={datasets}
-                recordData={recordData}
-                flags={flags}
-                editMode={editMode}
-                canModerate={canModerate}
-                permissions={permissions}
-                onAddRow={() => handleAddRow(child.id)}
-                onUpdateRow={handleUpdateRow}
-                onDeleteRow={handleDeleteRow}
-                onBulkDeleteRow={handleBulkDeleteRows}
-              />
-            </div>
-          );
-        }
-
-        // Regular section style (compact)
-        return (
-          <div key={child.id} className="unit-section">
-            <div className="section-header py-0.5 px-2 border-b border-t border-border bg-border/10 flex items-center gap-1.5 shrink-0 group/child relative">
-              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: child.color || section.color || 'var(--accent)' }} />
-              <span className="text-[9px] font-bold text-text uppercase text-center flex-1 truncate">
-                {child.name}
-              </span>
-              {canEditSection && (
-                  <button 
-                      onClick={() => onEdit?.(child)}
-                      className="absolute right-1 opacity-0 group-hover/child:opacity-100 p-0.5 hover:bg-bg rounded text-muted hover:text-text transition-opacity"
-                  >
-                      <MoreHorizontal size={10} />
-                  </button>
-              )}
-            </div>
-            <RosterTable 
-              contents={child.contents || []} 
-              allContents={allContents}
-              accentColor={child.color || section.color || 'var(--accent)'} 
-              columns={child.columns || columns} 
-              datasets={datasets}
-              recordData={recordData}
-              flags={flags}
-              editMode={editMode}
-              canModerate={canModerate}
-              permissions={permissions}
-              onAddRow={() => handleAddRow(child.id)}
-              onUpdateRow={handleUpdateRow}
-              onDeleteRow={handleDeleteRow}
-              onBulkDeleteRow={handleBulkDeleteRows}
-            />
+      <div className="sections-container w-full divide-y divide-border">
+        {section.layout_settings?.rows?.map((row: any, rowIdx: number) => (
+          <div 
+            key={`row-${rowIdx}`} 
+            className="grid w-full items-start divide-x divide-border"
+            style={{ 
+              gridTemplateColumns: `repeat(${row.columns || 1}, minmax(0, 1fr))` 
+            }}
+          >
+            {row.section_ids?.map((sId: number) => {
+              const child = section.children?.find((s: any) => s.id === sId);
+              if (!child) return <div key={`empty-${sId}`} className="border-r border-border last:border-r-0" />;
+              return renderChild(child);
+            })}
           </div>
-        );
-      })}
+        ))}
+
+        {/* Fallback for children not in custom rows */}
+        {(section.children?.filter((s: any) => !section.layout_settings?.rows?.some((r: any) => r.section_ids?.includes(s.id))).length ?? 0) > 0 && (
+            <div 
+                className="grid w-full items-start divide-x divide-border"
+                style={{ 
+                    gridTemplateColumns: `repeat(${section.subsections_per_row || 1}, minmax(0, 1fr))` 
+                }}
+            >
+                {section.children?.filter((s: any) => {
+                    const inCustomRow = section.layout_settings?.rows?.some((r: any) => r.section_ids?.includes(s.id));
+                    return !inCustomRow;
+                }).map((child: any) => renderChild(child))}
+            </div>
+        )}
+      </div>
 
       {/* If it's a root section but has no children */}
       {(!section.children || section.children.length === 0) && (

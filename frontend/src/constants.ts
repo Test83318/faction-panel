@@ -1,17 +1,17 @@
 import { Faction } from "./types";
 
-export const INITIAL_DATA: Faction[] = [
+export const INITIAL_DATA: any[] = [
   {
-    id: "lssd",
+    id: 1,
     name: "LSSD",
     divisions: [
       {
-        id: "central-patrol",
+        id: 1,
         name: "Central Patrol Division",
         color: "#1e5fa8",
         leadership: [
           {
-            id: "cpd-l1",
+            id: 1,
             rank: "DIVISION DIRECTOR",
             name: "FRANKLIN CLINTON",
             position: "DIVISION DIRECTOR",
@@ -19,7 +19,7 @@ export const INITIAL_DATA: Faction[] = [
             rankColor: "#000099"
           },
           {
-            id: "cpd-l2",
+            id: 2,
             rank: "CAPTAIN",
             name: "MICHAEL DE SANTA",
             position: "STATION COMMANDER",
@@ -29,12 +29,12 @@ export const INITIAL_DATA: Faction[] = [
         ],
         bureaus: [
           {
-            id: "els-station",
+            id: 1,
             name: "East Los Santos Station",
             color: "#1e5fa8",
             leadership: [
               {
-                id: "els-b1",
+                id: 1,
                 rank: "LIEUTENANT",
                 name: "TREVOR PHILIPS",
                 position: "BUREAU COMMANDER",
@@ -44,11 +44,11 @@ export const INITIAL_DATA: Faction[] = [
             ],
             units: [
               {
-                id: "els-u1",
+                id: 1,
                 name: "Patrol Operations",
                 members: [
                   {
-                    id: "els-m1",
+                    id: 1,
                     rank: "SERGEANT",
                     name: "LESTER CREST",
                     position: "FIELD SUPERVISOR",
@@ -57,7 +57,7 @@ export const INITIAL_DATA: Faction[] = [
                     rankColor: "#990000"
                   },
                   {
-                    id: "els-m2",
+                    id: 2,
                     rank: "DEPUTY SHERIFF",
                     name: "LAMAR DAVIS",
                     position: "FIELD TRAINING OFFICER",
@@ -65,7 +65,7 @@ export const INITIAL_DATA: Faction[] = [
                     rankColor: "#C29D13"
                   },
                   {
-                    id: "els-m3",
+                    id: 3,
                     rank: "DEPUTY SHERIFF",
                     name: "WADE HEBERT",
                     position: "PATROL DEPUTY",
@@ -75,11 +75,11 @@ export const INITIAL_DATA: Faction[] = [
                 ]
               },
               {
-                id: "els-u2",
+                id: 2,
                 name: "Traffic Enforcement",
                 members: [
                   {
-                    id: "els-m4",
+                    id: 4,
                     rank: "SERGEANT",
                     name: "RON JAKOWSKI",
                     position: "TRAFFIC SUPERVISOR",
@@ -93,12 +93,12 @@ export const INITIAL_DATA: Faction[] = [
         ]
       },
       {
-        id: "special-ops",
+        id: 2,
         name: "Special Operations Division",
         color: "#1e5fa8",
         leadership: [
           {
-            id: "sod-l1",
+            id: 3,
             rank: "CAPTAIN",
             name: "SOLOMON RICHARDS",
             position: "DIVISION COMMANDER",
@@ -108,12 +108,12 @@ export const INITIAL_DATA: Faction[] = [
         ],
         bureaus: [
           {
-            id: "seb",
+            id: 2,
             name: "Special Enforcement Bureau",
             color: "#1e5fa8",
             leadership: [
               {
-                id: "seb-b1",
+                id: 2,
                 rank: "LIEUTENANT",
                 name: "SIMEON YETARIAN",
                 position: "SEB COMMANDER",
@@ -123,11 +123,11 @@ export const INITIAL_DATA: Faction[] = [
             ],
             units: [
               {
-                id: "seb-u1",
+                id: 3,
                 name: "Special Weapons & Tactics",
                 members: [
                   {
-                    id: "seb-m1",
+                    id: 5,
                     rank: "SERGEANT",
                     name: "BRAD SNIDER",
                     position: "TEAM LEADER",
@@ -135,7 +135,7 @@ export const INITIAL_DATA: Faction[] = [
                     rankColor: "#990000"
                   },
                   {
-                    id: "seb-m2",
+                    id: 6,
                     rank: "DEPUTY SHERIFF",
                     name: "AMANDA DE SANTA",
                     position: "OPERATOR",
@@ -145,11 +145,11 @@ export const INITIAL_DATA: Faction[] = [
                 ]
               },
               {
-                id: "seb-u2",
+                id: 4,
                 name: "Aero Bureau",
                 members: [
                   {
-                    id: "seb-m3",
+                    id: 7,
                     rank: "DEPUTY SHERIFF",
                     name: "JIMMY DE SANTA",
                     position: "PILOT",

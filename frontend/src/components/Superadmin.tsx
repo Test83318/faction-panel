@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Loading from './Loading';
 import toast from 'react-hot-toast';
-import { Shield, ArrowLeft, Users, Building2, Edit2, Trash2, UserPlus, Check, X, CreditCard, Plus, Settings, ScrollText } from 'lucide-react';
+import { Shield, ArrowLeft, Users, Building2, Edit2, Trash2, UserPlus, Check, X, CreditCard, Plus, Settings, ScrollText, BookOpen } from 'lucide-react';
 import { User, Faction, MembershipTier } from '../types';
+import HelpAdmin from './HelpAdmin';
 
 interface SuperadminProps {
     user: User;
@@ -14,7 +15,7 @@ interface SuperadminProps {
 const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'factions' | 'users' | 'tiers' | 'settings'>('factions');
+    const [activeTab, setActiveTab] = useState<'factions' | 'users' | 'tiers' | 'settings' | 'help'>('factions');
     
     const [factions, setFactions] = useState<Faction[]>([]);
     const [usersList, setUsersList] = useState<User[]>([]);
@@ -181,22 +182,7 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
     if (loading) return <Loading message="Loading Superadmin Panel..." />;
 
     return (
-        <div className="min-h-screen bg-bg text-text transition-colors duration-200 pb-20">
-            <header className="h-[var(--nav-h)] bg-surface border-b border-border flex items-center px-6 sticky top-0 z-[300]">
-                <div 
-                    onClick={() => navigate('/')}
-                    className="flex items-center gap-2 text-accent font-black uppercase italic tracking-tighter text-lg cursor-pointer hover:opacity-80 transition-opacity"
-                >
-                    <Shield size={20} fill="currentColor" fillOpacity={0.2} />
-                    Faction Panel
-                </div>
-                <div className="flex-1" />
-                <span className="px-2 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded font-black text-[9px] uppercase tracking-widest">
-                    Superadmin Mode
-                </span>
-            </header>
-
-            <div className="max-w-7xl mx-auto p-8">
+        <div className="max-w-7xl mx-auto p-8 pb-20">
                 <div className="mb-8">
                     <button 
                         onClick={() => navigate('/')}
@@ -251,7 +237,22 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                     >
                         <Settings size={14} /> System Settings
                     </button>
+                    <button
+                        onClick={() => setActiveTab('help')}
+                        className={`flex items-center gap-2 px-6 py-3 font-bold text-[10px] uppercase tracking-widest transition-all ${
+                            activeTab === 'help' 
+                                ? 'border-b-2 border-accent text-accent bg-accent/5' 
+                                : 'text-muted hover:text-text hover:bg-surface'
+                        }`}
+                    >
+                        <BookOpen size={14} /> Help Center
+                    </button>
                 </div>
+
+                {/* Help Center Tab */}
+                {activeTab === 'help' && (
+                    <HelpAdmin />
+                )}
 
                 {/* Settings Tab */}
                 {activeTab === 'settings' && (
@@ -499,174 +500,173 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                         </div>
                     </div>
                 )}
-            </div>
 
-            {/* Edit Faction Modal */}
-            {editingFaction && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
-                    <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl">
-                        <h2 className="text-2xl font-black uppercase tracking-tighter italic mb-6">Edit Faction</h2>
-                        <form onSubmit={submitFactionEdit} className="space-y-4">
-                            <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Name</label>
-                                <input 
-                                    value={editingFaction.name} 
-                                    onChange={e => setEditingFaction({...editingFaction, name: e.target.value})} 
-                                    className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
-                                    required 
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Shortname</label>
-                                <input 
-                                    value={editingFaction.shortname} 
-                                    onChange={e => setEditingFaction({...editingFaction, shortname: e.target.value.toLowerCase().replace(/[^a-z0-9\-_]/g, '')})} 
-                                    className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
-                                    required 
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Leader ID (User ID)</label>
-                                <input 
-                                    type="number"
-                                    value={editingFaction.faction_leader || ''} 
-                                    onChange={e => setEditingFaction({...editingFaction, faction_leader: e.target.value ? parseInt(e.target.value) : null})} 
-                                    className="w-full bg-surface border border-border p-3 rounded-xl text-sm font-mono" 
-                                    placeholder="Leave empty for no leader"
-                                />
-                            </div>
-                            <div className="flex gap-4 pt-4">
-                                <button type="button" onClick={() => setEditingFaction(null)} className="flex-1 px-4 py-3 bg-surface border border-border hover:bg-bg rounded-xl font-bold uppercase tracking-widest text-[10px] transition">Cancel</button>
-                                <button type="submit" disabled={processing} className="flex-1 px-4 py-3 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20 disabled:opacity-50">
-                                    Save
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Edit User Modal */}
-            {editingUser && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
-                    <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl">
-                        <h2 className="text-2xl font-black uppercase tracking-tighter italic mb-6">Edit User</h2>
-                        <form onSubmit={submitUserEdit} className="space-y-4">
-                            <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Username</label>
-                                <input 
-                                    value={editingUser.username} 
-                                    onChange={e => setEditingUser({...editingUser, username: e.target.value})} 
-                                    className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
-                                    required 
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
+                {/* Edit Faction Modal */}
+                {editingFaction && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
+                        <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl">
+                            <h2 className="text-2xl font-black uppercase tracking-tighter italic mb-6">Edit Faction</h2>
+                            <form onSubmit={submitFactionEdit} className="space-y-4">
                                 <div>
-                                    <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">GTA:W ID</label>
+                                    <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Name</label>
+                                    <input 
+                                        value={editingFaction.name} 
+                                        onChange={e => setEditingFaction({...editingFaction, name: e.target.value})} 
+                                        className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
+                                        required 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Shortname</label>
+                                    <input 
+                                        value={editingFaction.shortname} 
+                                        onChange={e => setEditingFaction({...editingFaction, shortname: e.target.value.toLowerCase().replace(/[^a-z0-9\-_]/g, '')})} 
+                                        className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
+                                        required 
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Leader ID (User ID)</label>
                                     <input 
                                         type="number"
-                                        value={editingUser.gtaw_id || ''} 
-                                        onChange={e => setEditingUser({...editingUser, gtaw_id: e.target.value ? parseInt(e.target.value) : null})} 
+                                        value={editingFaction.faction_leader || ''} 
+                                        onChange={e => setEditingFaction({...editingFaction, faction_leader: e.target.value ? parseInt(e.target.value) : null})} 
                                         className="w-full bg-surface border border-border p-3 rounded-xl text-sm font-mono" 
+                                        placeholder="Leave empty for no leader"
+                                    />
+                                </div>
+                                <div className="flex gap-4 pt-4">
+                                    <button type="button" onClick={() => setEditingFaction(null)} className="flex-1 px-4 py-3 bg-surface border border-border hover:bg-bg rounded-xl font-bold uppercase tracking-widest text-[10px] transition">Cancel</button>
+                                    <button type="submit" disabled={processing} className="flex-1 px-4 py-3 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20 disabled:opacity-50">
+                                        Save
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Edit User Modal */}
+                {editingUser && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
+                        <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl">
+                            <h2 className="text-2xl font-black uppercase tracking-tighter italic mb-6">Edit User</h2>
+                            <form onSubmit={submitUserEdit} className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Username</label>
+                                    <input 
+                                        value={editingUser.username} 
+                                        onChange={e => setEditingUser({...editingUser, username: e.target.value})} 
+                                        className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
+                                        required 
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">GTA:W ID</label>
+                                        <input 
+                                            type="number"
+                                            value={editingUser.gtaw_id || ''} 
+                                            onChange={e => setEditingUser({...editingUser, gtaw_id: e.target.value ? parseInt(e.target.value) : null})} 
+                                            className="w-full bg-surface border border-border p-3 rounded-xl text-sm font-mono" 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">GTA:W Username</label>
+                                        <input 
+                                            value={editingUser.gtaw_username || ''} 
+                                            onChange={e => setEditingUser({...editingUser, gtaw_username: e.target.value})} 
+                                            className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Membership Tier</label>
+                                    <select 
+                                        value={editingUser.membership_tier_id || ''} 
+                                        onChange={e => setEditingUser({...editingUser, membership_tier_id: e.target.value ? parseInt(e.target.value) : null})}
+                                        className="w-full bg-surface border border-border p-3 rounded-xl text-sm"
+                                    >
+                                        <option value="">Standard (1 Faction)</option>
+                                        {tiers.map(tier => (
+                                            <option key={tier.id} value={tier.id}>{tier.name} ({tier.max_factions} Factions)</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="pt-2">
+                                    <label className="flex items-center gap-3 cursor-pointer p-3 bg-surface border border-border rounded-xl">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={editingUser.is_superadmin}
+                                            onChange={e => setEditingUser({...editingUser, is_superadmin: e.target.checked})}
+                                            className="w-4 h-4 rounded text-accent focus:ring-accent focus:ring-offset-surface bg-bg border-border"
+                                        />
+                                        <span className="text-sm font-bold">Superadmin Privileges</span>
+                                    </label>
+                                </div>
+                                <div className="flex gap-4 pt-4">
+                                    <button type="button" onClick={() => setEditingUser(null)} className="flex-1 px-4 py-3 bg-surface border border-border hover:bg-bg rounded-xl font-bold uppercase tracking-widest text-[10px] transition">Cancel</button>
+                                    <button type="submit" disabled={processing} className="flex-1 px-4 py-3 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20 disabled:opacity-50">
+                                        Save
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Edit/Create Tier Modal */}
+                {editingTier && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
+                        <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl">
+                            <h2 className="text-2xl font-black uppercase tracking-tighter italic mb-6">
+                                {editingTier.id ? 'Edit' : 'Create'} Membership Tier
+                            </h2>
+                            <form onSubmit={submitTierEdit} className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Tier Name</label>
+                                    <input 
+                                        value={editingTier.name} 
+                                        onChange={e => setEditingTier({...editingTier, name: e.target.value})} 
+                                        className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
+                                        required 
+                                        placeholder="e.g. Donator, Premium"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">GTA:W Username</label>
+                                    <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Max Created Factions</label>
                                     <input 
-                                        value={editingUser.gtaw_username || ''} 
-                                        onChange={e => setEditingUser({...editingUser, gtaw_username: e.target.value})} 
-                                        className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
+                                        type="number"
+                                        value={editingTier.max_factions} 
+                                        onChange={e => setEditingTier({...editingTier, max_factions: parseInt(e.target.value) || 0})} 
+                                        className="w-full bg-surface border border-border p-3 rounded-xl text-sm font-mono" 
+                                        required 
+                                        min="0"
                                     />
+                                    <p className="mt-1 text-[9px] text-muted font-bold uppercase tracking-wider">Number of factions this user can lead/create.</p>
                                 </div>
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Membership Tier</label>
-                                <select 
-                                    value={editingUser.membership_tier_id || ''} 
-                                    onChange={e => setEditingUser({...editingUser, membership_tier_id: e.target.value ? parseInt(e.target.value) : null})}
-                                    className="w-full bg-surface border border-border p-3 rounded-xl text-sm"
-                                >
-                                    <option value="">Standard (1 Faction)</option>
-                                    {tiers.map(tier => (
-                                        <option key={tier.id} value={tier.id}>{tier.name} ({tier.max_factions} Factions)</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="pt-2">
-                                <label className="flex items-center gap-3 cursor-pointer p-3 bg-surface border border-border rounded-xl">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={editingUser.is_superadmin}
-                                        onChange={e => setEditingUser({...editingUser, is_superadmin: e.target.checked})}
-                                        className="w-4 h-4 rounded text-accent focus:ring-accent focus:ring-offset-surface bg-bg border-border"
-                                    />
-                                    <span className="text-sm font-bold">Superadmin Privileges</span>
-                                </label>
-                            </div>
-                            <div className="flex gap-4 pt-4">
-                                <button type="button" onClick={() => setEditingUser(null)} className="flex-1 px-4 py-3 bg-surface border border-border hover:bg-bg rounded-xl font-bold uppercase tracking-widest text-[10px] transition">Cancel</button>
-                                <button type="submit" disabled={processing} className="flex-1 px-4 py-3 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20 disabled:opacity-50">
-                                    Save
-                                </button>
-                            </div>
-                        </form>
+                                <div className="pt-2">
+                                    <label className="flex items-center gap-3 cursor-pointer p-3 bg-surface border border-border rounded-xl">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={editingTier.allow_custom_branding}
+                                            onChange={e => setEditingTier({...editingTier, allow_custom_branding: e.target.checked})}
+                                            className="w-4 h-4 rounded text-accent focus:ring-accent focus:ring-offset-surface bg-bg border-border"
+                                        />
+                                        <span className="text-sm font-bold">Allow Custom Branding</span>
+                                    </label>
+                                    <p className="mt-1 text-[9px] text-muted font-bold uppercase tracking-wider ml-1">Enables custom header banner and favicon.</p>
+                                </div>
+                                <div className="flex gap-4 pt-4">
+                                    <button type="button" onClick={() => setEditingTier(null)} className="flex-1 px-4 py-3 bg-surface border border-border hover:bg-bg rounded-xl font-bold uppercase tracking-widest text-[10px] transition">Cancel</button>
+                                    <button type="submit" disabled={processing} className="flex-1 px-4 py-3 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20 disabled:opacity-50">
+                                        Save
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
-
-            {/* Edit/Create Tier Modal */}
-            {editingTier && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
-                    <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl">
-                        <h2 className="text-2xl font-black uppercase tracking-tighter italic mb-6">
-                            {editingTier.id ? 'Edit' : 'Create'} Membership Tier
-                        </h2>
-                        <form onSubmit={submitTierEdit} className="space-y-4">
-                            <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Tier Name</label>
-                                <input 
-                                    value={editingTier.name} 
-                                    onChange={e => setEditingTier({...editingTier, name: e.target.value})} 
-                                    className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
-                                    required 
-                                    placeholder="e.g. Donator, Premium"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Max Created Factions</label>
-                                <input 
-                                    type="number"
-                                    value={editingTier.max_factions} 
-                                    onChange={e => setEditingTier({...editingTier, max_factions: parseInt(e.target.value) || 0})} 
-                                    className="w-full bg-surface border border-border p-3 rounded-xl text-sm font-mono" 
-                                    required 
-                                    min="0"
-                                />
-                                <p className="mt-1 text-[9px] text-muted font-bold uppercase tracking-wider">Number of factions this user can lead/create.</p>
-                            </div>
-                            <div className="pt-2">
-                                <label className="flex items-center gap-3 cursor-pointer p-3 bg-surface border border-border rounded-xl">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={editingTier.allow_custom_branding}
-                                        onChange={e => setEditingTier({...editingTier, allow_custom_branding: e.target.checked})}
-                                        className="w-4 h-4 rounded text-accent focus:ring-accent focus:ring-offset-surface bg-bg border-border"
-                                    />
-                                    <span className="text-sm font-bold">Allow Custom Branding</span>
-                                </label>
-                                <p className="mt-1 text-[9px] text-muted font-bold uppercase tracking-wider ml-1">Enables custom header banner and favicon.</p>
-                            </div>
-                            <div className="flex gap-4 pt-4">
-                                <button type="button" onClick={() => setEditingTier(null)} className="flex-1 px-4 py-3 bg-surface border border-border hover:bg-bg rounded-xl font-bold uppercase tracking-widest text-[10px] transition">Cancel</button>
-                                <button type="submit" disabled={processing} className="flex-1 px-4 py-3 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20 disabled:opacity-50">
-                                    Save
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+                )}
         </div>
     );
 };

@@ -24,6 +24,8 @@ class RosterSectionController extends Controller
             'parent_id' => 'nullable|exists:roster_sections,id',
             'section_options' => 'nullable|array',
             'columns' => 'nullable|array',
+            'layout_settings' => 'nullable|array',
+            'subsections_per_row' => 'nullable|integer|min:1|max:3',
         ]);
 
         $validated['shortname'] = strtoupper($validated['shortname']);
@@ -61,6 +63,8 @@ class RosterSectionController extends Controller
             'parent_id' => 'sometimes|nullable|exists:roster_sections,id',
             'section_options' => 'nullable|array',
             'columns' => 'nullable|array',
+            'layout_settings' => 'nullable|array',
+            'subsections_per_row' => 'nullable|integer|min:1|max:3',
         ]);
 
         if (isset($validated['shortname'])) {

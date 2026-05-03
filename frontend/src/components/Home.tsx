@@ -3,7 +3,8 @@ import Login from './Login';
 import Register from './Register';
 import Loading from './Loading';
 import api from '../api';
-import { Shield, Users, Globe, Moon, Sun } from 'lucide-react';
+import { Shield, Users, Globe, Moon, Sun, HelpCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface HomeProps {
     onLogin: (token: string, user: any) => void;
@@ -133,6 +134,13 @@ const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme, siteVersion =
                         )}
                         
                         <div className="mt-8 pt-8 border-t border-border/50 text-center">
+                            <Link 
+                                to="/help"
+                                className="inline-flex items-center gap-2 mb-4 text-muted hover:text-accent text-[10px] font-bold uppercase tracking-widest transition-colors"
+                            >
+                                <HelpCircle size={14} />
+                                Need help? Visit Help Center
+                            </Link>
                             <p className="text-muted text-[9px] uppercase tracking-[0.2em] font-bold">
                                 &copy; 2025-{new Date().getFullYear() + 1} Faction Panel. Antelope v{siteVersion}
                             </p>

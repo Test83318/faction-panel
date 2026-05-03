@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Shield, Moon, Sun, LogOut, User, LogIn, ChevronDown, Settings, LayoutGrid, ShieldAlert } from 'lucide-react';
+import { Shield, Moon, Sun, LogOut, User, LogIn, ChevronDown, Settings, LayoutGrid, ShieldAlert, HelpCircle } from 'lucide-react';
 
 interface HeaderProps {
   isDark: boolean;
@@ -28,7 +28,7 @@ export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isSuperAdmin = user?.is_superadmin;
   const roleColor = userRole?.color || 'var(--muted)';
-  const isFactionPage = factionName !== 'Faction Selection';
+  const isFactionPage = !!branding?.shortname;
   const activeBanner = isDark ? bannerLogoDark : (bannerLogoLight || bannerLogoDark);
 
   useEffect(() => {
@@ -73,33 +73,46 @@ export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName
 
   return (
     <header 
-      className="topbar h-[var(--nav-h)] bg-surface border-b border-border flex items-center px-5 gap-2.5 sticky top-0 z-[300] shrink-0"
+      className="topbar h-[var(--nav-h)] bg-surface border-b border-border flex items-center px-6 gap-2.5 sticky top-0 z-[300] shrink-0"
       style={getHeaderStyle()}
     >
       {!branding?.hide_panel_header && (
         <div 
           onClick={handlePanelLogoClick}
-          className="logo flex items-center gap-1.5 text-accent font-extrabold text-[16px] tracking-tight hover:opacity-80 transition-opacity cursor-pointer"
+          className="logo flex items-center gap-2 text-accent font-black uppercase italic tracking-tighter text-lg hover:opacity-80 transition-opacity cursor-pointer"
         >
-          <Shield size={18} fill="currentColor" fillOpacity={0.2} />
+          <Shield size={20} fill="currentColor" fillOpacity={0.2} />
           Faction Panel
         </div>
       )}
 
-      <div 
-        className={`flex items-center h-6 pl-2.5 cursor-pointer hover:opacity-80 transition-opacity ${!branding?.hide_panel_header ? 'ml-1.5 border-l border-border' : ''}`}
-        onClick={handleFactionLogoClick}
-      >
-        {activeBanner ? (
-          <img src={activeBanner} alt={factionName} className="max-h-[20px] w-auto object-contain drop-shadow-sm" />
-        ) : (
-          <span className="text-[10px] font-semibold tracking-wider uppercase text-muted">
-            {factionName}
-          </span>
-        )}
-      </div>
+      {isFactionPage && (
+        <div 
+            className={`flex items-center h-6 pl-2.5 cursor-pointer hover:opacity-80 transition-opacity ${!branding?.hide_panel_header ? 'ml-1.5 border-l border-border' : ''}`}
+            onClick={handleFactionLogoClick}
+        >
+            {activeBanner ? (
+            <img src={activeBanner} alt={factionName} className="max-h-[20px] w-auto object-contain drop-shadow-sm" />
+            ) : (
+            <span className="text-[10px] font-semibold tracking-wider uppercase text-muted">
+                {factionName}
+            </span>
+            )}
+        </div>
+      )}
 
       <div className="flex-1" />
+
+      {user && (
+        <button 
+            onClick={() => navigate('/help')}
+            className="p-1.5 text-muted hover:text-accent transition-colors flex items-center gap-2 mr-2"
+            title="Help Center"
+        >
+            <HelpCircle size={18} />
+            <span className="text-[10px] font-black uppercase tracking-widest hidden lg:inline">Help</span>
+        </button>
+      )}
 
       {user ? (
         <div className="relative" ref={dropdownRef}>

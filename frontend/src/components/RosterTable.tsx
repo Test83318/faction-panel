@@ -372,7 +372,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                     label = entry.data?.[fieldId || ''] || entry.data?.[field?.name || ''] || `Entry #${entry.entry_id}`;
                 }
                 
-                return { label, color: null, bold: false, entryId: entry.entry_id, dbShortcode: db.record_shortcode };
+                return { label, color: null, bold: false, entryId: entry.entry_id, dbShortcode: db.record_shortcode || db.id };
             });
         }
     }
@@ -415,7 +415,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                                 {displayValue}
                             </span>
                             <Link 
-                                to={`/${shortname}/records?database=${db.record_shortcode}&record=${entry.entry_id}`}
+                                to={`/${shortname}/records?database=${db.record_shortcode || db.id}&record=${entry.entry_id}`}
                                 onClick={(e) => e.stopPropagation()}
                                 className="absolute -top-1 -right-1 p-1 bg-card border border-border rounded text-muted hover:text-accent opacity-0 group-hover/cell:opacity-100 transition-all z-10 shadow-sm"
                             >
