@@ -20,8 +20,12 @@ use App\Http\Controllers\HelpController;
 use App\Http\Controllers\HelpAdminController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\IntegrationController;
+use App\Http\Controllers\SetupController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/setup/status', [SetupController::class, 'status']);
+Route::post('/setup', [SetupController::class, 'setup']);
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);

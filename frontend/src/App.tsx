@@ -6,6 +6,7 @@ import { Faction as FactionType } from './types';
 import Loading from './components/Loading';
 import Login from './components/Login';
 import Register from './components/Register';
+import Setup from './components/Setup';
 import Invite from './components/Invite';
 import GtawCallback from './components/GtawCallback';
 import Home from './components/Home';
@@ -231,7 +232,7 @@ const TitleUpdater = ({ user }: { user: any }) => {
       return;
     }
     const firstSegment = segments[0];
-    if (segments.length > 0 && ['login', 'register', 'invite'].includes(firstSegment)) {
+    if (segments.length > 0 && ['login', 'register', 'invite', 'setup'].includes(firstSegment)) {
       document.title = `Faction Panel · ${firstSegment.charAt(0).toUpperCase() + firstSegment.slice(1)}`;
       return;
     }
@@ -345,6 +346,7 @@ export default function App() {
         }}
       />
       <Routes>
+        <Route path="/setup" element={<Setup />} />
         <Route path="/login" element={<Login onLogin={handleLogin} />} />
         <Route path="/register" element={<Register onLogin={handleLogin} />} />
         <Route path="/invite/:code" element={<Invite user={user} />} />
