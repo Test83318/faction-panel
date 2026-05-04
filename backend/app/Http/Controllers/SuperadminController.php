@@ -27,7 +27,7 @@ class SuperadminController extends Controller
 
     public function getPublicSettings()
     {
-        return SiteSetting::where('key', 'version')->pluck('value', 'key');
+        return SiteSetting::whereIn('key', ['version', 'allow_registration'])->pluck('value', 'key');
     }
 
     public function updateSettings(Request $request)

@@ -13,6 +13,7 @@ export default function Welcome() {
                 <h1 className="text-6xl font-black uppercase tracking-tighter text-text leading-none">
                     The end of the <br />
                     <span className="text-accent">Spreadsheet Era.</span>
+                    <div className="text-[10px] font-black text-muted mt-4 tracking-[0.4em] opacity-50">Coming Soon</div>
                 </h1>
                 <p className="max-w-2xl mx-auto text-lg text-muted font-medium italic">
                     "I was using Google Spreadsheets to track my faction members and I just said... Fuck this shit."
@@ -357,21 +358,21 @@ export default function Welcome() {
             {/* Footer */}
             <footer className="pt-20 border-t border-border text-center space-y-12 pb-10">
                 <div className="space-y-4">
-                    <h3 className="text-[10px] font-black text-muted uppercase tracking-[0.3em]">Project Contributors</h3>
+                    <h3 className="text-[10px] font-black text-muted uppercase tracking-[0.3em]">Special Thanks</h3>
                     <div className="flex flex-wrap justify-center gap-4">
-                        <div className="px-4 py-2 bg-surface border border-border rounded-xl text-xs font-bold uppercase tracking-tight">Booskit (Sole Developer)</div>
-                        {/* Space for future contributors */}
-                        <div className="px-4 py-2 border border-dashed border-border rounded-xl text-xs font-bold uppercase tracking-tight text-muted/30">Contributor Space</div>
-                        <div className="px-4 py-2 border border-dashed border-border rounded-xl text-xs font-bold uppercase tracking-tight text-muted/30">Contributor Space</div>
+                        <div 
+                            className="px-4 py-2 bg-surface border border-border rounded-xl text-xs font-bold uppercase tracking-tight cursor-help"
+                            title="For assistance with the roster design and the initial vision of the rosters"
+                        >
+                            Pengu
+                        </div>
                     </div>
                 </div>
                 <div className="text-[10px] font-black text-muted uppercase tracking-[0.2em] flex flex-col items-center gap-4">
                     <span>Made with <span className="text-red-500 mx-1">❤️</span> by Booskit</span>
-                    <div className="flex items-center gap-4 opacity-50">
-                        <span>EST. 2025</span>
-                        <div className="w-1 h-1 rounded-full bg-muted" />
-                        <span>VER {new Date().getFullYear()}.0.0</span>
-                    </div>
+                    <p className="opacity-50">
+                        &copy; 2025-{new Date().getFullYear() + 1} Faction Panel. Antelope
+                    </p>
                 </div>
             </footer>
         </div>

@@ -289,6 +289,39 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                                 </form>
                             </div>
 
+                            <div className="bg-card border border-border rounded-xl p-8 shadow-sm">
+                                <h3 className="text-xl font-black uppercase tracking-tighter italic mb-6 flex items-center gap-2">
+                                    <Shield className="text-accent" size={20} />
+                                    Security & Registration
+                                </h3>
+                                <div className="space-y-6">
+                                    <div className="flex items-center justify-between p-4 bg-surface border border-border rounded-xl">
+                                        <div>
+                                            <h4 className="text-[11px] font-black uppercase tracking-widest mb-1">Allow Registration</h4>
+                                            <p className="text-[9px] text-muted font-bold uppercase tracking-wider">Enable or disable site-wide user registration and automatic OAuth account creation.</p>
+                                        </div>
+                                        <button 
+                                            onClick={() => {
+                                                const newVal = settings.allow_registration === 'false' ? 'true' : 'false';
+                                                const newSettings = {...settings, allow_registration: newVal};
+                                                setSettings(newSettings);
+                                                // Trigger update immediately for better UX
+                                                api.put('/superadmin/settings', { settings: newSettings })
+                                                    .then(() => toast.success(`Registration ${newVal === 'true' ? 'enabled' : 'disabled'}`))
+                                                    .catch(() => toast.error('Failed to update registration setting'));
+                                            }}
+                                            className={`px-4 py-2 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] transition-all border ${
+                                                settings.allow_registration === 'true' 
+                                                ? 'bg-accent/10 text-accent border-accent/20 hover:bg-accent/20' 
+                                                : 'bg-danger/10 text-danger border-danger/20 hover:bg-danger/20'
+                                            }`}
+                                        >
+                                            {settings.allow_registration === 'true' ? 'Enabled' : 'Disabled'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="bg-card border border-border rounded-xl p-8 shadow-sm opacity-50">
                                 <h3 className="text-xl font-black uppercase tracking-tighter italic mb-2 flex items-center gap-2">
                                     <ScrollText className="text-muted" size={20} />

@@ -35,6 +35,11 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
+        $allowRegistration = \App\Models\SiteSetting::where('key', 'allow_registration')->first();
+        if ($allowRegistration && $allowRegistration->value === 'false') {
+            return response()->json(['message' => 'Registration is currently disabled.'], 403);
+        }
+
         if (!config('features.allow_registration')) {
             return response()->json(['message' => 'Registration is currently disabled.'], 403);
         }
@@ -60,8 +65,11 @@ class AuthController extends Controller
 
     public function registrationStatus()
     {
+        $allowRegistrationSetting = \App\Models\SiteSetting::where('key', 'allow_registration')->first();
+        $allowRegistration = $allowRegistrationSetting ? ($allowRegistrationSetting->value === 'true') : (bool) config('features.allow_registration');
+
         return response()->json([
-            'allow_registration' => (bool) config('features.allow_registration'),
+            'allow_registration' => $allowRegistration,
             'gtaw_oauth_enabled' => (bool) config('features.gtaw_oauth_enabled'),
             'gtaw_client_id' => config('features.gtaw_client_id'),
             'gtaw_redirect_uri' => config('features.gtaw_redirect_uri'),
@@ -172,6 +180,14 @@ class AuthController extends Controller
                     $user->update(['gtaw_access_token' => $accessToken]);
                 }
             } else {
+                // Check if registration is allowed
+                $allowRegistrationSetting = \App\Models\SiteSetting::where('key', 'allow_registration')->first();
+                $allowRegistration = $allowRegistrationSetting ? ($allowRegistrationSetting->value === 'true') : (bool) config('features.allow_registration');
+
+                if (!$allowRegistration) {
+                    return response()->json(['message' => 'Registration is currently disabled. No account found for this GTA:W user.'], 403);
+                }
+
                 // Create new user
                 $user = User::create([
                     'username' => $gtawUsername,
