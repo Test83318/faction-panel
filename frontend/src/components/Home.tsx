@@ -108,7 +108,7 @@ const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme, siteVersion =
                         
                         <p className="text-muted text-lg mb-12 leading-relaxed">
                             A centralized hub for factions, departments, and organizations. 
-                            Streamline your operations, manage rosters, and utilize the many integrations.
+                            Stop wasting time with messy setups and start managing your operations with ease.
                         </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -117,8 +117,8 @@ const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme, siteVersion =
                                     <Users size={20} className="text-accent" />
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-text uppercase text-xs tracking-widest mb-1">Roster Management</h4>
-                                    <p className="text-muted text-sm">Real-time personnel tracking and hierarchy visualization.</p>
+                                    <h4 className="font-bold text-text uppercase text-xs tracking-widest mb-1">Roster Control</h4>
+                                    <p className="text-muted text-sm">Track your people in real-time with dynamic hierarchy views.</p>
                                 </div>
                             </div>
                             <div className="flex gap-4">
@@ -126,8 +126,8 @@ const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme, siteVersion =
                                     <Globe size={20} className="text-accent" />
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-text uppercase text-xs tracking-widest mb-1">Multi-Database</h4>
-                                    <p className="text-muted text-sm">Support for multiple independent faction environments.</p>
+                                    <h4 className="font-bold text-text uppercase text-xs tracking-widest mb-1">Multi-Environment</h4>
+                                    <p className="text-muted text-sm">Built to handle multiple independent faction setups simultaneously.</p>
                                 </div>
                             </div>
                         </div>

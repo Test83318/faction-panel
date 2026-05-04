@@ -12,7 +12,7 @@ This document outlines the architectural plan, technology stack, and implementat
 - **Animations:** Framer Motion
 
 ### Backend
-- **Framework:** Laravel 11
+- **Framework:** Laravel 13
 - **Language:** PHP 8.3+
 - **Database:** MySQL / PostgreSQL
 - **API Style:** RESTful API (JSON)

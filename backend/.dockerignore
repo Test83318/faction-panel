@@ -1,0 +1,10 @@
+vendor
+node_modules
+storage/*.sqlite
+.git
+.env
+.github
+*.md
+docker-compose.yml
+Dockerfile
+backend/docker-entrypoint.sh

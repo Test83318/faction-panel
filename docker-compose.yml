@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: antelope-backend
+    restart: unless-stopped
+    tty: true
+    environment:
+      SERVICE_NAME: backend
+      SERVICE_TAGS: dev
+    volumes:
+      - ./backend:/var/www
+    networks:
+      - antelope-network
+
+  frontend:
+    image: node:20-alpine
+    container_name: antelope-frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && npm run dev"
+    networks:
+      - antelope-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: antelope-nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend:/var/www
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - antelope-network
+    depends_on:
+      - backend
+      - frontend
+
+  db:
+    image: postgres:16-alpine
+    container_name: antelope-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: antelope
+      POSTGRES_USER: antelope
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - antelope-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U antelope -d antelope"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+networks:
+  antelope-network:
+    driver: bridge
+
+volumes:
+  db-data:
+    driver: local

@@ -25,13 +25,13 @@ export default function Welcome() {
                     <h2 className="text-3xl font-black uppercase tracking-tighter">Early Development</h2>
                     <div className="space-y-4 text-muted leading-relaxed">
                         <p>
-                            Antelope started in early 2025. This project was born out of frustration. I was tired of seeing every faction struggle with the same broken spreadsheets. It was time for something better.
+                            Antelope started in early 2025. This project was born out of pure frustration. I was tired of seeing every faction struggle with the same broken spreadsheets. It was time for something better.
                         </p>
                         <p>
-                            Getting to this point was not easy. The project has been restarted a total of four times. It has lived as a Laravel and Blade application, a Nextjs app, and even a Laravel Nocobase implementation before arriving at the current architecture. Each restart was a necessary step toward the performance and stability I demanded.
+                            Getting here wasn't easy. I restarted the project four times from scratch. It's been a Blade app, a Next.js app, and even a Nocobase implementation before I landed on this architecture. Every restart was a pain, but it's why the system is as fast and stable as it is now.
                         </p>
                         <p>
-                            I built this as a sole developer. I did not want a committee or a corporate roadmap. I wanted a system that actually works for people who manage organizations without the unnecessary overhead.
+                            I built this alone. No committees, no corporate roadmaps. I just wanted a system that actually works for the people running organizations, without all the useless bloat.
                         </p>
                     </div>
                 </div>
@@ -43,13 +43,13 @@ export default function Welcome() {
                         <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
                             <Layers size={24} />
                         </div>
-                        <h3 className="text-xl font-bold uppercase tracking-tight">Technical Evolution</h3>
+                        <h3 className="text-xl font-bold uppercase tracking-tight">The Tech</h3>
                         <p className="text-sm text-muted font-medium">
-                            The current stack is a high performance React and TypeScript frontend coupled with a Laravel 11 and PostgreSQL backend. It is built to be fast, reliable, and secure. No bloat, just code that solves real world problems.
+                            The stack is straightforward: React, TypeScript, Laravel 13, and PostgreSQL. It's fast, it's reliable, and it's built to actually work. We skipped the corporate fluff to focus on solid code that solves real problems.
                         </p>
                         <div className="pt-4 flex gap-2">
                             <span className="px-2 py-1 bg-surface border border-border rounded text-[8px] font-black uppercase tracking-widest text-muted">React + TS</span>
-                            <span className="px-2 py-1 bg-surface border border-border rounded text-[8px] font-black uppercase tracking-widest text-muted">Laravel 11</span>
+                            <span className="px-2 py-1 bg-surface border border-border rounded text-[8px] font-black uppercase tracking-widest text-muted">Laravel 13</span>
                             <span className="px-2 py-1 bg-surface border border-border rounded text-[8px] font-black uppercase tracking-widest text-muted">PostgreSQL</span>
                         </div>
                     </div>
@@ -64,7 +64,7 @@ export default function Welcome() {
                         Advanced Rosters
                     </h2>
                     <p className="text-muted mt-4 font-medium leading-relaxed">
-                        Rosters in Antelope are dynamic. They are built using hierarchical sections, bureaus, and units. Data in these rosters is not just text. It is structured information with checkboxes, tags, and automated links.
+                        Rosters shouldn't just be static text. In Antelope, they're dynamic. We use hierarchical sections, bureaus, and units to keep things organized. Everything is structured with tags, checkboxes, and automated links that actually do something.
                     </p>
                 </div>
 
@@ -204,13 +204,13 @@ export default function Welcome() {
                         <Database className="text-accent" size={32} />
                     </h2>
                     <p className="text-muted mt-4 font-medium leading-relaxed">
-                        Data in Antelope is not flat. Databases allow the creation of custom schemas with relational linking. Connect a personnel record directly to a disciplinary database or a vehicle registration system with full integrity.
+                        Flat data is useless. Antelope lets you build custom schemas with real relational linking. Link a personnel record directly to a disciplinary database or a vehicle registration system without breaking anything. It just works.
                     </p>
                 </div>
 
                 <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-2xl">
                     <div className="p-4 bg-surface border-b border-border flex items-center justify-between">
-                        <span className="text-[10px] font-black text-muted uppercase tracking-widest">Simulation: Database Schema & Entry</span>
+                        <span className="text-[10px] font-black text-muted uppercase tracking-widest">Simulation: Records & Schema</span>
                         <div className="flex items-center gap-2">
                             <div className="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/40" />
                             <div className="w-3 h-3 rounded-full bg-yellow-500/20 border border-yellow-500/40" />
@@ -219,7 +219,7 @@ export default function Welcome() {
                     </div>
                     <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
                         <div className="space-y-4">
-                            <h4 className="text-[10px] font-black text-accent uppercase tracking-widest">Database Structure</h4>
+                            <h4 className="text-[10px] font-black text-accent uppercase tracking-widest">Schema Setup</h4>
                             <div className="space-y-2">
                                 <div className="p-3 bg-surface border border-border rounded-lg flex items-center justify-between">
                                     <span className="text-[10px] font-bold uppercase tracking-tight">Full Name</span>
@@ -240,7 +240,7 @@ export default function Welcome() {
                             </div>
                         </div>
                         <div className="md:col-span-2 space-y-4">
-                            <h4 className="text-[10px] font-black text-accent uppercase tracking-widest">Entry View (Dossier Template)</h4>
+                            <h4 className="text-[10px] font-black text-accent uppercase tracking-widest">Record View</h4>
                             <div className="bg-white text-black p-8 border-t-4 border-accent shadow-lg">
                                 <div className="border-b border-black/10 pb-2 mb-6 flex justify-between items-end">
                                     <h5 className="text-xl font-serif font-black uppercase tracking-widest">Official Record</h5>
@@ -287,7 +287,7 @@ export default function Welcome() {
                         <h3 className="text-2xl font-black uppercase tracking-tighter">GTA:W Integration</h3>
                     </div>
                     <p className="text-muted leading-relaxed font-medium">
-                        Antelope features native integration with the GTA:W API. It can automatically synchronize faction characters, membership statuses, and historical data. This eliminates the need for manual tracking and ensures your roster is always a direct reflection of in game reality.
+                        We've got native GTA:W API integration. It handles the boring stuff by automatically syncing characters, membership status, and history. No more manual tracking; your roster actually reflects what's happening in-game.
                     </p>
                     <div className="p-6 bg-card border border-border rounded-2xl space-y-4">
                         <div className="flex items-center justify-between">
@@ -309,10 +309,10 @@ export default function Welcome() {
                         <h3 className="text-2xl font-black uppercase tracking-tighter">Permission Hierarchy</h3>
                     </div>
                     <p className="text-muted leading-relaxed font-medium">
-                        The permission system works similarly to a combination of Discord and PhpBB. It uses weight based priority logic where higher ranked roles override lower ones. Every role, group, and roster has its own set of granular permissions. Access is calculated dynamically based on the highest ranked role of the user, ensuring seniority is respected and security is maintained.
+                        Think of it as a mix between Discord and PhpBB. It's all about weights where higher ranked roles override the lower ones. Every role, group, and roster gets its own granular permissions.
                     </p>
                     <p className="text-muted leading-relaxed font-medium">
-                        Groups are an integral part of the permission architecture. You can assign users to groups, and those groups carry their own weights and permissions. This allows for complex access control where a user overall access is calculated dynamically based on their roles and group memberships.
+                        Groups are built directly into the permission system. Assign users to groups, and those groups carry their own weights. Access is calculated on the fly, ensuring seniority and security stay tight.
                     </p>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="p-4 bg-card border border-border rounded-2xl space-y-2">
@@ -332,7 +332,7 @@ export default function Welcome() {
                 <div className="max-w-2xl mx-auto space-y-4">
                     <h2 className="text-4xl font-black uppercase tracking-tighter">The Future is Open</h2>
                     <p className="text-muted font-medium">
-                        I believe in the democratization of management tools. Antelope is not restricted to established factions. Anyone can register, create a space, and use these tools for any purpose. No external validation or faction affiliation is required.
+                        Management tools should be for everyone, not just the "official" factions. Anyone can jump in, create a space, and start using this. There is no gatekeeping or external validation. If you need it, use it.
                     </p>
                     <p className="text-accent font-black uppercase tracking-widest text-xs">
                         The source code will be released publicly on GitHub a few weeks after the initial launch.
