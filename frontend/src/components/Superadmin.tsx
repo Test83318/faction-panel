@@ -412,72 +412,73 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                             </button>
                         </div>
                         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-surface border-b border-border">
-                                    <tr>
-                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">ID</th>
-                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Username</th>
-                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Membership</th>
-                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Status</th>
-                                        <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                    {usersList.map(u => (
-                                        <tr key={u.id} className="hover:bg-surface/50 transition-colors">
-                                            <td className="px-6 py-4 font-mono text-muted text-xs">#{u.id}</td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold">{u.username}</span>
-                                                    {u.gtaw_id ? (
-                                                        <span className="text-[9px] uppercase tracking-widest text-muted">{u.gtaw_username} (ID: {u.gtaw_id})</span>
-                                                    ) : (
-                                                        <span className="text-[9px] uppercase tracking-widest text-muted italic">Unlinked</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {u.membership_tier ? (
-                                                    <span className="px-2 py-1 bg-accent/10 text-accent border border-accent/20 rounded font-black text-[8px] uppercase tracking-widest">
-                                                        {u.membership_tier.name}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-muted text-[10px] uppercase font-bold italic">Standard</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {u.is_superadmin ? (
-                                                    <span className="px-2 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded font-black text-[8px] uppercase tracking-widest">Superadmin</span>
-                                                ) : (
-                                                    <span className="px-2 py-1 bg-surface border border-border text-muted rounded font-black text-[8px] uppercase tracking-widest">User</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    {user.id !== u.id && (
-                                                        <button 
-                                                            onClick={() => handleImpersonate(u)} 
-                                                            className="p-2 bg-accent/10 hover:bg-accent/20 border border-accent/20 rounded-lg text-accent transition-colors"
-                                                            title="Impersonate User"
-                                                        >
-                                                            <UserPlus size={14} />
-                                                        </button>
-                                                    )}
-                                                    <button onClick={() => setEditingUser(u)} className="p-2 bg-surface hover:bg-bg border border-border rounded-lg text-text transition-colors">
-                                                        <Edit2 size={14} />
-                                                    </button>
-                                                    {user.id !== u.id && (
-                                                        <button onClick={() => handleDeleteUser(u)} className="p-2 bg-danger/10 hover:bg-danger/20 border border-danger/20 rounded-lg text-danger transition-colors">
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-surface border-b border-border">
+                                        <tr>
+                                            <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">ID</th>
+                                            <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Username</th>
+                                            <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Membership</th>
+                                            <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest">Status</th>
+                                            <th className="px-6 py-4 text-[10px] font-black text-muted uppercase tracking-widest text-right">Actions</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-border">
+                                        {usersList.map(u => (
+                                            <tr key={u.id} className="hover:bg-surface/50 transition-colors">
+                                                <td className="px-6 py-4 font-mono text-muted text-xs">#{u.id}</td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold">{u.username}</span>
+                                                        {u.gtaw_id ? (
+                                                            <span className="text-[9px] uppercase tracking-widest text-muted">{u.gtaw_username} (ID: {u.gtaw_id})</span>
+                                                        ) : (
+                                                            <span className="text-[9px] uppercase tracking-widest text-muted italic">Unlinked</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {u.membership_tier ? (
+                                                        <span className="px-2 py-1 bg-accent/10 text-accent border border-accent/20 rounded font-black text-[8px] uppercase tracking-widest">
+                                                            {u.membership_tier.name}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-muted text-[10px] uppercase font-bold italic">Standard</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {u.is_superadmin ? (
+                                                        <span className="px-2 py-1 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded font-black text-[8px] uppercase tracking-widest">Superadmin</span>
+                                                    ) : (
+                                                        <span className="px-2 py-1 bg-surface border border-border text-muted rounded font-black text-[8px] uppercase tracking-widest">User</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        {user.id !== u.id && (
+                                                            <button 
+                                                                onClick={() => handleImpersonate(u)} 
+                                                                className="p-2 bg-accent/10 hover:bg-accent/20 border border-accent/20 rounded-lg text-accent transition-colors"
+                                                                title="Impersonate User"
+                                                            >
+                                                                <UserPlus size={14} />
+                                                            </button>
+                                                        )}
+                                                        <button onClick={() => setEditingUser(u)} className="p-2 bg-surface hover:bg-bg border border-border rounded-lg text-text transition-colors">
+                                                            <Edit2 size={14} />
+                                                        </button>
+                                                        {user.id !== u.id && (
+                                                            <button onClick={() => handleDeleteUser(u)} className="p-2 bg-danger/10 hover:bg-danger/20 border border-danger/20 rounded-lg text-danger transition-colors">
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 )}
