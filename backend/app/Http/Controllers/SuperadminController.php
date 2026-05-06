@@ -9,6 +9,7 @@ use App\Models\SiteSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class SuperadminController extends Controller
 {
@@ -51,6 +52,29 @@ class SuperadminController extends Controller
         $this->checkSuperadmin($request);
         // Include counts and membership tier for display
         return User::with(['membershipTier'])->withCount('factions')->get();
+    }
+
+    public function storeUser(Request $request)
+    {
+        $this->checkSuperadmin($request);
+        
+        $validated = $request->validate([
+            'username' => 'required|string|max:255|unique:users,username',
+            'gtaw_id' => 'nullable|integer|unique:users,gtaw_id',
+            'gtaw_username' => 'nullable|string|max:255',
+            'is_superadmin' => 'boolean',
+            'membership_tier_id' => 'nullable|exists:membership_tiers,id',
+            'password' => 'nullable|string|min:8'
+        ]);
+
+        if (!empty($validated['password'])) {
+            $validated['password'] = Hash::make($validated['password']);
+        } else {
+            unset($validated['password']);
+        }
+
+        $user = User::create($validated);
+        return response()->json(['message' => 'User created successfully', 'user' => $user->load('membershipTier')], 201);
     }
 
     public function updateUser(Request $request, User $user)

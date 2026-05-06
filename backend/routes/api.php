@@ -54,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Superadmin Routes
     Route::get('/superadmin/users', [SuperadminController::class, 'getUsers']);
+    Route::post('/superadmin/users', [SuperadminController::class, 'storeUser']);
     Route::put('/superadmin/users/{user}', [SuperadminController::class, 'updateUser']);
     Route::delete('/superadmin/users/{user}', [SuperadminController::class, 'deleteUser']);
     Route::get('/superadmin/factions', [SuperadminController::class, 'getFactions']);

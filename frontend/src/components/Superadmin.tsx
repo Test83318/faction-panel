@@ -148,12 +148,16 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
         setProcessing(true);
         const loadToast = toast.loading('Saving user...');
         try {
-            await api.put(`/superadmin/users/${editingUser.id}`, editingUser);
-            toast.success('User updated', { id: loadToast });
+            if (editingUser.id) {
+                await api.put(`/superadmin/users/${editingUser.id}`, editingUser);
+            } else {
+                await api.post('/superadmin/users', editingUser);
+            }
+            toast.success(editingUser.id ? 'User updated' : 'User created', { id: loadToast });
             setEditingUser(null);
             fetchData();
         } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Failed to update user', { id: loadToast });
+            toast.error(err.response?.data?.message || 'Failed to save user', { id: loadToast });
         } finally {
             setProcessing(false);
         }
@@ -398,7 +402,16 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
 
                 {/* Users Tab */}
                 {activeTab === 'users' && (
-                    <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+                    <div className="space-y-4">
+                        <div className="flex justify-end">
+                            <button 
+                                onClick={() => setEditingUser({ username: '', gtaw_id: null, gtaw_username: '', is_superadmin: false, membership_tier_id: null })}
+                                className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-lg font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20"
+                            >
+                                <UserPlus size={14} /> Create User
+                            </button>
+                        </div>
+                        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-surface border-b border-border">
@@ -613,6 +626,18 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                                         />
                                     </div>
                                 </div>
+                                {!editingUser.id && (
+                                    <div>
+                                        <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Password (Optional for GTA:W users)</label>
+                                        <input 
+                                            type="password"
+                                            value={editingUser.password || ''} 
+                                            onChange={e => setEditingUser({...editingUser, password: e.target.value})} 
+                                            className="w-full bg-surface border border-border p-3 rounded-xl text-sm" 
+                                            placeholder="Leave empty for OAuth-only login"
+                                        />
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-[10px] font-bold uppercase tracking-widest text-muted mb-2">Membership Tier</label>
                                     <select 

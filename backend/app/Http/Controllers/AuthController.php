@@ -161,24 +161,22 @@ class AuthController extends Controller
         $gtawId = $gtawUser['id'];
         $gtawUsername = $gtawUser['username'];
 
-        // Find or create user
+        // Find user by GTA:W ID first
         $user = User::where('gtaw_id', $gtawId)->first();
 
         if (!$user) {
-            // Check if a user with the same username already exists
-            $user = User::where('username', $gtawUsername)->first();
+            // Check if a user with the same GTA:W username or internal username already exists
+            $user = User::where('gtaw_username', $gtawUsername)
+                        ->orWhere('username', $gtawUsername)
+                        ->first();
             
             if ($user) {
-                // Link GTA:W account to existing user if not already linked
-                if (!$user->gtaw_id) {
-                    $user->update([
-                        'gtaw_id' => $gtawId,
-                        'gtaw_username' => $gtawUsername,
-                        'gtaw_access_token' => $accessToken
-                    ]);
-                } else {
-                    $user->update(['gtaw_access_token' => $accessToken]);
-                }
+                // Link GTA:W account to existing user
+                $user->update([
+                    'gtaw_id' => $gtawId,
+                    'gtaw_username' => $gtawUsername,
+                    'gtaw_access_token' => $accessToken
+                ]);
             } else {
                 // Check if registration is allowed
                 $allowRegistrationSetting = \App\Models\SiteSetting::where('key', 'allow_registration')->first();
@@ -198,7 +196,11 @@ class AuthController extends Controller
                 ]);
             }
         } else {
-            $user->update(['gtaw_access_token' => $accessToken]);
+            // User found by ID, update token and ensure username is synced
+            $user->update([
+                'gtaw_access_token' => $accessToken,
+                'gtaw_username' => $gtawUsername
+            ]);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
