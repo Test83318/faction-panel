@@ -13,18 +13,29 @@ Antelope is a high-performance management suite designed to replace fragile spre
 
 The frontend is served via an Nginx container.
 
-### 1. Build the Image
-Navigate to the `frontend` directory:
+### Using Docker Compose (Recommended)
+Use the `docker-compose.yml` file in the root directory:
+
+```bash
+docker-compose up -d --build
+```
+The frontend will be available at `http://localhost:3007` by default.
+
+### Portainer Configuration
+When deploying as a stack in Portainer:
+1.  **Repository URL**: Point to this repository.
+2.  **Compose path**: `docker-compose.yml`
+3.  **Environment Variables**:
+    *   `PORT`: Set to `3007` (or your preferred port).
+    *   `VITE_API_BASE_URL`: Set to your backend API URL (e.g., `http://api.yourdomain.com`).
+
+### Manual Build & Run
+If you prefer manual commands:
 ```bash
 cd frontend
-docker build -t antelope-frontend .
+docker build --build-arg VITE_API_BASE_URL=http://localhost:8000 -t antelope-frontend .
+docker run -d -p 3007:80 --name antelope-frontend antelope-frontend
 ```
-
-### 2. Run the Container
-```bash
-docker run -d -p 8080:80 --name antelope-frontend antelope-frontend
-```
-The frontend will be available at `http://localhost:8080`.
 
 ## 🛠 Backend Deployment (HestiaCP)
 
