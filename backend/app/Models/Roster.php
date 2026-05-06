@@ -46,7 +46,7 @@ class Roster extends Model
 
     public function rootSections()
     {
-        return $this->hasMany(RosterSection::class)->whereNull('parent_id')->orderBy('order');
+        return $this->hasMany(RosterSection::class)->whereNull('parent_id')->orderBy('order')->orderBy('id');
     }
 
     public function rosterPermissions()

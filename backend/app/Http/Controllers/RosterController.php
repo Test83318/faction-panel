@@ -22,6 +22,7 @@ class RosterController extends Controller
         $rosters = $faction->rosters()
             ->with(['rootSections.children.contents', 'rootSections.contents'])
             ->orderBy('order')
+            ->orderBy('id')
             ->get();
         
         $filteredRosters = $rosters->filter(function ($roster) use ($user, $isGlobalViewer) {

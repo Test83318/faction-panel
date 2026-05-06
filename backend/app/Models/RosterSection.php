@@ -43,12 +43,12 @@ class RosterSection extends Model
 
     public function children()
     {
-        return $this->hasMany(RosterSection::class, 'parent_id')->orderBy('order');
+        return $this->hasMany(RosterSection::class, 'parent_id')->orderBy('order')->orderBy('id');
     }
 
     public function contents()
     {
-        return $this->hasMany(RosterContent::class, 'section_id')->orderBy('order');
+        return $this->hasMany(RosterContent::class, 'section_id')->orderBy('order')->orderBy('id');
     }
 
     public function creator()

@@ -124,6 +124,7 @@ class FactionController extends Controller
         $rosters = $faction->rosters()
             ->with(['rootSections.children.children.contents', 'rootSections.children.contents', 'rootSections.contents'])
             ->orderBy('order')
+            ->orderBy('id')
             ->get();
         
         $filteredRosters = $rosters->filter(function ($roster) use ($user, $canViewGlobal) {
