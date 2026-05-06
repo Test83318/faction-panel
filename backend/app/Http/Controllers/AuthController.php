@@ -223,7 +223,7 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return response()->json($request->user()->load('groups', 'factions', 'membershipTier'));
+        return response()->json($request->user()->load('groups', 'factions', 'membershipTier', 'roles'));
     }
 
     public function unlinkGtaw(Request $request)

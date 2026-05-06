@@ -267,6 +267,12 @@ class FactionController extends Controller
 
         $faction->users()->attach(Auth::id());
 
+        // Assign default User role
+        $userRole = $faction->roles()->where('name', 'User')->first();
+        if ($userRole) {
+            Auth::user()->roles()->attach($userRole->id);
+        }
+
         return response()->json(['message' => 'Joined successfully']);
     }
 

@@ -518,6 +518,25 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                             ))}
                                         </div>
                                     </div>
+
+                                    <div className="space-y-6">
+                                        <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1">Access Control</div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            {[
+                                                { id: 'joinable', name: 'Public (Open)', desc: 'Anyone can join freely' },
+                                                { id: 'invite-only', name: 'Invite Only', desc: 'Requires an invite link' },
+                                                { id: 'private', name: 'Private', desc: 'Manual addition only' }
+                                            ].map(opt => (
+                                                <label key={opt.id} className={`relative flex flex-col gap-2 p-4 rounded-xl border transition-all cursor-pointer group ${factionForm.access === opt.id ? 'bg-accent/10 border-accent shadow-[0_0_15px_rgba(var(--accent-rgb),0.1)]' : 'bg-surface border-border hover:border-accent/50'} ${!hasPerm('modify_faction_details') ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest ${factionForm.access === opt.id ? 'text-accent' : 'text-muted'}`}>{opt.name}</span>
+                                                        <input type="radio" name="access" value={opt.id} checked={factionForm.access === opt.id} onChange={e => setFactionForm({ ...factionForm, access: e.target.value })} className="w-3.5 h-3.5 text-accent bg-bg border-border focus:ring-accent transition cursor-pointer disabled:cursor-not-allowed" disabled={!hasPerm('modify_faction_details')} />
+                                                    </div>
+                                                    <p className="text-[9px] text-muted font-bold uppercase tracking-tight leading-none">{opt.desc}</p>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="space-y-12">
                                     <div className="space-y-6">
@@ -564,7 +583,13 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                 <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-2 px-2 flex justify-between items-center">Custom Ranks {hasPerm('create_ranks') && <button onClick={() => openRoleModal()} className="p-1 hover:text-accent transition"><Plus size={14} /></button>}</div>
                                 {roles.filter(r => !['Administrator', 'User', 'Public'].includes(r.name)).map(role => (
                                     <div key={role.id} className={`group relative p-3 rounded-lg transition-all border cursor-pointer ${selectedRole?.id === role.id ? 'bg-accent/10 border-accent text-accent' : 'bg-card border-border text-muted hover:border-accent/50'}`} onClick={() => setSelectedRole(role)}>
-                                        <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color }} /><div className="font-bold text-sm">{role.name}</div></div>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color }} />
+                                            <div className="flex flex-col">
+                                                <div className="font-bold text-sm leading-none mb-1">{role.name}</div>
+                                                <div className="text-[7px] uppercase tracking-[0.2em] font-black opacity-50">{role.type}</div>
+                                            </div>
+                                        </div>
                                         <div className="absolute top-1/2 right-2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                             {hasPerm('modify_ranks') && role.weight < userHighestWeight && <button onClick={(e) => { e.stopPropagation(); openRoleModal(role); }} className="p-1 hover:text-text"><Edit2 size={12} /></button>}
                                             {hasPerm('delete_ranks') && role.weight < userHighestWeight && <button onClick={(e) => { e.stopPropagation(); deleteRole(role); }} className="p-1 hover:text-danger"><Trash2 size={12} /></button>}
@@ -620,7 +645,27 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                     <tbody>
                                         {members.map((member: any) => (
                                             <tr key={member.id} className="border-b border-border/50 hover:bg-surface transition-colors group">
-                                                <td className="py-4 px-4"><div className="font-bold text-sm text-text">{member.username}</div></td>
+                                                <td className="py-4 px-4">
+                                                    <div className="flex flex-col">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-sm text-text">{member.username}</span>
+                                                            {faction.faction_leader === member.id && (
+                                                                <Crown size={14} className="text-yellow-500" />
+                                                            )}
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-1 mt-1">
+                                                            {member.roles?.filter((r: any) => r.faction_id === faction.id).sort((a: any, b: any) => b.weight - a.weight).map((role: any) => (
+                                                                <span 
+                                                                    key={role.id} 
+                                                                    className={`px-1.5 py-0.5 rounded-[4px] border font-black text-[7px] uppercase tracking-widest ${role.type === 'primary' ? 'bg-accent/10 border-accent/20 text-accent' : 'bg-surface border-border text-muted'}`}
+                                                                    style={role.type === 'primary' ? {} : { borderColor: `${role.color}40`, color: role.color }}
+                                                                >
+                                                                    {role.name}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </td>
                                                 <td className="py-4 px-4 text-right">
                                                     {faction.faction_leader !== member.id && userHighestWeight > Math.max(0, ...member.roles.map((r: any) => r.weight || 0)) && (
                                                         <div className="flex justify-end gap-2">
@@ -640,11 +685,91 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
 
                 {activeTab === 'invites' && (
                     <motion.div key="invites" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="bg-card border border-border rounded-lg p-6">
-                            <h3 className="font-bold text-lg mb-6 flex items-center gap-2 text-text"><Plus size={18} className="text-accent" /> Create Invite</h3>
-                            <form onSubmit={handleCreateInvite} className="space-y-4">
-                                <button type="submit" disabled={creatingInvite} className="w-full py-3 bg-accent hover:bg-accent/90 text-white rounded font-bold text-[10px] uppercase tracking-widest transition flex items-center justify-center gap-2"><LinkIcon size={14} /> {creatingInvite ? 'Generating...' : 'Generate Invite Link'}</button>
-                            </form>
+                        <div className="lg:col-span-1">
+                            <div className="bg-card border border-border rounded-lg p-6 sticky top-6">
+                                <h3 className="font-bold text-lg mb-6 flex items-center gap-2 text-text"><Plus size={18} className="text-accent" /> Create Invite</h3>
+                                <form onSubmit={handleCreateInvite} className="space-y-4">
+                                    <div>
+                                        <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Duration</label>
+                                        <select 
+                                            value={inviteForm.duration} 
+                                            onChange={e => setInviteForm({ ...inviteForm, duration: e.target.value })}
+                                            className="w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition"
+                                        >
+                                            <option value="1h">1 Hour</option>
+                                            <option value="6h">6 Hours</option>
+                                            <option value="12h">12 Hours</option>
+                                            <option value="24h">24 Hours</option>
+                                            <option value="7d">7 Days</option>
+                                            <option value="30d">30 Days</option>
+                                            <option value="never">Never Expires</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Max Uses (0 for unlimited)</label>
+                                        <input 
+                                            type="number"
+                                            value={inviteForm.max_uses} 
+                                            onChange={e => setInviteForm({ ...inviteForm, max_uses: parseInt(e.target.value) || 0 })}
+                                            className="w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition"
+                                            min="0"
+                                        />
+                                    </div>
+                                    <button type="submit" disabled={creatingInvite} className="w-full py-3 bg-accent hover:bg-accent/90 text-white rounded font-bold text-[10px] uppercase tracking-widest transition flex items-center justify-center gap-2 shadow-lg shadow-accent/20">
+                                        <LinkIcon size={14} /> {creatingInvite ? 'Generating...' : 'Generate Invite Link'}
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div className="lg:col-span-2 space-y-4">
+                            <div className="bg-card border border-border rounded-lg overflow-hidden">
+                                <div className="p-4 border-b border-border bg-border/10 flex justify-between items-center">
+                                    <h3 className="font-bold text-lg flex items-center gap-2 text-text"><LinkIcon size={18} className="text-accent" /> Active Invites</h3>
+                                    <button onClick={fetchInvites} disabled={fetchingInvites} className="text-[10px] font-bold uppercase tracking-widest text-muted hover:text-accent transition">Refresh</button>
+                                </div>
+                                <div className="p-4">
+                                    {fetchingInvites ? (
+                                        <Loading message="Fetching Invites..." fullScreen={false} />
+                                    ) : invites.length === 0 ? (
+                                        <div className="py-12 text-center space-y-2">
+                                            <div className="text-muted opacity-20 flex justify-center"><LinkIcon size={48} /></div>
+                                            <p className="text-muted text-[10px] font-bold uppercase tracking-widest">No active invite links found.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {invites.map((invite: any) => (
+                                                <div key={invite.id} className="bg-surface border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-accent/30 transition-colors">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center text-accent">
+                                                            <LinkIcon size={20} />
+                                                        </div>
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <span className="font-mono font-bold text-text text-sm">{invite.code}</span>
+                                                                <button onClick={() => copyInviteLink(invite.code)} className="p-1 text-muted hover:text-accent transition-colors"><Copy size={12} /></button>
+                                                            </div>
+                                                            <div className="flex items-center gap-3 text-[9px] font-bold uppercase tracking-tight text-muted">
+                                                                <span className="flex items-center gap-1"><Users size={10} /> {invite.uses} / {invite.max_uses || '∞'} Uses</span>
+                                                                <span className="flex items-center gap-1"><Clock size={10} /> {invite.expires_at ? `Expires ${new Date(invite.expires_at).toLocaleDateString()}` : 'Never Expires'}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 justify-end">
+                                                        <button 
+                                                            onClick={() => handleDeleteInvite(invite.id)}
+                                                            className="p-2 bg-danger/10 text-danger border border-danger/20 rounded-lg hover:bg-danger/20 transition-colors opacity-0 group-hover:opacity-100"
+                                                            title="Delete Invite"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </motion.div>
                 )}
@@ -726,8 +851,48 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                     <div className="bg-card p-6 rounded-lg max-w-sm w-full border border-border shadow-2xl">
                         <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-text">{editingRole ? 'Edit Rank' : 'Create New Rank'}</h2>
                         <form onSubmit={handleRoleSubmit} className="space-y-4">
-                            <input value={roleForm.name} onChange={e => setRoleForm({ ...roleForm, name: e.target.value })} className="w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition" required placeholder="Rank Name" />
-                            <div className="flex gap-3 pt-4"><button type="button" onClick={() => setShowRoleModal(false)} className="flex-1 px-4 py-2 bg-surface hover:bg-bg border border-border text-text rounded font-bold text-xs uppercase tracking-widest transition">Cancel</button><button type="submit" disabled={savingRank} className="flex-1 px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded font-bold text-xs uppercase tracking-widest transition disabled:opacity-50">Save Rank</button></div>
+                            <div>
+                                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Rank Name</label>
+                                <input value={roleForm.name} onChange={e => setRoleForm({ ...roleForm, name: e.target.value })} className="w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition" required placeholder="Rank Name" />
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Rank Color</label>
+                                <div className="flex gap-3">
+                                    <input type="color" value={roleForm.color} onChange={e => setRoleForm({ ...roleForm, color: e.target.value })} className="w-12 h-11 bg-surface border border-border rounded p-1 cursor-pointer" />
+                                    <input value={roleForm.color} onChange={e => setRoleForm({ ...roleForm, color: e.target.value })} className="flex-1 bg-surface border border-border p-3 rounded text-sm font-mono focus:border-accent outline-none transition text-text" />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Rank Type</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setRoleForm({ ...roleForm, type: 'primary' })}
+                                        className={`px-3 py-2 rounded border text-[10px] font-bold uppercase tracking-widest transition-all ${roleForm.type === 'primary' ? 'bg-accent/10 border-accent text-accent' : 'bg-surface border-border text-muted hover:border-accent/50'}`}
+                                    >
+                                        Primary
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setRoleForm({ ...roleForm, type: 'secondary' })}
+                                        className={`px-3 py-2 rounded border text-[10px] font-bold uppercase tracking-widest transition-all ${roleForm.type === 'secondary' ? 'bg-accent/10 border-accent text-accent' : 'bg-surface border-border text-muted hover:border-accent/50'}`}
+                                    >
+                                        Secondary
+                                    </button>
+                                </div>
+                                <p className="mt-2 text-[9px] text-muted font-bold uppercase tracking-tight leading-none italic">
+                                    {roleForm.type === 'primary' 
+                                        ? 'Primary ranks are the main rank of a user. Only one can be assigned.' 
+                                        : 'Secondary ranks are for additional tags, permissions, or specialized roles.'}
+                                </p>
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button type="button" onClick={() => setShowRoleModal(false)} className="flex-1 px-4 py-2 bg-surface hover:bg-bg border border-border text-text rounded font-bold text-xs uppercase tracking-widest transition">Cancel</button>
+                                <button type="submit" disabled={savingRank} className="flex-1 px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded font-bold text-xs uppercase tracking-widest transition disabled:opacity-50">Save Rank</button>
+                            </div>
                         </form>
                     </div>
                 </div>
@@ -735,9 +900,91 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
 
             {showRankModal && editingMember && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
-                    <div className="bg-card p-6 rounded-lg max-w-md w-full border border-border shadow-2xl text-text">
-                        <h2 className="text-xl font-bold mb-6">Manage Ranks for {editingMember.username}</h2>
-                        <div className="flex gap-3"><button type="button" onClick={() => setShowRankModal(false)} className="flex-1 px-4 py-2 bg-surface hover:bg-bg border border-border text-text rounded font-bold text-xs uppercase tracking-widest transition">Cancel</button><button onClick={saveMemberRoles} disabled={savingMemberRoles} className="flex-1 px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded font-bold text-xs uppercase tracking-widest transition disabled:opacity-50">Update Ranks</button></div>
+                    <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl text-text overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="mb-6">
+                            <h2 className="text-xl font-black uppercase tracking-tight italic">Manage Ranks</h2>
+                            <p className="text-[10px] text-muted font-bold uppercase tracking-widest">Updating permissions for <span className="text-accent">{editingMember.username}</span></p>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto pr-2 space-y-6 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+                            <div className="space-y-3">
+                                <div className="text-[9px] font-black uppercase tracking-[0.2em] text-accent/60 px-1">Available Faction Ranks</div>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {roles.filter(r => r.name !== 'Public').map(role => {
+                                        const isSelected = memberRoleIds.includes(role.id);
+                                        const isRestricted = role.weight >= userHighestWeight && !user.is_superadmin;
+                                        
+                                        return (
+                                            <button 
+                                                key={role.id}
+                                                disabled={isRestricted}
+                                                onClick={() => {
+                                                    if (isSelected) {
+                                                        setMemberRoleIds(memberRoleIds.filter(id => id !== role.id));
+                                                    } else {
+                                                        let newIds = [...memberRoleIds];
+                                                        // If selecting a primary role, remove any other primary roles
+                                                        if (role.type === 'primary') {
+                                                            const otherPrimaryIds = roles.filter(r => r.type === 'primary' && r.id !== role.id).map(r => r.id);
+                                                            newIds = newIds.filter(id => !otherPrimaryIds.includes(id));
+                                                        }
+                                                        setMemberRoleIds([...newIds, role.id]);
+                                                    }
+                                                }}
+                                                className={`flex items-center justify-between p-4 rounded-xl border transition-all text-left group ${
+                                                    isSelected 
+                                                        ? 'bg-accent/10 border-accent shadow-[0_0_15px_rgba(var(--accent-rgb),0.1)]' 
+                                                        : 'bg-surface border-border hover:border-accent/30'
+                                                } ${isRestricted ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer'}`}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: role.color }} />
+                                                    <div className="flex flex-col">
+                                                        <span className={`text-xs font-black uppercase tracking-wider ${isSelected ? 'text-accent' : 'text-text'}`}>{role.name}</span>
+                                                        <span className="text-[8px] font-bold uppercase tracking-[0.1em] opacity-60">
+                                                            {role.type} • Weight: {role.weight}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                                                    isSelected ? 'bg-accent border-accent text-white scale-110' : 'border-border bg-bg group-hover:border-accent/50'
+                                                }`}>
+                                                    {isSelected && <Check size={12} strokeWidth={4} />}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="p-4 bg-surface border border-border rounded-xl space-y-2">
+                                <div className="flex items-center gap-2 text-muted uppercase font-black text-[9px] tracking-widest">
+                                    <Info size={12} /> Rank Rules
+                                </div>
+                                <ul className="text-[9px] text-muted font-bold uppercase tracking-tight space-y-1 ml-4 list-disc italic">
+                                    <li>Users can have exactly <span className="text-text">one primary rank</span>.</li>
+                                    <li>Multiple secondary ranks can be assigned.</li>
+                                    <li>You can only manage ranks with lower weight than your own.</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 pt-6 mt-2 border-t border-border">
+                            <button 
+                                type="button" 
+                                onClick={() => setShowRankModal(false)} 
+                                className="flex-1 px-4 py-3 bg-surface hover:bg-bg border border-border text-text rounded-xl font-black text-[10px] uppercase tracking-widest transition"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={saveMemberRoles} 
+                                disabled={savingMemberRoles} 
+                                className="flex-1 px-4 py-3 bg-accent hover:bg-accent/90 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition shadow-lg shadow-accent/20 disabled:opacity-50"
+                            >
+                                {savingMemberRoles ? 'Saving...' : 'Update Ranks'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
