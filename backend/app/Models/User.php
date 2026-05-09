@@ -43,7 +43,14 @@ class User extends Authenticatable
     protected function getAvatarUrlAttribute($value)
     {
         if (!$value) return null;
-        return str_starts_with($value, 'http') ? $value : \Illuminate\Support\Facades\Storage::disk('public')->url($value);
+        if (str_starts_with($value, 'http')) return $value;
+        
+        $baseUrl = env('STORAGE_URL');
+        if (!$baseUrl) {
+            $baseUrl = rtrim(config('app.url'), '/') . '/storage';
+        }
+        
+        return rtrim($baseUrl, '/') . '/' . ltrim($value, '/');
     }
 
     protected function setAvatarUrlAttribute($value)
@@ -55,9 +62,17 @@ class User extends Authenticatable
     {
         if (!$value) return null;
         
-        $storageUrl = rtrim(\Illuminate\Support\Facades\Storage::disk('public')->url(''), '/');
-        if (str_starts_with($value, $storageUrl)) {
-            return ltrim(str_replace($storageUrl, '', $value), '/');
+        $bases = array_filter([
+            env('STORAGE_URL'),
+            rtrim(config('app.url'), '/') . '/storage',
+            rtrim(\Illuminate\Support\Facades\Storage::disk('public')->url(''), '/')
+        ]);
+
+        foreach ($bases as $base) {
+            $base = rtrim($base, '/');
+            if (str_starts_with($value, $base)) {
+                return ltrim(str_replace($base, '', $value), '/');
+            }
         }
         
         return $value;

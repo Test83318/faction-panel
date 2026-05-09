@@ -75,7 +75,7 @@ class FactionController extends Controller
 
     public function show(Request $request, string $shortname)
     {
-        $faction = Faction::where('shortname', $shortname)->firstOrFail();
+        $faction = Faction::where('shortname', $shortname)->with(['creator'])->firstOrFail();
         $user = Auth::guard('sanctum')->user();
 
         $allPermissionsConfig = config('permissions.categories');

@@ -24,8 +24,7 @@ class Faction extends Model
 
     protected function getImageUrlAttribute($value)
     {
-        if (!$value) return null;
-        return str_starts_with($value, 'http') ? $value : Storage::disk('public')->url($value);
+        return $this->resolveBrandingUrl($value);
     }
 
     protected function setImageUrlAttribute($value)
@@ -35,8 +34,7 @@ class Faction extends Model
 
     protected function getHeaderImageDarkAttribute($value)
     {
-        if (!$value) return null;
-        return str_starts_with($value, 'http') ? $value : Storage::disk('public')->url($value);
+        return $this->resolveBrandingUrl($value);
     }
 
     protected function setHeaderImageDarkAttribute($value)
@@ -46,8 +44,7 @@ class Faction extends Model
 
     protected function getHeaderImageLightAttribute($value)
     {
-        if (!$value) return null;
-        return str_starts_with($value, 'http') ? $value : Storage::disk('public')->url($value);
+        return $this->resolveBrandingUrl($value);
     }
 
     protected function setHeaderImageLightAttribute($value)
@@ -57,8 +54,7 @@ class Faction extends Model
 
     protected function getFaviconAttribute($value)
     {
-        if (!$value) return null;
-        return str_starts_with($value, 'http') ? $value : Storage::disk('public')->url($value);
+        return $this->resolveBrandingUrl($value);
     }
 
     protected function setFaviconAttribute($value)
@@ -66,13 +62,35 @@ class Faction extends Model
         $this->attributes['favicon'] = $this->stripStorageUrl($value);
     }
 
+    private function resolveBrandingUrl($value)
+    {
+        if (!$value) return null;
+        if (str_starts_with($value, 'http')) return $value;
+        
+        $baseUrl = env('STORAGE_URL');
+        if (!$baseUrl) {
+            $baseUrl = rtrim(config('app.url'), '/') . '/storage';
+        }
+        
+        return rtrim($baseUrl, '/') . '/' . ltrim($value, '/');
+    }
+
     private function stripStorageUrl($value)
     {
         if (!$value) return null;
         
-        $storageUrl = rtrim(Storage::disk('public')->url(''), '/');
-        if (str_starts_with($value, $storageUrl)) {
-            return ltrim(str_replace($storageUrl, '', $value), '/');
+        // Try both possible bases
+        $bases = array_filter([
+            env('STORAGE_URL'),
+            rtrim(config('app.url'), '/') . '/storage',
+            rtrim(Storage::disk('public')->url(''), '/')
+        ]);
+
+        foreach ($bases as $base) {
+            $base = rtrim($base, '/');
+            if (str_starts_with($value, $base)) {
+                return ltrim(str_replace($base, '', $value), '/');
+            }
         }
         
         return $value;
