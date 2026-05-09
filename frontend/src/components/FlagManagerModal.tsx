@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Save, Flag, GripVertical, Info, Search, Check, AlertCircle } from 'lucide-react';
+import { X, Plus, Trash2, Save, Flag, GripVertical, Info, Search, Check, AlertCircle, ShieldAlert } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import api from '../api';
 import toast from 'react-hot-toast';
