@@ -41,8 +41,11 @@ class RosterSectionController extends Controller
             ->where('parent_id', $validated['parent_id'] ?? null)
             ->max('order') ?? -1;
 
+        $columns = $validated['columns'] ?? $roster->columns;
+
         $section = $roster->sections()->create([
             ...$validated,
+            'columns' => $columns,
             'order' => $maxOrder + 1,
             'created_by' => Auth::id(),
         ]);

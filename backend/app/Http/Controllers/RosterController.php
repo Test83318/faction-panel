@@ -125,8 +125,8 @@ class RosterController extends Controller
 
         $template = $faction->roster_template ?? [];
         $columns = $validated['columns'] ?? $template['columns'] ?? $defaultColumns;
-        $layoutSettings = $template['layout_settings'] ?? null;
-        $defaultSectionsPerRow = $template['default_sections_per_row'] ?? 1;
+        $layoutSettings = $validated['layout_settings'] ?? $template['layout_settings'] ?? null;
+        $defaultSectionsPerRow = $validated['default_sections_per_row'] ?? $template['default_sections_per_row'] ?? 1;
         $rosterOptions = $validated['roster_options'] ?? $template['roster_options'] ?? null;
 
         $roster = $faction->rosters()->create([

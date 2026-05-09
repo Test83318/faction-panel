@@ -753,6 +753,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
       {showSectionColumnsModal && (
         <ColumnsModal 
           target={showSectionColumnsModal} 
+          parentColumns={rosters.find((r: any) => r.id === (showSectionColumnsModal.roster_id || activeDivId))?.columns}
           type="section"
           shortname={shortname!}
           onClose={() => setShowSectionColumnsModal(null)} 

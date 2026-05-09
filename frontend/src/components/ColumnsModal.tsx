@@ -6,14 +6,15 @@ import { Roster } from '../types';
 
 interface ColumnsModalProps {
   target: { id: number; name: string; columns?: any[] };
+  parentColumns?: any[];
   type: 'roster' | 'section';
   shortname: string;
   onClose: () => void;
   onSave: () => void;
 }
 
-export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, type, shortname, onClose, onSave }) => {
-  const [columns, setColumns] = useState<any[]>(target.columns || [
+export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumns, type, shortname, onClose, onSave }) => {
+  const [columns, setColumns] = useState<any[]>(target.columns || parentColumns || [
       { id: 'rank', name: 'Rank', type: 'dropdown', options: [], checkboxes: ['Acting'] },
       { id: 'name', name: 'Name', type: 'text', checkboxes: ['LOA'] },
       { id: 'position', name: 'Position', type: 'text', checkboxes: [] },
