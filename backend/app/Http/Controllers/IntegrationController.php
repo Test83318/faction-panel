@@ -110,7 +110,9 @@ class IntegrationController extends Controller
 
         // Optional: Fetch ABAS data if available
         $abasRes = $this->gtawService->getFactionAbas($user->gtaw_access_token, $faction->gtaw_faction_id);
-        $abasData = ($abasRes && isset($abasRes['data'])) ? $abasRes['data'] : [];
+        $abasData = collect(($abasRes && isset($abasRes['data'])) ? $abasRes['data'] : [])
+            ->keyBy('character_id')
+            ->toArray();
 
         $dbs = $this->ensureGtawDatabases($faction);
         $charDb = $dbs['CHARS'];
@@ -138,7 +140,7 @@ class IntegrationController extends Controller
             $userAbasTotals = [];
             foreach ($gtawMembers as $member) {
                 $charId = $member['character_id'];
-                $abas = $abasData[$charId]['abas'] ?? $abasData[$charId] ?? $member['abas'] ?? 0;
+                $abas = $abasData[$charId]['abas'] ?? $member['abas'] ?? 0;
                 $userId = $member['user_id'];
                 $userAbasTotals[$userId] = ($userAbasTotals[$userId] ?? 0) + (float)$abas;
             }
@@ -151,7 +153,7 @@ class IntegrationController extends Controller
                     return ($e->data['char_id'] ?? null) == $charId;
                 });
 
-                $abasValue = $abasData[$charId]['abas'] ?? $abasData[$charId] ?? $member['abas'] ?? 0;
+                $abasValue = $abasData[$charId]['abas'] ?? $member['abas'] ?? 0;
                 $abasString = number_format((float)$abasValue, 2);
 
                 $memberData = [
