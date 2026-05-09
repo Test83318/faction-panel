@@ -68,17 +68,24 @@ class QuickSearchController extends Controller
         }
 
         $entriesQuery = $database->entries()->where('is_active', true);
+        $driver = $database->getConnection()->getDriverName();
 
         if ($exactMatchOnly) {
-            // For exact matches, we still want to be case-insensitive for better UX
-            $entriesQuery->whereRaw("LOWER(data->>'{$columnId}') = ?", [strtolower($query)]);
+            // Case-insensitive exact match
+            if ($driver === 'pgsql') {
+                $entriesQuery->whereRaw("LOWER(data->>'{$columnId}') = ?", [strtolower($query)]);
+            } else {
+                $entriesQuery->whereRaw("LOWER(json_unquote(json_extract(data, '$.\"{$columnId}\"'))) = ?", [strtolower($query)]);
+            }
         } else {
-            // For partial matches, use ILIKE on Postgres or LOWER + LIKE for others
-            $driver = $database->getConnection()->getDriverName();
+            // Case-insensitive partial match
             if ($driver === 'pgsql') {
                 $entriesQuery->whereRaw("data->>'{$columnId}' ILIKE ?", ["%{$query}%"]);
+            } elseif ($driver === 'mysql') {
+                $entriesQuery->whereRaw("LOWER(data->>'$.\"{$columnId}\"') LIKE ?", ["%" . strtolower($query) . "%"]);
             } else {
-                $entriesQuery->whereRaw("LOWER(data->>'{$columnId}') LIKE ?", ["%" . strtolower($query) . "%"]);
+                // SQLite fallback
+                $entriesQuery->whereRaw("LOWER(json_extract(data, '$.\"{$columnId}\"')) LIKE ?", ["%" . strtolower($query) . "%"]);
             }
         }
 

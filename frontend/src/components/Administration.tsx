@@ -864,9 +864,11 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                             className="w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition"
                                         >
                                             <option value="1h">1 Hour</option>
+                                            <option value="3h">3 Hours</option>
                                             <option value="6h">6 Hours</option>
                                             <option value="12h">12 Hours</option>
                                             <option value="24h">24 Hours</option>
+                                            <option value="48h">48 Hours</option>
                                             <option value="7d">7 Days</option>
                                             <option value="30d">30 Days</option>
                                             <option value="never">Never Expires</option>

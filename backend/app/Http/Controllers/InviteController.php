@@ -34,7 +34,7 @@ class InviteController extends Controller
         }
 
         $request->validate([
-            'duration' => 'required|in:1h,3h,24h,48h,1w,never',
+            'duration' => 'required|in:1h,3h,6h,12h,24h,48h,7d,30d,never',
             'max_uses' => 'nullable|integer|min:0',
         ]);
 
@@ -43,9 +43,12 @@ class InviteController extends Controller
             $expiresAt = match($request->duration) {
                 '1h' => Carbon::now()->addHour(),
                 '3h' => Carbon::now()->addHours(3),
+                '6h' => Carbon::now()->addHours(6),
+                '12h' => Carbon::now()->addHours(12),
                 '24h' => Carbon::now()->addDay(),
                 '48h' => Carbon::now()->addDays(2),
-                '1w' => Carbon::now()->addWeek(),
+                '7d' => Carbon::now()->addWeek(),
+                '30d' => Carbon::now()->addDays(30),
             };
         }
 
