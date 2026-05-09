@@ -524,19 +524,152 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                 </div>
                                 <div className="space-y-12">
                                     <div className="space-y-6">
-                                        <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1 flex items-center justify-between">Branding & Visuals</div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                            {['icon', 'header_dark', 'header_light', 'favicon'].map(type => (
-                                                <div key={type} className="space-y-2">
-                                                    <label className="block text-[10px] text-muted font-bold uppercase tracking-widest px-1 flex justify-between">{type.replace('_', ' ')}</label>
-                                                    <div className="relative group aspect-square bg-surface border border-border rounded-xl overflow-hidden flex items-center justify-center p-4 transition-all hover:border-accent/50">
-                                                        <label className="p-2 bg-accent hover:bg-accent/90 rounded-lg text-white cursor-pointer transition-colors">
-                                                            <Upload size={18} />
-                                                            <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, type as any)} />
-                                                        </label>
+                                        <div className="text-[10px] font-bold text-muted uppercase tracking-[0.2em] mb-4 border-b border-border pb-1">Branding & Visuals</div>
+                                        
+                                        <div className="relative group">
+                                            {!faction.allow_branding && (
+                                                <div className="absolute inset-0 z-10 bg-surface/40 backdrop-blur-[4px] rounded-xl flex items-center justify-center border border-dashed border-border/50">
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <Key size={20} className="text-muted" />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-muted">Option Restricted</span>
                                                     </div>
                                                 </div>
-                                            ))}
+                                            )}
+                                            
+                                            <div className={`grid grid-cols-1 sm:grid-cols-4 gap-4 ${!faction.allow_branding ? 'pointer-events-none select-none' : ''}`}>
+                                                {['header_dark', 'header_light', 'favicon', 'icon'].map(type => {
+                                                    // Icon is always allowed, headers/favicon are restricted
+                                                    const isRestricted = !faction.allow_branding && type !== 'icon';
+                                                    return (
+                                                        <div key={type} className={`space-y-2 ${isRestricted ? 'opacity-20 grayscale' : ''}`}>
+                                                            <label className="block text-[10px] text-muted font-bold uppercase tracking-widest px-1 flex justify-between">
+                                                                {type.replace('_', ' ')}
+                                                                {factionForm[type as keyof typeof factionForm] && (
+                                                                    <button type="button" onClick={() => handleRemoveBranding(type as any)} className="text-[8px] text-danger hover:underline">Remove</button>
+                                                                )}
+                                                            </label>
+                                                            <div className="relative aspect-square bg-surface border border-border rounded-xl overflow-hidden flex items-center justify-center p-4 transition-all hover:border-accent/50 group/upload">
+                                                                {factionForm[type as keyof typeof factionForm] ? (
+                                                                    <img 
+                                                                        src={factionForm[type as keyof typeof factionForm] as string} 
+                                                                        alt={type} 
+                                                                        className="w-full h-full object-contain drop-shadow-md" 
+                                                                    />
+                                                                ) : (
+                                                                    <Upload size={18} className="text-muted opacity-20" />
+                                                                )}
+                                                                
+                                                                <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover/upload:opacity-100 transition-opacity cursor-pointer">
+                                                                    <Upload size={20} className="text-white" />
+                                                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, type as any)} />
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div className="relative group">
+                                                {!faction.allow_branding && (
+                                                    <div className="absolute inset-0 z-10 bg-surface/40 backdrop-blur-[2px] rounded-xl flex items-center justify-center border border-dashed border-border/50">
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-muted">Option Restricted</span>
+                                                    </div>
+                                                )}
+                                                <div className="space-y-4">
+                                                    <div className={`p-4 bg-surface border border-border rounded-xl flex items-center justify-between ${!faction.allow_branding ? 'opacity-20 grayscale pointer-events-none' : ''}`}>
+                                                        <div className="space-y-0.5">
+                                                            <label className="text-[10px] font-black uppercase tracking-widest">Hide "Faction Panel" Logo</label>
+                                                            <p className="text-[9px] text-muted uppercase font-bold tracking-tight">Only show your faction logo in the header</p>
+                                                        </div>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setFactionForm({...factionForm, hide_panel_header: !factionForm.hide_panel_header})}
+                                                            className={`w-10 h-6 rounded-full transition-colors relative flex items-center px-1 ${factionForm.hide_panel_header ? 'bg-accent' : 'bg-border'}`}
+                                                        >
+                                                            <div className={`w-4 h-4 bg-white rounded-full transition-transform ${factionForm.hide_panel_header ? 'translate-x-4' : ''}`} />
+                                                        </button>
+                                                    </div>
+
+                                                    <div className={`p-6 bg-surface border border-border rounded-xl space-y-6 ${!faction.allow_branding ? 'opacity-20 grayscale pointer-events-none' : ''}`}>
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="space-y-0.5">
+                                                                <label className="text-[10px] font-black uppercase tracking-widest">Header Background</label>
+                                                                <p className="text-[9px] text-muted uppercase font-bold tracking-tight">Customize the top navigation bar appearance</p>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <button 
+                                                                    type="button" 
+                                                                    onClick={() => setFactionForm({...factionForm, header_gradient_enabled: false})}
+                                                                    className={`px-3 py-1.5 rounded text-[8px] font-black uppercase tracking-widest border transition-all ${!factionForm.header_gradient_enabled ? 'bg-accent border-accent text-white shadow-lg shadow-accent/20' : 'bg-bg border-border text-muted hover:border-accent/50'}`}
+                                                                >Solid Color</button>
+                                                                <button 
+                                                                    type="button" 
+                                                                    onClick={() => setFactionForm({...factionForm, header_gradient_enabled: true})}
+                                                                    className={`px-3 py-1.5 rounded text-[8px] font-black uppercase tracking-widest border transition-all ${factionForm.header_gradient_enabled ? 'bg-accent border-accent text-white shadow-lg shadow-accent/20' : 'bg-bg border-border text-muted hover:border-accent/50'}`}
+                                                                >Gradient</button>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                                                            <div className="space-y-2">
+                                                                <label className="block text-[9px] text-muted font-bold uppercase tracking-widest px-1">{factionForm.header_gradient_enabled ? 'Start Color' : 'Background Color'}</label>
+                                                                <div className="flex gap-2">
+                                                                    <input type="color" value={factionForm.header_bg_color || '#1a1a1a'} onChange={e => setFactionForm({...factionForm, header_bg_color: e.target.value})} className="w-10 h-10 bg-bg border border-border rounded p-1 cursor-pointer" />
+                                                                    <input value={factionForm.header_bg_color || ''} onChange={e => setFactionForm({...factionForm, header_bg_color: e.target.value})} className="flex-1 bg-bg border border-border p-2.5 rounded text-[10px] font-mono focus:border-accent outline-none transition" placeholder="#000000" />
+                                                                </div>
+                                                            </div>
+                                                            {factionForm.header_gradient_enabled && (
+                                                                <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                                    <label className="block text-[9px] text-muted font-bold uppercase tracking-widest px-1">End Color</label>
+                                                                    <div className="flex gap-2">
+                                                                        <input type="color" value={factionForm.header_gradient_color || '#1a1a1a'} onChange={e => setFactionForm({...factionForm, header_gradient_color: e.target.value})} className="w-10 h-10 bg-bg border border-border rounded p-1 cursor-pointer" />
+                                                                        <input value={factionForm.header_gradient_color || ''} onChange={e => setFactionForm({...factionForm, header_gradient_color: e.target.value})} className="flex-1 bg-bg border border-border p-2.5 rounded text-[10px] font-mono focus:border-accent outline-none transition" placeholder="#000000" />
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {factionForm.header_gradient_enabled && (
+                                                            <div className="space-y-3 pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                                <label className="block text-[9px] text-muted font-bold uppercase tracking-widest px-1">Gradient Direction</label>
+                                                                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                                                                    {['to-r', 'to-l', 'to-t', 'to-b', 'to-tr', 'to-tl', 'to-br', 'to-bl'].map(dir => (
+                                                                        <button 
+                                                                            key={dir} 
+                                                                            type="button" 
+                                                                            onClick={() => setFactionForm({...factionForm, header_gradient_direction: dir})}
+                                                                            className={`py-2 rounded border text-[8px] font-black uppercase transition-all ${factionForm.header_gradient_direction === dir ? 'bg-accent/10 border-accent text-accent' : 'bg-bg border-border text-muted hover:border-accent/50'}`}
+                                                                        >
+                                                                            {dir.replace('to-', '')}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="relative group">
+                                                {!faction.allow_branding && (
+                                                    <div className="absolute inset-0 z-10 bg-surface/40 backdrop-blur-[2px] rounded-xl flex items-center justify-center border border-dashed border-border/50">
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-muted">Option Restricted</span>
+                                                    </div>
+                                                )}
+                                                <div className={`space-y-2 ${!faction.allow_branding ? 'opacity-20 grayscale pointer-events-none' : ''}`}>
+                                                    <label className="block text-[10px] text-muted font-bold uppercase tracking-widest px-1">Custom Footer Text</label>
+                                                    <input 
+                                                        value={factionForm.custom_footer_text} 
+                                                        onChange={e => setFactionForm({ ...factionForm, custom_footer_text: e.target.value })} 
+                                                        className="w-full bg-surface border border-border p-4 rounded-xl text-sm focus:border-accent outline-none transition text-text" 
+                                                        placeholder="e.g. Los Santos Sheriff's Department &copy; 2026"
+                                                        disabled={!hasPerm('modify_faction_details')}
+                                                    />
+                                                    <p className="text-[8px] text-muted uppercase font-bold tracking-widest px-1 italic">Replaces the default version footer in the sidebar.</p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

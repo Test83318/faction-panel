@@ -46,6 +46,23 @@ class User extends Authenticatable
         return str_starts_with($value, 'http') ? $value : \Illuminate\Support\Facades\Storage::disk('public')->url($value);
     }
 
+    protected function setAvatarUrlAttribute($value)
+    {
+        $this->attributes['avatar_url'] = $this->stripStorageUrl($value);
+    }
+
+    private function stripStorageUrl($value)
+    {
+        if (!$value) return null;
+        
+        $storageUrl = rtrim(\Illuminate\Support\Facades\Storage::disk('public')->url(''), '/');
+        if (str_starts_with($value, $storageUrl)) {
+            return ltrim(str_replace($storageUrl, '', $value), '/');
+        }
+        
+        return $value;
+    }
+
     public function getMaxFactionsAttribute(): int
     {
         if ($this->is_superadmin) {

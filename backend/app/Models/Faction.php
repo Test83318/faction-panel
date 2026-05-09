@@ -28,10 +28,20 @@ class Faction extends Model
         return str_starts_with($value, 'http') ? $value : Storage::disk('public')->url($value);
     }
 
+    protected function setImageUrlAttribute($value)
+    {
+        $this->attributes['image_url'] = $this->stripStorageUrl($value);
+    }
+
     protected function getHeaderImageDarkAttribute($value)
     {
         if (!$value) return null;
         return str_starts_with($value, 'http') ? $value : Storage::disk('public')->url($value);
+    }
+
+    protected function setHeaderImageDarkAttribute($value)
+    {
+        $this->attributes['header_image_dark'] = $this->stripStorageUrl($value);
     }
 
     protected function getHeaderImageLightAttribute($value)
@@ -40,10 +50,32 @@ class Faction extends Model
         return str_starts_with($value, 'http') ? $value : Storage::disk('public')->url($value);
     }
 
+    protected function setHeaderImageLightAttribute($value)
+    {
+        $this->attributes['header_image_light'] = $this->stripStorageUrl($value);
+    }
+
     protected function getFaviconAttribute($value)
     {
         if (!$value) return null;
         return str_starts_with($value, 'http') ? $value : Storage::disk('public')->url($value);
+    }
+
+    protected function setFaviconAttribute($value)
+    {
+        $this->attributes['favicon'] = $this->stripStorageUrl($value);
+    }
+
+    private function stripStorageUrl($value)
+    {
+        if (!$value) return null;
+        
+        $storageUrl = rtrim(Storage::disk('public')->url(''), '/');
+        if (str_starts_with($value, $storageUrl)) {
+            return ltrim(str_replace($storageUrl, '', $value), '/');
+        }
+        
+        return $value;
     }
 
     protected $fillable = [
