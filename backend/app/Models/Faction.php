@@ -40,11 +40,15 @@ class Faction extends Model
         'gtaw_faction_id',
         'faction_leader',
         'roster_template',
+        'quick_search_enabled',
+        'quick_search_settings',
         'created_by',
     ];
 
     protected $casts = [
         'roster_template' => 'array',
+        'quick_search_enabled' => 'boolean',
+        'quick_search_settings' => 'array',
     ];
 
     public function invites()

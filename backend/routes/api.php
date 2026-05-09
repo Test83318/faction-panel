@@ -166,6 +166,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/factions/{shortname}/audit-logs', [AuditLogController::class, 'index']);
     Route::get('/factions/{shortname}/audit-logs/{auditLog}', [AuditLogController::class, 'show']);
 
+    // Quick Search
+    Route::put('/factions/{shortname}/quick-search/settings', [\App\Http\Controllers\QuickSearchController::class, 'updateSettings']);
+    Route::get('/factions/{shortname}/quick-search', [\App\Http\Controllers\QuickSearchController::class, 'search']);
+
     // GTA:W Integration
     Route::get('/factions/{shortname}/integrations/gtaw/available', [IntegrationController::class, 'getAvailableFactions']);
     Route::post('/factions/{shortname}/integrations/gtaw/setup', [IntegrationController::class, 'setupGtaw']);

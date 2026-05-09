@@ -130,6 +130,11 @@ return [
                     'description' => 'Allows setting up and managing third-party integrations (e.g., GTA:W).',
                     'type' => 'MODIFY',
                 ],
+                'modify_global_quick_search' => [
+                    'name' => 'Modify Global Quick Search',
+                    'description' => 'Allows configuring the global quick search feature for the faction.',
+                    'type' => 'MODIFY',
+                ],
             ],
         ],
         'records' => [

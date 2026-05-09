@@ -26,6 +26,7 @@ import AuditLogs from './components/AuditLogs';
 import Welcome from './components/Welcome';
 import GlobalLayout from './layouts/GlobalLayout';
 import FactionLayout from './layouts/FactionLayout';
+import { ConfirmationProvider } from './components/ConfirmationProvider';
 import { ShieldAlert } from 'lucide-react';
 import { hexToRgb } from './utils';
 
@@ -330,48 +331,50 @@ export default function App() {
 
   return (
     <Router>
-      <TitleUpdater user={user} />
-      <Toaster 
-        position="top-right"
-        toastOptions={{
-          style: {
-            background: 'var(--card)',
-            color: 'var(--text)',
-            border: '1px solid var(--border)',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-          },
-        }}
-      />
-      <Routes>
-        <Route path="/setup" element={<Setup />} />
-        <Route path="/login" element={<Login onLogin={handleLogin} />} />
-        <Route path="/register" element={<Register onLogin={handleLogin} />} />
-        <Route path="/invite/:code" element={<Invite user={user} />} />
-        <Route path="/auth/gtaw/callback" element={<GtawCallback onLogin={handleLogin} />} />
-        
-        {/* Unauthenticated Landing Page (No Header) */}
-        {!user && <Route path="/" element={<Home onLogin={handleLogin} isDark={isDark} toggleTheme={toggleTheme} siteVersion={siteVersion} />} />}
+      <ConfirmationProvider>
+        <TitleUpdater user={user} />
+        <Toaster 
+          position="top-right"
+          toastOptions={{
+            style: {
+              background: 'var(--card)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            },
+          }}
+        />
+        <Routes>
+          <Route path="/setup" element={<Setup />} />
+          <Route path="/login" element={<Login onLogin={handleLogin} />} />
+          <Route path="/register" element={<Register onLogin={handleLogin} />} />
+          <Route path="/invite/:code" element={<Invite user={user} />} />
+          <Route path="/auth/gtaw/callback" element={<GtawCallback onLogin={handleLogin} />} />
+          
+          {/* Unauthenticated Landing Page (No Header) */}
+          {!user && <Route path="/" element={<Home onLogin={handleLogin} isDark={isDark} toggleTheme={toggleTheme} siteVersion={siteVersion} />} />}
 
-        <Route element={<GlobalLayout isDark={isDark} toggleTheme={toggleTheme} user={user} onLogout={handleLogout} />}>
-           {/* Authenticated Root (Faction Selection) */}
-           {user && <Route path="/" element={<FactionManager />} />}
-           
-           <Route path="/factions/catalog" element={<FactionCatalog />} />
-           <Route path="/account/settings" element={<AccountSettings />} />
-           <Route path="/superadmin" element={<Superadmin user={user} onLogin={handleLogin} />} />
-           <Route path="/help" element={<HelpCenter />} />
-           <Route path="/help/category/:id" element={<HelpCategoryView />} />
-           <Route path="/help/article/:slug" element={<HelpArticleView />} />
-           <Route path="/welcome" element={<Welcome />} />
-        </Route>
+          <Route element={<GlobalLayout isDark={isDark} toggleTheme={toggleTheme} user={user} onLogout={handleLogout} />}>
+             {/* Authenticated Root (Faction Selection) */}
+             {user && <Route path="/" element={<FactionManager />} />}
+             
+             <Route path="/factions/catalog" element={<FactionCatalog />} />
+             <Route path="/account/settings" element={<AccountSettings />} />
+             <Route path="/superadmin" element={<Superadmin user={user} onLogin={handleLogin} />} />
+             <Route path="/help" element={<HelpCenter />} />
+             <Route path="/help/category/:id" element={<HelpCategoryView />} />
+             <Route path="/help/article/:slug" element={<HelpArticleView />} />
+             <Route path="/welcome" element={<Welcome />} />
+          </Route>
 
-        <Route path="/:shortname/*" element={
-          <DashboardWrapper user={user} onLogout={handleLogout} isDark={isDark} toggleTheme={toggleTheme} siteVersion={siteVersion} />
-        } />
-      </Routes>
+          <Route path="/:shortname/*" element={
+            <DashboardWrapper user={user} onLogout={handleLogout} isDark={isDark} toggleTheme={toggleTheme} siteVersion={siteVersion} />
+          } />
+        </Routes>
+      </ConfirmationProvider>
     </Router>
   );
 }

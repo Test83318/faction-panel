@@ -22,12 +22,35 @@ class AuditLogController extends Controller
             ->where('faction_id', $faction->id)
             ->latest();
 
-        if ($request->has('event')) {
+        if ($request->filled('event')) {
             $query->where('event', $request->event);
         }
 
-        if ($request->has('user_id')) {
+        if ($request->filled('user_id')) {
             $query->where('user_id', $request->user_id);
+        }
+
+        if ($request->filled('auditable_type')) {
+            $query->where('auditable_type', 'like', '%' . $request->auditable_type . '%');
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('old_values', 'like', '%' . $search . '%')
+                  ->orWhere('new_values', 'like', '%' . $search . '%')
+                  ->orWhereHas('user', function($uq) use ($search) {
+                      $uq->where('username', 'like', '%' . $search . '%');
+                  });
+            });
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
         }
 
         return $query->paginate($request->input('per_page', 50));

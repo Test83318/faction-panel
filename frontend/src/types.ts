@@ -203,6 +203,12 @@ export interface Faction {
   gtaw_faction_id: number | null;
   faction_leader: number;
   allow_branding: boolean;
+  quick_search_enabled: boolean;
+  quick_search_settings?: {
+    database_id: number | null;
+    column_id: string | null;
+    exact_match_only: boolean;
+  };
   roster_template?: any;
   leader?: User;
   users_count?: number;

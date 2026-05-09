@@ -3,10 +3,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import toast from 'react-hot-toast';
 import api from '../api';
 import Loading from './Loading';
-import { Shield, Settings, Trash2, Edit2, Check, X, Plus, Save, Info, Key, Users, UserMinus, ShieldAlert, Crown, UserCog, Copy, Link as LinkIcon, Clock, Upload, LayoutGrid, Eye, Moon, Sun } from 'lucide-react';
+import QuickSearchSettings from './QuickSearchSettings';
+import { useConfirm } from './ConfirmationProvider';
+import { Shield, Settings, Trash2, Edit2, Check, X, Plus, Save, Info, Key, Users, UserMinus, ShieldAlert, Crown, UserCog, Copy, Link as LinkIcon, Clock, Upload, LayoutGrid, Eye, Moon, Sun, Search } from 'lucide-react';
 
 const Administration: React.FC<{ faction: any; user: any; permissions: string[] }> = ({ faction, user, permissions }) => {
     const hasPerm = (perm: string) => user?.is_superadmin || permissions.includes(perm);
+    const confirm = useConfirm();
     const userHighestWeight = user?.is_superadmin || faction.faction_leader === user?.id 
         ? 999999 
         : Math.max(0, ...(faction.user_roles || user?.roles || [])
@@ -18,7 +21,8 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
         { id: 'roles', perm: 'view_permissions' },
         { id: 'users', perm: 'view_users' },
         { id: 'invites', perm: 'manage_invites' },
-        { id: 'integrations', perm: 'manage_integrations' }
+        { id: 'integrations', perm: 'manage_integrations' },
+        { id: 'quick_search', perm: 'modify_global_quick_search' }
     ].filter(tab => hasPerm(tab.perm));
 
     const [activeTab, setActiveTab] = useState(availableTabs.length > 0 ? availableTabs[0].id : '');
@@ -170,36 +174,26 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
     }, [activeTab]);
 
     const handleRemoveMember = async (targetUser: any) => {
-        if (deleting) return;
-        toast((t) => (
-            <div className="flex flex-col gap-1 text-left">
-                <p className="font-bold">Remove "{targetUser.username}"?</p>
-                <p className="text-[10px] opacity-80 uppercase tracking-tighter">They will lose all access to this faction.</p>
-                <div className="flex gap-2 justify-end mt-2">
-                    <button onClick={() => toast.dismiss(t.id)} className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-[9px] font-bold uppercase transition">Cancel</button>
-                    <button 
-                        onClick={async () => {
-                            toast.dismiss(t.id);
-                            setDeleting(true);
-                            const loadToast = toast.loading('Removing member...');
-                            try {
-                                await api.delete(`/factions/${faction.id}/users/${targetUser.id}`);
-                                setMembers(members.filter(m => m.id !== targetUser.id));
-                                toast.success('Member removed successfully', { id: loadToast });
-                            } catch (err: any) {
-                                toast.error(err.response?.data?.message || 'Failed to remove member', { id: loadToast });
-                            } finally {
-                                setDeleting(false);
-                            }
-                        }}
-                        className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-[9px] font-bold uppercase transition disabled:opacity-50"
-                        disabled={deleting}
-                    >
-                        {deleting ? 'Removing...' : 'Remove'}
-                    </button>
-                </div>
-            </div>
-        ), { duration: 6000, position: 'top-center' });
+        const confirmed = await confirm({
+            title: 'Remove Member',
+            message: `Are you sure you want to remove "${targetUser.username}"? They will lose all access to this faction.`,
+            confirmText: 'Remove Member',
+            variant: 'danger'
+        });
+
+        if (!confirmed) return;
+        
+        setDeleting(true);
+        const loadToast = toast.loading('Removing member...');
+        try {
+            await api.delete(`/factions/${faction.id}/users/${targetUser.id}`);
+            setMembers(members.filter(m => m.id !== targetUser.id));
+            toast.success('Member removed successfully', { id: loadToast });
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to remove member', { id: loadToast });
+        } finally {
+            setDeleting(false);
+        }
     };
 
     const openRankModal = (targetUser: any) => {
@@ -237,35 +231,26 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
     };
 
     const handleDeleteInvite = async (id: number) => {
-        if (deleting) return;
-        toast((t) => (
-            <div className="flex flex-col gap-1 text-left">
-                <p className="font-bold text-xs uppercase">Delete this invite?</p>
-                <p className="text-[9px] opacity-80 uppercase tracking-tighter">The invite code will no longer work.</p>
-                <div className="flex gap-2 justify-end mt-2">
-                    <button onClick={() => toast.dismiss(t.id)} className="px-2 py-1 bg-surface hover:bg-bg border border-border rounded text-[9px] font-bold uppercase transition">Cancel</button>
-                    <button 
-                        onClick={async () => {
-                            toast.dismiss(t.id);
-                            setDeleting(true);
-                            const loadToast = toast.loading('Deleting invite...');
-                            try {
-                                await api.delete(`/invites/${id}`);
-                                setInvites(invites.filter(i => i.id !== id));
-                                toast.success('Invite deleted', { id: loadToast });
-                            } catch (err) {
-                                toast.error('Failed to delete invite', { id: loadToast });
-                            } finally {
-                                setDeleting(false);
-                            }
-                        }}
-                        className="px-2 py-1 bg-danger text-white hover:bg-danger/90 rounded text-[9px] font-bold uppercase transition shadow-lg shadow-danger/20"
-                    >
-                        Delete
-                    </button>
-                </div>
-            </div>
-        ), { duration: 6000, position: 'top-center' });
+        const confirmed = await confirm({
+            title: 'Delete Invite',
+            message: 'Are you sure you want to delete this invite? The code will no longer work.',
+            confirmText: 'Delete Invite',
+            variant: 'danger'
+        });
+
+        if (!confirmed) return;
+        
+        setDeleting(true);
+        const loadToast = toast.loading('Deleting invite...');
+        try {
+            await api.delete(`/invites/${id}`);
+            setInvites(invites.filter(i => i.id !== id));
+            toast.success('Invite deleted', { id: loadToast });
+        } catch (err) {
+            toast.error('Failed to delete invite', { id: loadToast });
+        } finally {
+            setDeleting(false);
+        }
     };
 
     const handlePermissionChange = (key: string, value: string) => {
@@ -323,7 +308,14 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
     };
 
     const handleRemoveBranding = async (type: 'icon' | 'header_dark' | 'header_light' | 'favicon') => {
-        if (!window.confirm(`Are you sure you want to remove the ${type.replace('_', ' ')}?`)) return;
+        const confirmed = await confirm({
+            title: `Remove ${type.replace('_', ' ')}`,
+            message: `Are you sure you want to remove the ${type.replace('_', ' ')}?`,
+            confirmText: 'Remove Branding',
+            variant: 'danger'
+        });
+
+        if (!confirmed) return;
 
         const loadToast = toast.loading(`Removing ${type.replace('_', ' ')}...`);
         try {
@@ -395,37 +387,27 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
     };
 
     const deleteRole = async (role: any) => {
-        if (deleting) return;
-        toast((t) => (
-            <div className="flex flex-col gap-1">
-                <p className="font-bold">Delete rank "{role.name}"?</p>
-                <p className="text-[10px] opacity-80 uppercase tracking-tighter">This action cannot be undone.</p>
-                <div className="flex gap-2 justify-end mt-2">
-                    <button onClick={() => toast.dismiss(t.id)} className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-[9px] font-bold uppercase transition">Cancel</button>
-                    <button 
-                        onClick={async () => {
-                            toast.dismiss(t.id);
-                            setDeleting(true);
-                            const loadToast = toast.loading('Deleting rank...');
-                            try {
-                                await api.delete(`/roles/${role.id}`);
-                                if (selectedRole?.id === role.id) setSelectedRole(null);
-                                fetchData();
-                                toast.success('Rank deleted successfully', { id: loadToast });
-                            } catch (err: any) {
-                                toast.error(err.response?.data?.message || 'Failed to delete rank', { id: loadToast });
-                            } finally {
-                                setDeleting(false);
-                            }
-                        }}
-                        className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-[9px] font-bold uppercase transition disabled:opacity-50"
-                        disabled={deleting}
-                    >
-                        {deleting ? 'Deleting...' : 'Delete'}
-                    </button>
-                </div>
-            </div>
-        ), { duration: 6000, position: 'top-center' });
+        const confirmed = await confirm({
+            title: 'Delete Rank',
+            message: `Are you sure you want to delete the rank "${role.name}"? This action cannot be undone.`,
+            confirmText: 'Delete Rank',
+            variant: 'danger'
+        });
+
+        if (!confirmed) return;
+
+        setDeleting(true);
+        const loadToast = toast.loading('Deleting rank...');
+        try {
+            await api.delete(`/roles/${role.id}`);
+            if (selectedRole?.id === role.id) setSelectedRole(null);
+            fetchData();
+            toast.success('Rank deleted successfully', { id: loadToast });
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to delete rank', { id: loadToast });
+        } finally {
+            setDeleting(false);
+        }
     };
 
     const openRoleModal = (role: any = null) => {
@@ -463,11 +445,13 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                             {tab.id === 'users' && <Users size={14} />}
                             {tab.id === 'invites' && <LinkIcon size={14} />}
                             {tab.id === 'integrations' && <ShieldAlert size={14} />}
+                            {tab.id === 'quick_search' && <Search size={14} />}
                             {tab.id === 'details' && 'Faction Details'}
                             {tab.id === 'roles' && 'Ranks & Permissions'}
                             {tab.id === 'users' && 'Users'}
                             {tab.id === 'invites' && 'Invites'}
                             {tab.id === 'integrations' && 'Integrations'}
+                            {tab.id === 'quick_search' && 'Quick Search'}
                         </div>
                         {activeTab === tab.id && <motion.div layoutId="adminTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
                     </button>
@@ -829,6 +813,12 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                 </button>
                             </div>
                         )}
+                    </motion.div>
+                )}
+
+                {activeTab === 'quick_search' && (
+                    <motion.div key="quick_search" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="w-full">
+                        <QuickSearchSettings faction={faction} />
                     </motion.div>
                 )}
             </AnimatePresence>

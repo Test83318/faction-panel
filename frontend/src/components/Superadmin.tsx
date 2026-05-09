@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { Shield, ArrowLeft, Users, Building2, Edit2, Trash2, UserPlus, Check, X, CreditCard, Plus, Settings, ScrollText, BookOpen } from 'lucide-react';
 import { User, Faction, MembershipTier } from '../types';
 import HelpAdmin from './HelpAdmin';
+import { useConfirm } from './ConfirmationProvider';
 
 interface SuperadminProps {
     user: User;

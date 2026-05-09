@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Shield, Moon, Sun, LogOut, User, LogIn, ChevronDown, Settings, LayoutGrid, ShieldAlert, HelpCircle } from 'lucide-react';
+import QuickSearch from './QuickSearch';
 
 interface HeaderProps {
   isDark: boolean;
@@ -16,13 +17,20 @@ interface HeaderProps {
     header_gradient_color: string | null;
     header_gradient_direction: string;
     shortname: string;
+    quick_search_enabled?: boolean;
+    quick_search_settings?: {
+        database_id: number | null;
+        column_id: string | null;
+        exact_match_only: boolean;
+    };
   };
   user: any;
   userRole?: any;
+  permissions?: string[];
   onLogout: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName, bannerLogoDark, bannerLogoLight, branding, user, userRole, onLogout }) => {
+export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName, bannerLogoDark, bannerLogoLight, branding, user, userRole, permissions, onLogout }) => {
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -102,6 +110,12 @@ export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName
       )}
 
       <div className="flex-1" />
+
+      {branding?.quick_search_enabled && branding?.quick_search_settings && (user?.is_superadmin || permissions?.includes('view_faction_records')) && (
+        <div className="mr-4">
+            <QuickSearch shortname={branding.shortname} settings={branding.quick_search_settings} />
+        </div>
+      )}
 
       {user && (
         <button 

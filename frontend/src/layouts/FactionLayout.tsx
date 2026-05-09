@@ -48,10 +48,13 @@ const FactionLayout: React.FC<FactionLayoutProps> = ({
                     header_gradient_enabled: factionData.header_gradient_enabled,
                     header_gradient_color: factionData.header_gradient_color,
                     header_gradient_direction: factionData.header_gradient_direction,
-                    shortname: factionData.shortname
+                    shortname: factionData.shortname,
+                    quick_search_enabled: factionData.quick_search_enabled,
+                    quick_search_settings: factionData.quick_search_settings
                 }}
                 user={user} 
                 userRole={factionData.user_primary_role}
+                permissions={permissions}
                 onLogout={onLogout} 
             />
             <div className="flex flex-1 relative">

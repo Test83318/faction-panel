@@ -5,6 +5,7 @@ import Loading from './Loading';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Key, Link as LinkIcon, LogOut, User as UserIcon, Check, Shield } from 'lucide-react';
 import { Header } from './Header';
+import { useConfirm } from './ConfirmationProvider';
 
 interface AccountSettingsProps {
     isDark: boolean;
@@ -18,6 +19,7 @@ const AccountSettings: React.FC = () => {
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
+    const confirm = useConfirm();
     
     // Password change state
     const [passwords, setPasswords] = useState({

@@ -4,11 +4,13 @@ import { RefreshCw, Trash2, History, AlertTriangle, CheckCircle2, Search, Shield
 import api from '../api';
 import toast from 'react-hot-toast';
 import Loading from './Loading';
+import { useConfirm } from './ConfirmationProvider';
 
 const GtawSync: React.FC<{ faction: any; user: any }> = ({ faction, user }) => {
     const [syncing, setSyncing] = useState(false);
     const [pruning, setPruning] = useState(false);
     const [results, setResults] = useState<any>(null);
+    const confirm = useConfirm();
 
     const handleSync = async () => {
         setSyncing(true);
@@ -25,7 +27,14 @@ const GtawSync: React.FC<{ faction: any; user: any }> = ({ faction, user }) => {
     };
 
     const handlePrune = async () => {
-        if (!window.confirm('Are you sure you want to prune all synchronized character data? This will clear the Characters Database but keep History and Name Changes.')) return;
+        const confirmed = await confirm({
+            title: 'Prune Synchronized Data',
+            message: 'Are you sure you want to prune all synchronized character data? This will clear the Characters Database but keep History and Name Changes.',
+            confirmText: 'Prune Data',
+            variant: 'danger'
+        });
+
+        if (!confirmed) return;
         
         setPruning(true);
         try {
@@ -107,12 +116,13 @@ const GtawSync: React.FC<{ faction: any; user: any }> = ({ faction, user }) => {
                             <CheckCircle2 size={18} className="text-accent" />
                             <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-text">Last Sync Results</h4>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border">
+                        <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-border">
                             {[
                                 { label: 'Added', value: results.added, color: 'text-green-500' },
                                 { label: 'Updated', value: results.updated, color: 'text-accent' },
                                 { label: 'Removed', value: results.removed, color: 'text-danger' },
-                                { label: 'Name Changes', value: results.name_changes, color: 'text-purple-500' }
+                                { label: 'Name Changes', value: results.name_changes, color: 'text-purple-500' },
+                                { label: 'Activity Logs', value: results.activity_logs, color: 'text-orange-500' }
                             ].map((item, idx) => (
                                 <div key={idx} className="p-6 text-center">
                                     <div className={`text-2xl font-black mb-1 ${item.color}`}>{item.value}</div>
