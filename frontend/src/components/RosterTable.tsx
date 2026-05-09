@@ -75,9 +75,9 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
   const evaluateFlag = React.useCallback((row: RosterContent, col: RosterColumn, flag: any) => {
     if (!flag.rules || flag.rules.length === 0) return false;
-    
+
     const value = (row.content?.[col.id] || '').toString().toLowerCase();
-    
+
     return flag.rules.some((rule: any) => {
         switch (rule.type) {
             case 'equals':
@@ -94,12 +94,17 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 return !datasetNot?.options?.some((opt: any) => opt.value.toLowerCase() === value);
             case 'exists_elsewhere':
                 if (!value) return false;
-                const pool = rule.scope === 'global' ? (allContents || []) : 
-                             rule.scope === 'roster' ? (allContents || []) : 
+                const pool = rule.scope === 'global' ? (allContents || []) :
+                             rule.scope === 'roster' ? (allContents || []) :
                              contents;
-                
+
+                const excludedIds = flag.excluded_roster_ids || [];
+
                 return pool.some(c => {
                     if (c.id === row.id) return false;
+                    // Skip if from an excluded roster
+                    if (c.roster_id && excludedIds.includes(c.roster_id)) return false;
+
                     if (rule.target_col) {
                         return (c.content?.[rule.target_col] || '').toString().toLowerCase() === value;
                     }
@@ -110,7 +115,6 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         }
     });
   }, [datasets, contents, allContents]);
-
   const activeCols = columns && columns.length > 0 ? columns : [
     { id: 'rank', name: 'Rank', type: 'dropdown', checkboxes: ['Acting'] },
     { id: 'name', name: 'Name', type: 'text', checkboxes: ['LOA'] },

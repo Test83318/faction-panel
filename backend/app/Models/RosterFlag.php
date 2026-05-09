@@ -16,11 +16,13 @@ class RosterFlag extends Model
         'icon',
         'color',
         'rules',
+        'excluded_roster_ids',
         'created_by'
     ];
 
     protected $casts = [
         'rules' => 'array',
+        'excluded_roster_ids' => 'array',
     ];
 
     public function faction()

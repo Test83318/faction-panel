@@ -83,18 +83,23 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
   }, [showCreateModal, showSectionModal, showColumnsModal, showSectionColumnsModal, showSectionLayoutModal, showLayoutModal, fetchRosters]);
 
   const allContents = useMemo(() => {
-    if (!activeDivision?.root_sections) return [];
     const contents: any[] = [];
-    activeDivision.root_sections.forEach((s: any) => {
-      if (s.contents) contents.push(...s.contents);
-      if (s.children) {
-        s.children.forEach((c: any) => {
-          if (c.contents) contents.push(...c.contents);
+    rosters.forEach(r => {
+        const getSectionContents = (sec: any): any[] => {
+            let items = (sec.contents || []).map((c: any) => ({ ...c, roster_id: r.id }));
+            if (sec.children) {
+                sec.children.forEach((child: any) => {
+                    items = [...items, ...getSectionContents(child)];
+                });
+            }
+            return items;
+        };
+        (r.rootSections || []).forEach((s: any) => {
+            contents.push(...getSectionContents(s));
         });
-      }
     });
     return contents;
-  }, [activeDivision]);
+  }, [rosters]);
 
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
   const [menuPosition, setMenuPosition] = useState({ left: 0 });

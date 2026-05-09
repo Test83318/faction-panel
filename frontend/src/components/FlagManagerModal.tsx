@@ -18,6 +18,7 @@ interface RosterFlag {
     icon: string;
     color: string;
     rules: FlagRule[];
+    excluded_roster_ids?: number[];
 }
 
 interface FlagManagerModalProps {
@@ -34,6 +35,7 @@ const ICON_LIST = [
 const FlagManagerModal: React.FC<FlagManagerModalProps> = ({ shortname, onClose }) => {
     const [flags, setFlags] = useState<RosterFlag[]>([]);
     const [datasets, setDatasets] = useState<any[]>([]);
+    const [rosters, setRosters] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedFlag, setSelectedFlag] = useState<RosterFlag | null>(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -42,12 +44,14 @@ const FlagManagerModal: React.FC<FlagManagerModalProps> = ({ shortname, onClose 
 
     const fetchData = async () => {
         try {
-            const [flagsRes, datasetsRes] = await Promise.all([
+            const [flagsRes, datasetsRes, factionRes] = await Promise.all([
                 api.get(`/factions/${shortname}/flags`),
-                api.get(`/factions/${shortname}/datasets`)
+                api.get(`/factions/${shortname}/datasets`),
+                api.get(`/factions/${shortname}`)
             ]);
             setFlags(flagsRes.data);
             setDatasets(datasetsRes.data);
+            setRosters(factionRes.data.rosters || []);
             if (selectedFlag) {
                 const updated = flagsRes.data.find((f: any) => f.id === selectedFlag.id);
                 if (updated) setSelectedFlag(updated);
@@ -288,6 +292,41 @@ const FlagManagerModal: React.FC<FlagManagerModalProps> = ({ shortname, onClose 
                                             The flag will appear if <span className="underline decoration-2 underline-offset-2">ANY</span> of the following rules are met.
                                         </p>
                                     </div>
+
+                                    {/* Exclude Rosters Section */}
+                                    {selectedFlag.rules?.some(r => r.type === 'exists_elsewhere') && (
+                                        <div className="p-4 bg-surface border border-border rounded-2xl space-y-3">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <ShieldAlert size={14} className="text-muted" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-text">Exclude Rosters</span>
+                                            </div>
+                                            <p className="text-[9px] text-muted font-bold uppercase tracking-tight leading-none italic mb-2">
+                                                Selected rosters will be ignored during "Exists Elsewhere" checks.
+                                            </p>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                {rosters.map(r => {
+                                                    const isExcluded = (selectedFlag.excluded_roster_ids || []).includes(r.id);
+                                                    return (
+                                                        <button 
+                                                            key={r.id}
+                                                            onClick={() => {
+                                                                const current = selectedFlag.excluded_roster_ids || [];
+                                                                const next = isExcluded 
+                                                                    ? current.filter(id => id !== r.id)
+                                                                    : [...current, r.id];
+                                                                setSelectedFlag({ ...selectedFlag, excluded_roster_ids: next });
+                                                            }}
+                                                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-[9px] font-bold uppercase transition-all ${isExcluded ? 'bg-danger/10 border-danger/30 text-danger' : 'bg-card border-border text-muted hover:border-accent/30'}`}
+                                                        >
+                                                            <div className={`w-1.5 h-1.5 rounded-full ${isExcluded ? 'bg-danger' : 'bg-muted opacity-30'}`} style={!isExcluded ? { backgroundColor: r.color } : {}} />
+                                                            <span className="truncate">{r.name}</span>
+                                                            {isExcluded && <X size={10} className="ml-auto" />}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {selectedFlag.rules?.map((rule, idx) => (
                                         <div key={idx} className="flex flex-col gap-3 p-4 bg-surface border border-border rounded-2xl group animate-in fade-in slide-in-from-top-1">

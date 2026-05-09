@@ -28,6 +28,7 @@ class RosterFlagController extends Controller
             'icon' => 'nullable|string|max:50',
             'color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'rules' => 'array',
+            'excluded_roster_ids' => 'nullable|array',
         ]);
 
         $flag = $faction->rosterFlags()->create([
@@ -35,6 +36,7 @@ class RosterFlagController extends Controller
             'icon' => $validated['icon'] ?? 'Flag',
             'color' => $validated['color'] ?? '#3b82f6',
             'rules' => $validated['rules'] ?? [],
+            'excluded_roster_ids' => $validated['excluded_roster_ids'] ?? [],
             'created_by' => Auth::id(),
         ]);
 
@@ -52,6 +54,7 @@ class RosterFlagController extends Controller
             'icon' => 'sometimes|nullable|string|max:50',
             'color' => ['sometimes', 'nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'rules' => 'sometimes|array',
+            'excluded_roster_ids' => 'sometimes|nullable|array',
         ]);
 
         $flag->update($validated);
