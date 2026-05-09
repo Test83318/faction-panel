@@ -131,7 +131,7 @@ const FactionManager: React.FC = () => {
                                 <Link to={`/${faction.shortname}`} className="block h-1.5" style={{ backgroundColor: faction.color }} />
                                 
                                 <div className="flex items-center gap-4 p-6 border-b border-border/50 bg-surface/30">
-                                    <div className="w-12 h-12 rounded-lg bg-surface border border-border flex items-center justify-center shrink-0 overflow-hidden">
+                                    <div className="w-[78px] h-[53px] rounded-lg bg-surface border border-border flex items-center justify-center shrink-0 overflow-hidden">
                                         {faction.image_url ? (
                                             <img src={faction.image_url} alt={faction.name} className="max-w-full max-h-full object-contain" />
                                         ) : (

@@ -96,11 +96,11 @@ export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName
 
       {isFactionPage && (
         <div 
-            className={`flex items-center h-6 pl-2.5 cursor-pointer hover:opacity-80 transition-opacity ${!branding?.hide_panel_header ? 'ml-1.5 border-l border-border' : ''}`}
+            className={`flex items-center h-[30px] pl-2.5 cursor-pointer hover:opacity-80 transition-opacity ${!branding?.hide_panel_header ? 'ml-1.5 border-l border-border' : ''}`}
             onClick={handleFactionLogoClick}
         >
             {activeBanner ? (
-            <img src={activeBanner} alt={factionName} className="max-h-[20px] w-auto object-contain drop-shadow-sm" />
+            <img src={activeBanner} alt={factionName} className="max-h-[25px] max-w-[250px] w-auto object-contain drop-shadow-sm" />
             ) : (
             <span className="text-[10px] font-semibold tracking-wider uppercase text-muted">
                 {factionName}

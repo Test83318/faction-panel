@@ -81,7 +81,7 @@ const Invite: React.FC<{ user: any }> = ({ user }) => {
                     <div className="p-10 lg:p-16">
                         <div className="flex flex-col items-center text-center mb-10">
                             {faction.image_url ? (
-                                <img src={faction.image_url} alt={faction.name} className="w-24 h-24 object-contain mb-6" />
+                                <img src={faction.image_url} alt={faction.name} className="w-[126px] h-[101px] object-contain mb-6" />
                             ) : (
                                 <div className="p-5 bg-accent/10 rounded-2xl border border-accent/20 mb-6">
                                     <Shield className="text-accent" size={48} />

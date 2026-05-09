@@ -119,7 +119,7 @@ const FactionCatalog: React.FC<FactionCatalogProps> = ({ isDark, toggleTheme, us
                                             <img 
                                                 src={faction.image_url} 
                                                 alt={faction.name} 
-                                                className="max-w-[140px] max-h-[140px] object-contain drop-shadow-2xl group-hover:scale-110 transition-transform duration-500" 
+                                                className="max-w-[170px] max-h-[145px] object-contain drop-shadow-2xl group-hover:scale-110 transition-transform duration-500" 
                                             />
                                         ) : (
                                             <Shield size={64} style={{ color: faction.color }} className="opacity-20" />
