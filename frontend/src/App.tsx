@@ -43,11 +43,14 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, siteVersion }: 
   const [datasets, setDatasets] = useState<any[]>([]);
   const [flags, setFlags] = useState<any[]>([]);
   const [recordData, setRecordData] = useState<any[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
 
   const fetchAllData = async () => {
     try {
-      const res = await api.get(`/factions/${shortname}`);
-      const { faction, permissions: perms, rosters: rosterData, datasets: datasetData, flags: flagData, record_data: recordDataRes } = res.data;
+      const res = await api.get(`/factions/${shortname}`, {
+        params: { roster_id: activeDivId }
+      });
+      const { faction, permissions: perms, rosters: rosterData, datasets: datasetData, flags: flagData, record_data: recordDataRes, online_users: onlineUsersRes } = res.data;
       
       setFactionData(faction);
       setPermissions(perms);
@@ -55,6 +58,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, siteVersion }: 
       setDatasets(datasetData);
       setFlags(flagData);
       setRecordData(recordDataRes);
+      setOnlineUsers(onlineUsersRes || []);
 
       if (rosterData.length > 0) {
         const rosterParam = searchParams.get('roster');
@@ -180,6 +184,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, siteVersion }: 
             datasets={datasets}
             flags={flags}
             recordData={recordData}
+            onlineUsers={onlineUsers}
           />
         } />
         <Route path="records" element={

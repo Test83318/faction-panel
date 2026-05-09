@@ -58,7 +58,9 @@ class Faction extends Model
 
     public function users()
     {
-        return $this->belongsToMany(User::class)->withTimestamps();
+        return $this->belongsToMany(User::class)
+            ->withPivot('current_roster_id', 'last_roster_activity')
+            ->withTimestamps();
     }
 
     public function leader()

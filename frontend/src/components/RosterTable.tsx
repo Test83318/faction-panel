@@ -25,6 +25,7 @@ export interface RosterColumn {
 interface RosterTableProps {
   contents: RosterContent[];
   allContents?: RosterContent[];
+  user?: any;
   columns?: RosterColumn[];
   datasets?: any[];
   recordData?: any[];
@@ -34,7 +35,7 @@ interface RosterTableProps {
   canModerate?: boolean;
   permissions?: any;
   flags?: any[];
-  onUpdateRow?: (id: number, data: any) => void;
+  onUpdateRow?: (id: number, data: any, force?: boolean, lastUpdatedAt?: string | null) => void;
   onDeleteRow?: (id: number) => void;
   onBulkDeleteRow?: (ids: number[]) => void;
   onAddRow?: () => void;
@@ -43,12 +44,13 @@ interface RosterTableProps {
 export const RosterTable: React.FC<RosterTableProps> = ({ 
   contents, 
   allContents,
+  user,
   columns, 
   datasets = [],
   recordData = [],
   isLeadership, 
   accentColor, 
-  editMode, 
+  editMode,
   canModerate,
   permissions,
   flags = [],
@@ -56,14 +58,16 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   onDeleteRow,
   onBulkDeleteRow,
   onAddRow
-}) => {
-  const { shortname } = useParams();
+}) => {  const { shortname } = useParams();
   const canEditDefined = canModerate || permissions?.edit_defined_fields;
   const canEditPredefined = canModerate || permissions?.edit_predefined;
   const canEditAny = canEditDefined || canEditPredefined;
 
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
+  const [editingColId, setEditingColId] = useState<string | null>(null);
+  const [savingRows, setSavingRows] = useState<Map<number, string>>(new Map());
   const [editData, setEditData] = useState<any>({});
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [selectedRowIds, setSelectedRowIds] = useState<number[]>([]);
   const [rowCountToAdd, setRowCountToAdd] = useState(1);
   const [activeTagMenu, setActiveTagMenu] = useState<{ rowId: number, colId: string } | null>(null);
@@ -197,23 +201,58 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     }
   }, [editingRowId]);
 
-  const handleStartEdit = (row: RosterContent) => {
+  const handleStartEdit = (row: RosterContent, colId: string) => {
     if (!canEditAny) return;
+
+    // Passive locking
+    api.post(`/contents/${row.id}/lock`, { col_id: colId }).catch(() => {});
+    
     setEditingRowId(row.id);
+    setEditingColId(colId);
     setEditData(row.content || {});
+    setLastUpdatedAt(row.updated_at || null);
   };
 
-  const handleSaveEdit = (rowId: number) => {
+  const handleSaveEdit = async (rowId: number) => {
     if (editingRowId !== rowId) return;
-    onUpdateRow?.(rowId, editData);
+    
+    const dataToSave = { ...editData };
+    const colId = editingColId;
+    const updatedAt = lastUpdatedAt;
+
     setEditingRowId(null);
+    setEditingColId(null);
+    setLastUpdatedAt(null);
     setActiveTagMenu(null);
+    
+    if (colId) {
+        setSavingRows(prev => new Map(prev).set(rowId, colId));
+    }
+
+    try {
+        await onUpdateRow?.(rowId, dataToSave, false, updatedAt);
+    } catch (err: any) {
+        console.error('Failed to save row', err);
+    } finally {
+        setSavingRows(prev => {
+            const next = new Map(prev);
+            next.delete(rowId);
+            return next;
+        });
+    }
   };
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = async () => {
+    const id = editingRowId;
     setEditingRowId(null);
+    setEditingColId(null);
+    setLastUpdatedAt(null);
     setEditData({});
     setActiveTagMenu(null);
+    
+    if (id) {
+        api.post(`/contents/${id}/unlock`).catch(() => {});
+    }
   };
 
   const handleRowBlur = (e: React.FocusEvent, rowId: number) => {
@@ -347,9 +386,12 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
   const renderCell = (row: RosterContent, col: RosterColumn) => {
     const isEditing = editingRowId === row.id;
+    const isSaving = savingRows.has(row.id);
     const value = isEditing ? editData[col.id] : (row.content?.[col.id] || '');
     const checked = isEditing ? (editData[`${col.id}_cb`] || []) : (row.content?.[`${col.id}_cb`] || []);
     const appliedTags = isEditing ? (editData[`${col.id}_tags`] || []) : (row.content?.[`${col.id}_tags`] || []);
+
+    const isLocked = !isEditing && row.editing_by && row.editing_by !== user?.id && row.editing_at && (new Date().getTime() - new Date(row.editing_at).getTime() < 60000);
 
     const isHiddenType = col.type.includes('hidden');
     const canViewHidden = canModerate || permissions?.view_hidden_data;
@@ -362,6 +404,33 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     let effectiveOptions = boundDataset 
       ? datasetOptions.map((o: any) => ({ label: o.value, color: o.color, bold: o.is_bold })) 
       : (col.options || []);
+
+    // ... (rest of dynamic dataset logic)
+    
+    if (isSaving && col.id === savingRows.get(row.id)) {
+        return (
+            <div className="flex items-center justify-center h-full w-full">
+                <div className="px-2 py-0.5 bg-accent/10 border border-accent/20 rounded animate-pulse flex items-center gap-1.5">
+                    <div className="w-1 h-1 rounded-full bg-accent animate-bounce" />
+                    <span className="text-[7px] font-black text-accent uppercase tracking-widest">Saving</span>
+                </div>
+            </div>
+        );
+    }
+
+    if (isLocked && col.id === (row.editing_col || activeCols[0].id)) {
+        return (
+            <div className="flex items-center justify-center h-full w-full">
+                <div className="px-2 py-0.5 bg-danger/10 border border-danger/20 rounded flex items-center gap-1.5 group/lock relative">
+                    <div className="w-1 h-1 rounded-full bg-danger" />
+                    <span className="text-[7px] font-black text-danger uppercase tracking-widest">Editing</span>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black text-white text-[7px] font-bold uppercase rounded opacity-0 group-hover/lock:opacity-100 transition-opacity whitespace-nowrap z-[100]">
+                        {row.editor?.username || 'Another user'} is editing
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     // If dynamic dataset, pull from recordData
     if (boundDataset?.record_database_id) {
@@ -831,7 +900,12 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 )}
               </td>
               {activeCols.map((col) => (
-                <td key={col.id} className="rt-td p-0 h-[34px] relative hover:z-[100]" style={{ zIndex: editingRowId === row.id ? 5001 : 0 }}>
+                <td 
+                    key={col.id} 
+                    className={`rt-td p-0 h-[34px] relative hover:z-[100] transition-colors ${editingRowId === row.id && editingColId === col.id ? 'bg-accent/5 ring-1 ring-inset ring-accent/30 z-[5001]' : 'hover:bg-surface/50'}`}
+                    style={{ zIndex: editingRowId === row.id && editingColId === col.id ? 5001 : 0 }}
+                    onClick={() => !editingRowId && isColEditable(col) && handleStartEdit(row, col.id)}
+                >
                   {renderCell(row, col)}
                 </td>
               ))}

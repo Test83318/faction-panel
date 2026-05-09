@@ -160,6 +160,7 @@ class AuthController extends Controller
 
         $gtawId = $gtawUser['id'];
         $gtawUsername = $gtawUser['username'];
+        $avatarUrl = $gtawUser['avatar_url'] ?? $gtawUser['avatar'] ?? null;
 
         // Find user by GTA:W ID first
         $user = User::where('gtaw_id', $gtawId)->first();
@@ -175,7 +176,8 @@ class AuthController extends Controller
                 $user->update([
                     'gtaw_id' => $gtawId,
                     'gtaw_username' => $gtawUsername,
-                    'gtaw_access_token' => $accessToken
+                    'gtaw_access_token' => $accessToken,
+                    'avatar_url' => $avatarUrl
                 ]);
             } else {
                 // Check if registration is allowed
@@ -192,14 +194,16 @@ class AuthController extends Controller
                     'gtaw_id' => $gtawId,
                     'gtaw_username' => $gtawUsername,
                     'gtaw_access_token' => $accessToken,
+                    'avatar_url' => $avatarUrl,
                     'password' => null, // No password for GTA:W users
                 ]);
             }
         } else {
-            // User found by ID, update token and ensure username is synced
+            // User found by ID, update token and ensure username/avatar is synced
             $user->update([
                 'gtaw_access_token' => $accessToken,
-                'gtaw_username' => $gtawUsername
+                'gtaw_username' => $gtawUsername,
+                'avatar_url' => $avatarUrl
             ]);
         }
 

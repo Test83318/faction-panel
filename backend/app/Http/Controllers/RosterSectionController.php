@@ -20,12 +20,13 @@ class RosterSectionController extends Controller
             'name' => 'required|string|max:255',
             'shortname' => 'required|string|max:6',
             'color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
-            'type' => 'required|in:master,section,subsection',
+            'type' => 'required|in:master,section,subsection,content',
             'parent_id' => 'nullable|exists:roster_sections,id',
             'section_options' => 'nullable|array',
             'columns' => 'nullable|array',
             'layout_settings' => 'nullable|array',
             'subsections_per_row' => 'nullable|integer|min:1|max:3',
+            'content_html' => 'nullable|string',
         ]);
 
         $validated['shortname'] = strtoupper($validated['shortname']);
@@ -59,12 +60,13 @@ class RosterSectionController extends Controller
             'name' => 'sometimes|string|max:255',
             'shortname' => 'sometimes|string|max:6',
             'color' => ['sometimes', 'nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
-            'type' => 'sometimes|in:master,section,subsection',
+            'type' => 'sometimes|in:master,section,subsection,content',
             'parent_id' => 'sometimes|nullable|exists:roster_sections,id',
-            'section_options' => 'nullable|array',
-            'columns' => 'nullable|array',
-            'layout_settings' => 'nullable|array',
-            'subsections_per_row' => 'nullable|integer|min:1|max:3',
+            'section_options' => 'sometimes|nullable|array',
+            'columns' => 'sometimes|nullable|array',
+            'layout_settings' => 'sometimes|nullable|array',
+            'subsections_per_row' => 'sometimes|nullable|integer|min:1|max:3',
+            'content_html' => 'sometimes|nullable|string',
         ]);
 
         if (isset($validated['shortname'])) {

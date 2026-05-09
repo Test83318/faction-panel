@@ -73,7 +73,7 @@ class FactionController extends Controller
         return response()->json($faction, 201);
     }
 
-    public function show(string $shortname)
+    public function show(Request $request, string $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::guard('sanctum')->user();
@@ -87,6 +87,15 @@ class FactionController extends Controller
                     $permissions[] = $key;
                 }
             }
+        }
+
+        // Update activity if logged in
+        if ($user) {
+            $currentRosterId = $request->query('roster_id');
+            $faction->users()->updateExistingPivot($user->id, [
+                'current_roster_id' => $currentRosterId,
+                'last_roster_activity' => now(),
+            ]);
         }
 
         $canViewGlobal = in_array('view_faction_roster', $permissions);
@@ -120,9 +129,26 @@ class FactionController extends Controller
             $faction->user_primary_role = $primaryRole ?? $highestRole;
         }
 
+        // Active Users Tracking (Online in last 60 seconds)
+        $onlineUsers = $faction->users()
+            ->where('last_roster_activity', '>=', now()->subSeconds(60))
+            ->with(['roles' => function($query) use ($faction) {
+                $query->where('faction_id', $faction->id)->where('type', 'primary');
+            }])
+            ->get()
+            ->map(function($u) {
+                return [
+                    'id' => $u->id,
+                    'username' => $u->username,
+                    'avatar_url' => $u->avatar_url, // Assuming there is one, if not we'll handle it
+                    'current_roster_id' => $u->pivot->current_roster_id,
+                    'primary_role' => $u->roles->first()
+                ];
+            });
+
         // Include Roster Data
         $rosters = $faction->rosters()
-            ->with(['rootSections.children.children.contents', 'rootSections.children.contents', 'rootSections.contents'])
+            ->with(['rootSections.children.children.contents.editor', 'rootSections.children.contents.editor', 'rootSections.contents.editor'])
             ->orderBy('order')
             ->orderBy('id')
             ->get();
@@ -170,7 +196,8 @@ class FactionController extends Controller
             'rosters' => $filteredRosters,
             'datasets' => $datasets,
             'flags' => $flags,
-            'record_data' => $publishedDatabases
+            'record_data' => $publishedDatabases,
+            'online_users' => $onlineUsers
         ]);
     }
     public function update(Request $request, Faction $faction)

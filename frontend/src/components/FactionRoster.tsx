@@ -15,6 +15,7 @@ import { RosterTemplateModal } from './RosterTemplateModal';
 import { hexToRgb } from '../utils';
 
 interface FactionRosterProps {
+    user: any;
     activeDivision: any;
     totalMembers: number;
     rosters: any[];
@@ -27,9 +28,11 @@ interface FactionRosterProps {
     datasets: any[];
     recordData: any[];
     flags: any[];
+    onlineUsers?: any[];
 }
 
 const FactionRoster: React.FC<FactionRosterProps> = ({ 
+    user,
     activeDivision, 
     totalMembers, 
     rosters, 
@@ -41,7 +44,8 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
     fetchRosters, 
     datasets, 
     recordData, 
-    flags 
+    flags,
+    onlineUsers = []
 }) => {
   const canCreate = permissions.includes('create_roster');
   const canModifyVariables = permissions.includes('modify_roster_variables');
@@ -65,6 +69,18 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
   const [showRosterContextMenu, setShowRosterContextMenu] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Real-time polling
+  useEffect(() => {
+    const interval = setInterval(() => {
+        // Only poll if not currently editing a roster structure or major settings
+        if (!showCreateModal && !showSectionModal && !showColumnsModal && !showSectionColumnsModal && !showSectionLayoutModal && !showLayoutModal) {
+            fetchRosters();
+        }
+    }, 5000); // 5 seconds
+
+    return () => clearInterval(interval);
+  }, [showCreateModal, showSectionModal, showColumnsModal, showSectionColumnsModal, showSectionLayoutModal, showLayoutModal, fetchRosters]);
 
   const allContents = useMemo(() => {
     if (!activeDivision?.root_sections) return [];
@@ -96,7 +112,8 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
     columns: null as any[] | null,
     children: [] as any[],
     layout_settings: null as any,
-    subsections_per_row: 1
+    subsections_per_row: 1,
+    content_html: '' as string | null
   });
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -172,7 +189,8 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         columns: null, 
         children: [], 
         layout_settings: null, 
-        subsections_per_row: 1 
+        subsections_per_row: 1,
+        content_html: '' 
       });
     } catch (err) {
       toast.error('Failed to save section', { id: loadToast });
@@ -273,7 +291,8 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         columns: null,
         children: [],
         layout_settings: null,
-        subsections_per_row: 1
+        subsections_per_row: 1,
+        content_html: ''
     });
     setShowSectionModal(true);
   };
@@ -290,7 +309,8 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         columns: section.columns,
         children: Array.isArray(section.children) ? section.children : [],
         layout_settings: section.layout_settings,
-        subsections_per_row: section.subsections_per_row || 1
+        subsections_per_row: section.subsections_per_row || 1,
+        content_html: section.content_html || ''
     });
     setShowSectionModal(true);
   };
@@ -321,30 +341,77 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                   <div className="flex-1 text-center text-text font-extrabold text-[15px] uppercase tracking-tighter">
                     {activeDivision.name}
                   </div>
-                  {canModerate && (
-                    <div className="flex items-center gap-1">
-                        <button 
-                            onClick={() => setEditMode(!editMode)}
-                            className={`px-2 py-1 rounded transition-colors flex items-center gap-1.5 ${editMode ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'hover:bg-surface text-muted hover:text-accent'}`}
-                            title={editMode ? 'Exit Editing Mode' : 'Enter Editing Mode'}
-                        >
-                            <span className="text-[9px] font-black uppercase tracking-widest">Edit</span>
-                            <Pencil size={11} />
-                        </button>
-                        {canAddSections && (
-                            <button 
-                                onClick={() => {
-                                    setSectionData({ id: null, roster_id: activeDivId, name: '', shortname: '', color: '', type: 'section', parent_id: null, columns: null, children: [], layout_settings: null, subsections_per_row: 1 });
-                                    setShowSectionModal(true);
-                                }}
-                                className="px-2 py-1 hover:bg-surface rounded text-muted hover:text-accent transition-colors flex items-center gap-1"
-                            >
-                                <span className="text-[9px] font-black uppercase tracking-widest">section</span>
-                                <Plus size={12} />
-                            </button>
-                        )}
+                  <div className="flex items-center gap-3 pr-2">
+                    {/* Online Viewers */}
+                    <div className="flex items-center -space-x-1.5">
+                        {(() => {
+                            const activeViewers = onlineUsers.filter(u => u.current_roster_id === activeDivId);
+                            const displayViewers = activeViewers.slice(0, 3);
+                            const remainingCount = activeViewers.length - 3;
+                            
+                            return (
+                                <>
+                                    {displayViewers.map(u => (
+                                        <div 
+                                            key={u.id} 
+                                            className="relative group/avatar"
+                                        >
+                                            <div 
+                                                className="w-[18px] h-[18px] rounded-full border-[1.5px] bg-card overflow-hidden transition-transform group-hover/avatar:-translate-y-0.5 shadow-sm"
+                                                style={{ borderColor: u.primary_role?.color || 'var(--border)' }}
+                                            >
+                                                <img 
+                                                    src={u.avatar_url || `https://ui-avatars.com/api/?name=${u.username}&background=random&color=fff&size=40`} 
+                                                    alt={u.username}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            </div>
+                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 bg-black text-white text-[7px] font-bold uppercase rounded opacity-0 group-hover/avatar:opacity-100 transition-opacity whitespace-nowrap z-[100] pointer-events-none shadow-xl border border-white/10">
+                                                {u.username}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {remainingCount > 0 && (
+                                        <div 
+                                            className="w-[18px] h-[18px] rounded-full border-[1.5px] border-border bg-surface flex items-center justify-center shadow-sm relative z-10 group/more"
+                                            title={`${remainingCount} more users viewing`}
+                                        >
+                                            <span className="text-[7px] font-black text-muted">+{remainingCount}</span>
+                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 bg-black text-white text-[7px] font-bold uppercase rounded opacity-0 group-hover/more:opacity-100 transition-opacity whitespace-nowrap z-[100] pointer-events-none shadow-xl border border-white/10">
+                                                {activeViewers.slice(3).map(u => u.username).join(', ')}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            );
+                        })()}
                     </div>
-                  )}
+
+                    {canModerate && (
+                        <div className="flex items-center gap-1">
+                            <button 
+                                onClick={() => setEditMode(!editMode)}
+                                className={`px-2 py-1 rounded transition-colors flex items-center gap-1.5 ${editMode ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'hover:bg-surface text-muted hover:text-accent'}`}
+                                title={editMode ? 'Exit Editing Mode' : 'Enter Editing Mode'}
+                            >
+                                <span className="text-[9px] font-black uppercase tracking-widest">Edit</span>
+                                <Pencil size={11} />
+                            </button>
+                            {canAddSections && (
+                                <button 
+                                    onClick={() => {
+                                        setSectionData({ id: null, roster_id: activeDivId, name: '', shortname: '', color: '', type: 'section', parent_id: null, columns: null, children: [], layout_settings: null, subsections_per_row: 1 });
+                                        setShowSectionModal(true);
+                                    }}
+                                    className="px-2 py-1 hover:bg-surface rounded text-muted hover:text-accent transition-colors flex items-center gap-1"
+                                >
+                                    <span className="text-[9px] font-black uppercase tracking-widest">section</span>
+                                    <Plus size={12} />
+                                </button>
+                            )}
+                        </div>
+                    )}
+                  </div>
                   <div className="text-[9.5px] text-muted shrink-0 pr-4">
                     <strong className="text-accent">{totalMembers}</strong> PERSONNEL
                   </div>
@@ -354,6 +421,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                     <SectionCard 
                         key={section.id} 
                         section={section} 
+                        user={user}
                         canModerate={isGlobalMod}
                         permissions={rosterPerms}
                         onEdit={handleEditSection}
@@ -413,6 +481,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                       <SectionCard 
                         key={section.id} 
                         section={section} 
+                        user={user}
                         canModerate={isGlobalMod}
                         permissions={rosterPerms}
                         onAddChild={handleAddChildSection}
@@ -790,9 +859,24 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         {!sectionData.parent_id && <option value="master">Master</option>}
                         <option value="section">Section</option>
                         <option value="subsection">Subsection</option>
+                        <option value="content">Content (HTML)</option>
                     </select>
                   </div>
               </div>
+
+              {sectionData.type === 'content' && (
+                <div>
+                    <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">HTML Content</label>
+                    <textarea 
+                        value={sectionData.content_html || ''} 
+                        onChange={e => setSectionData({ ...sectionData, content_html: e.target.value })} 
+                        className="w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition font-mono min-h-[200px]" 
+                        placeholder="<div>Styling HTML goes here...</div>"
+                    />
+                    <p className="text-[8px] text-muted mt-1 uppercase font-bold tracking-widest">You can use standard HTML and inline CSS.</p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">Custom Color (Optional)</label>
                 <div className="flex gap-2">

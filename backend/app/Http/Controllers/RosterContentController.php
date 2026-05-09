@@ -68,7 +68,24 @@ class RosterContentController extends Controller
             'type' => 'sometimes|string|in:predefined,defined',
             'content' => 'sometimes|array',
             'order' => 'sometimes|integer',
+            'last_updated_at' => 'sometimes|string',
+            'force' => 'sometimes|boolean'
         ]);
+
+        // Conflict detection
+        if (!$request->force && isset($validated['last_updated_at'])) {
+            $lastUpdated = \Illuminate\Support\Carbon::parse($validated['last_updated_at']);
+            // Use timestamp comparison with 1s buffer for precision mismatches
+            if ($content->updated_at->timestamp > ($lastUpdated->timestamp + 1)) {
+                return response()->json([
+                    'message' => 'This row was recently updated by another user.',
+                    'conflict' => true,
+                    'current_data' => $content->content,
+                    'updated_at' => $content->updated_at,
+                    'updated_by' => $content->audits()->where('event', 'updated')->latest()->first()?->user?->username ?? 'Another user'
+                ], 409);
+            }
+        }
 
         if (isset($validated['content'])) {
             $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
@@ -88,9 +105,48 @@ class RosterContentController extends Controller
             }
         }
 
-        $content->update($validated);
+        $content->update([
+            ...$validated,
+            'editing_by' => null,
+            'editing_at' => null,
+            'editing_col' => null,
+        ]);
 
         return response()->json($content);
+    }
+
+    public function lock(Request $request, RosterContent $content)
+    {
+        $roster = $content->section->roster;
+        $user = Auth::user();
+
+        if (!User::hasRosterPermission($user, $roster, 'edit_defined_fields') && 
+            !User::hasRosterPermission($user, $roster, 'edit_predefined')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $content->timestamps = false;
+        $content->update([
+            'editing_by' => $user->id,
+            'editing_at' => now(),
+            'editing_col' => $request->col_id
+        ]);
+
+        return response()->json(['message' => 'Locked successfully']);
+    }
+
+    public function unlock(RosterContent $content)
+    {
+        if ($content->editing_by === Auth::id()) {
+            $content->timestamps = false;
+            $content->update([
+                'editing_by' => null,
+                'editing_at' => null,
+                'editing_col' => null,
+            ]);
+        }
+
+        return response()->json(['message' => 'Unlocked successfully']);
     }
 
     public function destroy(RosterContent $content)

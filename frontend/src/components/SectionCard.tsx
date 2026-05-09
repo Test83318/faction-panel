@@ -8,6 +8,7 @@ import { hexToRgb } from '../utils';
 
 interface SectionCardProps {
   section: RosterSection;
+  user?: any;
   canModerate?: boolean;
   permissions?: any;
   columns?: any[];
@@ -24,6 +25,7 @@ interface SectionCardProps {
 
 export const SectionCard: React.FC<SectionCardProps> = ({ 
   section, 
+  user,
   canModerate, 
   permissions,
   columns, 
@@ -70,6 +72,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           <RosterTable 
             contents={child.contents || []} 
             allContents={allContents}
+            user={user}
             accentColor={childColor} 
             columns={child.columns || columns} 
             datasets={datasets}
@@ -114,6 +117,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         <RosterTable 
           contents={child.contents || []} 
           allContents={allContents}
+          user={user}
           accentColor={childColor} 
           columns={child.columns || columns} 
           datasets={datasets}
@@ -143,15 +147,51 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     }
   };
 
-  const handleUpdateRow = async (id: number, data: any) => {
-    const loadToast = toast.loading('Saving changes...');
+  const handleUpdateRow = async (id: number, data: any, force = false, lastUpdatedAt?: string | null) => {
     try {
-      await api.put(`/contents/${id}`, { content: data });
-      toast.success('Changes saved', { id: loadToast });
+      await api.put(`/contents/${id}`, { 
+        content: data,
+        force,
+        last_updated_at: lastUpdatedAt
+      });
       onRefresh?.();
-    } catch (err) {
-      toast.error('Failed to save changes', { id: loadToast });
+      return true;
+    } catch (err: any) {
+      if (err.response?.status === 409) {
+        const conflictData = err.response.data;
+        toast((t) => (
+          <div className="flex flex-col gap-2 min-w-[250px]">
+            <p className="font-bold text-danger uppercase text-[10px] tracking-widest">Conflict Detected</p>
+            <p className="text-[9px] opacity-80 uppercase leading-tight">
+                {conflictData.updated_by} updated this row while you were editing.
+            </p>
+            <div className="flex gap-2 justify-end mt-1">
+                <button 
+                    onClick={() => {
+                        toast.dismiss(t.id);
+                        onRefresh?.();
+                    }}
+                    className="px-2 py-1 bg-surface border border-border rounded text-[8px] font-black uppercase"
+                >
+                    Discard & Refresh
+                </button>
+                <button 
+                    onClick={async () => {
+                        toast.dismiss(t.id);
+                        await handleUpdateRow(id, data, true);
+                    }}
+                    className="px-2 py-1 bg-danger text-white rounded text-[8px] font-black uppercase"
+                >
+                    Force Overwrite
+                </button>
+            </div>
+          </div>
+        ), { duration: Infinity, position: 'top-center' });
+        return false;
+      }
+      toast.error('Failed to save changes');
       console.error('Failed to update row', err);
+      throw err;
     }
   };
 
@@ -233,6 +273,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         <RosterTable 
           contents={section.contents || []} 
           allContents={allContents}
+          user={user}
           isLeadership 
           accentColor={effectiveColor} 
           columns={columns} 
@@ -293,6 +334,15 @@ export const SectionCard: React.FC<SectionCardProps> = ({
 
       {/* Sub-sections / Children */}
       <div className="sections-container w-full divide-y divide-border">
+        {section.type === 'content' && (
+            <div className="p-4 bg-card/30">
+                <div 
+                    className="prose prose-invert max-w-none text-[11px] leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: section.content_html || '' }}
+                />
+            </div>
+        )}
+
         {section.layout_settings?.rows?.map((row: any, rowIdx: number) => (
           <div 
             key={`row-${rowIdx}`} 
@@ -326,10 +376,11 @@ export const SectionCard: React.FC<SectionCardProps> = ({
       </div>
 
       {/* If it's a root section but has no children */}
-      {(!section.children || section.children.length === 0) && (
+      {(!section.children || section.children.length === 0) && section.type !== 'content' && (
         <RosterTable 
           contents={section.contents || []} 
           allContents={allContents}
+          user={user}
           accentColor={effectiveColor} 
           columns={columns} 
           datasets={datasets}

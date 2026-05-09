@@ -20,7 +20,7 @@ class RosterController extends Controller
         $isGlobalViewer = User::hasFactionPermission($user, $faction, 'view_faction_roster');
         
         $rosters = $faction->rosters()
-            ->with(['rootSections.children.contents', 'rootSections.contents'])
+            ->with(['rootSections.children.contents.editor', 'rootSections.contents.editor'])
             ->orderBy('order')
             ->orderBy('id')
             ->get();

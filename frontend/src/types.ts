@@ -48,6 +48,14 @@ export interface RosterContent {
   order: number;
   type: 'predefined' | 'defined';
   content: any;
+  updated_at?: string;
+  editing_by?: number | null;
+  editing_at?: string | null;
+  editing_col?: string | null;
+  editor?: {
+    id: number;
+    username: string;
+  };
 }
 
 export interface RosterSection {
@@ -55,14 +63,15 @@ export interface RosterSection {
   roster_id: number;
   name: string;
   shortname: string;
-  color: string | null;
-  type: 'master' | 'section' | 'subsection';
+  color?: string;
+  type: 'master' | 'section' | 'subsection' | 'content';
   order: number;
-  parent_id: number | null;
-  section_options: any;
-  columns?: any;
+  parent_id?: number | null;
+  section_options?: any;
+  columns?: RosterColumn[] | null;
   layout_settings?: any;
   subsections_per_row?: number;
+  content_html?: string | null;
   children?: RosterSection[];
   contents?: RosterContent[];
 }

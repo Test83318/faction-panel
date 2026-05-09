@@ -22,6 +22,7 @@ class RosterSection extends Model
         'columns',
         'layout_settings',
         'subsections_per_row',
+        'content_html',
         'created_by'
     ];
 

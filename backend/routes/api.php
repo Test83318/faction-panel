@@ -116,6 +116,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Roster Content Management
     Route::post('/sections/{section}/contents', [RosterContentController::class, 'store']);
     Route::put('/contents/{content}', [RosterContentController::class, 'update']);
+    Route::post('/contents/{content}/lock', [RosterContentController::class, 'lock']);
+    Route::post('/contents/{content}/unlock', [RosterContentController::class, 'unlock']);
     Route::delete('/contents/{content}', [RosterContentController::class, 'destroy']);
     Route::put('/sections/{section}/contents/batch', [RosterContentController::class, 'batchUpdate']);
 

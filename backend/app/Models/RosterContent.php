@@ -15,11 +15,15 @@ class RosterContent extends Model
         'order',
         'type',
         'content',
-        'created_by'
+        'created_by',
+        'editing_by',
+        'editing_at',
+        'editing_col'
     ];
 
     protected $casts = [
         'content' => 'array',
+        'editing_at' => 'datetime',
     ];
 
     public function section()
@@ -30,5 +34,10 @@ class RosterContent extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function editor()
+    {
+        return $this->belongsTo(User::class, 'editing_by');
     }
 }

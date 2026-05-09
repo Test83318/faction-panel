@@ -31,6 +31,11 @@ trait Auditable
         });
     }
 
+    public function audits()
+    {
+        return $this->morphMany(AuditLog::class, 'auditable');
+    }
+
     public function logAudit(string $event, ?array $oldValues, ?array $newValues): void
     {
         $factionId = $this->faction_id ?? null;
