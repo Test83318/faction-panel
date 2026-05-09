@@ -128,6 +128,22 @@ class Faction extends Model
         'quick_search_settings' => 'array',
     ];
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleting(function ($faction) {
+            // When soft deleting, we want to "free up" the unique constraints
+            // so a user can create a new faction with the same name or link the same GTAW ID.
+            if (!$faction->isForceDeleting()) {
+                $now = now()->timestamp;
+                $faction->shortname = $faction->shortname . '::deleted_' . $now;
+                $faction->gtaw_faction_id = null; // Setting to null frees up the unique integer constraint
+                $faction->save();
+            }
+        });
+    }
+
     public function invites()
     {
         return $this->hasMany(FactionInvite::class);

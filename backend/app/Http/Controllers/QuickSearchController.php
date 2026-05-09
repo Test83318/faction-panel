@@ -62,20 +62,24 @@ class QuickSearchController extends Controller
             return response()->json([], 200);
         }
 
-        // Check if user has permission to view this database
-        // Assuming 'view_faction_records' or specific database permission
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'view_faction_records')) {
-            // Check specific database permissions if any (implementation depends on how FactionRecordDatabasePermission works)
-            // For now, let's assume basic check
+        // Check if user has permission to view this specific database
+        if (!User::hasRecordPermission(Auth::user(), $database, 'view_database')) {
             return response()->json([], 403);
         }
 
         $entriesQuery = $database->entries()->where('is_active', true);
 
         if ($exactMatchOnly) {
-            $entriesQuery->where("data->{$columnId}", $query);
+            // For exact matches, we still want to be case-insensitive for better UX
+            $entriesQuery->whereRaw("LOWER(data->>'{$columnId}') = ?", [strtolower($query)]);
         } else {
-            $entriesQuery->where("data->{$columnId}", 'like', "%{$query}%");
+            // For partial matches, use ILIKE on Postgres or LOWER + LIKE for others
+            $driver = $database->getConnection()->getDriverName();
+            if ($driver === 'pgsql') {
+                $entriesQuery->whereRaw("data->>'{$columnId}' ILIKE ?", ["%{$query}%"]);
+            } else {
+                $entriesQuery->whereRaw("LOWER(data->>'{$columnId}') LIKE ?", ["%" . strtolower($query) . "%"]);
+            }
         }
 
         $results = $entriesQuery->limit(10)->get()->map(function($entry) use ($columnId, $database) {
