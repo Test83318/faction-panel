@@ -39,17 +39,16 @@ class UploadController extends Controller
         $filename = $shortname . '_' . $type . '_' . Str::random(10) . '.' . $extension;
         
         $path = $file->storeAs('branding', $filename, 'public');
-        $url = Storage::disk('public')->url($path);
 
-        // Persist the change immediately to the database
-        if ($type === 'icon') $faction->update(['image_url' => $url]);
-        else if ($type === 'header_dark') $faction->update(['header_image_dark' => $url]);
-        else if ($type === 'header_light') $faction->update(['header_image_light' => $url]);
-        else if ($type === 'favicon') $faction->update(['favicon' => $url]);
+        // Persist the relative path immediately to the database
+        if ($type === 'icon') $faction->update(['image_url' => $path]);
+        else if ($type === 'header_dark') $faction->update(['header_image_dark' => $path]);
+        else if ($type === 'header_light') $faction->update(['header_image_light' => $path]);
+        else if ($type === 'favicon') $faction->update(['favicon' => $path]);
 
         return response()->json([
             'message' => 'File uploaded successfully',
-            'url' => $url
+            'url' => Storage::disk('public')->url($path)
         ]);
     }
 }

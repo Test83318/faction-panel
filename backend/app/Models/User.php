@@ -40,6 +40,12 @@ class User extends Authenticatable
         return $this->belongsTo(MembershipTier::class);
     }
 
+    protected function getAvatarUrlAttribute($value)
+    {
+        if (!$value) return null;
+        return str_starts_with($value, 'http') ? $value : \Illuminate\Support\Facades\Storage::disk('public')->url($value);
+    }
+
     public function getMaxFactionsAttribute(): int
     {
         if ($this->is_superadmin) {

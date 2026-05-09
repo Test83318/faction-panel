@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Facades\Storage;
+
 class Faction extends Model
 {
     /** @use HasFactory<\Database\Factories\FactionFactory> */
@@ -17,6 +20,30 @@ class Faction extends Model
     public function getAllowBrandingAttribute(): bool
     {
         return $this->creator ? $this->creator->allow_custom_branding : false;
+    }
+
+    protected function getImageUrlAttribute($value)
+    {
+        if (!$value) return null;
+        return str_starts_with($value, 'http') ? $value : Storage::disk('public')->url($value);
+    }
+
+    protected function getHeaderImageDarkAttribute($value)
+    {
+        if (!$value) return null;
+        return str_starts_with($value, 'http') ? $value : Storage::disk('public')->url($value);
+    }
+
+    protected function getHeaderImageLightAttribute($value)
+    {
+        if (!$value) return null;
+        return str_starts_with($value, 'http') ? $value : Storage::disk('public')->url($value);
+    }
+
+    protected function getFaviconAttribute($value)
+    {
+        if (!$value) return null;
+        return str_starts_with($value, 'http') ? $value : Storage::disk('public')->url($value);
     }
 
     protected $fillable = [
