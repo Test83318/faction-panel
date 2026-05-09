@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertTriangle, X } from 'lucide-react';
 
@@ -8,6 +8,7 @@ interface ConfirmationOptions {
     confirmText?: string;
     cancelText?: string;
     variant?: 'danger' | 'warning' | 'info';
+    requiredInput?: string;
 }
 
 interface ConfirmationContextType {
@@ -26,16 +27,19 @@ export const useConfirm = () => {
 
 export const ConfirmationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [config, setConfig] = useState<ConfirmationOptions | null>(null);
+    const [inputValue, setInputValue] = useState('');
     const [resolveCallback, setResolveCallback] = useState<((value: boolean) => void) | null>(null);
 
     const confirm = (options: ConfirmationOptions): Promise<boolean> => {
         setConfig(options);
+        setInputValue('');
         return new Promise((resolve) => {
             setResolveCallback(() => resolve);
         });
     };
 
     const handleConfirm = () => {
+        if (config?.requiredInput && inputValue.trim().toLowerCase() !== config.requiredInput.trim().toLowerCase()) return;
         if (resolveCallback) resolveCallback(true);
         setConfig(null);
     };
@@ -44,6 +48,10 @@ export const ConfirmationProvider: React.FC<{ children: ReactNode }> = ({ childr
         if (resolveCallback) resolveCallback(false);
         setConfig(null);
     };
+
+    const isConfirmDisabled = config?.requiredInput 
+        ? inputValue.trim().toLowerCase() !== config.requiredInput.trim().toLowerCase() 
+        : false;
 
     return (
         <ConfirmationContext.Provider value={{ confirm }}>
@@ -83,6 +91,21 @@ export const ConfirmationProvider: React.FC<{ children: ReactNode }> = ({ childr
                                     {config.message}
                                 </p>
 
+                                {config.requiredInput && (
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] text-muted font-bold uppercase tracking-widest">Type <span className="text-text">"{config.requiredInput}"</span> to confirm</p>
+                                        <input 
+                                            autoFocus
+                                            type="text"
+                                            value={inputValue}
+                                            onChange={(e) => setInputValue(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && !isConfirmDisabled && handleConfirm()}
+                                            className="w-full bg-surface border border-border p-4 rounded-xl text-sm font-black focus:border-accent outline-none transition"
+                                            placeholder={config.requiredInput}
+                                        />
+                                    </div>
+                                )}
+
                                 <div className="flex gap-3 pt-4">
                                     <button 
                                         onClick={handleCancel}
@@ -91,8 +114,9 @@ export const ConfirmationProvider: React.FC<{ children: ReactNode }> = ({ childr
                                         {config.cancelText || 'Cancel'}
                                     </button>
                                     <button 
+                                        disabled={isConfirmDisabled}
                                         onClick={handleConfirm}
-                                        className={`flex-1 py-4 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-lg ${
+                                        className={`flex-1 py-4 text-white rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-lg disabled:opacity-30 disabled:cursor-not-allowed ${
                                             config.variant === 'danger' ? 'bg-danger shadow-danger/20 hover:bg-danger/90' : 
                                             config.variant === 'info' ? 'bg-accent shadow-accent/20 hover:bg-accent/90' :
                                             'bg-warning shadow-warning/20 hover:bg-warning/90'

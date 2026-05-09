@@ -549,6 +549,56 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                 </div>
                             )}
                         </form>
+
+                        {(faction.faction_leader === user?.id || user?.is_superadmin) && (
+                            <div className="mt-12 pt-8 border-t border-danger/20">
+                                <div className="bg-danger/5 border border-danger/20 rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                                    <div className="space-y-1">
+                                        <h4 className="text-danger font-black uppercase text-sm tracking-tight flex items-center gap-2">
+                                            <ShieldAlert size={18} /> Danger Zone
+                                        </h4>
+                                        <p className="text-[10px] text-muted font-bold uppercase tracking-widest leading-relaxed max-w-md">
+                                            Deleting the faction will permanently remove all data, including rosters, records, and memberships. <br />
+                                            <span className="text-danger opacity-80">This action is irreversible.</span>
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={async () => {
+                                            const confirmed = await confirm({
+                                                title: 'Delete Faction',
+                                                message: `Are you sure you want to permanently delete the faction "${faction.name}"? All data will be lost forever.`,
+                                                confirmText: 'Delete Permanently',
+                                                variant: 'danger'
+                                            });
+
+                                            if (confirmed) {
+                                                const finalConfirm = await confirm({
+                                                    title: 'Final Confirmation',
+                                                    message: `Deleting this faction will remove all personnel data, records, and rosters. This cannot be undone.`,
+                                                    confirmText: 'I understand, delete it',
+                                                    variant: 'danger',
+                                                    requiredInput: faction.name
+                                                });
+
+                                                if (finalConfirm) {
+                                                    const loadToast = toast.loading('Deleting faction...');
+                                                    try {
+                                                        await api.delete(`/factions/${faction.id}`);
+                                                        toast.success('Faction deleted successfully', { id: loadToast });
+                                                        window.location.href = '/';
+                                                    } catch (err: any) {
+                                                        toast.error(err.response?.data?.message || 'Failed to delete faction', { id: loadToast });
+                                                    }
+                                                }
+                                            }
+                                        }}
+                                        className="px-6 py-3 bg-danger/10 hover:bg-danger text-danger hover:text-white border border-danger/30 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-danger/5"
+                                    >
+                                        Delete Faction
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </motion.div>
                 )}
 
