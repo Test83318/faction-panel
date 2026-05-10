@@ -30,6 +30,8 @@ interface RosterTableProps {
   onReorderRows?: (newOrder: RosterContent[]) => void;
   globalEditingRowId?: number | null;
   setGlobalEditingRowId?: (id: number | null) => void;
+  syncedHeights?: { [key: number]: number };
+  onRowHeightSync?: (index: number, height: number, hasCheckbox: boolean) => void;
   }
 
   export const RosterTable: React.FC<RosterTableProps> = ({ 
@@ -53,7 +55,9 @@ interface RosterTableProps {
   onRefresh,
   onReorderRows,
   globalEditingRowId,
-  setGlobalEditingRowId
+  setGlobalEditingRowId,
+  syncedHeights,
+  onRowHeightSync
   }) => {
   const { shortname } = useParams();
   const canEditDefined = canModerate || permissions?.edit_defined_fields;
@@ -113,6 +117,28 @@ interface RosterTableProps {
   }, [contents, user?.always_match_row_height, activeCols, editMode, editData, activeTagMenu, savingRows]);
   const [rowColor, setRowColor] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!onRowHeightSync || !tableRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+        entries.forEach(entry => {
+            const tr = entry.target as HTMLTableRowElement;
+            const idx = parseInt(tr.getAttribute('data-row-index') || '-1');
+            const hasCheckbox = tr.getAttribute('data-has-checkbox') === 'true';
+            
+            if (idx !== -1) {
+                onRowHeightSync(idx, entry.contentRect.height, hasCheckbox);
+            }
+        });
+    });
+
+    const rows = tableRef.current.querySelectorAll('tbody tr.rt-tr');
+    rows.forEach(r => observer.observe(r));
+
+    return () => observer.disconnect();
+  }, [contents, onRowHeightSync, editingRowId, editData, syncedHeights]);
+
   const [selectedRowIds, setSelectedRowIds] = useState<number[]>([]);
   const [rowCountToAdd, setRowCountToAdd] = useState(1);
   const [showColorPicker, setShowColorPicker] = useState<number | null>(null);
@@ -1083,9 +1109,18 @@ interface RosterTableProps {
           {contents.map((row, idx) => {
             const isEditing = editingRowId === row.id;
             const effectiveRowColor = isEditing ? rowColor : row.color;
+
+            // Check if any column in this row has checkboxes
+            const hasCheckbox = activeCols.some(col => {
+                const checked = isEditing ? (editData[`${col.id}_cb`] || []) : (row.content?.[`${col.id}_cb`] || []);
+                return checked.length > 0;
+            });
+
+            const syncedHeight = syncedHeights?.[idx];
+
             const cellStyle: React.CSSProperties = {
                 backgroundColor: effectiveRowColor ? `${effectiveRowColor}33` : undefined,
-                height: maxRowHeight ? `${maxRowHeight}px` : undefined
+                height: syncedHeight ? `${syncedHeight}px` : (maxRowHeight ? `${maxRowHeight}px` : undefined)
             };
 
             return (
@@ -1096,7 +1131,9 @@ interface RosterTableProps {
                 dragListener={editMode && canEditPredefined && !editingRowId}
                 className={`rt-tr group/row ${isEditing ? 'bg-accent/5 z-[5000] relative' : ''} ${selectedRowIds.includes(row.id) ? 'bg-accent/5' : ''} ${editMode && canEditPredefined && !editingRowId ? 'cursor-grab active:cursor-grabbing' : ''}`}
                 onBlur={(e) => handleRowBlur(e, row.id)}
-                style={{ height: maxRowHeight ? `${maxRowHeight}px` : undefined }}
+                style={{ height: syncedHeight ? `${syncedHeight}px` : (maxRowHeight ? `${maxRowHeight}px` : undefined) }}
+                data-row-index={idx}
+                data-has-checkbox={hasCheckbox}
               >
                 <td 
                   className="rt-td text-muted opacity-50 relative cursor-default" 

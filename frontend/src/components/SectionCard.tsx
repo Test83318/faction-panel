@@ -2,6 +2,7 @@ import React from 'react';
 import { MoreHorizontal, Plus, Calculator } from 'lucide-react';
 import { RosterSection } from '../types';
 import { RosterTable } from './RosterTable';
+import { SyncGridRow } from './SyncGridRow';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { hexToRgb } from '../utils';
@@ -27,6 +28,8 @@ interface SectionCardProps {
   onReorderRows?: (sectionId: number, newOrder: any[]) => void;
   globalEditingRowId?: number | null;
   setGlobalEditingRowId?: (id: number | null) => void;
+  syncedHeights?: { [key: number]: number };
+  onRowHeightSync?: (index: number, height: number, hasCheckbox: boolean) => void;
 }
 
 export const SectionCard: React.FC<SectionCardProps> = ({ 
@@ -49,12 +52,14 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   onRefresh,
   onReorderRows,
   globalEditingRowId,
-  setGlobalEditingRowId
+  setGlobalEditingRowId,
+  syncedHeights,
+  onRowHeightSync
 }) => {
   const canEditSection = canModerate || permissions?.add_sections;
   const canAddChildSection = canModerate || permissions?.add_sections;
 
-  const renderChild = (child: RosterSection) => {
+  const renderChild = (child: RosterSection, syncProps?: { syncedHeights?: { [key: number]: number }, onRowHeightSync?: (index: number, height: number, hasCheckbox: boolean) => void }) => {
     return (
         <SectionCard 
             key={child.id}
@@ -78,6 +83,8 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             onReorderRows={onReorderRows}
             globalEditingRowId={globalEditingRowId}
             setGlobalEditingRowId={setGlobalEditingRowId}
+            syncedHeights={syncProps?.syncedHeights}
+            onRowHeightSync={syncProps?.onRowHeightSync}
         />
     );
   };
@@ -199,7 +206,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   if (section.type === 'master' || section.type === 'subsection') {
     return (
       <div 
-        className={`${section.type === 'master' ? 'div-leadership' : 'unit-section'} w-full border border-border bg-card mb-4 group relative`}
+        className={`${section.type === 'master' ? 'div-leadership' : 'unit-section'} w-full border border-border bg-card group relative`}
         style={{ 
           '--accent': effectiveColor,
           '--accent-rgb': effectiveColor.startsWith('#') ? hexToRgb(effectiveColor) : undefined
@@ -266,6 +273,8 @@ export const SectionCard: React.FC<SectionCardProps> = ({
                 onReorderRows={(newOrder) => onReorderRows?.(section.id, newOrder)}
                 globalEditingRowId={globalEditingRowId}
                 setGlobalEditingRowId={setGlobalEditingRowId}
+                syncedHeights={syncedHeights}
+                onRowHeightSync={onRowHeightSync}
             />
         )}
 
@@ -363,6 +372,8 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           onReorderRows={(newOrder) => onReorderRows?.(section.id, newOrder)}
           globalEditingRowId={globalEditingRowId}
           setGlobalEditingRowId={setGlobalEditingRowId}
+          syncedHeights={syncedHeights}
+          onRowHeightSync={onRowHeightSync}
         />
       )}
 
@@ -378,34 +389,38 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         )}
 
         {section.layout_settings?.rows?.map((row: any, rowIdx: number) => (
-          <div 
-            key={`row-${rowIdx}`} 
+          <SyncGridRow
+            key={`row-${rowIdx}`}
+            columns={row.columns || 1}
             className="grid w-full items-start divide-x divide-border"
-            style={{ 
-              gridTemplateColumns: `repeat(${row.columns || 1}, minmax(0, 1fr))` 
-            }}
           >
-            {row.section_ids?.map((sId: number) => {
-              const child = section.children?.find((s: any) => s.id === sId);
-              if (!child) return <div key={`empty-${sId}`} className="border-r border-border last:border-r-0" />;
-              return renderChild(child);
-            })}
-          </div>
+            {({ syncedHeights: rowSyncedHeights, onRowHeightSync: rowOnRowHeightSync }) => (
+                <>
+                    {row.section_ids?.map((sId: number) => {
+                        const child = section.children?.find((s: any) => s.id === sId);
+                        if (!child) return <div key={`empty-${sId}`} className="border-r border-border last:border-r-0" />;
+                        return renderChild(child, { syncedHeights: rowSyncedHeights, onRowHeightSync: rowOnRowHeightSync });
+                    })}
+                </>
+            )}
+          </SyncGridRow>
         ))}
 
         {/* Fallback for children not in custom rows */}
         {(section.children?.filter((s: any) => !section.layout_settings?.rows?.some((r: any) => r.section_ids?.includes(s.id))).length ?? 0) > 0 && (
-            <div 
+            <SyncGridRow 
+                columns={section.subsections_per_row || 1}
                 className="grid w-full items-start divide-x divide-border"
-                style={{ 
-                    gridTemplateColumns: `repeat(${section.subsections_per_row || 1}, minmax(0, 1fr))` 
-                }}
             >
-                {section.children?.filter((s: any) => {
-                    const inCustomRow = section.layout_settings?.rows?.some((r: any) => r.section_ids?.includes(s.id));
-                    return !inCustomRow;
-                }).map((child: any) => renderChild(child))}
-            </div>
+                {({ syncedHeights: rowSyncedHeights, onRowHeightSync: rowOnRowHeightSync }) => (
+                    <>
+                        {section.children?.filter((s: any) => {
+                            const inCustomRow = section.layout_settings?.rows?.some((r: any) => r.section_ids?.includes(s.id));
+                            return !inCustomRow;
+                        }).map((child: any) => renderChild(child, { syncedHeights: rowSyncedHeights, onRowHeightSync: rowOnRowHeightSync }))}
+                    </>
+                )}
+            </SyncGridRow>
         )}
       </div>
     </div>

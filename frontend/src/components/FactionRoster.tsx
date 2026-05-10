@@ -5,6 +5,7 @@ import api from '../api';
 import { Roster as RosterType } from '../types';
 import { Plus, Pencil, MoreVertical, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Database, Menu, Flag, FileCode2, Calculator, Minus } from 'lucide-react';
 import { SectionCard } from './SectionCard';
+import { SyncGridRow } from './SyncGridRow';
 import RosterLayoutModal from './RosterLayoutModal';
 import SectionLayoutModal from './SectionLayoutModal';
 import GlobalVariablesModal from './GlobalVariablesModal';
@@ -596,80 +597,87 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
                 <div className="sections-container w-full space-y-4">
                   {activeDivision.layout_settings?.rows?.map((row: any, rowIdx: number) => (
-                    <div 
+                    <SyncGridRow
                       key={rowIdx} 
+                      columns={row.columns || 2}
                       className="grid gap-4 w-full items-start"
-                      style={{ 
-                        gridTemplateColumns: `repeat(${row.columns || 2}, minmax(300px, 1fr))` 
-                      }}
                     >
-                      {row.section_ids?.map((sId: number) => {
-                        const section = activeDivision.root_sections?.find((s: any) => s.id === sId);
-                        if (!section || section.type === 'master') return null;
-                        return (
-                          <SectionCard 
-                            key={section.id} 
-                            section={section} 
-                            canModerate={isGlobalMod}
-                            permissions={rosterPerms}
-                            onAddChild={handleAddChildSection}
-                            onEdit={handleEditSection}
-                            onManageCounts={(s) => setShowCountsModal({ target: s, type: 'section' })}
-                            calculateCount={calculateCount}
-                            columns={section.use_roster_columns ? (rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns) : (section.columns || rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns)}
-                        rosterColumns={rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns}
-                            datasets={datasets}
-                            allContents={allContents}
-                            flags={flags}
-                            editMode={editMode}
-                            rosterColor={activeDivision.color}
-                            onRefresh={fetchRosters}
-                            onReorderRows={handleReorderRows}
-                            globalEditingRowId={globalEditingRowId}
-                            setGlobalEditingRowId={setGlobalEditingRowId}
-                          />
-                        );
-                      })}
-                    </div>
+                      {({ syncedHeights: rowSyncedHeights, onRowHeightSync: rowOnRowHeightSync }) => (
+                        <>
+                          {row.section_ids?.map((sId: number) => {
+                            const section = activeDivision.root_sections?.find((s: any) => s.id === sId);
+                            if (!section || section.type === 'master') return null;
+                            return (
+                              <SectionCard 
+                                key={section.id} 
+                                section={section} 
+                                canModerate={isGlobalMod}
+                                permissions={rosterPerms}
+                                onAddChild={handleAddChildSection}
+                                onEdit={handleEditSection}
+                                onManageCounts={(s) => setShowCountsModal({ target: s, type: 'section' })}
+                                calculateCount={calculateCount}
+                                columns={section.use_roster_columns ? (rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns) : (section.columns || rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns)}
+                                rosterColumns={rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns}
+                                datasets={datasets}
+                                allContents={allContents}
+                                flags={flags}
+                                editMode={editMode}
+                                rosterColor={activeDivision.color}
+                                onRefresh={fetchRosters}
+                                onReorderRows={handleReorderRows}
+                                globalEditingRowId={globalEditingRowId}
+                                setGlobalEditingRowId={setGlobalEditingRowId}
+                                syncedHeights={rowSyncedHeights}
+                                onRowHeightSync={rowOnRowHeightSync}
+                              />
+                            );
+                          })}
+                        </>
+                      )}
+                    </SyncGridRow>
                   ))}
 
-                  <div 
+                  <SyncGridRow 
+                    columns={activeDivision.default_sections_per_row || 2}
                     className="grid gap-4 w-full items-start"
-                    style={{ 
-                      gridTemplateColumns: `repeat(${activeDivision.default_sections_per_row || 2}, minmax(300px, 1fr))` 
-                    }}
                   >
-                    {activeDivision.root_sections?.filter((s: any) => {
-                      if (s.type === 'master') return false;
-                      const inCustomRow = activeDivision.layout_settings?.rows?.some((r: any) => r.section_ids?.includes(s.id));
-                      return !inCustomRow;
-                    }).map((section: any) => (
-                      <SectionCard 
-                        key={section.id} 
-                        section={section} 
-                        user={user}
-                        canModerate={isGlobalMod}
-                        permissions={rosterPerms}
-                        onAddChild={handleAddChildSection}
-                        onEdit={handleEditSection}
-                        onManageCounts={(s) => setShowCountsModal({ target: s, type: 'section' })}
-                        calculateCount={calculateCount}
-                        columns={section.use_roster_columns ? (rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns) : (section.columns || rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns)}
-                        rosterColumns={rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns}
-                        datasets={datasets}
-                        recordData={recordData}
-                        allContents={allContents}
-                        flags={flags}
-                        editMode={editMode}
-                        rosterColor={activeDivision.color}
-                        onRefresh={fetchRosters}
-                        onReorderRows={handleReorderRows}
-                        globalEditingRowId={globalEditingRowId}
-                        setGlobalEditingRowId={setGlobalEditingRowId}
-                        />
-
-                    ))}
-                  </div>
+                    {({ syncedHeights: rowSyncedHeights, onRowHeightSync: rowOnRowHeightSync }) => (
+                        <>
+                            {activeDivision.root_sections?.filter((s: any) => {
+                                if (s.type === 'master') return false;
+                                const inCustomRow = activeDivision.layout_settings?.rows?.some((r: any) => r.section_ids?.includes(s.id));
+                                return !inCustomRow;
+                            }).map((section: any) => (
+                                <SectionCard 
+                                    key={section.id} 
+                                    section={section} 
+                                    user={user}
+                                    canModerate={isGlobalMod}
+                                    permissions={rosterPerms}
+                                    onAddChild={handleAddChildSection}
+                                    onEdit={handleEditSection}
+                                    onManageCounts={(s) => setShowCountsModal({ target: s, type: 'section' })}
+                                    calculateCount={calculateCount}
+                                    columns={section.use_roster_columns ? (rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns) : (section.columns || rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns)}
+                                    rosterColumns={rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns}
+                                    datasets={datasets}
+                                    recordData={recordData}
+                                    allContents={allContents}
+                                    flags={flags}
+                                    editMode={editMode}
+                                    rosterColor={activeDivision.color}
+                                    onRefresh={fetchRosters}
+                                    onReorderRows={handleReorderRows}
+                                    globalEditingRowId={globalEditingRowId}
+                                    setGlobalEditingRowId={setGlobalEditingRowId}
+                                    syncedHeights={rowSyncedHeights}
+                                    onRowHeightSync={rowOnRowHeightSync}
+                                />
+                            ))}
+                        </>
+                    )}
+                  </SyncGridRow>
                 </div>
 
                 {(!activeDivision.root_sections || activeDivision.root_sections.length === 0) && (
