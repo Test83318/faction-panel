@@ -81,7 +81,7 @@ const QuickSearch: React.FC<QuickSearchProps> = ({ shortname, settings }) => {
 
     // Special handling for exact match + enter
     useEffect(() => {
-        if (settings.exact_match_only && results.length === 1 && results[0].value.toLowerCase() === query.toLowerCase()) {
+        if (settings.exact_match_only && results.length === 1 && (results[0].value || '').toString().toLowerCase() === query.toLowerCase()) {
             handleSelect(results[0]);
         }
     }, [results]);

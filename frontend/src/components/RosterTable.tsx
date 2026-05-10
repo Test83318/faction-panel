@@ -245,17 +245,17 @@ interface RosterTableProps {
     return flag.rules.some((rule: any) => {
         switch (rule.type) {
             case 'equals':
-                return value === (rule.value || '').toLowerCase().trim();
+                return value === (rule.value || '').toString().toLowerCase().trim();
             case 'not_equals':
-                return value !== (rule.value || '').toLowerCase().trim();
+                return value !== (rule.value || '').toString().toLowerCase().trim();
             case 'contains':
-                return value.includes((rule.value || '').toLowerCase().trim());
+                return value.includes((rule.value || '').toString().toLowerCase().trim());
             case 'in_dataset':
                 const dataset = datasets.find(d => Number(d.id) === Number(rule.dataset_id));
-                return dataset?.options?.some((opt: any) => (opt.value || '').toLowerCase().trim() === value);
+                return dataset?.options?.some((opt: any) => (opt.value || '').toString().toLowerCase().trim() === value);
             case 'not_in_dataset':
                 const datasetNot = datasets.find(d => Number(d.id) === Number(rule.dataset_id));
-                return !datasetNot?.options?.some((opt: any) => (opt.value || '').toLowerCase().trim() === value);
+                return !datasetNot?.options?.some((opt: any) => (opt.value || '').toString().toLowerCase().trim() === value);
             case 'exists_elsewhere':
                 let pool: any[] = [];
                 const safeAllContents = allContents || [];
@@ -492,7 +492,7 @@ interface RosterTableProps {
                                 
                                 let isMatch = false;
                                 if (match_value) {
-                                    isMatch = dbVal && dbVal.toString().toLowerCase().includes((match_value || '').toLowerCase());
+                                    isMatch = dbVal && dbVal.toString().toLowerCase().includes((match_value || '').toString().toLowerCase());
                                 } else {
                                     isMatch = !!dbVal;
                                 }
@@ -526,7 +526,7 @@ interface RosterTableProps {
                                 
                                 let isMatch = false;
                                 if (match_value) {
-                                    isMatch = dbVal && dbVal.toString().toLowerCase().includes((match_value || '').toLowerCase());
+                                    isMatch = dbVal && dbVal.toString().toLowerCase().includes((match_value || '').toString().toLowerCase());
                                 } else {
                                     isMatch = !!dbVal;
                                 }
@@ -838,15 +838,15 @@ interface RosterTableProps {
       const suggestionPool = [...effectiveOptions];
       
       uniqueExisting.forEach(val => {
-        if (typeof val === 'string' && !suggestionPool.some(opt => (opt.label || '').toLowerCase() === val.toLowerCase())) {
+        if (typeof val === 'string' && !suggestionPool.some(opt => (opt.label || '').toString().toLowerCase() === val.toLowerCase())) {
           suggestionPool.push({ label: val, color: 'inherit', bold: false });
         }
       });
 
-      const searchTerm = (value || '').toLowerCase();
+      const searchTerm = (value || '').toString().toLowerCase();
       const filteredSuggestions = (focusedColId === col.id && searchTerm.length >= 1) 
         ? suggestionPool.filter(opt => 
-            (opt.label || '').toLowerCase().includes(searchTerm)
+            (opt.label || '').toString().toLowerCase().includes(searchTerm)
           ).slice(0, 8) 
         : [];
 

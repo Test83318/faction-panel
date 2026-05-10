@@ -423,8 +423,8 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
             const val = label.trim();
             
             if (count.settings.match_type === 'exists') return !!val;
-            if (count.settings.match_type === 'equals') return val.toLowerCase() === (count.settings.match_value || '').toLowerCase().trim();
-            if (count.settings.match_type === 'contains') return val.toLowerCase().includes((count.settings.match_value || '').toLowerCase().trim());
+            if (count.settings.match_type === 'equals') return val.toLowerCase() === (count.settings.match_value || '').toString().toLowerCase().trim();
+            if (count.settings.match_type === 'contains') return val.toLowerCase().includes((count.settings.match_value || '').toString().toLowerCase().trim());
             return true;
         }
 
@@ -442,8 +442,8 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                 const val = (content[col.id] || '').toString().toLowerCase().trim();
                 if (!val) return false;
                 return (flag.rules || []).some((rule: any) => {
-                    if (rule.type === 'equals') return val === (rule.value || '').toLowerCase().trim();
-                    if (rule.type === 'contains') return val.includes((rule.value || '').toLowerCase().trim());
+                    if (rule.type === 'equals') return val === (rule.value || '').toString().toLowerCase().trim();
+                    if (rule.type === 'contains') return val.includes((rule.value || '').toString().toLowerCase().trim());
                     if (rule.type === 'exists_elsewhere') {
                         // Global/Roster check
                         const otherPool = rule.scope === 'global' ? allContents : allContents.filter(c => c.roster_id === row.roster_id);
