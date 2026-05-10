@@ -904,7 +904,7 @@ interface RosterTableProps {
                                 onMouseDown={(e) => {
                                     e.preventDefault(); 
                                     e.stopPropagation();
-                                    updateField(col.id, opt.id || opt.label);
+                                    updateField(col.id, opt.label);
                                     setFocusedColId(null);
                                 }}
                                 className="w-full text-left px-2 py-2 hover:bg-accent/10 rounded flex items-center justify-between transition-colors group/opt"
