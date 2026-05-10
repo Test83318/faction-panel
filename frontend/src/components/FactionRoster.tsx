@@ -3,7 +3,7 @@ import { motion, AnimatePresence, Reorder } from 'motion/react';
 import toast from 'react-hot-toast';
 import api from '../api';
 import { Roster as RosterType } from '../types';
-import { Plus, Pencil, MoreVertical, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Database, Menu, Flag, FileCode2 } from 'lucide-react';
+import { Plus, Pencil, MoreVertical, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Database, Menu, Flag, FileCode2, Calculator } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 import RosterLayoutModal from './RosterLayoutModal';
 import SectionLayoutModal from './SectionLayoutModal';
@@ -12,6 +12,7 @@ import FlagManagerModal from './FlagManagerModal';
 import { RosterPermissionsModal } from './RosterPermissionsModal';
 import { ColumnsModal } from './ColumnsModal';
 import { RosterTemplateModal } from './RosterTemplateModal';
+import { CountManagerModal } from './CountManagerModal';
 import { hexToRgb } from '../utils';
 
 interface FactionRosterProps {
@@ -66,6 +67,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
   const [showFlagsModal, setShowFlagsModal] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [showLayoutModal, setShowLayoutModal] = useState<RosterType | null>(null);
+  const [showCountsModal, setShowCountsModal] = useState<any | null>(null);
   const [showRosterContextMenu, setShowRosterContextMenu] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -322,6 +324,79 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
     setShowSectionModal(true);
   };
 
+  const calculateCount = (count: any, scope: 'roster' | 'section', targetSection?: any) => {
+    let pool: any[] = [];
+    if (scope === 'roster') {
+        pool = allContents.filter(c => c.roster_id === activeDivId);
+    } else {
+        const getSectionContents = (sec: any): any[] => {
+            let items = [...(sec.contents || [])];
+            if (sec.children && Array.isArray(sec.children)) {
+                sec.children.forEach((child: any) => {
+                    items = [...items, ...getSectionContents(child)];
+                });
+            }
+            return items;
+        };
+        pool = getSectionContents(targetSection);
+    }
+
+    if (count.type === 'sum') {
+        const otherCounts = scope === 'roster' ? (activeDivision.counts || []) : (targetSection.counts || []);
+        const toSum = otherCounts.filter((c: any) => count.settings.sum_ids?.includes(c.id));
+        return toSum.reduce((acc: number, cur: any) => acc + calculateCount(cur, scope, targetSection), 0);
+    }
+
+    return pool.filter(row => {
+        const content = row.content || {};
+        
+        if (count.type === 'rows') {
+            if (!count.settings.target_col) return true;
+            const val = (content[count.settings.target_col] || '').toString().trim();
+            if (count.settings.disregard_empty && !val) return false;
+            
+            if (count.settings.match_type === 'exists') return !!val;
+            if (count.settings.match_type === 'equals') return val.toLowerCase() === (count.settings.match_value || '').toLowerCase().trim();
+            if (count.settings.match_type === 'contains') return val.toLowerCase().includes((count.settings.match_value || '').toLowerCase().trim());
+            return true;
+        }
+
+        if (count.type === 'flags') {
+            if (!count.settings.flag_id) return false;
+            const flag = flags.find(f => f.id === count.settings.flag_id);
+            if (!flag) return false;
+            
+            // Need columns for evaluateFlag
+            const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
+            // This is a bit complex as evaluateFlag is in RosterTable. 
+            // We'll implement a simplified version here for counts.
+            return rosterCols.some((col: any) => {
+                if (!(col.flags || []).includes(flag.id)) return false;
+                const val = (content[col.id] || '').toString().toLowerCase().trim();
+                if (!val) return false;
+                return (flag.rules || []).some((rule: any) => {
+                    if (rule.type === 'equals') return val === (rule.value || '').toLowerCase().trim();
+                    if (rule.type === 'contains') return val.includes((rule.value || '').toLowerCase().trim());
+                    if (rule.type === 'exists_elsewhere') {
+                        // Global/Roster check
+                        const otherPool = rule.scope === 'global' ? allContents : allContents.filter(c => c.roster_id === row.roster_id);
+                        return otherPool.some(c => c.id !== row.id && Object.values(c.content || {}).some(v => (v || '').toString().toLowerCase().trim() === val));
+                    }
+                    return false;
+                });
+            });
+        }
+
+        if (count.type === 'checkboxes') {
+            if (!count.settings.target_col || !count.settings.checkbox_label) return false;
+            const rowCheckboxes = row.checkboxes?.[count.settings.target_col] || [];
+            return rowCheckboxes.includes(count.settings.checkbox_label);
+        }
+
+        return false;
+    }).length;
+  };
+
   return (
     <div 
         className="flex flex-col h-full relative" 
@@ -348,7 +423,8 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                   <div className="flex-1 text-center text-text font-extrabold text-[15px] uppercase tracking-tighter">
                     {activeDivision.name}
                   </div>
-                  <div className="flex items-center gap-3 pr-2">
+                  
+                  <div className="flex items-center gap-6 pr-4 h-full shrink-0">
                     {/* Online Viewers */}
                     <div className="flex items-center -space-x-1.5">
                         {(() => {
@@ -394,8 +470,28 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         })()}
                     </div>
 
+                    {/* Integrated Roster Counts */}
+                    <div className="flex items-center gap-5">
+                        {[0, 1, 2].map(colIdx => {
+                            const colCounts = (activeDivision.counts || []).filter((c: any) => (c.column_idx || 0) === colIdx).slice(0, 2);
+                            if (colCounts.length === 0) return null;
+                            return (
+                                <div key={colIdx} className="flex flex-col justify-center gap-0 min-w-[60px]">
+                                    {colCounts.map((count: any) => (
+                                        <div key={count.id} className="flex items-center justify-between gap-3">
+                                            <span className="text-[7.5px] font-black text-muted uppercase tracking-widest truncate max-w-[50px]">{count.name}</span>
+                                            <span className="text-[10px] font-black tabular-nums leading-none" style={{ color: count.color }}>
+                                                {calculateCount(count, 'roster')}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        })}
+                    </div>
+
                     {canModerate && (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 ml-4">
                             <button 
                                 onClick={() => setEditMode(!editMode)}
                                 className={`px-2 py-1 rounded transition-colors flex items-center gap-1.5 ${editMode ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'hover:bg-surface text-muted hover:text-accent'}`}
@@ -407,7 +503,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                             {canAddSections && (
                                 <button 
                                     onClick={() => {
-                                        setSectionData({ id: null, roster_id: activeDivId, name: '', shortname: '', color: '', type: 'section', parent_id: null, columns: null, children: [], layout_settings: null, subsections_per_row: 1 });
+                                        setSectionData({ id: null, roster_id: activeDivId, name: '', shortname: '', color: '', type: 'section', parent_id: null, columns: null, children: [], layout_settings: null, subsections_per_row: 1, content_html: '' });
                                         setShowSectionModal(true);
                                     }}
                                     className="px-2 py-1 hover:bg-surface rounded text-muted hover:text-accent transition-colors flex items-center gap-1"
@@ -419,9 +515,6 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         </div>
                     )}
                   </div>
-                  <div className="text-[9.5px] text-muted shrink-0 pr-4">
-                    <strong className="text-accent">{totalMembers}</strong> PERSONNEL
-                  </div>
                 </div>
 
                 {activeDivision.root_sections?.filter((s: any) => s.type === 'master').map((section: any) => (
@@ -432,7 +525,10 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         canModerate={isGlobalMod}
                         permissions={rosterPerms}
                         onEdit={handleEditSection}
-                        columns={section.columns || rosters.find((r: any) => r.id === activeDivId)?.columns}
+                        onManageCounts={(s) => setShowCountsModal({ target: s, type: 'section' })}
+                        calculateCount={calculateCount}
+                        columns={section.use_roster_columns ? (rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns) : (section.columns || rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns)}
+                        rosterColumns={rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns}
                         datasets={datasets}
                         recordData={recordData}
                         allContents={allContents}
@@ -463,7 +559,10 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                             permissions={rosterPerms}
                             onAddChild={handleAddChildSection}
                             onEdit={handleEditSection}
-                            columns={section.columns || rosters.find((r: any) => r.id === activeDivId)?.columns}
+                            onManageCounts={(s) => setShowCountsModal({ target: s, type: 'section' })}
+                            calculateCount={calculateCount}
+                            columns={section.use_roster_columns ? (rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns) : (section.columns || rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns)}
+                        rosterColumns={rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns}
                             datasets={datasets}
                             allContents={allContents}
                             flags={flags}
@@ -495,7 +594,10 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         permissions={rosterPerms}
                         onAddChild={handleAddChildSection}
                         onEdit={handleEditSection}
-                        columns={section.columns || rosters.find((r: any) => r.id === activeDivId)?.columns}
+                        onManageCounts={(s) => setShowCountsModal({ target: s, type: 'section' })}
+                        calculateCount={calculateCount}
+                        columns={section.use_roster_columns ? (rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns) : (section.columns || rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns)}
+                        rosterColumns={rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns}
                         datasets={datasets}
                         recordData={recordData}
                         allContents={allContents}
@@ -626,6 +728,17 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                         className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface rounded transition-colors"
                                     >
                                         <Layout size={12} /> Manage Layout
+                                    </button>
+                                )}
+                                {(isGlobalMod || roster.user_roster_permissions?.modify_roster) && (
+                                    <button 
+                                        onClick={() => {
+                                            setShowCountsModal({ target: roster, type: 'roster' });
+                                            setActiveMenuId(null);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface rounded transition-colors"
+                                    >
+                                        <Calculator size={12} /> Manage Counts
                                     </button>
                                 )}
                                 {(isGlobalMod || roster.user_roster_permissions?.modify_roster) && (
@@ -1090,6 +1203,21 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
           <RosterTemplateModal 
             shortname={shortname!}
             onClose={() => setShowTemplateModal(false)}
+          />
+      )}
+
+      {showCountsModal && (
+          <CountManagerModal 
+            target={showCountsModal.target}
+            type={showCountsModal.type}
+            shortname={shortname!}
+            columns={showCountsModal.type === 'roster' ? showCountsModal.target.columns : (rosters.find((r: any) => r.id === showCountsModal.target.roster_id || activeDivId)?.columns || [])}
+            flags={flags}
+            onClose={() => setShowCountsModal(null)}
+            onSave={() => {
+                setShowCountsModal(null);
+                fetchRosters();
+            }}
           />
       )}
     </div>

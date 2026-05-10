@@ -21,6 +21,7 @@ class RosterContentController extends Controller
 
         $validated = $request->validate([
             'type' => 'required|string|in:predefined,defined',
+            'color' => 'nullable|string',
             'content' => 'nullable|array',
         ]);
 
@@ -66,6 +67,7 @@ class RosterContentController extends Controller
 
         $validated = $request->validate([
             'type' => 'sometimes|string|in:predefined,defined',
+            'color' => 'sometimes|nullable|string',
             'content' => 'sometimes|array',
             'order' => 'sometimes|integer',
             'last_updated_at' => 'sometimes|string',
@@ -175,13 +177,14 @@ class RosterContentController extends Controller
             'contents.*.id' => 'required|exists:roster_contents,id',
             'contents.*.content' => 'sometimes|array',
             'contents.*.type' => 'sometimes|string|in:predefined,defined',
+            'contents.*.color' => 'sometimes|nullable|string',
             'contents.*.order' => 'sometimes|integer',
         ]);
 
         foreach ($request->contents as $item) {
             RosterContent::where('id', $item['id'])
                 ->where('section_id', $section->id)
-                ->update(collect($item)->only(['content', 'type', 'order'])->toArray());
+                ->update(collect($item)->only(['content', 'type', 'color', 'order'])->toArray());
         }
 
         return response()->json(['message' => 'Batch update successful']);

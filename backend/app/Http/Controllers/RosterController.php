@@ -168,6 +168,7 @@ class RosterController extends Controller
             'color' => ['sometimes', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'roster_options' => 'nullable|array',
             'columns' => 'nullable|array',
+            'counts' => 'nullable|array',
             'layout_settings' => 'nullable|array',
             'default_sections_per_row' => 'nullable|integer|min:1|max:4',
             'section_order' => 'nullable|array',
@@ -178,7 +179,7 @@ class RosterController extends Controller
 
         // Critical settings (name, color, shortname) -> modify_roster
         if ($canModify) {
-            foreach(['name', 'shortname', 'color', 'roster_options'] as $field) {
+            foreach(['name', 'shortname', 'color', 'roster_options', 'counts'] as $field) {
                 if (isset($validated[$field])) $toUpdate[$field] = $validated[$field];
             }
         }

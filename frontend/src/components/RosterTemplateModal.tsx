@@ -545,32 +545,9 @@ export const RosterTemplateModal: React.FC<RosterTemplateModalProps> = ({ shortn
                                         <div className="p-4 bg-surface/50 border-b border-border">
                                             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-accent">Default Roster Options</h3>
                                         </div>
-                                        <div className="p-6 space-y-4">
-                                            <div className="flex items-center justify-between p-4 bg-surface/30 rounded-lg border border-border/50">
-                                                <div>
-                                                    <span className="text-sm font-bold text-text block">Show Member Count</span>
-                                                    <span className="text-[10px] text-muted uppercase tracking-tighter">Display personnel count in the roster header</span>
-                                                </div>
-                                                <button 
-                                                    onClick={() => setTemplate({ ...template, roster_options: { ...template.roster_options, show_count: !template.roster_options.show_count } })}
-                                                    className={`w-10 h-5 rounded-full relative transition-colors ${template.roster_options.show_count ? 'bg-accent' : 'bg-muted/30'}`}
-                                                >
-                                                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${template.roster_options.show_count ? 'right-1' : 'left-1'}`} />
-                                                </button>
-                                            </div>
-
-                                            <div className="flex items-center justify-between p-4 bg-surface/30 rounded-lg border border-border/50">
-                                                <div>
-                                                    <span className="text-sm font-bold text-text block">Enable Bulk Actions</span>
-                                                    <span className="text-[10px] text-muted uppercase tracking-tighter">Allow moderators to multi-select rows</span>
-                                                </div>
-                                                <button 
-                                                    onClick={() => setTemplate({ ...template, roster_options: { ...template.roster_options, bulk_actions: !template.roster_options.bulk_actions } })}
-                                                    className={`w-10 h-5 rounded-full relative transition-colors ${template.roster_options.bulk_actions ? 'bg-accent' : 'bg-muted/30'}`}
-                                                >
-                                                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${template.roster_options.bulk_actions ? 'right-1' : 'left-1'}`} />
-                                                </button>
-                                            </div>
+                                        <div className="p-12 text-center space-y-3">
+                                            <Settings2 size={32} className="mx-auto text-muted opacity-20" />
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-muted">Default roster options coming soon</p>
                                         </div>
                                     </div>
                                 </div>

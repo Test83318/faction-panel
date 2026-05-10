@@ -75,7 +75,9 @@ class RosterSectionController extends Controller
             'parent_id' => 'sometimes|nullable|exists:roster_sections,id',
             'section_options' => 'sometimes|nullable|array',
             'columns' => 'sometimes|nullable|array',
+            'use_roster_columns' => 'sometimes|boolean',
             'layout_settings' => 'sometimes|nullable|array',
+            'counts' => 'sometimes|nullable|array',
             'subsections_per_row' => 'sometimes|nullable|integer|min:1|max:3',
             'content_html' => 'sometimes|nullable|string',
         ]);

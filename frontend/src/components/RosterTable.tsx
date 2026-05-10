@@ -67,11 +67,28 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   const [editingColId, setEditingColId] = useState<string | null>(null);
   const [savingRows, setSavingRows] = useState<Map<number, string>>(new Map());
   const [editData, setEditData] = useState<any>({});
+  const [rowColor, setRowColor] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [selectedRowIds, setSelectedRowIds] = useState<number[]>([]);
   const [rowCountToAdd, setRowCountToAdd] = useState(1);
   const [activeTagMenu, setActiveTagMenu] = useState<{ rowId: number, colId: string } | null>(null);
+  const [showColorPicker, setShowColorPicker] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const defaultRowColors = [
+    { name: 'None', value: null },
+    { name: 'Red', value: '#ef4444' },
+    { name: 'Orange', value: '#f97316' },
+    { name: 'Amber', value: '#f59e0b' },
+    { name: 'Green', value: '#10b981' },
+    { name: 'Emerald', value: '#059669' },
+    { name: 'Teal', value: '#06b6d4' },
+    { name: 'Blue', value: '#3b82f6' },
+    { name: 'Indigo', value: '#6366f1' },
+    { name: 'Violet', value: '#8b5cf6' },
+    { name: 'Purple', value: '#a855f7' },
+    { name: 'Pink', value: '#ec4899' },
+  ];
 
   const evaluateFlag = React.useCallback((row: RosterContent, col: RosterColumn, flag: any) => {
     if (!flag.rules || flag.rules.length === 0) return false;
@@ -241,20 +258,23 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     setEditingRowId(row.id);
     setEditingColId(colId);
     setEditData(row.content || {});
+    setRowColor(row.color || null);
     setLastUpdatedAt(row.updated_at || null);
   };
 
   const handleSaveEdit = async (rowId: number) => {
     if (editingRowId !== rowId) return;
     
-    const dataToSave = { ...editData };
+    const dataToSave = { content: { ...editData }, color: rowColor };
     const colId = editingColId;
     const updatedAt = lastUpdatedAt;
 
     setEditingRowId(null);
     setEditingColId(null);
+    setRowColor(null);
     setLastUpdatedAt(null);
     setActiveTagMenu(null);
+    setShowColorPicker(null);
     
     if (colId) {
         setSavingRows(prev => new Map(prev).set(rowId, colId));
@@ -277,9 +297,11 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     const id = editingRowId;
     setEditingRowId(null);
     setEditingColId(null);
+    setRowColor(null);
     setLastUpdatedAt(null);
     setEditData({});
     setActiveTagMenu(null);
+    setShowColorPicker(null);
     
     if (id) {
         api.post(`/contents/${id}/unlock`).catch(() => {});
@@ -902,50 +924,106 @@ export const RosterTable: React.FC<RosterTableProps> = ({
           </tr>
         </thead>
         <tbody>
-          {contents.map((row, idx) => (
-            <tr 
-              key={row.id} 
-              className={`rt-tr group/row ${editingRowId === row.id ? 'bg-accent/5 z-[5000] relative' : ''} ${selectedRowIds.includes(row.id) ? 'bg-accent/5' : ''}`}
-              onBlur={(e) => handleRowBlur(e, row.id)}
-              style={{ zIndex: editingRowId === row.id ? 5000 : 0 }}
-            >
-              <td 
-                className="rt-td text-muted opacity-50 relative cursor-default" 
-                style={{ borderLeft: `3px solid ${accentColor}` }}
-                onClick={() => editMode && toggleSelectRow(row.id)}
+          {contents.map((row, idx) => {
+            const isEditing = editingRowId === row.id;
+            const effectiveRowColor = isEditing ? rowColor : row.color;
+            const rowStyle: React.CSSProperties = {
+                zIndex: isEditing ? 5000 : 0,
+                backgroundColor: effectiveRowColor ? `${effectiveRowColor}15` : undefined
+            };
+
+            return (
+              <tr 
+                key={row.id} 
+                className={`rt-tr group/row ${isEditing ? 'bg-accent/5 z-[5000] relative' : ''} ${selectedRowIds.includes(row.id) ? 'bg-accent/5' : ''}`}
+                onBlur={(e) => handleRowBlur(e, row.id)}
+                style={rowStyle}
               >
-                {editMode ? (
-                    <div className="flex items-center justify-center w-full h-full">
-                        <input 
-                            type="checkbox" 
-                            checked={selectedRowIds.includes(row.id)}
-                            readOnly
-                            className={`w-3 h-3 rounded border-border bg-bg text-accent focus:ring-accent accent-accent transition-opacity ${selectedRowIds.includes(row.id) ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}
-                        />
-                        <span className={`absolute inset-0 flex items-center justify-center transition-opacity ${selectedRowIds.includes(row.id) ? 'opacity-0' : 'group-hover/row:opacity-0 opacity-100'}`}>
-                            {idx + 1}
-                        </span>
-                    </div>
-                ) : (
-                    idx + 1
-                )}
-              </td>
-              {activeCols.map((col) => (
                 <td 
-                    key={col.id} 
-                    className={`rt-td p-0 h-[34px] relative hover:z-[100] transition-colors ${editingRowId === row.id && editingColId === col.id ? 'bg-accent/5 ring-1 ring-inset ring-accent/30 z-[5001]' : 'hover:bg-surface/50'}`}
-                    style={{ zIndex: editingRowId === row.id && editingColId === col.id ? 5001 : 0 }}
-                    onClick={() => !editingRowId && isColEditable(col) && handleStartEdit(row, col.id)}
+                  className="rt-td text-muted opacity-50 relative cursor-default" 
+                  style={{ borderLeft: `3px solid ${effectiveRowColor || accentColor}` }}
+                  onClick={() => editMode && toggleSelectRow(row.id)}
+                >
+                  {editMode ? (
+                      <div className="flex items-center justify-center w-full h-full">
+                          <input 
+                              type="checkbox" 
+                              checked={selectedRowIds.includes(row.id)}
+                              readOnly
+                              className={`w-3 h-3 rounded border-border bg-bg text-accent focus:ring-accent accent-accent transition-opacity ${selectedRowIds.includes(row.id) ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}
+                          />
+                          <span className={`absolute inset-0 flex items-center justify-center transition-opacity ${selectedRowIds.includes(row.id) ? 'opacity-0' : 'group-hover/row:opacity-0 opacity-100'}`}>
+                              {idx + 1}
+                          </span>
+                      </div>
+                  ) : (
+                      idx + 1
+                  )}
+                </td>
+                {activeCols.map((col) => (
+                  <td 
+                      key={col.id} 
+                      className={`rt-td p-0 h-[34px] relative hover:z-[100] transition-colors ${isEditing && editingColId === col.id ? 'bg-accent/5 ring-1 ring-inset ring-accent/30 z-[5001]' : 'hover:bg-surface/50'}`}
+                      style={{ zIndex: isEditing && editingColId === col.id ? 5001 : 0 }}
+                      onClick={() => !isEditing && isColEditable(col) && handleStartEdit(row, col.id)}
                 >
                   {renderCell(row, col)}
                 </td>
               ))}
               <td className="rt-td p-0">
                 <div className="flex items-center justify-center gap-1">
-                  {editingRowId === row.id ? (
-                    <div className="flex flex-col gap-0.5">
-                      <button onClick={() => handleSaveEdit(row.id)} className="p-0.5 text-green-500 hover:bg-green-500/10 rounded transition-colors" title="Save"><Check size={10} /></button>
-                      <button onClick={handleCancelEdit} className="p-0.5 text-danger hover:bg-danger/10 rounded transition-colors" title="Cancel"><X size={10} /></button>
+                  {isEditing ? (
+                    <div className="flex flex-col items-center gap-1 relative">
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowColorPicker(showColorPicker === row.id ? null : row.id);
+                            }}
+                            className="p-1 hover:bg-surface rounded transition-colors text-muted hover:text-accent"
+                            title="Row Color"
+                        >
+                            <div className="w-2.5 h-2.5 rounded-full border border-border" style={{ backgroundColor: rowColor || 'transparent' }} />
+                        </button>
+                        
+                        {showColorPicker === row.id && (
+                            <div className="absolute bottom-full right-0 mb-2 bg-card border border-border rounded-xl shadow-2xl p-3 z-[6000] min-w-[180px] animate-in fade-in slide-in-from-bottom-2">
+                                <div className="text-[8px] font-black uppercase text-muted mb-2 tracking-widest border-b border-border/50 pb-1">Row Color</div>
+                                <div className="grid grid-cols-4 gap-1.5 mb-3">
+                                    {defaultRowColors.map(c => (
+                                        <button 
+                                            key={c.name}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setRowColor(c.value);
+                                                setShowColorPicker(null);
+                                            }}
+                                            className={`w-full aspect-square rounded-md border transition-all ${rowColor === c.value ? 'ring-2 ring-accent ring-offset-2 ring-offset-card' : 'border-border hover:border-accent'}`}
+                                            style={{ backgroundColor: c.value || 'transparent' }}
+                                            title={c.name}
+                                        />
+                                    ))}
+                                </div>
+                                <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                                    <input 
+                                        type="color" 
+                                        value={rowColor || '#ffffff'} 
+                                        onChange={e => setRowColor(e.target.value)}
+                                        className="w-8 h-8 bg-surface border border-border rounded p-1 cursor-pointer" 
+                                    />
+                                    <input 
+                                        value={rowColor || ''} 
+                                        onChange={e => setRowColor(e.target.value)}
+                                        className="flex-1 bg-surface border border-border px-2 py-1 text-[10px] text-text rounded focus:border-accent outline-none font-mono uppercase" 
+                                        placeholder="Hex (#...)"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex flex-col gap-0.5">
+                            <button onClick={() => handleSaveEdit(row.id)} className="p-0.5 text-green-500 hover:bg-green-500/10 rounded transition-colors" title="Save"><Check size={10} /></button>
+                            <button onClick={handleCancelEdit} className="p-0.5 text-danger hover:bg-danger/10 rounded transition-colors" title="Cancel"><X size={10} /></button>
+                        </div>
                     </div>
                   ) : (
                     <>
@@ -957,7 +1035,8 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 </div>
               </td>
             </tr>
-          ))}
+            );
+          })}
           {editMode && (
             <tr>
               <td 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { MoreHorizontal, Plus } from 'lucide-react';
+import { MoreHorizontal, Plus, Calculator } from 'lucide-react';
 import { RosterSection } from '../types';
 import { RosterTable } from './RosterTable';
 import api from '../api';
@@ -12,6 +12,7 @@ interface SectionCardProps {
   canModerate?: boolean;
   permissions?: any;
   columns?: any[];
+  rosterColumns?: any[];
   datasets?: any[];
   recordData?: any[];
   flags?: any[];
@@ -20,6 +21,8 @@ interface SectionCardProps {
   rosterColor?: string;
   onAddChild?: (parentId: number) => void;
   onEdit?: (section: RosterSection) => void;
+  onManageCounts?: (section: RosterSection) => void;
+  calculateCount?: (count: any, scope: 'roster' | 'section', targetSection?: any) => number;
   onRefresh?: () => void;
 }
 
@@ -29,6 +32,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   canModerate, 
   permissions,
   columns, 
+  rosterColumns,
   datasets,
   recordData,
   flags,
@@ -37,6 +41,8 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   rosterColor,
   onAddChild, 
   onEdit,
+  onManageCounts,
+  calculateCount,
   onRefresh
 }) => {
   const canEditSection = canModerate || permissions?.add_sections;
@@ -45,6 +51,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   const renderChild = (child: RosterSection) => {
     const isSubsection = child.type === 'subsection';
     const childColor = child.color || section.color || rosterColor || 'var(--accent)';
+    const childColumns = child.use_roster_columns ? rosterColumns : (child.columns || rosterColumns);
     
     if (isSubsection) {
       return (
@@ -74,7 +81,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             allContents={allContents}
             user={user}
             accentColor={childColor} 
-            columns={child.columns || columns} 
+            columns={childColumns} 
             datasets={datasets}
             recordData={recordData}
             flags={flags}
@@ -119,7 +126,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           allContents={allContents}
           user={user}
           accentColor={childColor} 
-          columns={child.columns || columns} 
+          columns={childColumns} 
           datasets={datasets}
           recordData={recordData}
           flags={flags}
@@ -258,8 +265,31 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         } as React.CSSProperties}
       >
         <div className="section-header py-0.5 px-2 border-b border-border bg-border/20 flex justify-between items-center">
-          <span className="text-[9px] font-bold text-text uppercase">{section.name}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-[9px] font-bold text-text uppercase">{section.name}</span>
+            {!section.parent_id && section.counts && section.counts.length > 0 && (
+                <div className="flex items-center gap-3 pl-3 border-l border-border/50">
+                    {section.counts.map((count: any) => (
+                        <div key={count.id} className="flex items-center gap-1.5">
+                            <span className="text-[7px] font-black text-muted uppercase tracking-widest">{count.name}</span>
+                            <span className="text-[9px] font-black tabular-nums" style={{ color: count.color }}>
+                                {calculateCount?.(count, 'section', section)}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
+          </div>
           <div className="flex items-center gap-2">
+            {!section.parent_id && canEditSection && (
+                <button 
+                    onClick={() => onManageCounts?.(section)}
+                    className="p-1 hover:bg-surface rounded text-muted hover:text-accent transition-colors"
+                    title="Manage Section Counts"
+                >
+                    <Calculator size={11} className="opacity-60" />
+                </button>
+            )}
             {canEditSection && (
                 <button 
                     onClick={() => onEdit?.(section)}
@@ -305,12 +335,35 @@ export const SectionCard: React.FC<SectionCardProps> = ({
       <div className="bureau-card-top flex h-[24px] items-stretch border-b border-border bg-surface shrink-0 rounded-t-lg overflow-hidden">
         <div className="w-[5px] shrink-0" style={{ backgroundColor: effectiveColor }} />
         <div className="flex-1 flex items-center px-2 justify-center gap-1.5 overflow-hidden">
-          <span className="font-bold text-[11px] text-text uppercase truncate">
-            {section.name}
-          </span>
+          <div className="flex items-center gap-3">
+              <span className="font-bold text-[11px] text-text uppercase truncate">
+                {section.name}
+              </span>
+              {!section.parent_id && section.counts && section.counts.length > 0 && (
+                  <div className="flex items-center gap-3 pl-3 border-l border-border/50">
+                      {section.counts.map((count: any) => (
+                          <div key={count.id} className="flex items-center gap-1.5">
+                              <span className="text-[7px] font-black text-muted uppercase tracking-widest">{count.name}</span>
+                              <span className="text-[9px] font-black tabular-nums" style={{ color: count.color }}>
+                                  {calculateCount?.(count, 'section', section)}
+                              </span>
+                          </div>
+                      ))}
+                  </div>
+              )}
+          </div>
           <div className="flex items-center gap-1 ml-auto">
             {canEditSection && (
                 <>
+                    {!section.parent_id && (
+                        <button 
+                            onClick={() => onManageCounts?.(section)}
+                            className="px-1.5 py-0.5 hover:bg-bg rounded text-muted hover:text-accent flex items-center gap-1 transition-colors"
+                            title="Manage Section Counts"
+                        >
+                            <span className="text-[7px] font-black uppercase tracking-widest">counts</span>
+                        </button>
+                    )}
                     {!section.parent_id && canAddChildSection && (
                         <button 
                             onClick={() => onAddChild?.(section.id)}

@@ -20,7 +20,9 @@ class RosterSection extends Model
         'parent_id',
         'section_options',
         'columns',
+        'use_roster_columns',
         'layout_settings',
+        'counts',
         'subsections_per_row',
         'content_html',
         'created_by'
@@ -29,7 +31,9 @@ class RosterSection extends Model
     protected $casts = [
         'section_options' => 'array',
         'columns' => 'array',
+        'use_roster_columns' => 'boolean',
         'layout_settings' => 'array',
+        'counts' => 'array',
     ];
 
     public function roster()

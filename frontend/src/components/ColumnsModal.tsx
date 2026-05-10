@@ -23,6 +23,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
   const [datasets, setDatasets] = useState<any[]>([]);
   const [recordDatabases, setRecordDatabases] = useState<any[]>([]);
   const [flags, setFlags] = useState<any[]>([]);
+  const [useRosterColumns, setUseRosterColumns] = useState<boolean>(target.use_roster_columns !== undefined ? target.use_roster_columns : true);
   const [isSaving, setIsSaving] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
@@ -48,7 +49,8 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
     setIsSaving(true);
     try {
       const endpoint = type === 'roster' ? `/rosters/${target.id}` : `/sections/${target.id}`;
-      await api.put(endpoint, { columns });
+      const payload = type === 'roster' ? { columns } : { columns, use_roster_columns: useRosterColumns };
+      await api.put(endpoint, payload);
       onSave();
     } catch (err) {
       console.error('Failed to save columns', err);
@@ -98,7 +100,22 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
           <button onClick={onClose} className="text-muted hover:text-text"><X size={20} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+        {type === 'section' && (
+            <div className="mb-6 p-4 bg-surface border border-border rounded-xl flex items-center justify-between group/toggle">
+                <div className="space-y-0.5">
+                    <span className="text-sm font-bold text-text block uppercase tracking-tight italic">Parent Roster Columns</span>
+                    <span className="text-[10px] text-muted font-bold uppercase tracking-widest leading-none">Inherit all columns and settings from the parent roster</span>
+                </div>
+                <button 
+                    onClick={() => setUseRosterColumns(!useRosterColumns)}
+                    className={`w-12 h-6 rounded-full relative transition-all duration-300 shadow-inner ${useRosterColumns ? 'bg-accent' : 'bg-muted/20'}`}
+                >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-md ${useRosterColumns ? 'right-1' : 'left-1'}`} />
+                </button>
+            </div>
+        )}
+
+        <div className={`flex-1 overflow-y-auto pr-2 space-y-4 transition-opacity duration-300 ${type === 'section' && useRosterColumns ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
           <Reorder.Group axis="y" values={columns} onReorder={setColumns} className="space-y-3">
             {columns.map((col, index) => (
               <Reorder.Item key={col.id} value={col} className="bg-surface border border-border rounded-lg p-4 group relative">

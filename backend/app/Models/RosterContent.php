@@ -14,6 +14,7 @@ class RosterContent extends Model
         'section_id',
         'order',
         'type',
+        'color',
         'content',
         'created_by',
         'editing_by',
