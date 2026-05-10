@@ -1,27 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { RosterContent } from '../types';
+import { RosterContent, RosterColumn } from '../types';
 import { motion, Reorder } from 'motion/react';
 import { Plus, Trash2, Check, X, Pencil, Tag, ExternalLink, GripVertical } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { hexToRgb } from '../utils';
-
-export interface RosterColumn {
-  id: string;
-  name: string;
-  type: string;
-  options?: any[];
-  checkboxes?: any[];
-  tags?: any[];
-  flags?: number[];
-  dataset_id?: number | null;
-  source_column_id?: string | null;
-  linked_database_id?: number | null;
-  data_field_id?: string | null;
-  database_field_id?: string | null;
-}
 
 interface RosterTableProps {
   sectionId: number;
@@ -888,7 +873,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     return (
       <div 
         className={`flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap overflow-visible relative group/cell ${canEditAny ? 'cursor-pointer hover:bg-accent/5' : ''}`}
-        onClick={() => canEditAny && handleStartEdit(row)}
+        onClick={() => canEditAny && handleStartEdit(row, col.id)}
       >
         <div className="flex items-center gap-1.5 px-1 overflow-visible">
             <span 
@@ -1137,6 +1122,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             );
           })}
         </Reorder.Group>
+        <tbody>
           {editMode && (
             <tr>
               <td 

@@ -45,6 +45,7 @@ export interface Division {
 export interface RosterContent {
   id: number;
   section_id: number;
+  roster_id?: number;
   order: number;
   type: 'predefined' | 'defined';
   color?: string | null;
@@ -57,6 +58,22 @@ export interface RosterContent {
     id: number;
     username: string;
   };
+}
+
+export interface RosterColumn {
+  id: string;
+  name: string;
+  type: string;
+  options?: any[];
+  checkboxes?: any[];
+  tags?: any[];
+  flags?: number[];
+  flag_settings?: any;
+  dataset_id?: number | null;
+  source_column_id?: string | null;
+  linked_database_id?: number | null;
+  data_field_id?: string | null;
+  database_field_id?: string | null;
 }
 
 export interface RosterSection {
@@ -86,7 +103,7 @@ export interface Roster {
   color: string;
   order: number;
   roster_options: any;
-  columns?: any;
+  columns?: RosterColumn[] | null;
   layout_settings?: any;
   default_sections_per_row?: number;
   root_sections?: RosterSection[];

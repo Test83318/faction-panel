@@ -44,7 +44,8 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   onEdit,
   onManageCounts,
   calculateCount,
-  onRefresh
+  onRefresh,
+  onReorderRows
 }) => {
   const canEditSection = canModerate || permissions?.add_sections;
   const canAddChildSection = canModerate || permissions?.add_sections;
@@ -126,6 +127,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           )}
         </div>
         <RosterTable 
+          sectionId={child.id}
           contents={child.contents || []} 
           allContents={allContents}
           user={user}
