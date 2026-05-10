@@ -30,8 +30,8 @@ interface RosterTableProps {
   onReorderRows?: (newOrder: RosterContent[]) => void;
   globalEditingRowId?: number | null;
   setGlobalEditingRowId?: (id: number | null) => void;
+  maxRowHeight?: number | null;
   }
-
   export const RosterTable: React.FC<RosterTableProps> = ({ 
   sectionId,
   contents, 
@@ -53,8 +53,10 @@ interface RosterTableProps {
   onRefresh,
   onReorderRows,
   globalEditingRowId,
-  setGlobalEditingRowId
+  setGlobalEditingRowId,
+  maxRowHeight
   }) => {
+
   const { shortname } = useParams();
   const canEditDefined = canModerate || permissions?.edit_defined_fields;
   const canEditPredefined = canModerate || permissions?.edit_predefined;
@@ -70,7 +72,6 @@ interface RosterTableProps {
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const [editingColId, setEditingColId] = useState<string | null>(null);
   const [savingRows, setSavingRows] = useState<Map<number, string>>(new Map());
-  const [maxRowHeight, setMaxRowHeight] = useState<number | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
   const [editData, setEditData] = useState<any>({});
   const [activeTagMenu, setActiveTagMenu] = useState<{ rowId: number, colId: string } | null>(null);
@@ -85,32 +86,6 @@ interface RosterTableProps {
     }
   }, [globalEditingRowId]);
 
-  useEffect(() => {
-    if (user?.always_match_row_height) {
-        const updateMaxHeight = () => {
-            if (tableRef.current) {
-                const cells = tableRef.current.querySelectorAll('.rt-cell-content');
-                let max = 0;
-                cells.forEach(c => {
-                    const height = (c as HTMLElement).scrollHeight;
-                    if (height > max) max = height;
-                });
-                if (max > 0) setMaxRowHeight(max);
-            }
-        };
-
-        const timer = setTimeout(updateMaxHeight, 100);
-        const secondTimer = setTimeout(updateMaxHeight, 500); // Second check for layout shifts
-        window.addEventListener('resize', updateMaxHeight);
-        return () => {
-            clearTimeout(timer);
-            clearTimeout(secondTimer);
-            window.removeEventListener('resize', updateMaxHeight);
-        };
-    } else {
-        setMaxRowHeight(null);
-    }
-  }, [contents, user?.always_match_row_height, activeCols, editMode, editData, activeTagMenu, savingRows]);
   const [rowColor, setRowColor] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [selectedRowIds, setSelectedRowIds] = useState<number[]>([]);
@@ -1085,7 +1060,7 @@ interface RosterTableProps {
             const effectiveRowColor = isEditing ? rowColor : row.color;
             const cellStyle: React.CSSProperties = {
                 backgroundColor: effectiveRowColor ? `${effectiveRowColor}33` : undefined,
-                height: maxRowHeight ? `${maxRowHeight}px` : undefined
+                height: (maxRowHeight && Array.isArray(maxRowHeight)) ? `${maxRowHeight[idx]}px` : undefined
             };
 
             return (
@@ -1096,7 +1071,7 @@ interface RosterTableProps {
                 dragListener={editMode && canEditPredefined && !editingRowId}
                 className={`rt-tr group/row ${isEditing ? 'bg-accent/5 z-[5000] relative' : ''} ${selectedRowIds.includes(row.id) ? 'bg-accent/5' : ''} ${editMode && canEditPredefined && !editingRowId ? 'cursor-grab active:cursor-grabbing' : ''}`}
                 onBlur={(e) => handleRowBlur(e, row.id)}
-                style={{ height: maxRowHeight ? `${maxRowHeight}px` : undefined }}
+                style={{ height: (maxRowHeight && Array.isArray(maxRowHeight)) ? `${maxRowHeight[idx]}px` : undefined }}
               >
                 <td 
                   className="rt-td text-muted opacity-50 relative cursor-default" 
