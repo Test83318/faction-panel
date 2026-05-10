@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Loading from './Loading';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Key, Link as LinkIcon, LogOut, User as UserIcon, Check, Shield } from 'lucide-react';
+import { ArrowLeft, Key, Link as LinkIcon, LogOut, User as UserIcon, Check, Shield, Layout } from 'lucide-react';
 import { Header } from './Header';
 import { useConfirm } from './ConfirmationProvider';
 
@@ -101,6 +101,19 @@ const AccountSettings: React.FC = () => {
             toast.error(err.response?.data?.message || 'Failed to leave faction', { id: loadToast });
         } finally {
             setProcessing(false);
+        }
+    };
+
+    const toggleAlwaysMatchRowHeight = async () => {
+        const newValue = !user.always_match_row_height;
+        setUser({ ...user, always_match_row_height: newValue }); // Optimistic update
+        
+        try {
+            await api.put('/user/settings', { always_match_row_height: newValue });
+            toast.success('Preference updated');
+        } catch (err) {
+            toast.error('Failed to update preference');
+            fetchUser(); // Revert on failure
         }
     };
 
@@ -279,6 +292,28 @@ const AccountSettings: React.FC = () => {
                                 ) : (
                                     <p className="text-center py-4 text-muted text-[10px] uppercase font-bold tracking-widest">Not a member of any factions</p>
                                 )}
+                            </div>
+                        </section>
+
+                        {/* Layout Settings */}
+                        <section className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+                            <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest mb-6 pb-4 border-b border-border/50">
+                                <Layout size={16} className="text-accent" />
+                                Layout Preferences
+                            </h2>
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between p-4 bg-surface border border-border rounded-xl group/toggle">
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold uppercase tracking-tight">Always Match Row Height</span>
+                                        <span className="text-[8px] text-muted uppercase tracking-widest font-medium">Force all rows in a section to match the height of the largest row</span>
+                                    </div>
+                                    <button 
+                                        onClick={toggleAlwaysMatchRowHeight}
+                                        className={`w-10 h-5 rounded-full relative transition-all duration-300 shadow-inner shrink-0 ${user.always_match_row_height ? 'bg-accent' : 'bg-muted/20'}`}
+                                    >
+                                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-md ${user.always_match_row_height ? 'right-1' : 'left-1'}`} />
+                                    </button>
+                                </div>
                             </div>
                         </section>
                     </div>

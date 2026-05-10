@@ -19,6 +19,7 @@ import HelpArticleView from './components/HelpArticleView';
 import HelpCategoryView from './components/HelpCategoryView';
 import FactionRoster from './components/FactionRoster';
 import FactionRecords from './components/FactionRecords';
+import FactionSnapshots from './components/FactionSnapshots';
 import GroupManagement from './components/GroupManagement';
 import Administration from './components/Administration';
 import GtawSync from './components/GtawSync';
@@ -149,6 +150,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
   const canViewGroups = user?.is_superadmin || permissions.includes('view_groups') || isGroupLeader;
   const canViewRecords = user?.is_superadmin || permissions.includes('view_faction_records');
   const canViewAuditLogs = user?.is_superadmin || permissions.includes('view_audit_logs');
+  const canViewSnapshots = user?.is_superadmin || permissions.includes('view_snapshots') || permissions.includes('administrator');
   const canViewGtawSync = (user?.is_superadmin || permissions.includes('manage_integrations')) && factionData?.gtaw_faction_id;
 
   if (location.pathname === `/${shortname}`) {
@@ -169,6 +171,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
       canViewGroups={canViewGroups}
       canViewRecords={canViewRecords}
       canViewAuditLogs={canViewAuditLogs}
+      canViewSnapshots={canViewSnapshots}
       canViewGtawSync={canViewGtawSync}
       siteVersion={siteVersion}
     >
@@ -209,6 +212,13 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
           canViewAuditLogs ? (
             <main className="main flex-1 overflow-auto p-5">
               <AuditLogs shortname={shortname!} />
+            </main>
+          ) : <Navigate to={`/${shortname}/roster`} />
+        } />
+        <Route path="snapshots" element={
+          canViewSnapshots ? (
+            <main className="main flex-1 overflow-auto p-5">
+              <FactionSnapshots />
             </main>
           ) : <Navigate to={`/${shortname}/roster`} />
         } />

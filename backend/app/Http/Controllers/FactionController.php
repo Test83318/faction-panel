@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Faction;
 use App\Models\User;
+use App\Models\AuditLog;
+use App\Http\Controllers\FactionSnapshotController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -77,6 +79,9 @@ class FactionController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->with(['creator'])->firstOrFail();
         $user = Auth::guard('sanctum')->user();
+
+        // Trigger automatic snapshot check
+        app(FactionSnapshotController::class)->triggerAutoSnapshot($faction);
 
         $allPermissionsConfig = config('permissions.categories');
         $permissions = [];

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Trash2, GripVertical, Settings2, Check, X, Database, Flag, ShieldAlert } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { Reorder } from 'motion/react';
 import api from '../api';
 import { Roster } from '../types';
@@ -382,7 +383,12 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
 
                     <div className="space-y-2 border-t border-border mt-4 pt-4">
                       <label className="block text-[10px] text-muted font-bold uppercase tracking-widest">Checkboxes (e.g. Acting, Alt)</label>
-                      <div className="flex flex-wrap gap-2">
+                      <Reorder.Group 
+                        axis="y" 
+                        values={col.checkboxes || []} 
+                        onReorder={(newCbs) => updateColumn(index, 'checkboxes', newCbs)}
+                        className="space-y-2"
+                      >
                         {(col.checkboxes || []).map((cb: any, cbIdx: number) => {
                           const label = typeof cb === 'string' ? cb : cb.label;
                           const color = typeof cb === 'string' ? null : cb.color;
@@ -393,8 +399,11 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                           const dbStructure = linkedDb?.database_structure || [];
 
                           return (
-                            <div key={cbIdx} className="flex flex-col gap-2 bg-bg p-2 rounded border border-border group/cb">
+                            <Reorder.Item key={label + cbIdx} value={cb} className="flex flex-col gap-2 bg-bg p-2 rounded border border-border group/cb">
                               <div className="flex items-center gap-1.5">
+                                <div className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-text">
+                                    <GripVertical size={12} />
+                                </div>
                                 <input 
                                     value={label}
                                     onChange={(e) => {
@@ -406,7 +415,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                     }
                                     updateColumn(index, 'checkboxes', newCbs);
                                     }}
-                                    className="bg-transparent text-xs w-16 outline-none text-text"
+                                    className="bg-transparent text-xs w-24 outline-none text-text font-bold"
                                     placeholder="Label"
                                 />
                                 <div className="relative flex items-center">
@@ -443,7 +452,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                     const newCbs = [...(col.checkboxes || [])];
                                     newCbs.splice(cbIdx, 1);
                                     updateColumn(index, 'checkboxes', newCbs);
-                                }} className="text-muted hover:text-danger ml-auto"><X size={12} /></button>
+                                }} className="text-muted hover:text-danger ml-auto"><Trash2 size={12} /></button>
                               </div>
                               
                               {linkedDb && (
@@ -503,36 +512,47 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                       )}
                                   </div>
                               )}
-                            </div>
+                            </Reorder.Item>
                           );
                         })}
-                        <button 
-                          onClick={() => {
-                            const newCbs = [...(col.checkboxes || []), 'New'];
-                            updateColumn(index, 'checkboxes', newCbs);
-                          }}
-                          className="flex items-center gap-1 bg-bg px-2 py-1 rounded border border-border border-dashed text-muted hover:text-text hover:border-accent text-xs h-fit"
-                        >
-                          <Plus size={12} /> Add
-                        </button>
-                      </div>
+                      </Reorder.Group>
+                      <button 
+                        onClick={() => {
+                          const newCbs = [...(col.checkboxes || []), 'New'];
+                          updateColumn(index, 'checkboxes', newCbs);
+                        }}
+                        className="flex items-center gap-1 bg-bg px-2 py-1.5 rounded border border-border border-dashed text-muted hover:text-text hover:border-accent text-xs h-fit w-full justify-center mt-1"
+                      >
+                        <Plus size={12} /> Add Checkbox
+                      </button>
                     </div>
 
                     <div className="space-y-2 border-t border-border mt-4 pt-4">
                       <label className="block text-[10px] text-muted font-bold uppercase tracking-widest">Right-side Tags (e.g. Trainee, Lead)</label>
-                      <div className="flex flex-wrap gap-2">
+                      <Reorder.Group 
+                        axis="y" 
+                        values={col.tags || []} 
+                        onReorder={(newTags) => updateColumn(index, 'tags', newTags)}
+                        className="space-y-2"
+                      >
                         {(col.tags || []).map((tag: any, tagIdx: number) => {
                           const label = typeof tag === 'string' ? tag : tag.label;
                           const color = typeof tag === 'string' ? null : tag.color;
+                          const icon = typeof tag === 'string' ? null : tag.icon;
                           const autoApply = typeof tag === 'string' ? null : tag.auto_apply;
 
                           const linkedDataset = datasets.find(d => d.id === col.dataset_id);
                           const linkedDb = recordDatabases.find(db => db.id === linkedDataset?.record_database_id);
                           const dbStructure = linkedDb?.database_structure || [];
                           
+                          const tagIcons = ['Shield', 'ShieldPlus', 'Cross', 'BriefcaseMedical', 'HeartPulse', 'Stethoscope', 'Activity', 'LifeBuoy', 'Star', 'User', 'Zap', 'Info', 'AlertCircle', 'Flag', 'Award', 'Briefcase', 'Crown', 'Target', 'Tool'];
+
                           return (
-                            <div key={tagIdx} className="flex flex-col gap-2 bg-bg p-2 rounded border border-border group/tag">
+                            <Reorder.Item key={label + tagIdx} value={tag} className="flex flex-col gap-2 bg-bg p-2 rounded border border-border group/tag">
                               <div className="flex items-center gap-1.5">
+                                <div className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-text">
+                                    <GripVertical size={12} />
+                                </div>
                                 <input 
                                     value={label}
                                     onChange={(e) => {
@@ -544,9 +564,53 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                     }
                                     updateColumn(index, 'tags', newTags);
                                     }}
-                                    className="bg-transparent text-xs w-16 outline-none text-text"
+                                    className="bg-transparent text-xs w-24 outline-none text-text font-bold"
                                     placeholder="Label"
                                 />
+                                <div className="relative group/icon-select">
+                                    <div className="flex items-center gap-1 bg-surface border border-border p-1 rounded cursor-pointer min-w-[80px]">
+                                        <div className="flex items-center justify-center w-4 h-4 text-muted">
+                                            {icon && (LucideIcons as any)[icon] ? (
+                                                React.createElement((LucideIcons as any)[icon], { size: 12 })
+                                            ) : (
+                                                <div className="w-2 h-2 bg-muted/40 rounded-sm" />
+                                            )}
+                                        </div>
+                                        <span className="text-[8px] font-black uppercase text-muted truncate flex-1">{icon || 'Square'}</span>
+                                    </div>
+                                    
+                                    <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-[100] p-1 grid grid-cols-4 gap-1 min-w-[140px] opacity-0 invisible group-hover/icon-select:opacity-100 group-hover/icon-select:visible transition-all">
+                                        <button 
+                                            onClick={() => {
+                                                const newTags = [...(col.tags || [])];
+                                                const newLabel = typeof tag === 'string' ? tag : tag.label;
+                                                const newColor = typeof tag === 'string' ? null : tag.color;
+                                                newTags[tagIdx] = { label: newLabel, color: newColor, icon: null, auto_apply: autoApply };
+                                                updateColumn(index, 'tags', newTags);
+                                            }}
+                                            className="flex flex-col items-center gap-1 p-1.5 hover:bg-accent/10 rounded transition-colors"
+                                            title="Square"
+                                        >
+                                            <div className="w-3 h-3 bg-muted/40 rounded-sm" />
+                                        </button>
+                                        {tagIcons.map(ti => (
+                                            <button 
+                                                key={ti}
+                                                onClick={() => {
+                                                    const newTags = [...(col.tags || [])];
+                                                    const newLabel = typeof tag === 'string' ? tag : tag.label;
+                                                    const newColor = typeof tag === 'string' ? null : tag.color;
+                                                    newTags[tagIdx] = { label: newLabel, color: newColor, icon: ti, auto_apply: autoApply };
+                                                    updateColumn(index, 'tags', newTags);
+                                                }}
+                                                className={`flex flex-col items-center gap-1 p-1.5 hover:bg-accent/10 rounded transition-colors ${icon === ti ? 'bg-accent/10 text-accent' : 'text-muted'}`}
+                                                title={ti}
+                                            >
+                                                {React.createElement((LucideIcons as any)[ti] || LucideIcons.HelpCircle, { size: 14 })}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                                 <div className="relative flex items-center">
                                     <input 
                                         type="color" 
@@ -554,8 +618,9 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                         onChange={(e) => {
                                             const newTags = [...(col.tags || [])];
                                             const newLabel = typeof tag === 'string' ? tag : tag.label;
+                                            const newIcon = typeof tag === 'string' ? null : tag.icon;
                                             const existingAutoApply = typeof tag === 'string' ? null : tag.auto_apply;
-                                            newTags[tagIdx] = { label: newLabel, color: e.target.value, auto_apply: existingAutoApply };
+                                            newTags[tagIdx] = { label: newLabel, color: e.target.value, icon: newIcon, auto_apply: existingAutoApply };
                                             updateColumn(index, 'tags', newTags);
                                         }}
                                         className={`w-4 h-4 rounded-sm cursor-pointer p-0 bg-transparent border-none ${!color ? 'opacity-20' : ''}`} 
@@ -564,8 +629,8 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                         <button 
                                             onClick={() => {
                                                 const newTags = [...(col.tags || [])];
-                                                if (autoApply) {
-                                                    newTags[tagIdx] = { label: label, color: null, auto_apply: autoApply };
+                                                if (autoApply || (typeof tag !== 'string' && tag.icon)) {
+                                                    newTags[tagIdx] = { label: label, color: null, icon: (typeof tag !== 'string' ? tag.icon : null), auto_apply: autoApply };
                                                 } else {
                                                     newTags[tagIdx] = label;
                                                 }
@@ -581,7 +646,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                     const newTags = [...(col.tags || [])];
                                     newTags.splice(tagIdx, 1);
                                     updateColumn(index, 'tags', newTags);
-                                }} className="text-muted hover:text-danger ml-auto"><X size={12} /></button>
+                                }} className="text-muted hover:text-danger ml-auto"><Trash2 size={12} /></button>
                               </div>
 
                               {linkedDb && (
@@ -592,14 +657,16 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                                 const newTags = [...(col.tags || [])];
                                                 const newLabel = typeof tag === 'string' ? tag : tag.label;
                                                 const newColor = typeof tag === 'string' ? null : tag.color;
+                                                const newIcon = typeof tag === 'string' ? null : tag.icon;
                                                 
                                                 if (autoApply) {
-                                                    if (!newColor) newTags[tagIdx] = newLabel;
-                                                    else newTags[tagIdx] = { label: newLabel, color: newColor };
+                                                    if (!newColor && !newIcon) newTags[tagIdx] = newLabel;
+                                                    else newTags[tagIdx] = { label: newLabel, color: newColor, icon: newIcon };
                                                 } else {
                                                     newTags[tagIdx] = { 
                                                         label: newLabel, 
                                                         color: newColor, 
+                                                        icon: newIcon,
                                                         auto_apply: { db_column: dbStructure[0]?.id || '', match_value: '' } 
                                                     };
                                                 }
@@ -641,19 +708,19 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                       )}
                                   </div>
                               )}
-                            </div>
+                            </Reorder.Item>
                           );
                         })}
-                        <button 
-                          onClick={() => {
-                            const newTags = [...(col.tags || []), { label: 'Trainee', color: '#ffaa00' }];
-                            updateColumn(index, 'tags', newTags);
-                          }}
-                          className="flex items-center gap-1 bg-bg px-2 py-1 rounded border border-border border-dashed text-muted hover:text-text hover:border-accent text-xs h-fit"
-                        >
-                          <Plus size={12} /> Add Tag
-                        </button>
-                      </div>
+                      </Reorder.Group>
+                      <button 
+                        onClick={() => {
+                          const newTags = [...(col.tags || []), { label: 'Trainee', color: '#ffaa00' }];
+                          updateColumn(index, 'tags', newTags);
+                        }}
+                        className="flex items-center gap-1 bg-bg px-2 py-1.5 rounded border border-border border-dashed text-muted hover:text-text hover:border-accent text-xs h-fit w-full justify-center mt-1"
+                      >
+                        <Plus size={12} /> Add Tag
+                      </button>
                     </div>
 
                     <div className="space-y-2 border-t border-border mt-4 pt-4">

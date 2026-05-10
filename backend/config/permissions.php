@@ -167,6 +167,31 @@ return [
                 ],
             ],
         ],
+        'snapshots' => [
+            'name' => 'Faction Snapshots',
+            'permissions' => [
+                'view_snapshots' => [
+                    'name' => 'View Faction Snapshots',
+                    'description' => 'Allows viewing the list of faction backups.',
+                    'type' => 'VIEW',
+                ],
+                'create_snapshot' => [
+                    'name' => 'Create Faction Snapshot',
+                    'description' => 'Allows creating a manual backup of the faction.',
+                    'type' => 'CREATE',
+                ],
+                'restore_snapshot' => [
+                    'name' => 'Restore from Faction Snapshot',
+                    'description' => 'Allows restoring the faction state from a backup.',
+                    'type' => 'MODIFY',
+                ],
+                'delete_snapshot' => [
+                    'name' => 'Delete Faction Snapshot',
+                    'description' => 'Allows deleting existing backups.',
+                    'type' => 'DELETE',
+                ],
+            ],
+        ],
         'system' => [
             'name' => 'System',
             'permissions' => [

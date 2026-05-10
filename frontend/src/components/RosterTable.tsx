@@ -55,15 +55,51 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   const canEditPredefined = canModerate || permissions?.edit_predefined;
   const canEditAny = canEditDefined || canEditPredefined;
 
+  const activeCols = columns && columns.length > 0 ? columns : [
+    { id: 'rank', name: 'Rank', type: 'dropdown', checkboxes: ['Acting'] },
+    { id: 'name', name: 'Name', type: 'text', checkboxes: ['LOA'] },
+    { id: 'position', name: 'Position', type: 'text', checkboxes: [] },
+    { id: 'callsign', name: 'Callsign', type: 'text', checkboxes: [] }
+  ];
+
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const [editingColId, setEditingColId] = useState<string | null>(null);
   const [savingRows, setSavingRows] = useState<Map<number, string>>(new Map());
+  const [maxRowHeight, setMaxRowHeight] = useState<number | null>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
   const [editData, setEditData] = useState<any>({});
+  const [activeTagMenu, setActiveTagMenu] = useState<{ rowId: number, colId: string } | null>(null);
+
+  useEffect(() => {
+    if (user?.always_match_row_height) {
+        const updateMaxHeight = () => {
+            if (tableRef.current) {
+                const cells = tableRef.current.querySelectorAll('.rt-cell-content');
+                let max = 0;
+                cells.forEach(c => {
+                    const height = (c as HTMLElement).scrollHeight;
+                    if (height > max) max = height;
+                });
+                if (max > 0) setMaxRowHeight(max);
+            }
+        };
+
+        const timer = setTimeout(updateMaxHeight, 100);
+        const secondTimer = setTimeout(updateMaxHeight, 500); // Second check for layout shifts
+        window.addEventListener('resize', updateMaxHeight);
+        return () => {
+            clearTimeout(timer);
+            clearTimeout(secondTimer);
+            window.removeEventListener('resize', updateMaxHeight);
+        };
+    } else {
+        setMaxRowHeight(null);
+    }
+  }, [contents, user?.always_match_row_height, activeCols, editMode, editData, activeTagMenu, savingRows]);
   const [rowColor, setRowColor] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [selectedRowIds, setSelectedRowIds] = useState<number[]>([]);
   const [rowCountToAdd, setRowCountToAdd] = useState(1);
-  const [activeTagMenu, setActiveTagMenu] = useState<{ rowId: number, colId: string } | null>(null);
   const [showColorPicker, setShowColorPicker] = useState<number | null>(null);
   const [showBulkColorPicker, setShowBulkColorPicker] = useState(false);
   const [pickerPosition, setPickerPosition] = useState<'top' | 'bottom'>('top');
@@ -220,12 +256,6 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         }
     });
   }, [datasets, contents, allContents, editingRowId, editData]);
-  const activeCols = columns && columns.length > 0 ? columns : [
-    { id: 'rank', name: 'Rank', type: 'dropdown', checkboxes: ['Acting'] },
-    { id: 'name', name: 'Name', type: 'text', checkboxes: ['LOA'] },
-    { id: 'position', name: 'Position', type: 'text', checkboxes: [] },
-    { id: 'callsign', name: 'Callsign', type: 'text', checkboxes: [] }
-  ];
 
   const handleBulkAdd = () => {
     const count = Math.min(Math.max(1, rowCountToAdd), 20);
@@ -523,7 +553,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     
     if (isSaving && col.id === savingRows.get(row.id)) {
         return (
-            <div className="flex items-center justify-center h-full w-full">
+            <div className="flex items-center justify-center h-full w-full rt-cell-content">
                 <div className="px-2 py-0.5 bg-accent/10 border border-accent/20 rounded animate-pulse flex items-center gap-1.5">
                     <div className="w-1 h-1 rounded-full bg-accent animate-bounce" />
                     <span className="text-[7px] font-black text-accent uppercase tracking-widest">Saving</span>
@@ -534,7 +564,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
     if (isLocked && col.id === (row.editing_col || activeCols[0].id)) {
         return (
-            <div className="flex items-center justify-center h-full w-full">
+            <div className="flex items-center justify-center h-full w-full rt-cell-content">
                 <div className="px-2 py-0.5 bg-danger/10 border border-danger/20 rounded flex items-center gap-1.5 group/lock relative">
                     <div className="w-1 h-1 rounded-full bg-danger" />
                     <span className="text-[7px] font-black text-danger uppercase tracking-widest">Editing</span>
@@ -605,7 +635,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                     else displayValue = entry.data?.[fieldId || ''] || '-';
 
                     return (
-                        <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-60 italic relative group/cell">
+                        <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-60 italic relative group/cell rt-cell-content">
                             <span className="text-[10px] uppercase font-bold text-accent">
                                 {displayValue}
                             </span>
@@ -623,7 +653,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         }
 
         return (
-            <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-20">
+            <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-20 rt-cell-content">
                 <span className="text-[10px] uppercase font-bold">-</span>
             </div>
         );
@@ -640,7 +670,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     if (isEditing && isColEditable(col)) {
       if (col.type === 'dropdown' || col.type === 'predefined_dropdown' || col.type === 'hidden_dropdown' || col.type === 'predefined_hidden_dropdown') {
         return (
-          <div className="flex flex-col items-center justify-center h-full w-full gap-0.5 relative group/cell overflow-visible">
+          <div className="flex flex-col items-center justify-center h-full w-full gap-0.5 relative group/cell overflow-visible rt-cell-content">
             <select 
               value={value} 
               onChange={e => updateField(col.id, e.target.value)}
@@ -708,18 +738,26 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-[100] p-2 min-w-[120px] animate-in fade-in slide-in-from-top-1">
                     <div className="text-[8px] font-black uppercase text-muted mb-2 tracking-widest border-b border-border/50 pb-1">Manage Tags</div>
                     <div className="space-y-1">
-                        {col.tags?.map(tag => {
-                            const label = typeof tag === 'string' ? tag : tag.label;
-                            const color = typeof tag === 'string' ? null : tag.color;
-                            const isTagged = appliedTags.includes(label);
+                        {col.tags?.map(tagDef => {
+                            const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef.label;
+                            const color = typeof tagDef === 'string' ? null : tagDef.color;
+                            const iconName = typeof tagDef === 'string' ? null : tagDef.icon;
+                            const isTagged = appliedTags.includes(tagLabel);
                             return (
                                 <button 
-                                    key={label}
-                                    onClick={() => toggleTag(col.id, label)}
+                                    key={tagLabel}
+                                    onClick={() => toggleTag(col.id, tagLabel)}
                                     className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[9px] font-bold uppercase transition-colors ${isTagged ? 'bg-accent/10 text-accent' : 'hover:bg-accent/5 text-muted'}`}
                                 >
-                                    <div className="w-2 h-2 rounded-[1px]" style={{ backgroundColor: color || '#fff' }} />
-                                    {label}
+                                    {iconName && (LucideIcons as any)[iconName] ? (
+                                        React.createElement((LucideIcons as any)[iconName], {
+                                            size: 10,
+                                            style: { color: color || 'inherit' }
+                                        })
+                                    ) : (
+                                        <div className="w-2 h-2 rounded-[1px]" style={{ backgroundColor: color || '#fff' }} />
+                                    )}
+                                    {tagLabel}
                                     {isTagged && <Check size={8} className="ml-auto" />}
                                 </button>
                             );
@@ -753,7 +791,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         : [];
 
       return (
-        <div className="flex flex-col items-center justify-center h-full w-full gap-0.5 relative overflow-visible">
+        <div className="flex flex-col items-center justify-center h-full w-full gap-0.5 relative overflow-visible rt-cell-content">
           <div className="relative w-full flex flex-row items-center justify-center px-1 overflow-visible">
             <input 
               ref={col.id === activeCols[0].id ? inputRef : null}
@@ -824,18 +862,26 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-[100] p-2 min-w-[120px] animate-in fade-in slide-in-from-top-1">
                     <div className="text-[8px] font-black uppercase text-muted mb-2 tracking-widest border-b border-border/50 pb-1">Manage Tags</div>
                     <div className="space-y-1">
-                        {col.tags?.map(tag => {
-                            const label = typeof tag === 'string' ? tag : tag.label;
-                            const color = typeof tag === 'string' ? null : tag.color;
-                            const isTagged = appliedTags.includes(label);
+                        {col.tags?.map(tagDef => {
+                            const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef.label;
+                            const color = typeof tagDef === 'string' ? null : tagDef.color;
+                            const iconName = typeof tagDef === 'string' ? null : tagDef.icon;
+                            const isTagged = appliedTags.includes(tagLabel);
                             return (
                                 <button 
-                                    key={label}
-                                    onClick={() => toggleTag(col.id, label)}
+                                    key={tagLabel}
+                                    onClick={() => toggleTag(col.id, tagLabel)}
                                     className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[9px] font-bold uppercase transition-colors ${isTagged ? 'bg-accent/10 text-accent' : 'hover:bg-accent/5 text-muted'}`}
                                 >
-                                    <div className="w-2 h-2 rounded-[1px]" style={{ backgroundColor: color || '#fff' }} />
-                                    {label}
+                                    {iconName && (LucideIcons as any)[iconName] ? (
+                                        React.createElement((LucideIcons as any)[iconName], {
+                                            size: 10,
+                                            style: { color: color || 'inherit' }
+                                        })
+                                    ) : (
+                                        <div className="w-2 h-2 rounded-[1px]" style={{ backgroundColor: color || '#fff' }} />
+                                    )}
+                                    {tagLabel}
                                     {isTagged && <Check size={8} className="ml-auto" />}
                                 </button>
                             );
@@ -872,7 +918,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
     return (
       <div 
-        className={`flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap overflow-visible relative group/cell ${canEditAny ? 'cursor-pointer hover:bg-accent/5' : ''}`}
+        className={`flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap overflow-visible relative group/cell rt-cell-content ${canEditAny ? 'cursor-pointer hover:bg-accent/5' : ''}`}
         onClick={() => canEditAny && handleStartEdit(row, col.id)}
       >
         <div className="flex items-center gap-1.5 px-1 overflow-visible">
@@ -899,17 +945,29 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             )}
             {appliedTags.length > 0 && (
                 <div className="flex items-center gap-0.5">
-                    {appliedTags.map((t: string) => {
-                        const colTag = col.tags?.find(ct => (typeof ct === 'string' ? ct : ct.label) === t);
-                        const color = (colTag && typeof colTag !== 'string') ? colTag.color : '#fff';
+                    {(col.tags || []).map((tagDef: any) => {
+                        const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef.label;
+                        if (!appliedTags.includes(tagLabel)) return null;
+
+                        const color = (typeof tagDef !== 'string') ? tagDef.color : '#fff';
+                        const iconName = (typeof tagDef !== 'string') ? tagDef.icon : null;
+                        
                         return (
                             <div 
-                                key={t} 
+                                key={tagLabel} 
                                 className="group/tag-icon relative flex items-center justify-center"
                             >
-                                <div className="w-1.5 h-1.5 rounded-[1px] opacity-80" style={{ backgroundColor: color }} />
+                                {iconName && (LucideIcons as any)[iconName] ? (
+                                    React.createElement((LucideIcons as any)[iconName], {
+                                        size: 10,
+                                        style: { color: color || 'inherit' },
+                                        className: "opacity-80"
+                                    })
+                                ) : (
+                                    <div className="w-1.5 h-1.5 rounded-[1px] opacity-80" style={{ backgroundColor: color || '#fff' }} />
+                                )}
                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black/90 border border-white/10 rounded text-[7px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover/tag-icon:opacity-100 transition-all pointer-events-none z-[9999] shadow-2xl text-white backdrop-blur-sm">
-                                    {t}
+                                    {tagLabel}
                                 </div>
                             </div>
                         );
@@ -919,9 +977,11 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         </div>
         {checked.length > 0 && (
           <div className="flex gap-0.5">
-            {checked.map((cbLabel: string) => {
-              const colCb = col.checkboxes?.find(c => (typeof c === 'string' ? c : c.label) === cbLabel);
-              const color = (colCb && typeof colCb !== 'string') ? colCb.color : null;
+            {(col.checkboxes || []).map((cbDef: any) => {
+              const cbLabel = typeof cbDef === 'string' ? cbDef : cbDef.label;
+              if (!checked.includes(cbLabel)) return null;
+
+              const color = (typeof cbDef !== 'string') ? cbDef.color : null;
               
               return (
                 <span 
@@ -956,7 +1016,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         '--accent-rgb': accentColor?.startsWith('#') ? hexToRgb(accentColor) : undefined
       } as React.CSSProperties}
     >
-      <table className={`rt-table ${isLeadership ? 'bg-border/5' : ''}`}>
+      <table ref={tableRef} className={`rt-table ${isLeadership ? 'bg-border/5' : ''}`}>
         <colgroup>
           <col className="w-[32px]" />
           {activeCols.map((col) => (
@@ -994,7 +1054,8 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             const isEditing = editingRowId === row.id;
             const effectiveRowColor = isEditing ? rowColor : row.color;
             const cellStyle: React.CSSProperties = {
-                backgroundColor: effectiveRowColor ? `${effectiveRowColor}33` : undefined
+                backgroundColor: effectiveRowColor ? `${effectiveRowColor}33` : undefined,
+                height: maxRowHeight ? `${maxRowHeight}px` : undefined
             };
 
             return (
@@ -1005,6 +1066,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 dragListener={editMode && canEditPredefined && !editingRowId}
                 className={`rt-tr group/row ${isEditing ? 'bg-accent/5 z-[5000] relative' : ''} ${selectedRowIds.includes(row.id) ? 'bg-accent/5' : ''} ${editMode && canEditPredefined && !editingRowId ? 'cursor-grab active:cursor-grabbing' : ''}`}
                 onBlur={(e) => handleRowBlur(e, row.id)}
+                style={{ height: maxRowHeight ? `${maxRowHeight}px` : undefined }}
               >
                 <td 
                   className="rt-td text-muted opacity-50 relative cursor-default" 

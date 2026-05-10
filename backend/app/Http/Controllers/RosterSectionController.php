@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Roster;
+use App\Models\RosterContent;
 use App\Models\RosterSection;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -10,6 +11,102 @@ use Illuminate\Support\Facades\Auth;
 
 class RosterSectionController extends Controller
 {
+    private function cleanUpOrphanedData($target, array $columns)
+    {
+        $oldColumns = $target->getOriginal('columns') ?? [];
+        if (!is_array($oldColumns)) $oldColumns = [];
+
+        $renameMap = [];
+        $validMap = [];
+
+        foreach ($columns as $newCol) {
+            $colId = $newCol['id'];
+            $oldCol = collect($oldColumns)->firstWhere('id', $colId);
+            
+            $newCbLabels = collect($newCol['checkboxes'] ?? [])->map(fn($cb) => is_string($cb) ? $cb : ($cb['label'] ?? null))->filter()->toArray();
+            $newTagLabels = collect($newCol['tags'] ?? [])->map(fn($tag) => is_string($tag) ? $tag : ($tag['label'] ?? null))->filter()->toArray();
+            
+            $validMap[$colId] = [
+                'checkboxes' => $newCbLabels,
+                'tags' => $newTagLabels
+            ];
+
+            if ($oldCol) {
+                $oldCbs = $oldCol['checkboxes'] ?? [];
+                $newCbs = $newCol['checkboxes'] ?? [];
+                
+                if (count($oldCbs) === count($newCbs)) {
+                    foreach ($oldCbs as $idx => $oldCb) {
+                        $oldLabel = is_string($oldCb) ? $oldCb : ($oldCb['label'] ?? null);
+                        $newLabel = is_string($newCbs[$idx]) ? $newCbs[$idx] : ($newCbs[$idx]['label'] ?? null);
+                        if ($oldLabel && $newLabel && $oldLabel !== $newLabel) {
+                            $renameMap[$colId]['checkboxes'][$oldLabel] = $newLabel;
+                        }
+                    }
+                }
+
+                $oldTags = $oldCol['tags'] ?? [];
+                $newTags = $newCol['tags'] ?? [];
+                if (count($oldTags) === count($newTags)) {
+                    foreach ($oldTags as $idx => $oldTag) {
+                        $oldLabel = is_string($oldTag) ? $oldTag : ($oldTag['label'] ?? null);
+                        $newLabel = is_string($newTags[$idx]) ? $newTags[$idx] : ($newTags[$idx]['label'] ?? null);
+                        if ($oldLabel && $newLabel && $oldLabel !== $newLabel) {
+                            $renameMap[$colId]['tags'][$oldLabel] = $newLabel;
+                        }
+                    }
+                }
+            }
+        }
+
+        $contents = RosterContent::where('section_id', $target->id)->get();
+
+        foreach ($contents as $content) {
+            $data = $content->content;
+            if (!$data || !is_array($data)) continue;
+
+            $changed = false;
+            foreach ($validMap as $colId => $valids) {
+                // Handle Checkboxes
+                $cbKey = "{$colId}_cb";
+                if (isset($data[$cbKey]) && is_array($data[$cbKey])) {
+                    $original = $data[$cbKey];
+                    
+                    if (isset($renameMap[$colId]['checkboxes'])) {
+                        $data[$cbKey] = array_map(function($val) use ($renameMap, $colId) {
+                            return $renameMap[$colId]['checkboxes'][$val] ?? $val;
+                        }, $data[$cbKey]);
+                    }
+
+                    $data[$cbKey] = array_values(array_intersect($data[$cbKey], $valids['checkboxes']));
+                    
+                    if ($original !== $data[$cbKey]) $changed = true;
+                }
+
+                // Handle Tags
+                $tagKey = "{$colId}_tags";
+                if (isset($data[$tagKey]) && is_array($data[$tagKey])) {
+                    $original = $data[$tagKey];
+                    
+                    if (isset($renameMap[$colId]['tags'])) {
+                        $data[$tagKey] = array_map(function($val) use ($renameMap, $colId) {
+                            return $renameMap[$colId]['tags'][$val] ?? $val;
+                        }, $data[$tagKey]);
+                    }
+
+                    $data[$tagKey] = array_values(array_intersect($data[$tagKey], $valids['tags']));
+                    
+                    if ($original !== $data[$tagKey]) $changed = true;
+                }
+            }
+
+            if ($changed) {
+                $content->content = $data;
+                $content->save();
+            }
+        }
+    }
+
     public function store(Request $request, Roster $roster)
     {
         if (!User::hasRosterPermission(Auth::user(), $roster, 'add_sections')) {
@@ -87,6 +184,10 @@ class RosterSectionController extends Controller
         }
 
         $section->update($validated);
+
+        if (isset($validated['columns'])) {
+            $this->cleanUpOrphanedData($section, $validated['columns']);
+        }
 
         return response()->json($section);
     }

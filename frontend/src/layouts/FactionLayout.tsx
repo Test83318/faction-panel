@@ -15,6 +15,7 @@ interface FactionLayoutProps {
     canViewGroups: boolean;
     canViewRecords: boolean;
     canViewAuditLogs: boolean;
+    canViewSnapshots?: boolean;
     canViewGtawSync?: boolean;
     siteVersion: string;
     children: React.ReactNode;
@@ -33,6 +34,7 @@ const FactionLayout: React.FC<FactionLayoutProps> = ({
     canViewGroups,
     canViewRecords,
     canViewAuditLogs,
+    canViewSnapshots,
     canViewGtawSync,
     siteVersion,
     children
@@ -70,6 +72,7 @@ const FactionLayout: React.FC<FactionLayoutProps> = ({
                     canViewGroups={canViewGroups} 
                     canViewRecords={canViewRecords} 
                     canViewAuditLogs={canViewAuditLogs}
+                    canViewSnapshots={canViewSnapshots}
                     canViewGtawSync={canViewGtawSync || false}
                     user={user} 
                     siteVersion={siteVersion} 

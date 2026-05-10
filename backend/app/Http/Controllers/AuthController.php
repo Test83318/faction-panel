@@ -268,4 +268,20 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Password updated successfully.']);
     }
+
+    public function updateSettings(Request $request)
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'always_match_row_height' => 'sometimes|boolean',
+        ]);
+
+        $user->update($validated);
+
+        return response()->json([
+            'message' => 'Settings updated successfully.',
+            'user' => $user->fresh(['groups', 'membershipTier']),
+        ]);
+    }
 }

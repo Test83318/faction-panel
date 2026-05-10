@@ -18,6 +18,7 @@ use App\Http\Controllers\SuperadminController;
 use App\Http\Controllers\UploadController;
 use App\Http\Controllers\HelpController;
 use App\Http\Controllers\HelpAdminController;
+use App\Http\Controllers\FactionSnapshotController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\SetupController;
@@ -52,7 +53,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/user/unlink-gtaw', [AuthController::class, 'unlinkGtaw']);
     Route::post('/user/change-password', [AuthController::class, 'changePassword']);
-
+    Route::put('/user/settings', [AuthController::class, 'updateSettings']);
     // Superadmin Routes
     Route::get('/superadmin/users', [SuperadminController::class, 'getUsers']);
     Route::post('/superadmin/users', [SuperadminController::class, 'storeUser']);
@@ -174,6 +175,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Audit Logs
     Route::get('/factions/{shortname}/audit-logs', [AuditLogController::class, 'index']);
+
+    // Faction Snapshots
+    Route::get('/factions/{shortname}/snapshots', [FactionSnapshotController::class, 'index']);
+    Route::post('/factions/{shortname}/snapshots', [FactionSnapshotController::class, 'store']);
+    Route::post('/factions/{shortname}/snapshots/upload', [FactionSnapshotController::class, 'upload']);
+    Route::get('/snapshots/{snapshot}/download', [FactionSnapshotController::class, 'download']);
+    Route::post('/snapshots/{snapshot}/restore', [FactionSnapshotController::class, 'restore']);
+    Route::delete('/snapshots/{snapshot}', [FactionSnapshotController::class, 'destroy']);
     Route::get('/factions/{shortname}/audit-logs/{auditLog}', [AuditLogController::class, 'show']);
 
     // Quick Search
