@@ -421,13 +421,14 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                           const label = typeof cb === 'string' ? cb : cb.label;
                           const color = typeof cb === 'string' ? null : cb.color;
                           const autoApply = typeof cb === 'string' ? null : cb.auto_apply;
+                          const key = cb.id || `cb_${cbIdx}_${label}`;
                           
                           const linkedDataset = datasets.find(d => d.id === col.dataset_id);
                           const linkedDb = recordDatabases.find(db => db.id === linkedDataset?.record_database_id);
                           const dbStructure = linkedDb?.database_structure || [];
 
                           return (
-                            <Reorder.Item key={cb.id} value={cb} className="flex flex-col gap-2 bg-bg p-2 rounded border border-border group/cb">
+                            <Reorder.Item key={key} value={cb} className="flex flex-col gap-2 bg-bg p-2 rounded border border-border group/cb">
                               <div className="flex items-center gap-1.5">
                                 <div className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-text">
                                     <GripVertical size={12} />

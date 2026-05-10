@@ -30,6 +30,18 @@ export const RosterTemplateModal: React.FC<RosterTemplateModalProps> = ({ shortn
     const [addingItem, setAddingItem] = useState<{ idx: number, type: 'checkbox' | 'tag' } | null>(null);
     const [newItem, setNewItem] = useState({ label: '', color: '#3b82f6', auto_apply_field: '', auto_apply_value: '' });
 
+    const normalizeItems = (items: any[]) => {
+        return (items || []).map((item, idx) => {
+            if (typeof item === 'string') {
+                return { id: `item_${Date.now()}_${idx}_${Math.random()}`, label: item };
+            }
+            if (!item.id) {
+                return { ...item, id: `item_${Date.now()}_${idx}_${Math.random()}` };
+            }
+            return item;
+        });
+    };
+
     useEffect(() => {
         const fetchData = async () => {
             setIsLoading(true);
@@ -44,18 +56,21 @@ export const RosterTemplateModal: React.FC<RosterTemplateModalProps> = ({ shortn
                 const faction = factionRes.data.faction;
                 setFactionId(faction.id);
                 if (faction.roster_template) {
+                    const normalizedCols = (faction.roster_template.columns || []).map((col: any) => ({
+                        ...col,
+                        checkboxes: normalizeItems(col.checkboxes),
+                        tags: normalizeItems(col.tags)
+                    }));
                     setTemplate({
-                        columns: faction.roster_template.columns || [],
-                        layout_settings: faction.roster_template.layout_settings || { rows: [] },
-                        default_sections_per_row: faction.roster_template.default_sections_per_row || 2,
-                        roster_options: faction.roster_template.roster_options || {}
+                        ...faction.roster_template,
+                        columns: normalizedCols
                     });
                 } else {
                     // Default starting template
                     setTemplate({
                         columns: [
-                            { id: 'rank', name: 'Rank', type: 'dropdown', options: [], checkboxes: ['Acting'] },
-                            { id: 'name', name: 'Name', type: 'text', checkboxes: ['LOA'] },
+                            { id: 'rank', name: 'Rank', type: 'dropdown', options: [], checkboxes: normalizeItems(['Acting']) },
+                            { id: 'name', name: 'Name', type: 'text', checkboxes: normalizeItems(['LOA']) },
                             { id: 'position', name: 'Position', type: 'text', checkboxes: [] },
                             { id: 'callsign', name: 'Callsign', type: 'text', checkboxes: [] }
                         ],
@@ -485,7 +500,8 @@ export const RosterTemplateModal: React.FC<RosterTemplateModalProps> = ({ shortn
                                                                                 onClick={() => {
                                                                                     if (!newItem.label) return;
                                                                                     const listName = addingItem.type === 'checkbox' ? 'checkboxes' : 'tags';
-                                                                                    updateColumn(idx, { [listName]: [...(col[listName] || []), { ...newItem }] });
+                                                                                    const itemWithId = { ...newItem, id: `item_${Date.now()}_${Math.random()}` };
+                                                                                    updateColumn(idx, { [listName]: [...(col[listName] || []), itemWithId] });
                                                                                     setAddingItem(null);
                                                                                 }}
                                                                                 className="px-6 py-1.5 bg-accent hover:bg-accent/90 text-white rounded text-[10px] font-bold uppercase tracking-widest transition shadow-lg shadow-accent/20"

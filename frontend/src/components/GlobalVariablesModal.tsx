@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Save, Database, GripVertical } from 'lucide-react';
+import { Reorder } from 'motion/react';
 import api from '../api';
 import toast from 'react-hot-toast';
 
 interface DatasetOption {
-    id?: number;
+    id: string | number;
     value: string;
     color: string | null;
     is_bold: boolean;
@@ -44,11 +45,20 @@ const GlobalVariablesModal: React.FC<GlobalVariablesModalProps> = ({ shortname, 
                 api.get(`/factions/${shortname}/datasets`),
                 api.get(`/factions/${shortname}/records`)
             ]);
-            setDatasets(datasetsRes.data);
+            
+            const normalizedDatasets = datasetsRes.data.map((d: any) => ({
+                ...d,
+                options: (d.options || []).map((o: any) => ({
+                    ...o,
+                    id: o.id || `opt_${Math.random().toString(36).substr(2, 9)}`
+                }))
+            }));
+
+            setDatasets(normalizedDatasets);
             setRecordDatabases(recordsRes.data.filter((db: any) => db.is_published));
             
             if (selectedDataset) {
-                const updated = datasetsRes.data.find((d: any) => d.id === selectedDataset.id);
+                const updated = normalizedDatasets.find((d: any) => d.id === selectedDataset.id);
                 if (updated) setSelectedDataset(updated);
             }
         } catch (err) {
@@ -68,8 +78,9 @@ const GlobalVariablesModal: React.FC<GlobalVariablesModalProps> = ({ shortname, 
 
         try {
             const res = await api.post(`/factions/${shortname}/datasets`, { name: newDatasetName });
-            setDatasets([...datasets, res.data]);
-            setSelectedDataset(res.data);
+            const newDs = { ...res.data, options: [] };
+            setDatasets([...datasets, newDs]);
+            setSelectedDataset(newDs);
             setNewDatasetName('');
             setIsCreating(false);
             toast.success('Dataset created');
@@ -83,7 +94,9 @@ const GlobalVariablesModal: React.FC<GlobalVariablesModalProps> = ({ shortname, 
         setIsSaving(true);
         const loadToast = toast.loading('Saving dataset...');
         try {
-            const res = await api.put(`/datasets/${selectedDataset.id}`, selectedDataset);
+            // Update order before saving
+            const orderedOptions = selectedDataset.options.map((opt, idx) => ({ ...opt, order: idx }));
+            await api.put(`/datasets/${selectedDataset.id}`, { ...selectedDataset, options: orderedOptions });
             toast.success('Dataset saved', { id: loadToast });
             fetchData();
         } catch (err) {
@@ -127,23 +140,35 @@ const GlobalVariablesModal: React.FC<GlobalVariablesModalProps> = ({ shortname, 
 
     const addOption = () => {
         if (!selectedDataset) return;
-        const newOption: DatasetOption = { value: '', color: null, is_bold: false, order: selectedDataset.options.length };
+        const newOption: DatasetOption = { 
+            id: `opt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            value: '', 
+            color: null, 
+            is_bold: false, 
+            order: selectedDataset.options.length 
+        };
         setSelectedDataset({
             ...selectedDataset,
             options: [...selectedDataset.options, newOption]
         });
     };
 
-    const updateOption = (index: number, field: keyof DatasetOption, value: any) => {
+    const updateOption = (id: string | number, field: keyof DatasetOption, value: any) => {
         if (!selectedDataset) return;
-        const newOptions = [...selectedDataset.options];
-        newOptions[index] = { ...newOptions[index], [field]: value };
+        const newOptions = selectedDataset.options.map(opt => 
+            opt.id === id ? { ...opt, [field]: value } : opt
+        );
         setSelectedDataset({ ...selectedDataset, options: newOptions });
     };
 
-    const removeOption = (index: number) => {
+    const removeOption = (id: string | number) => {
         if (!selectedDataset) return;
-        const newOptions = selectedDataset.options.filter((_, i) => i !== index);
+        const newOptions = selectedDataset.options.filter(opt => opt.id !== id);
+        setSelectedDataset({ ...selectedDataset, options: newOptions });
+    };
+
+    const handleReorderOptions = (newOptions: DatasetOption[]) => {
+        if (!selectedDataset) return;
         setSelectedDataset({ ...selectedDataset, options: newOptions });
     };
 
@@ -260,59 +285,71 @@ const GlobalVariablesModal: React.FC<GlobalVariablesModalProps> = ({ shortname, 
                                             <p className="text-[9px] font-bold text-muted uppercase tracking-widest mt-1">Options will be pulled automatically from database entries</p>
                                         </div>
                                     ) : (
-                                        <>
-                                            {selectedDataset.options.map((option, idx) => (
-                                        <div key={idx} className="flex items-center gap-3 p-2 bg-surface border border-border rounded-xl group">
-                                            <div className="text-muted"><GripVertical size={14} /></div>
-                                            <input 
-                                                value={option.value}
-                                                onChange={e => updateOption(idx, 'value', e.target.value)}
-                                                placeholder="Option value..."
-                                                className={`flex-1 bg-card border border-border p-2 rounded-lg text-xs outline-none focus:border-accent transition ${option.is_bold ? 'font-bold' : ''}`}
-                                                style={{ color: option.color || 'inherit' }}
-                                            />
-                                            <div className="flex items-center gap-2">
-                                                <button 
-                                                    onClick={() => updateOption(idx, 'is_bold', !option.is_bold)}
-                                                    className={`w-8 h-8 rounded border transition-all text-[10px] font-black uppercase ${option.is_bold ? 'bg-accent border-accent text-white' : 'bg-card border-border text-muted hover:border-accent/30'}`}
-                                                    title="Toggle Bold"
+                                        <Reorder.Group 
+                                            axis="y" 
+                                            values={selectedDataset.options} 
+                                            onReorder={handleReorderOptions}
+                                            className="space-y-2"
+                                        >
+                                            {selectedDataset.options.map((option) => (
+                                                <Reorder.Item 
+                                                    key={option.id} 
+                                                    value={option}
+                                                    className="flex items-center gap-3 p-2 bg-surface border border-border rounded-xl group"
                                                 >
-                                                    B
-                                                </button>
-                                                <div className="relative group/color flex items-center">
+                                                    <div className="text-muted cursor-grab active:cursor-grabbing">
+                                                        <GripVertical size={14} />
+                                                    </div>
                                                     <input 
-                                                        type="color"
-                                                        value={option.color || '#3b82f6'}
-                                                        onChange={e => updateOption(idx, 'color', e.target.value)}
-                                                        className={`w-8 h-8 bg-card border border-border rounded p-1 cursor-pointer ${!option.color ? 'opacity-20' : ''}`}
+                                                        value={option.value}
+                                                        onChange={e => updateOption(option.id, 'value', e.target.value)}
+                                                        placeholder="Option value..."
+                                                        className={`flex-1 bg-card border border-border p-2 rounded-lg text-xs outline-none focus:border-accent transition ${option.is_bold ? 'font-bold' : ''}`}
+                                                        style={{ color: option.color || 'inherit' }}
                                                     />
-                                                    {option.color && (
+                                                    <div className="flex items-center gap-2">
                                                         <button 
-                                                            onClick={() => updateOption(idx, 'color', null)}
-                                                            className="absolute -top-1 -right-1 bg-danger text-white rounded-full p-0.5 opacity-0 group-hover/color:opacity-100 transition-opacity"
-                                                            title="Remove Color"
+                                                            onClick={() => updateOption(option.id, 'is_bold', !option.is_bold)}
+                                                            className={`w-8 h-8 rounded border transition-all text-[10px] font-black uppercase ${option.is_bold ? 'bg-accent border-accent text-white' : 'bg-card border-border text-muted hover:border-accent/30'}`}
+                                                            title="Toggle Bold"
                                                         >
-                                                            <X size={8} />
+                                                            B
                                                         </button>
-                                                    )}
+                                                        <div className="relative group/color flex items-center">
+                                                            <input 
+                                                                type="color"
+                                                                value={option.color || '#3b82f6'}
+                                                                onChange={e => updateOption(option.id, 'color', e.target.value)}
+                                                                className={`w-8 h-8 bg-card border border-border rounded p-1 cursor-pointer ${!option.color ? 'opacity-20' : ''}`}
+                                                            />
+                                                            {option.color && (
+                                                                <button 
+                                                                    onClick={() => updateOption(option.id, 'color', null)}
+                                                                    className="absolute -top-1 -right-1 bg-danger text-white rounded-full p-0.5 opacity-0 group-hover/color:opacity-100 transition-opacity"
+                                                                    title="Remove Color"
+                                                                >
+                                                                    <X size={8} />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => removeOption(option.id)}
+                                                        className="p-2 hover:bg-danger/10 text-muted hover:text-danger rounded transition-colors"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </Reorder.Item>
+                                            ))}
+                                            {selectedDataset.options.length === 0 && (
+                                                <div className="py-20 flex flex-col items-center justify-center border border-dashed border-border rounded-2xl bg-surface/30">
+                                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted opacity-40">No options added yet</p>
                                                 </div>
-                                            </div>
-                                            <button 
-                                                onClick={() => removeOption(idx)}
-                                                className="p-2 hover:bg-danger/10 text-muted hover:text-danger rounded transition-colors"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                    {selectedDataset.options.length === 0 && (
-                                        <div className="py-20 flex flex-col items-center justify-center border border-dashed border-border rounded-2xl bg-surface/30">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted opacity-40">No options added yet</p>
-                                        </div>
+                                            )}
+                                        </Reorder.Group>
                                     )}
-                                    </>
-                                    )}
-                                    </div>                            </>
+                                </div>
+                            </>
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-muted uppercase text-[10px] tracking-widest opacity-40 space-y-4">
                                 <Database size={48} />
