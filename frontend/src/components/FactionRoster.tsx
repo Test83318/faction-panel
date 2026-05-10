@@ -405,8 +405,22 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         
         if (count.type === 'rows') {
             if (!count.settings.target_col) return true;
-            const val = (content[count.settings.target_col] || '').toString().trim();
-            if (count.settings.disregard_empty && !val) return false;
+            const rawVal = content[count.settings.target_col];
+            if (rawVal === null || rawVal === undefined || rawVal === '') {
+                return count.settings.disregard_empty ? false : true;
+            }
+
+            // Resolve ID to label if it matches a dataset option
+            let label = rawVal.toString();
+            const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
+            const col = rosterCols.find((c: any) => c.id === count.settings.target_col);
+            if (col && col.dataset_id) {
+                const dataset = datasets.find(d => d.id === col.dataset_id);
+                const option = dataset?.options?.find((o: any) => String(o.id) === String(rawVal));
+                if (option) label = option.value;
+            }
+
+            const val = label.trim();
             
             if (count.settings.match_type === 'exists') return !!val;
             if (count.settings.match_type === 'equals') return val.toLowerCase() === (count.settings.match_value || '').toLowerCase().trim();

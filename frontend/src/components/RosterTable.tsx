@@ -235,7 +235,12 @@ interface RosterTableProps {
     // If value is null or undefined, don't flag (except for specific rules if needed)
     if (rawValue === null || rawValue === undefined || rawValue === '') return false;
     
-    const value = rawValue.toString().toLowerCase().trim();
+    // Resolve ID to label if possible
+    const boundDataset = col.dataset_id ? datasets.find(d => d.id === col.dataset_id) : null;
+    const option = boundDataset?.options?.find((o: any) => String(o.id) === String(rawValue));
+    const label = option ? option.value : rawValue.toString();
+
+    const value = label.toLowerCase().trim();
 
     return flag.rules.some((rule: any) => {
         switch (rule.type) {
@@ -594,8 +599,8 @@ interface RosterTableProps {
     const datasetOptions = boundDataset?.options || [];
     
     let effectiveOptions = boundDataset 
-      ? datasetOptions.map((o: any) => ({ label: o.value || '', color: o.color, bold: o.is_bold })) 
-      : (col.options || []);
+      ? datasetOptions.map((o: any) => ({ id: o.id, label: o.value || '', color: o.color, bold: o.is_bold })) 
+      : (col.options || []).map((o: any, idx: number) => ({ ...o, id: o.id || `manual_${idx}` }));
 
     // ... (rest of dynamic dataset logic)
     
@@ -646,7 +651,7 @@ interface RosterTableProps {
                     label = String(rawLabel);
                 }
                 
-                return { label, color: null, bold: false, entryId: entry.entry_id, dbShortcode: db.record_shortcode || db.id };
+                return { id: entry.entry_id, label, color: null, bold: false, entryId: entry.entry_id, dbShortcode: db.record_shortcode || db.id };
             });
         }
     }
@@ -708,7 +713,7 @@ interface RosterTableProps {
         );
     }
 
-    const selectedOpt = effectiveOptions.find(o => o.label === value);
+    const selectedOpt = effectiveOptions.find(o => String(o.id) === String(value) || o.label === value);
     const textStyle: React.CSSProperties = {
       color: selectedOpt?.color || 'inherit',
       fontWeight: selectedOpt?.bold ? 'bold' : 'normal',
@@ -721,18 +726,18 @@ interface RosterTableProps {
         return (
           <div className="flex flex-col items-center justify-center h-full w-full gap-0.5 relative group/cell overflow-visible rt-cell-content">
             <select 
-              value={value} 
+              value={selectedOpt?.id || value} 
               onChange={e => updateField(col.id, e.target.value)}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
             >
               <option value="">- Select -</option>
               {effectiveOptions.map((opt: any) => (
-                <option key={opt.label} value={opt.label} style={{ color: opt.color || 'inherit' }}>{opt.label}</option>
+                <option key={opt.id} value={opt.id} style={{ color: opt.color || 'inherit' }}>{opt.label}</option>
               ))}
             </select>
             <div className="flex items-center gap-1 overflow-visible">
                 <div className="text-[10px] uppercase font-medium transition-colors" style={textStyle}>
-                {value || <span className="opacity-20 italic">Select...</span>}
+                {selectedOpt?.label || value || <span className="opacity-20 italic">Select...</span>}
                 </div>
                 {activeFlags.length > 0 && (
                     <div className="flex items-center gap-0.5">
@@ -892,11 +897,11 @@ interface RosterTableProps {
                     <div className="max-h-48 overflow-y-auto p-1 space-y-0.5">
                         {filteredSuggestions.map((opt: any) => (
                             <button 
-                                key={opt.label}
+                                key={opt.id || opt.label}
                                 onMouseDown={(e) => {
                                     e.preventDefault(); 
                                     e.stopPropagation();
-                                    updateField(col.id, opt.label);
+                                    updateField(col.id, opt.id || opt.label);
                                     setFocusedColId(null);
                                 }}
                                 className="w-full text-left px-2 py-2 hover:bg-accent/10 rounded flex items-center justify-between transition-colors group/opt"
@@ -981,7 +986,7 @@ interface RosterTableProps {
                 className={`text-[10px] uppercase font-medium transition-all ${!showValue ? 'blur-[3px] select-none opacity-50 font-black tracking-widest' : ''}`} 
                 style={textStyle}
             >
-                {showValue ? (value || '-') : '??????'}
+                {showValue ? (selectedOpt?.label || value || '-') : '??????'}
             </span>
             {activeFlags.length > 0 && (
                 <div className="flex items-center gap-0.5">
