@@ -54,10 +54,18 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
       });
       const { faction, permissions: perms, rosters: rosterData, datasets: datasetData, flags: flagData, record_data: recordDataRes, online_users: onlineUsersRes } = res.data;
       
+      const normalizedDatasets = (datasetData || []).map((d: any) => ({
+        ...d,
+        options: (d.options || []).map((o: any, idx: number) => ({
+          ...o,
+          id: o.id || `temp_${d.id}_${idx}_${o.value}`
+        }))
+      }));
+
       setFactionData(faction);
       setPermissions(perms);
       setRosters(rosterData);
-      setDatasets(datasetData);
+      setDatasets(normalizedDatasets);
       setFlags(flagData);
       setRecordData(recordDataRes);
       setOnlineUsers(onlineUsersRes || []);

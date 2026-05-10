@@ -713,7 +713,10 @@ interface RosterTableProps {
         );
     }
 
-    const selectedOpt = effectiveOptions.find(o => String(o.id) === String(value) || o.label === value);
+    const isValueId = value && (!isNaN(Number(value)) || String(value).startsWith('temp_') || String(value).startsWith('opt_'));
+    const selectedOpt = effectiveOptions.find(o => 
+        String(o.id) === String(value) || (!isValueId && o.label === value)
+    );
     const textStyle: React.CSSProperties = {
       color: selectedOpt?.color || 'inherit',
       fontWeight: selectedOpt?.bold ? 'bold' : 'normal',

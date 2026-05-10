@@ -85,7 +85,7 @@ class DatasetController extends Controller
             ]);
 
             if ($request->has('options')) {
-                $optionIds = collect($request->options)->pluck('id')->filter();
+                $optionIds = collect($request->options)->pluck('id')->filter(fn($id) => is_numeric($id));
                 $dataset->options()->whereNotIn('id', $optionIds)->delete();
 
                 foreach ($request->options as $index => $optionData) {
@@ -96,8 +96,9 @@ class DatasetController extends Controller
                         'order' => $optionData['order'] ?? $index,
                     ];
 
-                    if (isset($optionData['id'])) {
-                        RosterDatasetOption::where('id', $optionData['id'])->update($data);
+                    $id = $optionData['id'] ?? null;
+                    if ($id && is_numeric($id)) {
+                        RosterDatasetOption::where('id', $id)->update($data);
                     } else {
                         $dataset->options()->create($data);
                     }

@@ -48,9 +48,9 @@ const GlobalVariablesModal: React.FC<GlobalVariablesModalProps> = ({ shortname, 
             
             const normalizedDatasets = datasetsRes.data.map((d: any) => ({
                 ...d,
-                options: (d.options || []).map((o: any) => ({
+                options: (d.options || []).map((o: any, idx: number) => ({
                     ...o,
-                    id: o.id || `opt_${Math.random().toString(36).substr(2, 9)}`
+                    id: o.id || `temp_${d.id}_${idx}_${o.value}`
                 }))
             }));
 
