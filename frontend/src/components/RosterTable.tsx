@@ -206,10 +206,10 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 return value.includes((rule.value || '').toLowerCase().trim());
             case 'in_dataset':
                 const dataset = datasets.find(d => Number(d.id) === Number(rule.dataset_id));
-                return dataset?.options?.some((opt: any) => opt.value.toLowerCase().trim() === value);
+                return dataset?.options?.some((opt: any) => (opt.value || '').toLowerCase().trim() === value);
             case 'not_in_dataset':
                 const datasetNot = datasets.find(d => Number(d.id) === Number(rule.dataset_id));
-                return !datasetNot?.options?.some((opt: any) => opt.value.toLowerCase().trim() === value);
+                return !datasetNot?.options?.some((opt: any) => (opt.value || '').toLowerCase().trim() === value);
             case 'exists_elsewhere':
                 let pool: any[] = [];
                 const safeAllContents = allContents || [];
@@ -439,7 +439,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                                 
                                 let isMatch = false;
                                 if (match_value) {
-                                    isMatch = dbVal && dbVal.toString().toLowerCase().includes(match_value.toLowerCase());
+                                    isMatch = dbVal && dbVal.toString().toLowerCase().includes((match_value || '').toLowerCase());
                                 } else {
                                     isMatch = !!dbVal;
                                 }
@@ -473,7 +473,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                                 
                                 let isMatch = false;
                                 if (match_value) {
-                                    isMatch = dbVal && dbVal.toString().toLowerCase().includes(match_value.toLowerCase());
+                                    isMatch = dbVal && dbVal.toString().toLowerCase().includes((match_value || '').toLowerCase());
                                 } else {
                                     isMatch = !!dbVal;
                                 }
@@ -546,7 +546,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     const datasetOptions = boundDataset?.options || [];
     
     let effectiveOptions = boundDataset 
-      ? datasetOptions.map((o: any) => ({ label: o.value, color: o.color, bold: o.is_bold })) 
+      ? datasetOptions.map((o: any) => ({ label: o.value || '', color: o.color, bold: o.is_bold })) 
       : (col.options || []);
 
     // ... (rest of dynamic dataset logic)
@@ -594,7 +594,8 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 else if (fieldId === 'created_at') label = new Date(entry.created_at).toLocaleDateString();
                 else {
                     // Try ID first, then fallback to Name (for legacy data)
-                    label = entry.data?.[fieldId || ''] || entry.data?.[field?.name || ''] || `Entry #${entry.entry_id}`;
+                    const rawLabel = entry.data?.[fieldId || ''] || entry.data?.[field?.name || ''] || `Entry #${entry.entry_id}`;
+                    label = String(rawLabel);
                 }
                 
                 return { label, color: null, bold: false, entryId: entry.entry_id, dbShortcode: db.record_shortcode || db.id };
@@ -778,7 +779,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
       const suggestionPool = [...effectiveOptions];
       
       uniqueExisting.forEach(val => {
-        if (typeof val === 'string' && !suggestionPool.some(opt => opt.label.toLowerCase() === val.toLowerCase())) {
+        if (typeof val === 'string' && !suggestionPool.some(opt => (opt.label || '').toLowerCase() === val.toLowerCase())) {
           suggestionPool.push({ label: val, color: 'inherit', bold: false });
         }
       });
@@ -786,7 +787,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
       const searchTerm = (value || '').toLowerCase();
       const filteredSuggestions = (focusedColId === col.id && searchTerm.length >= 1) 
         ? suggestionPool.filter(opt => 
-            opt.label.toLowerCase().includes(searchTerm)
+            (opt.label || '').toLowerCase().includes(searchTerm)
           ).slice(0, 8) 
         : [];
 
