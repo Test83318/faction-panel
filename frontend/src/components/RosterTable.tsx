@@ -76,45 +76,72 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   const evaluateFlag = React.useCallback((row: RosterContent, col: RosterColumn, flag: any) => {
     if (!flag.rules || flag.rules.length === 0) return false;
 
-    const value = (row.content?.[col.id] || '').toString().toLowerCase();
+    // Determine current value, accounting for unsaved edits
+    const isThisRowEditing = editingRowId === row.id;
+    const currentRowContent = isThisRowEditing ? { ...(row.content || {}), ...editData } : (row.content || {});
+    const rawValue = currentRowContent[col.id];
+    
+    // If value is null or undefined, don't flag (except for specific rules if needed)
+    if (rawValue === null || rawValue === undefined || rawValue === '') return false;
+    
+    const value = rawValue.toString().toLowerCase().trim();
 
     return flag.rules.some((rule: any) => {
         switch (rule.type) {
             case 'equals':
-                return value === (rule.value || '').toLowerCase();
+                return value === (rule.value || '').toLowerCase().trim();
             case 'not_equals':
-                return value !== (rule.value || '').toLowerCase();
+                return value !== (rule.value || '').toLowerCase().trim();
             case 'contains':
-                return value.includes((rule.value || '').toLowerCase());
+                return value.includes((rule.value || '').toLowerCase().trim());
             case 'in_dataset':
-                const dataset = datasets.find(d => d.id === rule.dataset_id);
-                return dataset?.options?.some((opt: any) => opt.value.toLowerCase() === value);
+                const dataset = datasets.find(d => Number(d.id) === Number(rule.dataset_id));
+                return dataset?.options?.some((opt: any) => opt.value.toLowerCase().trim() === value);
             case 'not_in_dataset':
-                const datasetNot = datasets.find(d => d.id === rule.dataset_id);
-                return !datasetNot?.options?.some((opt: any) => opt.value.toLowerCase() === value);
+                const datasetNot = datasets.find(d => Number(d.id) === Number(rule.dataset_id));
+                return !datasetNot?.options?.some((opt: any) => opt.value.toLowerCase().trim() === value);
             case 'exists_elsewhere':
-                if (!value) return false;
-                const pool = rule.scope === 'global' ? (allContents || []) :
-                             rule.scope === 'roster' ? (allContents || []) :
-                             contents;
+                let pool: any[] = [];
+                const safeAllContents = allContents || [];
+                
+                if (rule.scope === 'global') {
+                    pool = safeAllContents;
+                } else if (rule.scope === 'roster') {
+                    // Try to find the roster ID for the current row
+                    const currentRosterId = row.roster_id || safeAllContents.find(c => Number(c.id) === Number(row.id))?.roster_id;
+                    if (!currentRosterId) return false;
+                    pool = safeAllContents.filter(c => Number(c.roster_id) === Number(currentRosterId));
+                } else {
+                    pool = contents;
+                }
 
-                const excludedIds = flag.excluded_roster_ids || [];
+                const excludedIds = (flag.excluded_roster_ids || []).map((id: any) => Number(id));
 
                 return pool.some(c => {
-                    if (c.id === row.id) return false;
+                    // Use loose equality for IDs to avoid flagging yourself
+                    if (Number(c.id) === Number(row.id)) return false;
+                    
                     // Skip if from an excluded roster
-                    if (c.roster_id && excludedIds.includes(c.roster_id)) return false;
+                    if (c.roster_id && excludedIds.includes(Number(c.roster_id))) return false;
+
+                    const targetContent = c.content || {};
 
                     if (rule.target_col) {
-                        return (c.content?.[rule.target_col] || '').toString().toLowerCase() === value;
+                        return (targetContent[rule.target_col] || '').toString().toLowerCase().trim() === value;
                     }
-                    return Object.values(c.content || {}).some(v => (v || '').toString().toLowerCase() === value);
+                    
+                    // If no target col, check all column values for a match
+                    return Object.values(targetContent).some(v => {
+                        if (v === null || v === undefined) return false;
+                        const vStr = v.toString().toLowerCase().trim();
+                        return vStr === value && vStr !== '';
+                    });
                 });
             default:
                 return false;
         }
     });
-  }, [datasets, contents, allContents]);
+  }, [datasets, contents, allContents, editingRowId, editData]);
   const activeCols = columns && columns.length > 0 ? columns : [
     { id: 'rank', name: 'Rank', type: 'dropdown', checkboxes: ['Acting'] },
     { id: 'name', name: 'Name', type: 'text', checkboxes: ['LOA'] },
@@ -525,7 +552,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
       fontWeight: selectedOpt?.bold ? 'bold' : 'normal',
     };
 
-    const activeFlags = flags.filter(f => (col.flags || []).includes(f.id) && evaluateFlag(row, col, f));
+    const activeFlags = flags.filter(f => (col.flags || []).some(flagId => Number(flagId) === Number(f.id)) && evaluateFlag(row, col, f));
 
     if (isEditing && isColEditable(col)) {
       if (col.type === 'dropdown' || col.type === 'predefined_dropdown' || col.type === 'hidden_dropdown' || col.type === 'predefined_hidden_dropdown') {

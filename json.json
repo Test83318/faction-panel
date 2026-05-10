@@ -1,0 +1,448 @@
+{
+    "faction": {
+        "id": 1,
+        "shortname": "test",
+        "name": "test",
+        "color": "#1e5fa8",
+        "image_url": null,
+        "visibility": "public",
+        "access": "joinable",
+        "gtaw_faction_id": null,
+        "faction_leader": 1,
+        "created_by": 1,
+        "created_at": "2026-05-06T16:20:32.000000Z",
+        "updated_at": "2026-05-06T16:23:50.000000Z",
+        "deleted_at": null,
+        "header_image_dark": null,
+        "favicon": null,
+        "header_link_to_faction": 0,
+        "hide_panel_header": 0,
+        "custom_footer_text": null,
+        "header_bg_color": null,
+        "header_gradient_enabled": 0,
+        "header_gradient_color": null,
+        "header_gradient_direction": "to-r",
+        "header_image_light": null,
+        "roster_template": null,
+        "quick_search_enabled": false,
+        "quick_search_settings": null,
+        "description": null,
+        "user_highest_role": {
+            "id": 1,
+            "faction_id": 1,
+            "name": "Administrator",
+            "weight": 100,
+            "color": "#ef4444",
+            "type": "primary",
+            "created_at": "2026-05-06T16:20:32.000000Z",
+            "updated_at": "2026-05-06T16:20:32.000000Z",
+            "pivot": {
+                "user_id": 1,
+                "role_id": 1,
+                "created_at": "2026-05-06T16:20:32.000000Z",
+                "updated_at": "2026-05-06T16:20:32.000000Z"
+            }
+        },
+        "user_primary_role": {
+            "id": 1,
+            "faction_id": 1,
+            "name": "Administrator",
+            "weight": 100,
+            "color": "#ef4444",
+            "type": "primary",
+            "created_at": "2026-05-06T16:20:32.000000Z",
+            "updated_at": "2026-05-06T16:20:32.000000Z",
+            "pivot": {
+                "user_id": 1,
+                "role_id": 1,
+                "created_at": "2026-05-06T16:20:32.000000Z",
+                "updated_at": "2026-05-06T16:20:32.000000Z"
+            }
+        },
+        "allow_branding": true,
+        "creator": {
+            "id": 1,
+            "username": "testuser",
+            "is_superadmin": true,
+            "created_at": "2026-05-06T16:20:21.000000Z",
+            "updated_at": "2026-05-06T16:20:21.000000Z",
+            "gtaw_id": null,
+            "gtaw_username": null,
+            "membership_tier_id": null,
+            "gtaw_access_token": null,
+            "avatar_url": null,
+            "max_factions": 9223372036854776000,
+            "allow_custom_branding": true
+        }
+    },
+    "permissions": [
+        "view_faction_roster",
+        "global_roster_moderation",
+        "create_roster",
+        "modify_roster_variables",
+        "modify_roster_flags",
+        "view_groups",
+        "create_groups",
+        "remove_groups",
+        "modify_groups",
+        "manage_group_members",
+        "view_admin_page",
+        "view_faction_details",
+        "modify_faction_details",
+        "view_permissions",
+        "modify_permissions",
+        "view_users",
+        "remove_users",
+        "change_ranks",
+        "create_ranks",
+        "delete_ranks",
+        "modify_ranks",
+        "manage_invites",
+        "manage_integrations",
+        "modify_global_quick_search",
+        "view_faction_records",
+        "create_faction_record_database",
+        "global_faction_record_moderation",
+        "view_audit_logs",
+        "administrator"
+    ],
+    "rosters": [
+        {
+            "id": 2,
+            "faction_id": 1,
+            "name": "test",
+            "shortname": "TEST",
+            "color": "#3b82f6",
+            "order": 0,
+            "roster_options": null,
+            "columns": [
+                {
+                    "id": "rank",
+                    "name": "Rank",
+                    "type": "dropdown",
+                    "options": [],
+                    "checkboxes": [
+                        "Acting"
+                    ]
+                },
+                {
+                    "id": "name",
+                    "name": "Name",
+                    "type": "text",
+                    "checkboxes": [
+                        "LOA"
+                    ],
+                    "flags": [
+                        2
+                    ]
+                },
+                {
+                    "id": "position",
+                    "name": "Position",
+                    "type": "text",
+                    "checkboxes": []
+                },
+                {
+                    "id": "callsign",
+                    "name": "Callsign",
+                    "type": "text",
+                    "checkboxes": []
+                }
+            ],
+            "created_by": 1,
+            "created_at": "2026-05-10T07:56:55.000000Z",
+            "updated_at": "2026-05-10T08:43:11.000000Z",
+            "deleted_at": null,
+            "layout_settings": null,
+            "default_sections_per_row": 1,
+            "user_roster_permissions": {
+                "view_roster": true,
+                "modify_roster": true,
+                "manage_columns": true,
+                "manage_layout": true,
+                "add_sections": true,
+                "remove_sections": true,
+                "edit_predefined": true,
+                "edit_defined_fields": true,
+                "view_hidden_data": true
+            },
+            "root_sections": [
+                {
+                    "id": 3,
+                    "roster_id": 2,
+                    "name": "Main Section",
+                    "shortname": "MAIN",
+                    "color": null,
+                    "type": "master",
+                    "order": 0,
+                    "parent_id": null,
+                    "section_options": null,
+                    "created_by": 1,
+                    "created_at": "2026-05-10T07:56:55.000000Z",
+                    "updated_at": "2026-05-10T07:56:55.000000Z",
+                    "deleted_at": null,
+                    "columns": null,
+                    "layout_settings": null,
+                    "subsections_per_row": 1,
+                    "content_html": null,
+                    "children": [],
+                    "contents": [
+                        {
+                            "id": 11,
+                            "section_id": 3,
+                            "order": 0,
+                            "type": "predefined",
+                            "content": {
+                                "name": "John Doe"
+                            },
+                            "created_by": 1,
+                            "created_at": "2026-05-10T08:42:54.000000Z",
+                            "updated_at": "2026-05-10T08:47:12.000000Z",
+                            "deleted_at": null,
+                            "editing_by": null,
+                            "editing_at": null,
+                            "editing_col": null,
+                            "editor": null
+                        }
+                    ]
+                }
+            ],
+            "faction": {
+                "id": 1,
+                "shortname": "test",
+                "name": "test",
+                "color": "#1e5fa8",
+                "image_url": null,
+                "visibility": "public",
+                "access": "joinable",
+                "gtaw_faction_id": null,
+                "faction_leader": 1,
+                "created_by": 1,
+                "created_at": "2026-05-06T16:20:32.000000Z",
+                "updated_at": "2026-05-06T16:23:50.000000Z",
+                "deleted_at": null,
+                "header_image_dark": null,
+                "favicon": null,
+                "header_link_to_faction": 0,
+                "hide_panel_header": 0,
+                "custom_footer_text": null,
+                "header_bg_color": null,
+                "header_gradient_enabled": 0,
+                "header_gradient_color": null,
+                "header_gradient_direction": "to-r",
+                "header_image_light": null,
+                "roster_template": null,
+                "quick_search_enabled": false,
+                "quick_search_settings": null,
+                "description": null,
+                "allow_branding": true,
+                "creator": {
+                    "id": 1,
+                    "username": "testuser",
+                    "is_superadmin": true,
+                    "created_at": "2026-05-06T16:20:21.000000Z",
+                    "updated_at": "2026-05-06T16:20:21.000000Z",
+                    "gtaw_id": null,
+                    "gtaw_username": null,
+                    "membership_tier_id": null,
+                    "gtaw_access_token": null,
+                    "avatar_url": null,
+                    "max_factions": 9223372036854776000,
+                    "allow_custom_branding": true
+                }
+            }
+        },
+        {
+            "id": 3,
+            "faction_id": 1,
+            "name": "Test2",
+            "shortname": "TEST2",
+            "color": "#3b82f6",
+            "order": 1,
+            "roster_options": null,
+            "columns": [
+                {
+                    "id": "rank",
+                    "name": "Rank",
+                    "type": "dropdown",
+                    "options": [],
+                    "checkboxes": [
+                        "Acting"
+                    ]
+                },
+                {
+                    "id": "name",
+                    "name": "Name",
+                    "type": "text",
+                    "checkboxes": [
+                        "LOA"
+                    ],
+                    "flags": [
+                        2
+                    ]
+                },
+                {
+                    "id": "position",
+                    "name": "Position",
+                    "type": "text",
+                    "checkboxes": []
+                },
+                {
+                    "id": "callsign",
+                    "name": "Callsign",
+                    "type": "text",
+                    "checkboxes": []
+                }
+            ],
+            "created_by": 1,
+            "created_at": "2026-05-10T08:41:58.000000Z",
+            "updated_at": "2026-05-10T08:43:26.000000Z",
+            "deleted_at": null,
+            "layout_settings": null,
+            "default_sections_per_row": 1,
+            "user_roster_permissions": {
+                "view_roster": true,
+                "modify_roster": true,
+                "manage_columns": true,
+                "manage_layout": true,
+                "add_sections": true,
+                "remove_sections": true,
+                "edit_predefined": true,
+                "edit_defined_fields": true,
+                "view_hidden_data": true
+            },
+            "root_sections": [
+                {
+                    "id": 6,
+                    "roster_id": 3,
+                    "name": "Main Section",
+                    "shortname": "MAIN",
+                    "color": null,
+                    "type": "master",
+                    "order": 0,
+                    "parent_id": null,
+                    "section_options": null,
+                    "created_by": 1,
+                    "created_at": "2026-05-10T08:41:58.000000Z",
+                    "updated_at": "2026-05-10T08:41:58.000000Z",
+                    "deleted_at": null,
+                    "columns": null,
+                    "layout_settings": null,
+                    "subsections_per_row": 1,
+                    "content_html": null,
+                    "children": [],
+                    "contents": [
+                        {
+                            "id": 12,
+                            "section_id": 6,
+                            "order": 0,
+                            "type": "predefined",
+                            "content": {
+                                "name": "John Doe"
+                            },
+                            "created_by": 1,
+                            "created_at": "2026-05-10T08:42:57.000000Z",
+                            "updated_at": "2026-05-10T08:53:35.000000Z",
+                            "deleted_at": null,
+                            "editing_by": null,
+                            "editing_at": null,
+                            "editing_col": null,
+                            "editor": null
+                        }
+                    ]
+                }
+            ],
+            "faction": {
+                "id": 1,
+                "shortname": "test",
+                "name": "test",
+                "color": "#1e5fa8",
+                "image_url": null,
+                "visibility": "public",
+                "access": "joinable",
+                "gtaw_faction_id": null,
+                "faction_leader": 1,
+                "created_by": 1,
+                "created_at": "2026-05-06T16:20:32.000000Z",
+                "updated_at": "2026-05-06T16:23:50.000000Z",
+                "deleted_at": null,
+                "header_image_dark": null,
+                "favicon": null,
+                "header_link_to_faction": 0,
+                "hide_panel_header": 0,
+                "custom_footer_text": null,
+                "header_bg_color": null,
+                "header_gradient_enabled": 0,
+                "header_gradient_color": null,
+                "header_gradient_direction": "to-r",
+                "header_image_light": null,
+                "roster_template": null,
+                "quick_search_enabled": false,
+                "quick_search_settings": null,
+                "description": null,
+                "allow_branding": true,
+                "creator": {
+                    "id": 1,
+                    "username": "testuser",
+                    "is_superadmin": true,
+                    "created_at": "2026-05-06T16:20:21.000000Z",
+                    "updated_at": "2026-05-06T16:20:21.000000Z",
+                    "gtaw_id": null,
+                    "gtaw_username": null,
+                    "membership_tier_id": null,
+                    "gtaw_access_token": null,
+                    "avatar_url": null,
+                    "max_factions": 9223372036854776000,
+                    "allow_custom_branding": true
+                }
+            }
+        }
+    ],
+    "datasets": [],
+    "flags": [
+        {
+            "id": 2,
+            "faction_id": 1,
+            "name": "Duplicate",
+            "icon": "Flag",
+            "color": "#3b82f6",
+            "rules": [
+                {
+                    "type": "exists_elsewhere",
+                    "value": null,
+                    "scope": "global"
+                }
+            ],
+            "created_by": 1,
+            "created_at": "2026-05-10T08:42:09.000000Z",
+            "updated_at": "2026-05-10T08:42:42.000000Z",
+            "deleted_at": null,
+            "excluded_roster_ids": []
+        }
+    ],
+    "record_data": [],
+    "online_users": [
+        {
+            "id": 1,
+            "username": "testuser",
+            "avatar_url": null,
+            "current_roster_id": 3,
+            "primary_role": {
+                "id": 1,
+                "faction_id": 1,
+                "name": "Administrator",
+                "weight": 100,
+                "color": "#ef4444",
+                "type": "primary",
+                "created_at": "2026-05-06T16:20:32.000000Z",
+                "updated_at": "2026-05-06T16:20:32.000000Z",
+                "pivot": {
+                    "user_id": 1,
+                    "role_id": 1,
+                    "created_at": "2026-05-06T16:20:32.000000Z",
+                    "updated_at": "2026-05-06T16:20:32.000000Z"
+                }
+            }
+        }
+    ]
+}

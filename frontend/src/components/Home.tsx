@@ -181,10 +181,17 @@ const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme, siteVersion =
                             </Link>
                             <Link 
                                 to="/help"
-                                className="inline-flex items-center gap-2 mb-4 text-muted hover:text-accent text-[10px] font-bold uppercase tracking-widest transition-colors"
+                                className="inline-flex items-center gap-2 mb-2 text-muted hover:text-accent text-[10px] font-bold uppercase tracking-widest transition-colors"
                             >
                                 <HelpCircle size={14} />
                                 Need help? Visit Help Center
+                            </Link>
+                            <Link 
+                                to="/credits"
+                                className="inline-flex items-center gap-2 mb-4 text-muted hover:text-accent text-[10px] font-bold uppercase tracking-widest transition-colors"
+                            >
+                                <Shield size={14} />
+                                Project Contributors & Credits
                             </Link>
                             <p className="text-muted text-[9px] uppercase tracking-[0.2em] font-bold">
                                 &copy; 2025-{new Date().getFullYear() + 1} Faction Panel. Antelope v{siteVersion}

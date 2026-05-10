@@ -148,7 +148,7 @@ class FactionController extends Controller
 
         // Include Roster Data
         $rosters = $faction->rosters()
-            ->with(['rootSections.children.children.contents.editor', 'rootSections.children.contents.editor', 'rootSections.contents.editor'])
+            ->with(['rootSections.children', 'rootSections.contents.editor'])
             ->orderBy('order')
             ->orderBy('id')
             ->get();

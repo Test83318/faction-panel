@@ -274,7 +274,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           contents={section.contents || []} 
           allContents={allContents}
           user={user}
-          isLeadership 
+          isLeadership={section.type === 'master'} 
           accentColor={effectiveColor} 
           columns={columns} 
           datasets={datasets}

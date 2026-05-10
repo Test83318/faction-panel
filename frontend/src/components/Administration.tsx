@@ -1032,6 +1032,21 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                             </div>
 
                             <div>
+                                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Rank Weight (Hierarchy)</label>
+                                <input 
+                                    type="number" 
+                                    value={roleForm.weight} 
+                                    onChange={e => setRoleForm({ ...roleForm, weight: parseInt(e.target.value) || 0 })} 
+                                    className="w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition" 
+                                    required 
+                                    placeholder="e.g. 100" 
+                                />
+                                <p className="mt-1 text-[8px] text-muted font-bold uppercase tracking-widest">
+                                    Higher weight means higher authority. Your max: <span className="text-accent">{userHighestWeight === 999999 ? '∞' : userHighestWeight - 1}</span>
+                                </p>
+                            </div>
+
+                            <div>
                                 <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Rank Color</label>
                                 <div className="flex gap-3">
                                     <input type="color" value={roleForm.color} onChange={e => setRoleForm({ ...roleForm, color: e.target.value })} className="w-12 h-11 bg-surface border border-border rounded p-1 cursor-pointer" />

@@ -20,7 +20,7 @@ class RosterController extends Controller
         $isGlobalViewer = User::hasFactionPermission($user, $faction, 'view_faction_roster');
         
         $rosters = $faction->rosters()
-            ->with(['rootSections.children.contents.editor', 'rootSections.contents.editor'])
+            ->with(['rootSections.children', 'rootSections.contents.editor'])
             ->orderBy('order')
             ->orderBy('id')
             ->get();
@@ -136,6 +136,15 @@ class RosterController extends Controller
             'layout_settings' => $layoutSettings,
             'default_sections_per_row' => $defaultSectionsPerRow,
             'roster_options' => $rosterOptions,
+            'created_by' => Auth::id(),
+        ]);
+
+        // Automatically create a master section
+        $roster->sections()->create([
+            'name' => 'Main Section',
+            'shortname' => 'MAIN',
+            'type' => 'master',
+            'order' => 0,
             'created_by' => Auth::id(),
         ]);
 

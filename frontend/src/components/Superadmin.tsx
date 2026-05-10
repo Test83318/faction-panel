@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { Shield, ArrowLeft, Users, Building2, Edit2, Trash2, UserPlus, Check, X, CreditCard, Plus, Settings, ScrollText, BookOpen } from 'lucide-react';
 import { User, Faction, MembershipTier } from '../types';
 import HelpAdmin from './HelpAdmin';
+import CreditAdmin from './CreditAdmin';
 import { useConfirm } from './ConfirmationProvider';
 
 interface SuperadminProps {
@@ -16,7 +17,7 @@ interface SuperadminProps {
 const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'factions' | 'users' | 'tiers' | 'settings' | 'help'>('factions');
+    const [activeTab, setActiveTab] = useState<'factions' | 'users' | 'tiers' | 'settings' | 'help' | 'credits'>('factions');
     
     const [factions, setFactions] = useState<Faction[]>([]);
     const [usersList, setUsersList] = useState<User[]>([]);
@@ -252,11 +253,26 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                     >
                         <BookOpen size={14} /> Help Center
                     </button>
+                    <button
+                        onClick={() => setActiveTab('credits')}
+                        className={`flex items-center gap-2 px-6 py-3 font-bold text-[10px] uppercase tracking-widest transition-all ${
+                            activeTab === 'credits' 
+                                ? 'border-b-2 border-accent text-accent bg-accent/5' 
+                                : 'text-muted hover:text-text hover:bg-surface'
+                        }`}
+                    >
+                        <Shield size={14} /> Credits
+                    </button>
                 </div>
 
                 {/* Help Center Tab */}
                 {activeTab === 'help' && (
                     <HelpAdmin />
+                )}
+
+                {/* Credits Tab */}
+                {activeTab === 'credits' && (
+                    <CreditAdmin />
                 )}
 
                 {/* Settings Tab */}

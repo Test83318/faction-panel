@@ -36,6 +36,14 @@ class RosterSectionController extends Controller
             return response()->json(['message' => 'Master sections cannot have a parent'], 422);
         }
 
+        // Only one master section per roster
+        if ($validated['type'] === 'master') {
+            $exists = $roster->sections()->where('type', 'master')->exists();
+            if ($exists) {
+                return response()->json(['message' => 'A master section already exists for this roster.'], 422);
+            }
+        }
+
         // Get next order within the same parent or root
         $maxOrder = $roster->sections()
             ->where('parent_id', $validated['parent_id'] ?? null)
@@ -85,6 +93,10 @@ class RosterSectionController extends Controller
     {
         if (!User::hasRosterPermission(Auth::user(), $section->roster, 'remove_sections')) {
             return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        if ($section->type === 'master') {
+            return response()->json(['message' => 'The master section cannot be deleted'], 422);
         }
 
         $section->delete();

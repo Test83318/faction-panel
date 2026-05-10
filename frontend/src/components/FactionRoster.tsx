@@ -85,16 +85,18 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
   const allContents = useMemo(() => {
     const contents: any[] = [];
     rosters.forEach(r => {
+        if (!r) return;
         const getSectionContents = (sec: any): any[] => {
+            if (!sec) return [];
             let items = (sec.contents || []).map((c: any) => ({ ...c, roster_id: r.id }));
-            if (sec.children) {
+            if (sec.children && Array.isArray(sec.children)) {
                 sec.children.forEach((child: any) => {
                     items = [...items, ...getSectionContents(child)];
                 });
             }
             return items;
         };
-        (r.rootSections || []).forEach((s: any) => {
+        (r.root_sections || []).forEach((s: any) => {
             contents.push(...getSectionContents(s));
         });
     });
@@ -434,6 +436,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         datasets={datasets}
                         recordData={recordData}
                         allContents={allContents}
+                        flags={flags}
                         editMode={editMode}
                         rosterColor={activeDivision.color}
                         onRefresh={fetchRosters}
@@ -463,6 +466,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                             columns={section.columns || rosters.find((r: any) => r.id === activeDivId)?.columns}
                             datasets={datasets}
                             allContents={allContents}
+                            flags={flags}
                             editMode={editMode}
                             rosterColor={activeDivision.color}
                             onRefresh={fetchRosters}
@@ -495,6 +499,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         datasets={datasets}
                         recordData={recordData}
                         allContents={allContents}
+                        flags={flags}
                         editMode={editMode}
                         rosterColor={activeDivision.color}
                         onRefresh={fetchRosters}
@@ -829,7 +834,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
       {showSectionModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
-          <div className="bg-card p-6 rounded-lg max-w-md w-full border border-border shadow-2xl">
+          <div className="bg-card p-6 rounded-lg max-w-xl w-full border border-border shadow-2xl">
             <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-text">
                 {sectionData.id ? 'Edit Section' : 'Add New Section'}
             </h2>
@@ -856,18 +861,129 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">Type</label>
-                    <select 
-                        value={sectionData.type}
-                        onChange={e => setSectionData({ ...sectionData, type: e.target.value as any })}
-                        className="w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition"
-                    >
-                        {!sectionData.parent_id && <option value="master">Master</option>}
-                        <option value="section">Section</option>
-                        <option value="subsection">Subsection</option>
-                        <option value="content">Content (HTML)</option>
-                    </select>
+                    <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">Custom Color (Optional)</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="color" 
+                        value={sectionData.color || '#3b82f6'} 
+                        onChange={e => setSectionData({ ...sectionData, color: e.target.value })} 
+                        className="w-10 h-10 bg-surface border border-border rounded p-1 cursor-pointer" 
+                      />
+                      <input 
+                        value={sectionData.color} 
+                        onChange={e => setSectionData({ ...sectionData, color: e.target.value })} 
+                        className="flex-1 bg-surface border border-border p-2 rounded text-sm text-text focus:border-accent outline-none transition font-mono" 
+                        placeholder="Inherit"
+                      />
+                    </div>
                   </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-3">Select Section Type</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    {
+                      id: 'master',
+                      name: 'Master Section',
+                      description: 'Hero section for high-level leadership.',
+                      icon: Shield,
+                      disabled: !sectionData.id && activeDivision?.root_sections?.some((s: any) => s.type === 'master') && !sectionData.parent_id,
+                      preview: (color: string) => (
+                        <div className="w-full border border-border bg-card rounded overflow-hidden">
+                          <div className="h-1" style={{ backgroundColor: color }} />
+                          <div className="p-1 border-b border-border bg-border/20" />
+                          <div className="p-2 space-y-1">
+                            <div className="h-1 w-full bg-border/40 rounded" />
+                            <div className="h-1 w-3/4 bg-border/20 rounded" />
+                          </div>
+                        </div>
+                      )
+                    },
+                    {
+                      id: 'section',
+                      name: 'Header Section',
+                      description: 'Standard table for members and roster data with alternative look, usually for command.',
+                      icon: Layout,
+                      preview: (color: string) => (
+                        <div className="w-full border border-border bg-card rounded overflow-hidden">
+                          <div className="flex h-2 items-stretch border-b border-border bg-surface">
+                            <div className="w-1" style={{ backgroundColor: color }} />
+                          </div>
+                          <div className="p-2 grid grid-cols-2 gap-1">
+                            <div className="h-3 border border-border bg-border/10 rounded" />
+                            <div className="h-3 border border-border bg-border/10 rounded" />
+                          </div>
+                        </div>
+                      )
+                    },
+                    {
+                      id: 'subsection',
+                      name: 'Section',
+                      description: 'Standard Table for members and roster data.',
+                      icon: Menu,
+                      preview: (color: string) => (
+                        <div className="w-full border border-border bg-card rounded overflow-hidden">
+                          <div className="p-1 border-b border-border bg-border/20" />
+                          <div className="p-2 space-y-1">
+                            <div className="h-0.5 w-full bg-border/40 rounded" />
+                            <div className="h-0.5 w-full bg-border/20 rounded" />
+                            <div className="h-0.5 w-full bg-border/20 rounded" />
+                          </div>
+                        </div>
+                      )
+                    },
+                    {
+                      id: 'content',
+                      name: 'HTML Section',
+                      description: 'Custom HTML/CSS content block.',
+                      icon: FileCode2,
+                      preview: (color: string) => (
+                        <div className="w-full border border-border bg-card rounded overflow-hidden">
+                          <div className="p-1 border-b border-border bg-border/20" />
+                          <div className="p-2 flex flex-col items-center justify-center">
+                              <div className="h-1 w-full bg-accent/20 rounded mb-1" style={{ backgroundColor: color + '33' }} />
+                              <div className="h-1 w-2/3 bg-accent/10 rounded" style={{ backgroundColor: color + '1a' }} />
+                          </div>
+                        </div>
+                      )
+                    }
+                  ].map((t) => {
+                    const isSelected = sectionData.type === t.id;
+                    const isDisabled = t.disabled || (sectionData.parent_id && t.id === 'master');
+                    
+                    if (isDisabled && !isSelected) return null;
+
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => !isDisabled && setSectionData({ ...sectionData, type: t.id as any })}
+                        className={`text-left p-3 rounded-lg border-2 transition-all group flex flex-col gap-3 ${
+                          isSelected 
+                            ? 'border-accent bg-accent/5' 
+                            : isDisabled 
+                              ? 'border-border/50 opacity-40 cursor-not-allowed' 
+                              : 'border-border hover:border-accent/50 hover:bg-surface'
+                        }`}
+                        disabled={isDisabled}
+                      >
+                        <div className="flex items-center gap-2">
+                          <t.icon size={14} className={isSelected ? 'text-accent' : 'text-muted'} />
+                          <span className={`text-[10px] font-black uppercase tracking-widest ${isSelected ? 'text-text' : 'text-muted'}`}>
+                            {t.name}
+                          </span>
+                        </div>
+                        
+                        {t.preview(sectionData.color || activeDivision?.color || '#3b82f6')}
+                        
+                        <p className="text-[9px] font-medium text-muted leading-tight uppercase tracking-tighter">
+                          {t.description}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {sectionData.type === 'content' && (
@@ -876,30 +992,12 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                     <textarea 
                         value={sectionData.content_html || ''} 
                         onChange={e => setSectionData({ ...sectionData, content_html: e.target.value })} 
-                        className="w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition font-mono min-h-[200px]" 
+                        className="w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition font-mono min-h-[150px]" 
                         placeholder="<div>Styling HTML goes here...</div>"
                     />
                     <p className="text-[8px] text-muted mt-1 uppercase font-bold tracking-widest">You can use standard HTML and inline CSS.</p>
                 </div>
               )}
-
-              <div>
-                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">Custom Color (Optional)</label>
-                <div className="flex gap-2">
-                  <input 
-                    type="color" 
-                    value={sectionData.color || '#3b82f6'} 
-                    onChange={e => setSectionData({ ...sectionData, color: e.target.value })} 
-                    className="w-10 h-10 bg-surface border border-border rounded p-1 cursor-pointer" 
-                  />
-                  <input 
-                    value={sectionData.color} 
-                    onChange={e => setSectionData({ ...sectionData, color: e.target.value })} 
-                    className="flex-1 bg-surface border border-border p-2 rounded text-sm text-text focus:border-accent outline-none transition font-mono" 
-                    placeholder="Inherit from roster"
-                  />
-                </div>
-              </div>
 
               {sectionData.id && (
                 <div className="space-y-2 pt-2 border-t border-border/50">
@@ -927,13 +1025,15 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                             <Layout size={11} /> Layout
                         </button>
                     )}
-                    <button 
-                        type="button" 
-                        onClick={() => handleDeleteSection(sectionData.id!)} 
-                        className="px-3 py-2 bg-danger/10 hover:bg-danger/20 text-danger rounded font-bold text-[9px] uppercase tracking-widest transition min-w-[80px]"
-                    >
-                        Delete
-                    </button>
+                    {sectionData.type !== 'master' && (
+                        <button 
+                            type="button" 
+                            onClick={() => handleDeleteSection(sectionData.id!)} 
+                            className="px-3 py-2 bg-danger/10 hover:bg-danger/20 text-danger rounded font-bold text-[9px] uppercase tracking-widest transition min-w-[80px]"
+                        >
+                            Delete
+                        </button>
+                    )}
                   </div>
                 </div>
               )}

@@ -24,6 +24,7 @@ import Administration from './components/Administration';
 import GtawSync from './components/GtawSync';
 import AuditLogs from './components/AuditLogs';
 import Welcome from './components/Welcome';
+import Credits from './components/Credits';
 import GlobalLayout from './layouts/GlobalLayout';
 import FactionLayout from './layouts/FactionLayout';
 import { ConfirmationProvider } from './components/ConfirmationProvider';
@@ -373,6 +374,7 @@ export default function App() {
              <Route path="/help/category/:id" element={<HelpCategoryView />} />
              <Route path="/help/article/:slug" element={<HelpArticleView />} />
              <Route path="/welcome" element={<Welcome />} />
+             <Route path="/credits" element={<Credits />} />
           </Route>
 
           <Route path="/:shortname/*" element={

@@ -33,6 +33,7 @@ Route::get('/auth/registration-status', [AuthController::class, 'registrationSta
 Route::get('/auth/gtaw/redirect', [AuthController::class, 'gtawRedirect']);
 Route::post('/auth/gtaw/callback', [AuthController::class, 'gtawCallback']);
 Route::get('/site-settings/public', [SuperadminController::class, 'getPublicSettings']);
+Route::get('/credits', [\App\Http\Controllers\CreditController::class, 'index']);
 
 Route::get('/invites/{code}', [InviteController::class, 'show']);
 
@@ -71,6 +72,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/superadmin/membership-tiers', [SuperadminController::class, 'storeMembershipTier']);
     Route::put('/superadmin/membership-tiers/{tier}', [SuperadminController::class, 'updateMembershipTier']);
     Route::delete('/superadmin/membership-tiers/{tier}', [SuperadminController::class, 'deleteMembershipTier']);
+
+    // Credits Management Routes
+    Route::post('/superadmin/credits', [\App\Http\Controllers\CreditController::class, 'store']);
+    Route::put('/superadmin/credits/{credit}', [\App\Http\Controllers\CreditController::class, 'update']);
+    Route::delete('/superadmin/credits/{credit}', [\App\Http\Controllers\CreditController::class, 'destroy']);
+    Route::put('/superadmin/credits/reorder', [\App\Http\Controllers\CreditController::class, 'reorder']);
 
     Route::post('/invites/{code}/join', [InviteController::class, 'join']);
 
