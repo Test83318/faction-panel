@@ -187,9 +187,13 @@ class RosterContentController extends Controller
 
     public function batchUpdate(Request $request, RosterSection $section)
     {
-        $faction = $section->roster->faction;
+        $roster = $section->roster;
+        $user = Auth::user();
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+        $canEditDefined = User::hasRosterPermission($user, $roster, 'edit_defined_fields');
+        $canEditPredefined = User::hasRosterPermission($user, $roster, 'edit_predefined');
+
+        if (!$canEditDefined && !$canEditPredefined) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

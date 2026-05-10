@@ -28,9 +28,11 @@ interface RosterTableProps {
   onAddRow?: () => void;
   onRefresh?: () => void;
   onReorderRows?: (newOrder: RosterContent[]) => void;
-}
+  globalEditingRowId?: number | null;
+  setGlobalEditingRowId?: (id: number | null) => void;
+  }
 
-export const RosterTable: React.FC<RosterTableProps> = ({ 
+  export const RosterTable: React.FC<RosterTableProps> = ({ 
   sectionId,
   contents, 
   allContents,
@@ -49,8 +51,11 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   onBulkDeleteRow,
   onAddRow,
   onRefresh,
-  onReorderRows
-}) => {  const { shortname } = useParams();
+  onReorderRows,
+  globalEditingRowId,
+  setGlobalEditingRowId
+  }) => {
+  const { shortname } = useParams();
   const canEditDefined = canModerate || permissions?.edit_defined_fields;
   const canEditPredefined = canModerate || permissions?.edit_predefined;
   const canEditAny = canEditDefined || canEditPredefined;
@@ -69,6 +74,16 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   const tableRef = useRef<HTMLTableElement>(null);
   const [editData, setEditData] = useState<any>({});
   const [activeTagMenu, setActiveTagMenu] = useState<{ rowId: number, colId: string } | null>(null);
+
+  useEffect(() => {
+    if (globalEditingRowId !== editingRowId) {
+        setEditingRowId(null);
+        setEditingColId(null);
+        setRowColor(null);
+        setLastUpdatedAt(null);
+        setEditData({});
+    }
+  }, [globalEditingRowId]);
 
   useEffect(() => {
     if (user?.always_match_row_height) {
@@ -343,9 +358,15 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   const handleStartEdit = (row: RosterContent, colId: string) => {
     if (!canEditAny) return;
 
+    // If another row is being edited, unlock it first
+    if (globalEditingRowId && globalEditingRowId !== row.id) {
+        api.post(`/contents/${globalEditingRowId}/unlock`).catch(() => {});
+    }
+
     // Passive locking
     api.post(`/contents/${row.id}/lock`, { col_id: colId }).catch(() => {});
-    
+
+    setGlobalEditingRowId?.(row.id);
     setEditingRowId(row.id);
     setEditingColId(colId);
     setEditData(row.content || {});
@@ -355,18 +376,19 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
   const handleSaveEdit = async (rowId: number) => {
     if (editingRowId !== rowId) return;
-    
+
     const dataToSave = { content: { ...editData }, color: rowColor };
     const colId = editingColId;
     const updatedAt = lastUpdatedAt;
 
+    setGlobalEditingRowId?.(null);
     setEditingRowId(null);
     setEditingColId(null);
     setRowColor(null);
     setLastUpdatedAt(null);
     setActiveTagMenu(null);
     setShowColorPicker(null);
-    
+
     if (colId) {
         setSavingRows(prev => new Map(prev).set(rowId, colId));
     }
@@ -386,6 +408,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
   const handleCancelEdit = async () => {
     const id = editingRowId;
+    setGlobalEditingRowId?.(null);
     setEditingRowId(null);
     setEditingColId(null);
     setRowColor(null);
@@ -393,12 +416,11 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     setEditData({});
     setActiveTagMenu(null);
     setShowColorPicker(null);
-    
+
     if (id) {
         api.post(`/contents/${id}/unlock`).catch(() => {});
     }
   };
-
   const handleRowBlur = (e: React.FocusEvent, rowId: number) => {
     const nextFocus = e.relatedTarget as Node;
     if (!e.currentTarget.contains(nextFocus)) {
@@ -715,14 +737,17 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             </div>
             {col.checkboxes && col.checkboxes.length > 0 && (
               <div className="flex flex-wrap gap-1 relative z-20">
-                {col.checkboxes.map(cb => {
+                {col.checkboxes.map((cb, cbIdx) => {
+                  if (!cb) return null;
                   const label = typeof cb === 'string' ? cb : cb.label;
+                  if (!label) return null;
                   const color = typeof cb === 'string' ? null : cb.color;
                   const isChecked = checked.includes(label);
-                  
+
                   return (
-                    <button 
-                      key={label}
+                    <button
+                      key={label + cbIdx}
+
                       onClick={() => toggleCheckbox(col.id, label)}
                       className={`text-[6px] font-black px-1 rounded border transition-colors uppercase ${
                         isChecked ? (color ? '' : 'bg-accent border-accent text-white') : 'bg-transparent border-border text-muted hover:border-accent'
@@ -893,14 +918,17 @@ export const RosterTable: React.FC<RosterTableProps> = ({
           </div>
           {col.checkboxes && col.checkboxes.length > 0 && (
             <div className="flex flex-wrap gap-1">
-              {col.checkboxes.map(cb => {
+              {col.checkboxes.map((cb, cbIdx) => {
+                if (!cb) return null;
                 const label = typeof cb === 'string' ? cb : cb.label;
+                if (!label) return null;
                 const color = typeof cb === 'string' ? null : cb.color;
                 const isChecked = checked.includes(label);
 
                 return (
-                  <button 
-                    key={label}
+                  <button
+                    key={label + cbIdx}
+
                     onClick={() => toggleCheckbox(col.id, label)}
                     className={`text-[6px] font-black px-1 rounded border transition-colors uppercase ${
                       isChecked ? (color ? '' : 'bg-accent border-accent text-white') : 'bg-transparent border-border text-muted hover:border-accent'
@@ -978,15 +1006,16 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         </div>
         {checked.length > 0 && (
           <div className="flex gap-0.5">
-            {(col.checkboxes || []).map((cbDef: any) => {
+            {(col.checkboxes || []).map((cbDef: any, cbIdx: number) => {
+              if (!cbDef) return null;
               const cbLabel = typeof cbDef === 'string' ? cbDef : cbDef.label;
-              if (!checked.includes(cbLabel)) return null;
+              if (!cbLabel || !checked.includes(cbLabel)) return null;
 
               const color = (typeof cbDef !== 'string') ? cbDef.color : null;
               
               return (
                 <span 
-                  key={cbLabel} 
+                  key={cbLabel + cbIdx} 
                   className="text-[6px] text-accent font-black tracking-widest bg-accent/10 px-1 rounded uppercase"
                   style={color ? { color: color, backgroundColor: `${color}1A` } : {}}
                 >

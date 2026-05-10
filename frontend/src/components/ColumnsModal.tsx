@@ -15,12 +15,32 @@ interface ColumnsModalProps {
 }
 
 export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumns, type, shortname, onClose, onSave }) => {
-  const [columns, setColumns] = useState<any[]>(target.columns || parentColumns || [
-      { id: 'rank', name: 'Rank', type: 'dropdown', options: [], checkboxes: ['Acting'] },
-      { id: 'name', name: 'Name', type: 'text', checkboxes: ['LOA'] },
-      { id: 'position', name: 'Position', type: 'text', checkboxes: [] },
-      { id: 'callsign', name: 'Callsign', type: 'text', checkboxes: [] }
-  ]);
+  const normalizeItems = (items: any[]) => {
+    return (items || []).map((item, idx) => {
+        if (typeof item === 'string') {
+            return { id: `item_${Date.now()}_${idx}_${Math.random()}`, label: item };
+        }
+        if (!item.id) {
+            return { ...item, id: `item_${Date.now()}_${idx}_${Math.random()}` };
+        }
+        return item;
+    });
+  };
+
+  const [columns, setColumns] = useState<any[]>(() => {
+    const rawCols = target.columns || parentColumns || [
+        { id: 'rank', name: 'Rank', type: 'dropdown', options: [], checkboxes: ['Acting'] },
+        { id: 'name', name: 'Name', type: 'text', checkboxes: ['LOA'] },
+        { id: 'position', name: 'Position', type: 'text', checkboxes: [] },
+        { id: 'callsign', name: 'Callsign', type: 'text', checkboxes: [] }
+    ];
+    return rawCols.map((col, idx) => ({
+        ...col,
+        _localId: `col_${Date.now()}_${idx}_${Math.random()}`,
+        checkboxes: normalizeItems(col.checkboxes),
+        tags: normalizeItems(col.tags)
+    }));
+  });
   const [datasets, setDatasets] = useState<any[]>([]);
   const [recordDatabases, setRecordDatabases] = useState<any[]>([]);
   const [flags, setFlags] = useState<any[]>([]);
@@ -70,8 +90,15 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      // Filter out empty checkboxes and tags before saving
+      const cleanedColumns = columns.map(col => ({
+          ...col,
+          checkboxes: (col.checkboxes || []).filter((cb: any) => (typeof cb === 'string' ? cb : cb.label)?.trim() !== ''),
+          tags: (col.tags || []).filter((tag: any) => (typeof tag === 'string' ? tag : tag.label)?.trim() !== '')
+      }));
+
       const endpoint = type === 'roster' ? `/rosters/${target.id}` : `/sections/${target.id}`;
-      const payload = type === 'roster' ? { columns } : { columns, use_roster_columns: useRosterColumns };
+      const payload = type === 'roster' ? { columns: cleanedColumns } : { columns: cleanedColumns, use_roster_columns: useRosterColumns };
       await api.put(endpoint, payload);
       onSave();
     } catch (err) {
@@ -84,6 +111,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
   const addColumn = () => {
     setColumns([...columns, { 
       id: `col_${Date.now()}`, 
+      _localId: `col_${Date.now()}_new_${Math.random()}`,
       name: 'New Column', 
       type: 'text', 
       options: [], 
@@ -140,7 +168,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
         <div className={`flex-1 overflow-y-auto pr-2 space-y-4 transition-opacity duration-300 ${type === 'section' && useRosterColumns ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
           <Reorder.Group axis="y" values={columns} onReorder={setColumns} className="space-y-3">
             {columns.map((col, index) => (
-              <Reorder.Item key={col.id} value={col} className="bg-surface border border-border rounded-lg p-4 group relative">
+              <Reorder.Item key={col._localId} value={col} className="bg-surface border border-border rounded-lg p-4 group relative">
                 {editingIndex === index ? (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -399,7 +427,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                           const dbStructure = linkedDb?.database_structure || [];
 
                           return (
-                            <Reorder.Item key={label + cbIdx} value={cb} className="flex flex-col gap-2 bg-bg p-2 rounded border border-border group/cb">
+                            <Reorder.Item key={cb.id} value={cb} className="flex flex-col gap-2 bg-bg p-2 rounded border border-border group/cb">
                               <div className="flex items-center gap-1.5">
                                 <div className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-text">
                                     <GripVertical size={12} />
@@ -518,7 +546,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                       </Reorder.Group>
                       <button 
                         onClick={() => {
-                          const newCbs = [...(col.checkboxes || []), 'New'];
+                          const newCbs = [...(col.checkboxes || []), { id: `cb_${Date.now()}_${Math.random()}`, label: 'New' }];
                           updateColumn(index, 'checkboxes', newCbs);
                         }}
                         className="flex items-center gap-1 bg-bg px-2 py-1.5 rounded border border-border border-dashed text-muted hover:text-text hover:border-accent text-xs h-fit w-full justify-center mt-1"
@@ -548,7 +576,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                           const tagIcons = ['Shield', 'ShieldPlus', 'Cross', 'BriefcaseMedical', 'HeartPulse', 'Stethoscope', 'Activity', 'LifeBuoy', 'Star', 'User', 'Zap', 'Info', 'AlertCircle', 'Flag', 'Award', 'Briefcase', 'Crown', 'Target', 'Tool'];
 
                           return (
-                            <Reorder.Item key={label + tagIdx} value={tag} className="flex flex-col gap-2 bg-bg p-2 rounded border border-border group/tag">
+                            <Reorder.Item key={tag.id} value={tag} className="flex flex-col gap-2 bg-bg p-2 rounded border border-border group/tag">
                               <div className="flex items-center gap-1.5">
                                 <div className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-text">
                                     <GripVertical size={12} />

@@ -25,6 +25,8 @@ interface SectionCardProps {
   calculateCount?: (count: any, scope: 'roster' | 'section', targetSection?: any) => number;
   onRefresh?: () => void;
   onReorderRows?: (sectionId: number, newOrder: any[]) => void;
+  globalEditingRowId?: number | null;
+  setGlobalEditingRowId?: (id: number | null) => void;
 }
 
 export const SectionCard: React.FC<SectionCardProps> = ({ 
@@ -45,107 +47,38 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   onManageCounts,
   calculateCount,
   onRefresh,
-  onReorderRows
+  onReorderRows,
+  globalEditingRowId,
+  setGlobalEditingRowId
 }) => {
   const canEditSection = canModerate || permissions?.add_sections;
   const canAddChildSection = canModerate || permissions?.add_sections;
 
   const renderChild = (child: RosterSection) => {
-    const isSubsection = child.type === 'subsection';
-    const childColor = child.color || section.color || rosterColor || 'var(--accent)';
-    const childColumns = child.use_roster_columns ? rosterColumns : (child.columns || rosterColumns);
-    
-    if (isSubsection) {
-      return (
-        <div 
-          key={child.id} 
-          className="unit-section border-t border-border bg-card group/child relative"
-          style={{ 
-            '--accent': childColor,
-            '--accent-rgb': childColor.startsWith('#') ? hexToRgb(childColor) : undefined
-          } as React.CSSProperties}
-        >
-          <div className="section-header py-0.5 px-2 border-b border-border bg-border/20 flex justify-between items-center">
-            <div className="flex items-center gap-1.5 overflow-hidden">
-                <span className="text-[9px] font-bold text-text uppercase truncate">{child.name}</span>
-            </div>
-            {canEditSection && (
-                <button 
-                    onClick={() => onEdit?.(child)}
-                    className="p-1 hover:bg-surface rounded text-muted hover:text-accent opacity-0 group-hover/child:opacity-100 transition-opacity"
-                >
-                    <MoreHorizontal size={12} />
-                </button>
-            )}
-          </div>
-          <RosterTable 
-            sectionId={child.id}
-            contents={child.contents || []} 
-            allContents={allContents}
+    return (
+        <SectionCard 
+            key={child.id}
+            section={child}
             user={user}
-            accentColor={childColor} 
-            columns={childColumns} 
+            canModerate={canModerate}
+            permissions={permissions}
+            columns={child.use_roster_columns ? rosterColumns : (child.columns || rosterColumns)}
+            rosterColumns={rosterColumns}
             datasets={datasets}
             recordData={recordData}
             flags={flags}
+            allContents={allContents}
             editMode={editMode}
-            canModerate={canModerate}
-            permissions={permissions}
-            onAddRow={() => handleAddRow(child.id)}
-            onUpdateRow={handleUpdateRow}
-            onDeleteRow={handleDeleteRow}
-            onBulkDeleteRow={handleBulkDeleteRows}
-            onReorderRows={(newOrder) => onReorderRows?.(child.id, newOrder)}
-            />
-
-        </div>
-      );
-    }
-
-    // Regular section style (compact)
-    return (
-      <div 
-        key={child.id} 
-        className="unit-section group/child relative"
-        style={{ 
-          '--accent': childColor,
-          '--accent-rgb': childColor.startsWith('#') ? hexToRgb(childColor) : undefined
-        } as React.CSSProperties}
-      >
-        <div className="section-header py-0.5 px-2 border-b border-border bg-border/10 flex items-center gap-1.5 shrink-0 group/child relative">
-          <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: childColor }} />
-          <span className="text-[9px] font-bold text-text uppercase text-center flex-1 truncate">
-            {child.name}
-          </span>
-          {canEditSection && (
-              <button 
-                  onClick={() => onEdit?.(child)}
-                  className="absolute right-1 opacity-0 group-hover/child:opacity-100 p-0.5 hover:bg-bg rounded text-muted hover:text-text transition-opacity"
-              >
-                  <MoreHorizontal size={10} />
-              </button>
-          )}
-        </div>
-        <RosterTable 
-          sectionId={child.id}
-          contents={child.contents || []} 
-          allContents={allContents}
-          user={user}
-          accentColor={childColor} 
-          columns={childColumns} 
-          datasets={datasets}
-          recordData={recordData}
-          flags={flags}
-          editMode={editMode}
-          canModerate={canModerate}
-          permissions={permissions}
-          onAddRow={() => handleAddRow(child.id)}
-          onUpdateRow={handleUpdateRow}
-          onDeleteRow={handleDeleteRow}
-          onBulkDeleteRow={handleBulkDeleteRows}
-          onReorderRows={(newOrder) => onReorderRows?.(child.id, newOrder)}
+            rosterColor={rosterColor}
+            onAddChild={onAddChild}
+            onEdit={onEdit}
+            onManageCounts={onManageCounts}
+            calculateCount={calculateCount}
+            onRefresh={onRefresh}
+            onReorderRows={onReorderRows}
+            globalEditingRowId={globalEditingRowId}
+            setGlobalEditingRowId={setGlobalEditingRowId}
         />
-      </div>
     );
   };
 
@@ -261,11 +194,12 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     }
   };
 
+  const effectiveColor = section.color || rosterColor || 'var(--accent)';
+
   if (section.type === 'master' || section.type === 'subsection') {
-    const effectiveColor = section.color || rosterColor || 'var(--accent)';
     return (
       <div 
-        className="div-leadership w-full border border-border bg-card mb-4 group relative"
+        className={`${section.type === 'master' ? 'div-leadership' : 'unit-section'} w-full border border-border bg-card mb-4 group relative`}
         style={{ 
           '--accent': effectiveColor,
           '--accent-rgb': effectiveColor.startsWith('#') ? hexToRgb(effectiveColor) : undefined
@@ -274,7 +208,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         <div className="section-header py-0.5 px-2 border-b border-border bg-border/20 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <span className="text-[9px] font-bold text-text uppercase">{section.name}</span>
-            {!section.parent_id && section.counts && section.counts.length > 0 && (
+            {section.counts && section.counts.length > 0 && (
                 <div className="flex items-center gap-3 pl-3 border-l border-border/50">
                     {section.counts.map((count: any) => (
                         <div key={count.id} className="flex items-center gap-1.5">
@@ -288,7 +222,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             )}
           </div>
           <div className="flex items-center gap-2">
-            {!section.parent_id && canEditSection && (
+            {canEditSection && (
                 <button 
                     onClick={() => onManageCounts?.(section)}
                     className="p-1 hover:bg-surface rounded text-muted hover:text-accent transition-colors"
@@ -307,32 +241,43 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             )}
           </div>
         </div>
-        <RosterTable 
-          sectionId={section.id}
-          contents={section.contents || []} 
-          allContents={allContents}
-          user={user}
-          isLeadership={section.type === 'master'} 
-          accentColor={effectiveColor} 
-          columns={columns} 
-          datasets={datasets}
-          recordData={recordData}
-          flags={flags}
-          editMode={editMode}
-          canModerate={canModerate}
-          permissions={permissions}
-          onAddRow={() => handleAddRow(section.id)}
-          onUpdateRow={handleUpdateRow}
-          onDeleteRow={handleDeleteRow}
-          onBulkDeleteRow={handleBulkDeleteRows}
-          onRefresh={onRefresh}
-          onReorderRows={(newOrder) => onReorderRows?.(section.id, newOrder)}
-        />
+        
+        {/* Rows for master/subsection */}
+        {(section.contents?.length > 0 || editMode || !section.children || section.children.length === 0) && (
+            <RosterTable 
+                sectionId={section.id}
+                contents={section.contents || []} 
+                allContents={allContents}
+                user={user}
+                isLeadership={section.type === 'master'} 
+                accentColor={effectiveColor} 
+                columns={columns} 
+                datasets={datasets}
+                recordData={recordData}
+                flags={flags}
+                editMode={editMode}
+                canModerate={canModerate}
+                permissions={permissions}
+                onAddRow={() => handleAddRow(section.id)}
+                onUpdateRow={handleUpdateRow}
+                onDeleteRow={handleDeleteRow}
+                onBulkDeleteRow={handleBulkDeleteRows}
+                onRefresh={onRefresh}
+                onReorderRows={(newOrder) => onReorderRows?.(section.id, newOrder)}
+                globalEditingRowId={globalEditingRowId}
+                setGlobalEditingRowId={setGlobalEditingRowId}
+            />
+        )}
+
+        {/* Children for master/subsection (Recursive) */}
+        {section.children && section.children.length > 0 && (
+            <div className="sections-container w-full divide-y divide-border border-t border-border">
+                {section.children.map(child => renderChild(child))}
+            </div>
+        )}
       </div>
     );
   }
-
-  const effectiveColor = section.color || rosterColor || 'var(--accent)';
 
   return (
     <div 
@@ -374,7 +319,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
                             <span className="text-[7px] font-black uppercase tracking-widest">counts</span>
                         </button>
                     )}
-                    {!section.parent_id && canAddChildSection && (
+                    {canAddChildSection && (
                         <button 
                             onClick={() => onAddChild?.(section.id)}
                             className="px-1.5 py-0.5 hover:bg-bg rounded text-muted hover:text-accent flex items-center gap-1 transition-colors"
@@ -394,6 +339,32 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Main Section Content / Rows */}
+      {section.type !== 'content' && (section.contents?.length > 0 || editMode || !section.children || section.children.length === 0) && (
+        <RosterTable 
+          sectionId={section.id}
+          contents={section.contents || []} 
+          allContents={allContents}
+          user={user}
+          accentColor={effectiveColor} 
+          columns={columns} 
+          datasets={datasets}
+          recordData={recordData}
+          flags={flags}
+          editMode={editMode}
+          canModerate={canModerate}
+          permissions={permissions}
+          onAddRow={() => handleAddRow(section.id)}
+          onUpdateRow={handleUpdateRow}
+          onDeleteRow={handleDeleteRow}
+          onBulkDeleteRow={handleBulkDeleteRows}
+          onRefresh={onRefresh}
+          onReorderRows={(newOrder) => onReorderRows?.(section.id, newOrder)}
+          globalEditingRowId={globalEditingRowId}
+          setGlobalEditingRowId={setGlobalEditingRowId}
+        />
+      )}
 
       {/* Sub-sections / Children */}
       <div className="sections-container w-full divide-y divide-border">
@@ -437,30 +408,6 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             </div>
         )}
       </div>
-
-      {/* If it's a root section but has no children */}
-      {(!section.children || section.children.length === 0) && section.type !== 'content' && (
-        <RosterTable 
-          sectionId={section.id}
-          contents={section.contents || []} 
-          allContents={allContents}
-          user={user}
-          accentColor={effectiveColor} 
-          columns={columns} 
-          datasets={datasets}
-          recordData={recordData}
-          flags={flags}
-          editMode={editMode}
-          canModerate={canModerate}
-          permissions={permissions}
-          onAddRow={() => handleAddRow(section.id)}
-          onUpdateRow={handleUpdateRow}
-          onDeleteRow={handleDeleteRow}
-          onBulkDeleteRow={handleBulkDeleteRows}
-          onRefresh={onRefresh}
-          onReorderRows={(newOrder) => onReorderRows?.(section.id, newOrder)}
-        />
-      )}
     </div>
   );
 };

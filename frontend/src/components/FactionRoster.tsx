@@ -83,6 +83,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
   const [showRosterContextMenu, setShowRosterContextMenu] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [globalEditingRowId, setGlobalEditingRowId] = useState<number | null>(null);
 
   // Real-time polling
   useEffect(() => {
@@ -588,6 +589,8 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         rosterColor={activeDivision.color}
                         onRefresh={fetchRosters}
                         onReorderRows={handleReorderRows}
+                        globalEditingRowId={globalEditingRowId}
+                        setGlobalEditingRowId={setGlobalEditingRowId}
                     />
                 ))}
 
@@ -622,6 +625,8 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                             rosterColor={activeDivision.color}
                             onRefresh={fetchRosters}
                             onReorderRows={handleReorderRows}
+                            globalEditingRowId={globalEditingRowId}
+                            setGlobalEditingRowId={setGlobalEditingRowId}
                           />
                         );
                       })}
@@ -659,7 +664,10 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         rosterColor={activeDivision.color}
                         onRefresh={fetchRosters}
                         onReorderRows={handleReorderRows}
-                      />
+                        globalEditingRowId={globalEditingRowId}
+                        setGlobalEditingRowId={setGlobalEditingRowId}
+                        />
+
                     ))}
                   </div>
                 </div>
