@@ -24,6 +24,7 @@ interface SectionCardProps {
   onManageCounts?: (section: RosterSection) => void;
   calculateCount?: (count: any, scope: 'roster' | 'section', targetSection?: any) => number;
   onRefresh?: () => void;
+  onReorderRows?: (sectionId: number, newOrder: any[]) => void;
 }
 
 export const SectionCard: React.FC<SectionCardProps> = ({ 
@@ -93,7 +94,9 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             onUpdateRow={handleUpdateRow}
             onDeleteRow={handleDeleteRow}
             onBulkDeleteRow={handleBulkDeleteRows}
-          />
+            onReorderRows={(newOrder) => onReorderRows?.(child.id, newOrder)}
+            />
+
         </div>
       );
     }
@@ -138,6 +141,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           onUpdateRow={handleUpdateRow}
           onDeleteRow={handleDeleteRow}
           onBulkDeleteRow={handleBulkDeleteRows}
+          onReorderRows={(newOrder) => onReorderRows?.(child.id, newOrder)}
         />
       </div>
     );
@@ -320,6 +324,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           onDeleteRow={handleDeleteRow}
           onBulkDeleteRow={handleBulkDeleteRows}
           onRefresh={onRefresh}
+          onReorderRows={(newOrder) => onReorderRows?.(section.id, newOrder)}
         />
       </div>
     );
@@ -451,6 +456,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           onDeleteRow={handleDeleteRow}
           onBulkDeleteRow={handleBulkDeleteRows}
           onRefresh={onRefresh}
+          onReorderRows={(newOrder) => onReorderRows?.(section.id, newOrder)}
         />
       )}
     </div>

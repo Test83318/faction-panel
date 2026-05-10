@@ -126,6 +126,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/contents/{content}/lock', [RosterContentController::class, 'lock']);
     Route::post('/contents/{content}/unlock', [RosterContentController::class, 'unlock']);
     Route::delete('/contents/{content}', [RosterContentController::class, 'destroy']);
+    Route::put('/sections/{section}/contents/reorder', [RosterContentController::class, 'reorder']);
     Route::put('/sections/{section}/contents/batch', [RosterContentController::class, 'batchUpdate']);
 
     // Group Management

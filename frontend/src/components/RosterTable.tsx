@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { RosterContent } from '../types';
-import { Plus, Trash2, Check, X, Pencil, Tag, ExternalLink } from 'lucide-react';
+import { motion, Reorder } from 'motion/react';
+import { Plus, Trash2, Check, X, Pencil, Tag, ExternalLink, GripVertical } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import api from '../api';
 import toast from 'react-hot-toast';
@@ -41,6 +42,7 @@ interface RosterTableProps {
   onBulkDeleteRow?: (ids: number[]) => void;
   onAddRow?: () => void;
   onRefresh?: () => void;
+  onReorderRows?: (newOrder: RosterContent[]) => void;
 }
 
 export const RosterTable: React.FC<RosterTableProps> = ({ 
@@ -61,7 +63,8 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   onDeleteRow,
   onBulkDeleteRow,
   onAddRow,
-  onRefresh
+  onRefresh,
+  onReorderRows
 }) => {  const { shortname } = useParams();
   const canEditDefined = canModerate || permissions?.edit_defined_fields;
   const canEditPredefined = canModerate || permissions?.edit_predefined;
@@ -970,7 +973,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     >
       <table className={`rt-table ${isLeadership ? 'bg-border/5' : ''}`}>
         <colgroup>
-          <col className="w-[24px]" />
+          <col className="w-[32px]" />
           {activeCols.map((col) => (
             <col key={col.id} style={{ width: `${100 / activeCols.length}%` }} />
           ))}
@@ -996,7 +999,12 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             <th className="rt-th"></th>
           </tr>
         </thead>
-        <tbody>
+        <Reorder.Group 
+          as="tbody" 
+          axis="y" 
+          values={contents} 
+          onReorder={onReorderRows || (() => {})}
+        >
           {contents.map((row, idx) => {
             const isEditing = editingRowId === row.id;
             const effectiveRowColor = isEditing ? rowColor : row.color;
@@ -1005,9 +1013,12 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             };
 
             return (
-              <tr 
+              <Reorder.Item 
+                as="tr"
                 key={row.id} 
-                className={`rt-tr group/row ${isEditing ? 'bg-accent/5 z-[5000] relative' : ''} ${selectedRowIds.includes(row.id) ? 'bg-accent/5' : ''}`}
+                value={row}
+                dragListener={editMode && canEditPredefined && !editingRowId}
+                className={`rt-tr group/row ${isEditing ? 'bg-accent/5 z-[5000] relative' : ''} ${selectedRowIds.includes(row.id) ? 'bg-accent/5' : ''} ${editMode && canEditPredefined && !editingRowId ? 'cursor-grab active:cursor-grabbing' : ''}`}
                 onBlur={(e) => handleRowBlur(e, row.id)}
               >
                 <td 
@@ -1018,21 +1029,28 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                   }}
                   onClick={() => editMode && toggleSelectRow(row.id)}
                 >
-                  {editMode ? (
-                      <div className="flex items-center justify-center w-full h-full">
-                          <input 
-                              type="checkbox" 
-                              checked={selectedRowIds.includes(row.id)}
-                              readOnly
-                              className={`w-3 h-3 rounded border-border bg-bg text-accent focus:ring-accent accent-accent transition-opacity ${selectedRowIds.includes(row.id) ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}
-                          />
-                          <span className={`absolute inset-0 flex items-center justify-center transition-opacity ${selectedRowIds.includes(row.id) ? 'opacity-0' : 'group-hover/row:opacity-0 opacity-100'}`}>
-                              {idx + 1}
-                          </span>
-                      </div>
-                  ) : (
-                      idx + 1
-                  )}
+                  <div className="flex items-center justify-center w-full h-full gap-1 px-1">
+                    {editMode && canEditPredefined && (
+                        <GripVertical size={10} className="opacity-20 group-hover/row:opacity-100 transition-opacity shrink-0" />
+                    )}
+                    <div className="relative flex items-center justify-center flex-1">
+                      {editMode ? (
+                          <>
+                              <input 
+                                  type="checkbox" 
+                                  checked={selectedRowIds.includes(row.id)}
+                                  readOnly
+                                  className={`w-3 h-3 rounded border-border bg-bg text-accent focus:ring-accent accent-accent transition-opacity ${selectedRowIds.includes(row.id) ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}
+                              />
+                              <span className={`absolute inset-0 flex items-center justify-center transition-opacity ${selectedRowIds.includes(row.id) ? 'opacity-0' : 'group-hover/row:opacity-0 opacity-100'}`}>
+                                  {idx + 1}
+                              </span>
+                          </>
+                      ) : (
+                          idx + 1
+                      )}
+                    </div>
+                  </div>
                 </td>
                 {activeCols.map((col) => (
                   <td 
@@ -1047,7 +1065,8 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                     {renderCell(row, col)}
                   </td>
                 ))}
-                <td className="rt-td p-0" style={cellStyle}>                <div className="flex items-center justify-center gap-1">
+                <td className="rt-td p-0" style={cellStyle}>
+                <div className="flex items-center justify-center gap-1">
                   {isEditing ? (
                     <div className="flex flex-col items-center gap-1 relative">
                         <button 
@@ -1114,9 +1133,10 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                   )}
                 </div>
               </td>
-            </tr>
+            </Reorder.Item>
             );
           })}
+        </Reorder.Group>
           {editMode && (
             <tr>
               <td 

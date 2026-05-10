@@ -160,6 +160,42 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
     }
   };
 
+  const handleReorderRows = async (sectionId: number, newOrder: any[]) => {
+    // Optimistically update local state
+    const newRosters = [...rosters];
+    let found = false;
+
+    const updateSectionContents = (sections: any[]) => {
+      for (const s of sections) {
+        if (s.id === sectionId) {
+          s.contents = newOrder;
+          found = true;
+          return true;
+        }
+        if (s.children && updateSectionContents(s.children)) return true;
+      }
+      return false;
+    };
+
+    for (const r of newRosters) {
+      if (updateSectionContents(r.root_sections || [])) break;
+    }
+
+    if (found) {
+        setRosters(newRosters);
+    }
+
+    // Persist to backend
+    try {
+      await api.put(`/sections/${sectionId}/contents/reorder`, {
+        content_ids: newOrder.map(c => c.id)
+      });
+    } catch (err) {
+        toast.error('Failed to save row order');
+        fetchRosters(); // Revert on failure
+    }
+  };
+
   const handleEditRoster = (roster: any) => {
     setNewRoster({
       id: roster.id,
@@ -551,6 +587,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         editMode={editMode}
                         rosterColor={activeDivision.color}
                         onRefresh={fetchRosters}
+                        onReorderRows={handleReorderRows}
                     />
                 ))}
 
@@ -584,6 +621,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                             editMode={editMode}
                             rosterColor={activeDivision.color}
                             onRefresh={fetchRosters}
+                            onReorderRows={handleReorderRows}
                           />
                         );
                       })}
@@ -620,6 +658,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         editMode={editMode}
                         rosterColor={activeDivision.color}
                         onRefresh={fetchRosters}
+                        onReorderRows={handleReorderRows}
                       />
                     ))}
                   </div>

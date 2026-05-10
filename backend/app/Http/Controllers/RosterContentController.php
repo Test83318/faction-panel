@@ -164,6 +164,27 @@ class RosterContentController extends Controller
         return response()->json(['message' => 'Content deleted']);
     }
 
+    public function reorder(Request $request, RosterSection $section)
+    {
+        $roster = $section->roster;
+        if (!User::hasRosterPermission(Auth::user(), $roster, 'edit_predefined')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $request->validate([
+            'content_ids' => 'required|array',
+            'content_ids.*' => 'exists:roster_contents,id'
+        ]);
+
+        foreach ($request->content_ids as $index => $id) {
+            RosterContent::where('id', $id)
+                ->where('section_id', $section->id)
+                ->update(['order' => $index]);
+        }
+
+        return response()->json(['message' => 'Reordered successfully']);
+    }
+
     public function batchUpdate(Request $request, RosterSection $section)
     {
         $faction = $section->roster->faction;
