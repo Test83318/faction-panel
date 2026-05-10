@@ -27,7 +27,6 @@ interface SectionCardProps {
   onReorderRows?: (sectionId: number, newOrder: any[]) => void;
   globalEditingRowId?: number | null;
   setGlobalEditingRowId?: (id: number | null) => void;
-  globalMaxRowHeight?: number | null;
 }
 
 export const SectionCard: React.FC<SectionCardProps> = ({ 
@@ -50,8 +49,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   onRefresh,
   onReorderRows,
   globalEditingRowId,
-  setGlobalEditingRowId,
-  globalMaxRowHeight
+  setGlobalEditingRowId
 }) => {
   const canEditSection = canModerate || permissions?.add_sections;
   const canAddChildSection = canModerate || permissions?.add_sections;
@@ -80,7 +78,6 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             onReorderRows={onReorderRows}
             globalEditingRowId={globalEditingRowId}
             setGlobalEditingRowId={setGlobalEditingRowId}
-            globalMaxRowHeight={globalMaxRowHeight}
         />
     );
   };
@@ -269,7 +266,6 @@ export const SectionCard: React.FC<SectionCardProps> = ({
                 onReorderRows={(newOrder) => onReorderRows?.(section.id, newOrder)}
                 globalEditingRowId={globalEditingRowId}
                 setGlobalEditingRowId={setGlobalEditingRowId}
-                maxRowHeight={globalMaxRowHeight}
             />
         )}
 
@@ -367,12 +363,11 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           onReorderRows={(newOrder) => onReorderRows?.(section.id, newOrder)}
           globalEditingRowId={globalEditingRowId}
           setGlobalEditingRowId={setGlobalEditingRowId}
-          maxRowHeight={globalMaxRowHeight}
         />
       )}
 
       {/* Sub-sections / Children */}
-      <div className="sections-container w-full divide-y divide-border flex-1">
+      <div className="sections-container w-full divide-y divide-border">
         {section.type === 'content' && (
             <div className="p-4 bg-card/30">
                 <div 
@@ -385,7 +380,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         {section.layout_settings?.rows?.map((row: any, rowIdx: number) => (
           <div 
             key={`row-${rowIdx}`} 
-            className="grid w-full items-stretch divide-x divide-border"
+            className="grid w-full items-start divide-x divide-border"
             style={{ 
               gridTemplateColumns: `repeat(${row.columns || 1}, minmax(0, 1fr))` 
             }}
@@ -401,7 +396,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         {/* Fallback for children not in custom rows */}
         {(section.children?.filter((s: any) => !section.layout_settings?.rows?.some((r: any) => r.section_ids?.includes(s.id))).length ?? 0) > 0 && (
             <div 
-                className="grid w-full items-stretch divide-x divide-border"
+                className="grid w-full items-start divide-x divide-border"
                 style={{ 
                     gridTemplateColumns: `repeat(${section.subsections_per_row || 1}, minmax(0, 1fr))` 
                 }}

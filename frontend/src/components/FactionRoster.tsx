@@ -84,58 +84,6 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [globalEditingRowId, setGlobalEditingRowId] = useState<number | null>(null);
-  const [globalRowHeights, setGlobalRowHeights] = useState<number[]>([]);
-
-  // Unified Row Height Calculation (Index-based)
-  useEffect(() => {
-    if (user?.always_match_row_height) {
-        const updateMaxHeights = () => {
-            const tbodies = document.querySelectorAll('tbody');
-            const indexMaxHeights: number[] = [];
-            
-            tbodies.forEach(tbody => {
-                const rows = tbody.querySelectorAll('.rt-cell-content');
-                // We need to group by row. Usually tr.rt-tr is the row.
-                // Each tr.rt-tr has multiple .rt-cell-content.
-                // Let's iterate over tr.rt-tr instead.
-                const trs = tbody.querySelectorAll('tr.rt-tr');
-                trs.forEach((tr, idx) => {
-                    const cells = tr.querySelectorAll('.rt-cell-content');
-                    let rowMax = 0;
-                    cells.forEach(c => {
-                        const el = c as HTMLElement;
-                        const originalHeight = el.style.height;
-                        el.style.height = 'auto';
-                        const h = el.scrollHeight;
-                        el.style.height = originalHeight;
-                        if (h > rowMax) rowMax = h;
-                    });
-                    
-                    if (rowMax > 0) {
-                        if (!indexMaxHeights[idx] || rowMax > indexMaxHeights[idx]) {
-                            indexMaxHeights[idx] = rowMax;
-                        }
-                    }
-                });
-            });
-
-            if (indexMaxHeights.length > 0) {
-                setGlobalRowHeights(indexMaxHeights);
-            }
-        };
-
-        const timer = setTimeout(updateMaxHeights, 150);
-        const secondTimer = setTimeout(updateMaxHeights, 800);
-        window.addEventListener('resize', updateMaxHeights);
-        return () => {
-            clearTimeout(timer);
-            clearTimeout(secondTimer);
-            window.removeEventListener('resize', updateMaxHeights);
-        };
-    } else {
-        setGlobalRowHeights([]);
-    }
-  }, [rosters, user?.always_match_row_height, editMode, globalEditingRowId]);
 
   // Real-time polling
   useEffect(() => {
@@ -643,9 +591,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         onReorderRows={handleReorderRows}
                         globalEditingRowId={globalEditingRowId}
                         setGlobalEditingRowId={setGlobalEditingRowId}
-                        globalMaxRowHeight={globalRowHeights}
-                        />
-
+                    />
                 ))}
 
                 <div className="sections-container w-full space-y-4">
@@ -681,7 +627,6 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                             onReorderRows={handleReorderRows}
                             globalEditingRowId={globalEditingRowId}
                             setGlobalEditingRowId={setGlobalEditingRowId}
-                            globalMaxRowHeight={globalRowHeights}
                           />
                         );
                       })}
