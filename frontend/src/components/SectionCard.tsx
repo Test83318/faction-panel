@@ -30,6 +30,7 @@ interface SectionCardProps {
   setGlobalEditingRowId?: (id: number | null) => void;
   syncedHeights?: { [key: number]: number };
   onRowHeightSync?: (index: number, height: number, hasCheckbox: boolean) => void;
+  isChild?: boolean;
 }
 
 export const SectionCard: React.FC<SectionCardProps> = ({ 
@@ -54,7 +55,8 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   globalEditingRowId,
   setGlobalEditingRowId,
   syncedHeights,
-  onRowHeightSync
+  onRowHeightSync,
+  isChild = false
 }) => {
   const canEditSection = canModerate || permissions?.add_sections;
   const canAddChildSection = canModerate || permissions?.add_sections;
@@ -85,6 +87,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             setGlobalEditingRowId={setGlobalEditingRowId}
             syncedHeights={syncProps?.syncedHeights}
             onRowHeightSync={syncProps?.onRowHeightSync}
+            isChild={true}
         />
     );
   };
@@ -206,7 +209,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   if (section.type === 'master' || section.type === 'subsection') {
     return (
       <div 
-        className={`${section.type === 'master' ? 'div-leadership' : 'unit-section'} w-full border border-border bg-card group relative`}
+        className={`${section.type === 'master' ? 'div-leadership' : 'unit-section'} w-full border border-border bg-card ${!isChild ? 'mb-2' : ''} group relative`}
         style={{ 
           '--accent': effectiveColor,
           '--accent-rgb': effectiveColor.startsWith('#') ? hexToRgb(effectiveColor) : undefined
@@ -290,7 +293,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
 
   return (
     <div 
-      className="bureau-card border border-border rounded-lg bg-card shadow-[var(--sh)] flex flex-col group relative"
+      className={`bureau-card border border-border rounded-lg bg-card shadow-[var(--sh)] flex flex-col ${!isChild ? 'mb-2' : ''} group relative`}
       style={{ 
         '--accent': effectiveColor,
         '--accent-rgb': effectiveColor.startsWith('#') ? hexToRgb(effectiveColor) : undefined
