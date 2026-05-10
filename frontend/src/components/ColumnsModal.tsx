@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Trash2, GripVertical, Settings2, Check, X, Database, Flag, ShieldAlert } from 'lucide-react';
 import { Reorder } from 'motion/react';
 import api from '../api';
