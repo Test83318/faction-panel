@@ -122,21 +122,21 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
   
   const [newRoster, setNewRoster] = useState({ id: null as number | null, name: '', shortname: '', color: '#3b82f6' });
   
-  const [sectionData, setSectionData] = useState({ 
+  const [sectionData, setSectionData] = useState({
     id: null as number | null,
     roster_id: null as number | null,
-    name: '', 
-    shortname: '', 
-    color: '', 
+    name: '',
+    shortname: '',
+    color: '',
     type: 'section' as 'master' | 'section' | 'subsection',
     parent_id: null as number | null,
     columns: null as any[] | null,
+    use_roster_columns: true,
     children: [] as any[],
     layout_settings: null as any,
     subsections_per_row: 1,
     content_html: '' as string | null
   });
-
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -208,6 +208,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         type: 'section', 
         parent_id: null, 
         columns: null, 
+        use_roster_columns: true,
         children: [], 
         layout_settings: null, 
         subsections_per_row: 1,
@@ -310,6 +311,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         type: 'section',
         parent_id: parentId,
         columns: null,
+        use_roster_columns: true,
         children: [],
         layout_settings: null,
         subsections_per_row: 1,
@@ -328,6 +330,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         type: section.type,
         parent_id: section.parent_id,
         columns: section.columns,
+        use_roster_columns: section.use_roster_columns !== undefined ? !!section.use_roster_columns : true,
         children: Array.isArray(section.children) ? section.children : [],
         layout_settings: section.layout_settings,
         subsections_per_row: section.subsections_per_row || 1,
@@ -515,7 +518,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                             {canAddSections && (
                                 <button 
                                     onClick={() => {
-                                        setSectionData({ id: null, roster_id: activeDivId, name: '', shortname: '', color: '', type: 'section', parent_id: null, columns: null, children: [], layout_settings: null, subsections_per_row: 1, content_html: '' });
+                                        setSectionData({ id: null, roster_id: activeDivId, name: '', shortname: '', color: '', type: 'section', parent_id: null, columns: null, use_roster_columns: true, children: [], layout_settings: null, subsections_per_row: 1, content_html: '' });
                                         setShowSectionModal(true);
                                     }}
                                     className="px-2 py-1 hover:bg-surface rounded text-muted hover:text-accent transition-colors flex items-center gap-1"

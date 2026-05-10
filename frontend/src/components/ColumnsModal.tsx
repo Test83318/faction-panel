@@ -5,7 +5,7 @@ import api from '../api';
 import { Roster } from '../types';
 
 interface ColumnsModalProps {
-  target: { id: number; name: string; columns?: any[] };
+  target: { id: number; name: string; columns?: any[]; use_roster_columns?: boolean | number };
   parentColumns?: any[];
   type: 'roster' | 'section';
   shortname: string;
@@ -24,7 +24,10 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
   const [recordDatabases, setRecordDatabases] = useState<any[]>([]);
   const [flags, setFlags] = useState<any[]>([]);
   const [allRosters, setAllRosters] = useState<any[]>([]);
-  const [useRosterColumns, setUseRosterColumns] = useState<boolean>(target.use_roster_columns !== undefined ? target.use_roster_columns : true);
+  const [useRosterColumns, setUseRosterColumns] = useState<boolean>(() => {
+    if (type === 'roster') return false;
+    return target.use_roster_columns === undefined ? true : !!target.use_roster_columns;
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [configuringFlag, setConfiguringFlag] = useState<{ colIdx: number, flag: any } | null>(null);
