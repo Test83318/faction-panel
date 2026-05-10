@@ -23,6 +23,7 @@ export interface RosterColumn {
 }
 
 interface RosterTableProps {
+  sectionId: number;
   contents: RosterContent[];
   allContents?: RosterContent[];
   user?: any;
@@ -39,9 +40,11 @@ interface RosterTableProps {
   onDeleteRow?: (id: number) => void;
   onBulkDeleteRow?: (ids: number[]) => void;
   onAddRow?: () => void;
+  onRefresh?: () => void;
 }
 
 export const RosterTable: React.FC<RosterTableProps> = ({ 
+  sectionId,
   contents, 
   allContents,
   user,
@@ -57,7 +60,8 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   onUpdateRow,
   onDeleteRow,
   onBulkDeleteRow,
-  onAddRow
+  onAddRow,
+  onRefresh
 }) => {  const { shortname } = useParams();
   const canEditDefined = canModerate || permissions?.edit_defined_fields;
   const canEditPredefined = canModerate || permissions?.edit_predefined;
@@ -73,7 +77,72 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   const [rowCountToAdd, setRowCountToAdd] = useState(1);
   const [activeTagMenu, setActiveTagMenu] = useState<{ rowId: number, colId: string } | null>(null);
   const [showColorPicker, setShowColorPicker] = useState<number | null>(null);
+  const [showBulkColorPicker, setShowBulkColorPicker] = useState(false);
+  const [pickerPosition, setPickerPosition] = useState<'top' | 'bottom'>('top');
+  const [menuCoords, setMenuCoords] = useState({ top: 0, left: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenColorPicker = (e: React.MouseEvent, rowId: number) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const isTop = spaceBelow < 250;
+    
+    setPickerPosition(isTop ? 'top' : 'bottom');
+    setMenuCoords({
+        top: isTop ? rect.top : rect.bottom,
+        left: rect.right
+    });
+    setShowColorPicker(showColorPicker === rowId ? null : rowId);
+    setShowBulkColorPicker(false);
+  };
+
+  const handleOpenBulkColorPicker = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const isTop = spaceBelow < 250;
+
+    setPickerPosition(isTop ? 'top' : 'bottom');
+    setMenuCoords({
+        top: isTop ? rect.top : rect.bottom,
+        left: rect.left
+    });
+    setShowBulkColorPicker(!showBulkColorPicker);
+    setShowColorPicker(null);
+  };
+
+  useEffect(() => {
+    const handleGlobalClick = () => {
+        setShowBulkColorPicker(false);
+        setShowColorPicker(null);
+    };
+    if (showBulkColorPicker || showColorPicker) {
+        window.addEventListener('click', handleGlobalClick);
+    }
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, [showBulkColorPicker, showColorPicker]);
+
+  const handleBulkColorUpdate = async (color: string | null) => {
+    if (selectedRowIds.length === 0) return;
+    
+    const loadToast = toast.loading(`Applying color to ${selectedRowIds.length} rows...`);
+    try {
+        const updates = selectedRowIds.map(id => ({
+            id,
+            color
+        }));
+        
+        await api.put(`/sections/${sectionId}/contents/batch`, { contents: updates });
+        toast.success('Bulk color applied', { id: loadToast });
+        setSelectedRowIds([]);
+        setShowBulkColorPicker(false);
+        onRefresh?.();
+    } catch (err) {
+        toast.error('Failed to apply bulk color', { id: loadToast });
+    }
+  };
 
   const defaultRowColors = [
     { name: 'None', value: null },
@@ -132,14 +201,18 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                     pool = contents;
                 }
 
-                const excludedIds = (flag.excluded_roster_ids || []).map((id: any) => Number(id));
+                const excludedRosterIds = (flag.excluded_roster_ids || []).map((id: any) => Number(id));
+                const excludedSectionIds = (col.flag_settings?.[flag.id]?.excluded_section_ids || []).map((id: any) => Number(id));
 
                 return pool.some(c => {
                     // Use loose equality for IDs to avoid flagging yourself
                     if (Number(c.id) === Number(row.id)) return false;
                     
                     // Skip if from an excluded roster
-                    if (c.roster_id && excludedIds.includes(Number(c.roster_id))) return false;
+                    if (c.roster_id && excludedRosterIds.includes(Number(c.roster_id))) return false;
+
+                    // Skip if from an excluded section
+                    if (c.section_id && excludedSectionIds.includes(Number(c.section_id))) return false;
 
                     const targetContent = c.content || {};
 
@@ -927,9 +1000,8 @@ export const RosterTable: React.FC<RosterTableProps> = ({
           {contents.map((row, idx) => {
             const isEditing = editingRowId === row.id;
             const effectiveRowColor = isEditing ? rowColor : row.color;
-            const rowStyle: React.CSSProperties = {
-                zIndex: isEditing ? 5000 : 0,
-                backgroundColor: effectiveRowColor ? `${effectiveRowColor}15` : undefined
+            const cellStyle: React.CSSProperties = {
+                backgroundColor: effectiveRowColor ? `${effectiveRowColor}33` : undefined
             };
 
             return (
@@ -937,11 +1009,13 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 key={row.id} 
                 className={`rt-tr group/row ${isEditing ? 'bg-accent/5 z-[5000] relative' : ''} ${selectedRowIds.includes(row.id) ? 'bg-accent/5' : ''}`}
                 onBlur={(e) => handleRowBlur(e, row.id)}
-                style={rowStyle}
               >
                 <td 
                   className="rt-td text-muted opacity-50 relative cursor-default" 
-                  style={{ borderLeft: `3px solid ${effectiveRowColor || accentColor}` }}
+                  style={{ 
+                    borderLeft: `3px solid ${effectiveRowColor || accentColor}`,
+                    ...cellStyle
+                  }}
                   onClick={() => editMode && toggleSelectRow(row.id)}
                 >
                   {editMode ? (
@@ -964,21 +1038,20 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                   <td 
                       key={col.id} 
                       className={`rt-td p-0 h-[34px] relative hover:z-[100] transition-colors ${isEditing && editingColId === col.id ? 'bg-accent/5 ring-1 ring-inset ring-accent/30 z-[5001]' : 'hover:bg-surface/50'}`}
-                      style={{ zIndex: isEditing && editingColId === col.id ? 5001 : 0 }}
+                      style={{ 
+                        zIndex: isEditing && editingColId === col.id ? 5001 : 0,
+                        ...cellStyle
+                      }}
                       onClick={() => !isEditing && isColEditable(col) && handleStartEdit(row, col.id)}
-                >
-                  {renderCell(row, col)}
-                </td>
-              ))}
-              <td className="rt-td p-0">
-                <div className="flex items-center justify-center gap-1">
+                  >
+                    {renderCell(row, col)}
+                  </td>
+                ))}
+                <td className="rt-td p-0" style={cellStyle}>                <div className="flex items-center justify-center gap-1">
                   {isEditing ? (
                     <div className="flex flex-col items-center gap-1 relative">
                         <button 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setShowColorPicker(showColorPicker === row.id ? null : row.id);
-                            }}
+                            onClick={e => handleOpenColorPicker(e, row.id)}
                             className="p-1 hover:bg-surface rounded transition-colors text-muted hover:text-accent"
                             title="Row Color"
                         >
@@ -986,7 +1059,14 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                         </button>
                         
                         {showColorPicker === row.id && (
-                            <div className="absolute bottom-full right-0 mb-2 bg-card border border-border rounded-xl shadow-2xl p-3 z-[6000] min-w-[180px] animate-in fade-in slide-in-from-bottom-2">
+                            <div 
+                                className={`fixed bg-card border border-border rounded-xl shadow-2xl p-3 z-[10000] min-w-[180px] animate-in fade-in slide-in-from-${pickerPosition === 'top' ? 'bottom' : 'top'}-2`}
+                                style={{
+                                    top: menuCoords.top,
+                                    left: menuCoords.left,
+                                    transform: `translateX(-100%) ${pickerPosition === 'top' ? 'translateY(-100%) translateY(-10px)' : 'translateY(10px)'}`
+                                }}
+                            >
                                 <div className="text-[8px] font-black uppercase text-muted mb-2 tracking-widest border-b border-border/50 pb-1">Row Color</div>
                                 <div className="grid grid-cols-4 gap-1.5 mb-3">
                                     {defaultRowColors.map(c => (
@@ -1043,15 +1123,57 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 colSpan={activeCols.length + 2} 
                 className="rt-td p-2 h-auto"
               >
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center justify-between gap-4 relative">
                     <div className="flex items-center gap-2">
                         {selectedRowIds.length > 0 && (
-                            <button 
-                                onClick={handleBulkDelete}
-                                className="flex items-center gap-2 px-3 py-1 bg-danger/10 hover:bg-danger/20 text-danger text-[9px] font-black uppercase tracking-widest rounded-lg transition-all border border-danger/20"
-                            >
-                                <Trash2 size={12} /> Delete Selected ({selectedRowIds.length})
-                            </button>
+                            <div className="flex items-center gap-2 relative">
+                                <div className="relative">
+                                    <button 
+                                        onClick={handleOpenBulkColorPicker}
+                                        className="flex items-center gap-2 px-3 py-1 bg-accent/10 hover:bg-accent/20 text-accent text-[9px] font-black uppercase tracking-widest rounded-lg transition-all border border-accent/20"
+                                        title="Apply color to all selected rows"
+                                    >
+                                        <div className="w-2.5 h-2.5 rounded-full border border-accent/30 bg-accent/50" />
+                                        Bulk Color
+                                    </button>
+
+                                    {showBulkColorPicker && (
+                                        <div 
+                                            className={`fixed bg-card border border-border rounded-xl shadow-2xl p-4 z-[10000] min-w-[200px] animate-in fade-in slide-in-from-${pickerPosition === 'top' ? 'bottom' : 'top'}-2`}
+                                            style={{
+                                                top: menuCoords.top,
+                                                left: menuCoords.left,
+                                                transform: `${pickerPosition === 'top' ? 'translateY(-100%) translateY(-10px)' : 'translateY(10px)'}`
+                                            }}
+                                        >
+                                            <div className="text-[10px] font-black uppercase text-muted mb-3 tracking-widest border-b border-border/50 pb-2">Apply Bulk Color</div>
+                                            <div className="grid grid-cols-4 gap-2 mb-4">
+                                                {defaultRowColors.map(c => (
+                                                    <button 
+                                                        key={c.name}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleBulkColorUpdate(c.value);
+                                                        }}
+                                                        className="w-full aspect-square rounded-lg border border-border hover:border-accent transition-all hover:scale-105"
+                                                        style={{ backgroundColor: c.value || 'transparent' }}
+                                                        title={c.name}
+                                                    />
+                                                ))}
+                                            </div>
+                                            <p className="text-[8px] text-muted font-bold uppercase tracking-widest text-center">
+                                                Applying to <span className="text-accent">{selectedRowIds.length}</span> rows
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                                <button 
+                                    onClick={handleBulkDelete}
+                                    className="flex items-center gap-2 px-3 py-1 bg-danger/10 hover:bg-danger/20 text-danger text-[9px] font-black uppercase tracking-widest rounded-lg transition-all border border-danger/20"
+                                >
+                                    <Trash2 size={12} /> Delete Selected ({selectedRowIds.length})
+                                </button>
+                            </div>
                         )}
                     </div>
                     

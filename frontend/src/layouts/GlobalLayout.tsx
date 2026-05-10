@@ -5,17 +5,21 @@ import { Header } from '../components/Header';
 interface GlobalLayoutProps {
     isDark: boolean;
     toggleTheme: () => void;
+    highContrast: boolean;
+    toggleContrast: () => void;
     user: any;
     onLogout: () => void;
     pageName?: string;
 }
 
-const GlobalLayout: React.FC<GlobalLayoutProps> = ({ isDark, toggleTheme, user, onLogout, pageName = "Faction Panel" }) => {
+const GlobalLayout: React.FC<GlobalLayoutProps> = ({ isDark, toggleTheme, highContrast, toggleContrast, user, onLogout, pageName = "Faction Panel" }) => {
     return (
         <div className="min-h-screen bg-bg text-text transition-colors duration-200 flex flex-col">
             <Header 
                 isDark={isDark} 
                 toggleTheme={toggleTheme} 
+                highContrast={highContrast}
+                toggleContrast={toggleContrast}
                 user={user} 
                 onLogout={onLogout} 
                 factionName={pageName}

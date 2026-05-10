@@ -31,7 +31,7 @@ import { ConfirmationProvider } from './components/ConfirmationProvider';
 import { ShieldAlert } from 'lucide-react';
 import { hexToRgb } from './utils';
 
-const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, siteVersion }: any) => {
+const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, toggleContrast, siteVersion }: any) => {
   const { shortname } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -159,6 +159,8 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, siteVersion }: 
     <FactionLayout 
       isDark={isDark}
       toggleTheme={toggleTheme}
+      highContrast={highContrast}
+      toggleContrast={toggleContrast}
       user={user}
       onLogout={onLogout}
       factionData={factionData}
@@ -173,6 +175,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, siteVersion }: 
       <Routes>
         <Route path="roster" element={
           <FactionRoster 
+            isDark={isDark}
             activeDivision={activeDivision} 
             totalMembers={totalMembers} 
             rosters={rosters} 
@@ -273,17 +276,24 @@ const TitleUpdater = ({ user }: { user: any }) => {
 };
 
 export default function App() {
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('bp-rosters-theme') === 'dark');
+  const [highContrast, setHighContrast] = useState(() => localStorage.getItem('roster-contrast') === 'true');
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [siteVersion, setSiteVersion] = useState('1.0.0');
 
   useEffect(() => {
-    const saved = localStorage.getItem('bp-rosters-theme');
-    if (saved === 'dark') {
-      setIsDark(true);
-      document.documentElement.setAttribute('data-theme', 'dark');
+    const theme = isDark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    
+    if (isDark && highContrast) {
+        document.documentElement.setAttribute('data-contrast', 'high');
+    } else {
+        document.documentElement.removeAttribute('data-contrast');
     }
+  }, [isDark, highContrast]);
+
+  useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('access_token');
       if (token) {
@@ -326,12 +336,31 @@ export default function App() {
   };
 
   const toggleTheme = () => {
-    const next = !isDark;
-    setIsDark(next);
-    const theme = next ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('bp-rosters-theme', theme);
+    setIsDark(prev => {
+        const next = !prev;
+        localStorage.setItem('bp-rosters-theme', next ? 'dark' : 'light');
+        return next;
+    });
   };
+
+  const toggleContrast = () => {
+    setHighContrast(prev => {
+        const next = !prev;
+        localStorage.setItem('roster-contrast', next.toString());
+        return next;
+    });
+  };
+
+  useEffect(() => {
+    const theme = isDark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    
+    if (isDark && highContrast) {
+        document.documentElement.setAttribute('data-contrast', 'high');
+    } else {
+        document.documentElement.removeAttribute('data-contrast');
+    }
+  }, [isDark, highContrast]);
 
   if (loading) return <Loading message="Authenticating..." />;
 
@@ -363,7 +392,7 @@ export default function App() {
           {/* Unauthenticated Landing Page (No Header) */}
           {!user && <Route path="/" element={<Home onLogin={handleLogin} isDark={isDark} toggleTheme={toggleTheme} siteVersion={siteVersion} />} />}
 
-          <Route element={<GlobalLayout isDark={isDark} toggleTheme={toggleTheme} user={user} onLogout={handleLogout} />}>
+          <Route element={<GlobalLayout isDark={isDark} toggleTheme={toggleTheme} highContrast={highContrast} toggleContrast={toggleContrast} user={user} onLogout={handleLogout} />}>
              {/* Authenticated Root (Faction Selection) */}
              {user && <Route path="/" element={<FactionManager />} />}
              
@@ -378,7 +407,7 @@ export default function App() {
           </Route>
 
           <Route path="/:shortname/*" element={
-            <DashboardWrapper user={user} onLogout={handleLogout} isDark={isDark} toggleTheme={toggleTheme} siteVersion={siteVersion} />
+            <DashboardWrapper user={user} onLogout={handleLogout} isDark={isDark} toggleTheme={toggleTheme} highContrast={highContrast} toggleContrast={toggleContrast} siteVersion={siteVersion} />
           } />
         </Routes>
       </ConfirmationProvider>

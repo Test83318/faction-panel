@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Shield, Moon, Sun, LogOut, User, LogIn, ChevronDown, Settings, LayoutGrid, ShieldAlert, HelpCircle } from 'lucide-react';
+import { Shield, Moon, Sun, LogOut, User, LogIn, ChevronDown, Settings, LayoutGrid, ShieldAlert, HelpCircle, Contrast } from 'lucide-react';
 import QuickSearch from './QuickSearch';
 
 interface HeaderProps {
   isDark: boolean;
   toggleTheme: () => void;
+  highContrast: boolean;
+  toggleContrast: () => void;
   factionName: string;
   bannerLogoDark?: string | null;
   bannerLogoLight?: string | null;
@@ -30,7 +32,20 @@ interface HeaderProps {
   onLogout: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName, bannerLogoDark, bannerLogoLight, branding, user, userRole, permissions, onLogout }) => {
+export const Header: React.FC<HeaderProps> = ({ 
+    isDark, 
+    toggleTheme, 
+    highContrast,
+    toggleContrast,
+    factionName, 
+    bannerLogoDark, 
+    bannerLogoLight, 
+    branding, 
+    user, 
+    userRole, 
+    permissions, 
+    onLogout 
+}) => {
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -238,6 +253,15 @@ export const Header: React.FC<HeaderProps> = ({ isDark, toggleTheme, factionName
       )}
 
       <div className="flex items-center gap-1.5 border-l border-border pl-4 mr-2">
+        {isDark && (
+            <button 
+                onClick={toggleContrast}
+                className={`w-[28px] h-[28px] flex items-center justify-center rounded-lg transition-all border ${highContrast ? 'bg-accent/10 border-accent/40 text-accent' : 'bg-border/30 border-transparent text-muted hover:text-text hover:bg-border/50'}`}
+                title="High Contrast Mode"
+            >
+                <Contrast size={14} />
+            </button>
+        )}
         <span className="text-[10px] text-muted hidden sm:block">Dark</span>
         <button 
           onClick={toggleTheme}

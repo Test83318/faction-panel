@@ -77,6 +77,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             )}
           </div>
           <RosterTable 
+            sectionId={child.id}
             contents={child.contents || []} 
             allContents={allContents}
             user={user}
@@ -157,7 +158,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   const handleUpdateRow = async (id: number, data: any, force = false, lastUpdatedAt?: string | null) => {
     try {
       await api.put(`/contents/${id}`, { 
-        content: data,
+        ...data,
         force,
         last_updated_at: lastUpdatedAt
       });
@@ -301,6 +302,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           </div>
         </div>
         <RosterTable 
+          sectionId={section.id}
           contents={section.contents || []} 
           allContents={allContents}
           user={user}
@@ -317,6 +319,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           onUpdateRow={handleUpdateRow}
           onDeleteRow={handleDeleteRow}
           onBulkDeleteRow={handleBulkDeleteRows}
+          onRefresh={onRefresh}
         />
       </div>
     );
@@ -431,6 +434,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
       {/* If it's a root section but has no children */}
       {(!section.children || section.children.length === 0) && section.type !== 'content' && (
         <RosterTable 
+          sectionId={section.id}
           contents={section.contents || []} 
           allContents={allContents}
           user={user}
@@ -446,6 +450,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           onUpdateRow={handleUpdateRow}
           onDeleteRow={handleDeleteRow}
           onBulkDeleteRow={handleBulkDeleteRows}
+          onRefresh={onRefresh}
         />
       )}
     </div>

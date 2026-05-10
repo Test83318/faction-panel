@@ -3,7 +3,7 @@ import { motion, AnimatePresence, Reorder } from 'motion/react';
 import toast from 'react-hot-toast';
 import api from '../api';
 import { Roster as RosterType } from '../types';
-import { Plus, Pencil, MoreVertical, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Database, Menu, Flag, FileCode2, Calculator } from 'lucide-react';
+import { Plus, Pencil, MoreVertical, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Database, Menu, Flag, FileCode2, Calculator, Minus } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 import RosterLayoutModal from './RosterLayoutModal';
 import SectionLayoutModal from './SectionLayoutModal';
@@ -17,6 +17,7 @@ import { hexToRgb } from '../utils';
 
 interface FactionRosterProps {
     user: any;
+    isDark: boolean;
     activeDivision: any;
     totalMembers: number;
     rosters: any[];
@@ -34,6 +35,7 @@ interface FactionRosterProps {
 
 const FactionRoster: React.FC<FactionRosterProps> = ({ 
     user,
+    isDark,
     activeDivision, 
     totalMembers, 
     rosters, 
@@ -56,6 +58,16 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
   const rosterPerms = activeDivision?.user_roster_permissions || {};
   const canModerate = isGlobalMod || rosterPerms.modify_roster || rosterPerms.add_sections || rosterPerms.remove_sections || rosterPerms.manage_columns || rosterPerms.manage_layout;
   const canAddSections = isGlobalMod || rosterPerms.add_sections;
+
+  const [scaling, setScaling] = useState(() => {
+    const saved = localStorage.getItem('roster-scaling');
+    const val = saved ? parseInt(saved) : 100;
+    return Math.min(130, Math.max(100, val));
+  });
+
+  useEffect(() => {
+    localStorage.setItem('roster-scaling', scaling.toString());
+  }, [scaling]);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSectionModal, setShowSectionModal] = useState(false);
@@ -406,7 +418,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
             '--accent-rgb': activeDivision?.color?.startsWith('#') ? hexToRgb(activeDivision.color) : undefined
         } as React.CSSProperties}
     >
-      <main className="main flex-1 overflow-auto p-5 pb-16">
+      <main className="main flex-1 overflow-auto p-5 pb-16" style={{ zoom: scaling / 100 }}>
         <AnimatePresence mode="wait">
           <motion.div 
             key={activeDivId}
@@ -642,6 +654,29 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {/* Compact Accessibility Controls - OUTSIDE main scaled container */}
+      <div className="fixed bottom-12 right-6 z-[300] flex items-center gap-2">
+          <div className="flex items-center bg-card border border-border rounded-lg shadow-xl overflow-hidden h-9">
+              <button 
+                  onClick={() => setScaling(Math.max(100, scaling - 5))}
+                  className="w-9 h-full flex items-center justify-center hover:bg-surface text-muted hover:text-accent transition-colors border-r border-border active:scale-95"
+                  title="Zoom Out"
+              >
+                  <Minus size={14} />
+              </button>
+              <div className="w-12 h-full flex items-center justify-center font-black text-[10px] text-text tabular-nums select-none bg-surface/30">
+                  {scaling}%
+              </div>
+              <button 
+                  onClick={() => setScaling(Math.min(130, scaling + 5))}
+                  className="w-9 h-full flex items-center justify-center hover:bg-surface text-muted hover:text-accent transition-colors border-l border-border active:scale-95"
+                  title="Zoom In"
+              >
+                  <Plus size={14} />
+              </button>
+          </div>
+      </div>
 
       <div className="tabs-bar bg-card border-t border-border flex items-center px-2.5 h-[var(--tab-h)] sticky bottom-0 z-[210]">
         <Reorder.Group 

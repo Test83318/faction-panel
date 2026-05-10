@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, GripVertical, Settings2, Check, X, Database, Flag } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Settings2, Check, X, Database, Flag, ShieldAlert } from 'lucide-react';
 import { Reorder } from 'motion/react';
 import api from '../api';
 import { Roster } from '../types';
@@ -23,27 +23,45 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
   const [datasets, setDatasets] = useState<any[]>([]);
   const [recordDatabases, setRecordDatabases] = useState<any[]>([]);
   const [flags, setFlags] = useState<any[]>([]);
+  const [allRosters, setAllRosters] = useState<any[]>([]);
   const [useRosterColumns, setUseRosterColumns] = useState<boolean>(target.use_roster_columns !== undefined ? target.use_roster_columns : true);
   const [isSaving, setIsSaving] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [configuringFlag, setConfiguringFlag] = useState<{ colIdx: number, flag: any } | null>(null);
 
   useEffect(() => {
     const fetchDatasetsAndFlags = async () => {
         try {
-            const [datasetsRes, flagsRes, recordsRes] = await Promise.all([
+            const [datasetsRes, flagsRes, recordsRes, factionRes] = await Promise.all([
                 api.get(`/factions/${shortname}/datasets`),
                 api.get(`/factions/${shortname}/flags`),
-                api.get(`/factions/${shortname}/records`)
+                api.get(`/factions/${shortname}/records`),
+                api.get(`/factions/${shortname}`)
             ]);
             setDatasets(datasetsRes.data);
             setFlags(flagsRes.data);
             setRecordDatabases(recordsRes.data.filter((db: any) => db.is_published));
+            setAllRosters(factionRes.data.rosters || []);
         } catch (err) {
             console.error('Failed to fetch data', err);
         }
     };
     fetchDatasetsAndFlags();
   }, [shortname]);
+
+  const allSections = useMemo(() => {
+    const sections: any[] = [];
+    const processSection = (s: any, rosterName: string) => {
+        sections.push({ id: s.id, name: s.name, rosterName });
+        if (s.children) {
+            s.children.forEach((child: any) => processSection(child, rosterName));
+        }
+    };
+    allRosters.forEach(r => {
+        (r.root_sections || []).forEach((s: any) => processSection(s, r.name));
+    });
+    return sections;
+  }, [allRosters]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -642,22 +660,34 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                       <div className="grid grid-cols-2 gap-2">
                         {flags.map(f => {
                           const isEnabled = (col.flags || []).includes(f.id);
+                          const hasSettings = !!col.flag_settings?.[f.id];
+
                           return (
-                            <button 
-                              key={f.id}
-                              onClick={() => {
-                                const newFlags = isEnabled 
-                                  ? (col.flags || []).filter((id: number) => id !== f.id)
-                                  : [...(col.flags || []), f.id];
-                                updateColumn(index, 'flags', newFlags);
-                              }}
-                              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] font-bold uppercase transition-all ${isEnabled ? 'bg-accent/10 border-accent text-accent' : 'bg-surface border-border text-muted hover:border-accent/30'}`}
-                            >
-                                <div className={`w-3 h-3 rounded flex items-center justify-center border ${isEnabled ? 'bg-accent border-accent text-white' : 'bg-card border-border'}`}>
-                                    {isEnabled && <Check size={8} />}
-                                </div>
-                                {f.name}
-                            </button>
+                            <div key={f.id} className="flex gap-1">
+                                <button 
+                                  onClick={() => {
+                                    const newFlags = isEnabled 
+                                      ? (col.flags || []).filter((id: number) => id !== f.id)
+                                      : [...(col.flags || []), f.id];
+                                    updateColumn(index, 'flags', newFlags);
+                                  }}
+                                  className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] font-bold uppercase transition-all ${isEnabled ? 'bg-accent/10 border-accent text-accent' : 'bg-surface border-border text-muted hover:border-accent/30'}`}
+                                >
+                                    <div className={`w-3 h-3 rounded flex items-center justify-center border ${isEnabled ? 'bg-accent border-accent text-white' : 'bg-card border-border'}`}>
+                                        {isEnabled && <Check size={8} />}
+                                    </div>
+                                    <span className="truncate">{f.name}</span>
+                                </button>
+                                {isEnabled && (
+                                    <button 
+                                        onClick={() => setConfiguringFlag({ colIdx: index, flag: f })}
+                                        className={`px-2 rounded-xl border transition-all ${hasSettings ? 'bg-accent text-white border-accent' : 'bg-surface border-border text-muted hover:text-accent hover:border-accent/30'}`}
+                                        title="Configure Flag Exclusions"
+                                    >
+                                        <Settings2 size={14} />
+                                    </button>
+                                )}
+                            </div>
                           );
                         })}
                         {flags.length === 0 && (
@@ -709,6 +739,91 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
           </button>
         </div>
       </div>
+
+      {configuringFlag && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4 z-[800]">
+              <div className="bg-card w-full max-w-lg rounded-2xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+                  <div className="p-6 border-b border-border bg-surface/30 flex justify-between items-center">
+                      <div>
+                          <h3 className="text-lg font-black uppercase tracking-tight italic flex items-center gap-2">
+                            <Settings2 className="text-accent" size={20} />
+                            Flag Settings: {configuringFlag.flag.name}
+                          </h3>
+                          <p className="text-[10px] text-muted font-bold uppercase tracking-widest mt-1">Configure exclusions for this flag on {columns[configuringFlag.colIdx].name}</p>
+                      </div>
+                      <button onClick={() => setConfiguringFlag(null)} className="p-2 hover:bg-surface rounded-full transition-colors">
+                          <X size={20} className="text-muted" />
+                      </button>
+                  </div>
+
+                  <div className="p-6 flex-1 overflow-y-auto space-y-6">
+                      <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-accent flex items-center gap-2">
+                                <ShieldAlert size={14} /> Exempt Sections
+                            </label>
+                            <span className="text-[9px] font-bold text-muted uppercase">Global Check Exclusion</span>
+                          </div>
+                          <p className="text-[11px] text-muted font-bold uppercase tracking-tight leading-relaxed italic">
+                              Personnel in the selected sections will be completely ignored when evaluating this flag's rules (e.g. duplicate checks).
+                          </p>
+                          
+                          <div className="space-y-4 pt-2">
+                              {allRosters.map(roster => {
+                                  const rosterSections = allSections.filter(s => s.rosterName === roster.name);
+                                  if (rosterSections.length === 0) return null;
+
+                                  return (
+                                      <div key={roster.id} className="space-y-2">
+                                          <div className="flex items-center gap-2 border-b border-border/50 pb-1">
+                                              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: roster.color }} />
+                                              <span className="text-[10px] font-black uppercase tracking-widest text-text/80">{roster.name}</span>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-2">
+                                              {rosterSections.map(section => {
+                                                  const currentSettings = columns[configuringFlag.colIdx].flag_settings?.[configuringFlag.flag.id] || { excluded_section_ids: [] };
+                                                  const isExcluded = (currentSettings.excluded_section_ids || []).includes(section.id);
+                                                  
+                                                  return (
+                                                      <button 
+                                                          key={section.id}
+                                                          onClick={() => {
+                                                              const nextExclusions = isExcluded 
+                                                                ? currentSettings.excluded_section_ids.filter((id: number) => id !== section.id)
+                                                                : [...(currentSettings.excluded_section_ids || []), section.id];
+                                                              
+                                                              const newSettings = {
+                                                                  ...columns[configuringFlag.colIdx].flag_settings,
+                                                                  [configuringFlag.flag.id]: { ...currentSettings, excluded_section_ids: nextExclusions }
+                                                              };
+                                                              updateColumn(configuringFlag.colIdx, 'flag_settings', newSettings);
+                                                          }}
+                                                          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-[9px] font-bold uppercase transition-all ${isExcluded ? 'bg-danger/10 border-danger/30 text-danger' : 'bg-surface border-border text-muted hover:border-accent/30'}`}
+                                                      >
+                                                          <span className="truncate">{section.name}</span>
+                                                          {isExcluded && <Check size={10} className="ml-auto" />}
+                                                      </button>
+                                                  );
+                                              })}
+                                          </div>
+                                      </div>
+                                  );
+                              })}
+                          </div>
+                      </div>
+                  </div>
+
+                  <div className="p-4 border-t border-border bg-surface/30 flex justify-end">
+                      <button 
+                        onClick={() => setConfiguringFlag(null)}
+                        className="px-6 py-2 bg-accent text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg shadow-accent/20"
+                      >
+                          Apply Configuration
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

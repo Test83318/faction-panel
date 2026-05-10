@@ -5,6 +5,8 @@ import { Sidebar } from '../components/Sidebar';
 interface FactionLayoutProps {
     isDark: boolean;
     toggleTheme: () => void;
+    highContrast: boolean;
+    toggleContrast: () => void;
     user: any;
     onLogout: () => void;
     factionData: any;
@@ -21,6 +23,8 @@ interface FactionLayoutProps {
 const FactionLayout: React.FC<FactionLayoutProps> = ({ 
     isDark, 
     toggleTheme, 
+    highContrast,
+    toggleContrast,
     user, 
     onLogout, 
     factionData,
@@ -38,6 +42,8 @@ const FactionLayout: React.FC<FactionLayoutProps> = ({
             <Header 
                 isDark={isDark} 
                 toggleTheme={toggleTheme} 
+                highContrast={highContrast}
+                toggleContrast={toggleContrast}
                 factionName={factionData.name} 
                 bannerLogoDark={factionData.header_image_dark}
                 bannerLogoLight={factionData.header_image_light}

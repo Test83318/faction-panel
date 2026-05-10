@@ -47,6 +47,7 @@ export interface RosterContent {
   section_id: number;
   order: number;
   type: 'predefined' | 'defined';
+  color?: string | null;
   content: any;
   updated_at?: string;
   editing_by?: number | null;
@@ -69,6 +70,7 @@ export interface RosterSection {
   parent_id?: number | null;
   section_options?: any;
   columns?: RosterColumn[] | null;
+  use_roster_columns?: boolean;
   layout_settings?: any;
   subsections_per_row?: number;
   content_html?: string | null;
