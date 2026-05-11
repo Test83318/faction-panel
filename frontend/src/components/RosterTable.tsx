@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { RosterContent, RosterColumn } from '../types';
 import { motion, Reorder } from 'motion/react';
@@ -7,6 +7,51 @@ import * as LucideIcons from 'lucide-react';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { hexToRgb } from '../utils';
+
+const CellScaler: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className }) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const [scale, setScale] = useState(1);
+
+    const updateScale = useCallback(() => {
+        if (!containerRef.current || !contentRef.current) return;
+        const containerWidth = containerRef.current.offsetWidth - 2; 
+        const contentWidth = contentRef.current.scrollWidth;
+
+        if (contentWidth > containerWidth && containerWidth > 0) {
+            setScale(containerWidth / contentWidth);
+        } else {
+            setScale(1);
+        }
+    }, []);
+
+    useLayoutEffect(() => {
+        updateScale();
+    }, [children, updateScale]);
+
+    useEffect(() => {
+        const observer = new ResizeObserver(updateScale);
+        if (containerRef.current) observer.observe(containerRef.current);
+        if (contentRef.current) observer.observe(contentRef.current);
+        return () => observer.disconnect();
+    }, [updateScale]);
+
+    return (
+        <div ref={containerRef} className={`w-full h-full flex items-center justify-center overflow-hidden ${className}`}>
+            <div 
+                ref={contentRef} 
+                className="flex flex-col items-center justify-center whitespace-nowrap"
+                style={{ 
+                    transform: scale < 1 ? `scale(${scale})` : undefined,
+                    transformOrigin: 'center',
+                    width: 'max-content'
+                }}
+            >
+                {children}
+            </div>
+        </div>
+    );
+};
 
 interface RosterTableProps {
   sectionId: number;
@@ -152,11 +197,18 @@ interface RosterTableProps {
     const rect = e.currentTarget.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const isTop = spaceBelow < 250;
+    const pickerWidth = 180;
     
     setPickerPosition(isTop ? 'top' : 'bottom');
+    
+    let left = rect.right;
+    if (left + pickerWidth > window.innerWidth) {
+        left = rect.left - pickerWidth;
+    }
+
     setMenuCoords({
-        top: isTop ? rect.top : rect.bottom,
-        left: rect.right
+        top: isTop ? rect.top - 10 : rect.bottom + 10,
+        left: Math.max(10, left)
     });
     setShowColorPicker(showColorPicker === rowId ? null : rowId);
     setShowBulkColorPicker(false);
@@ -168,11 +220,18 @@ interface RosterTableProps {
     const rect = e.currentTarget.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const isTop = spaceBelow < 250;
+    const pickerWidth = 200;
 
     setPickerPosition(isTop ? 'top' : 'bottom');
+    
+    let left = rect.left;
+    if (left + pickerWidth > window.innerWidth) {
+        left = window.innerWidth - pickerWidth - 20;
+    }
+
     setMenuCoords({
-        top: isTop ? rect.top : rect.bottom,
-        left: rect.left
+        top: isTop ? rect.top - 10 : rect.bottom + 10,
+        left: Math.max(10, left)
     });
     setShowBulkColorPicker(!showBulkColorPicker);
     setShowColorPicker(null);
@@ -602,8 +661,6 @@ interface RosterTableProps {
       ? datasetOptions.map((o: any) => ({ id: o.id, label: o.value || '', color: o.color, bold: o.is_bold })) 
       : (col.options || []).map((o: any, idx: number) => ({ ...o, id: o.id || `manual_${idx}` }));
 
-    // ... (rest of dynamic dataset logic)
-    
     if (isSaving && col.id === savingRows.get(row.id)) {
         return (
             <div className="flex items-center justify-center h-full w-full rt-cell-content">
@@ -690,9 +747,11 @@ interface RosterTableProps {
 
                     return (
                         <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-60 italic relative group/cell rt-cell-content">
-                            <span className="text-[10px] uppercase font-bold text-accent">
-                                {displayValue}
-                            </span>
+                            <CellScaler>
+                                <span className="text-[10px] uppercase font-bold text-accent">
+                                    {displayValue}
+                                </span>
+                            </CellScaler>
                             <Link 
                                 to={`/${shortname}/records?database=${db.record_shortcode || db.id}&record=${entry.entry_id}`}
                                 onClick={(e) => e.stopPropagation()}
@@ -708,7 +767,9 @@ interface RosterTableProps {
 
         return (
             <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-20 rt-cell-content">
-                <span className="text-[10px] uppercase font-bold">-</span>
+                <CellScaler>
+                    <span className="text-[10px] uppercase font-bold">-</span>
+                </CellScaler>
             </div>
         );
     }
@@ -738,62 +799,64 @@ interface RosterTableProps {
                 <option key={opt.id} value={opt.id} style={{ color: opt.color || 'inherit' }}>{opt.label}</option>
               ))}
             </select>
-            <div className="flex items-center gap-1 overflow-visible">
-                <div className="text-[10px] uppercase font-medium transition-colors" style={textStyle}>
-                {selectedOpt?.label || value || <span className="opacity-20 italic">Select...</span>}
-                </div>
-                {activeFlags.length > 0 && (
-                    <div className="flex items-center gap-0.5">
-                        {activeFlags.map(f => (
-                            <div key={f.id} className="group/flag-icon relative flex items-center justify-center">
-                                {React.createElement((LucideIcons as any)[f.icon] || LucideIcons.HelpCircle, { 
-                                    size: 10, 
-                                    style: { color: f.color } 
-                                })}
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black/90 border border-white/10 rounded text-[7px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover/flag-icon:opacity-100 transition-all pointer-events-none z-[9999] shadow-2xl text-white backdrop-blur-sm">
-                                    {f.name}
-                                </div>
-                            </div>
-                        ))}
+            <CellScaler>
+                <div className="flex items-center gap-1 overflow-visible">
+                    <div className="text-[10px] uppercase font-medium transition-colors" style={textStyle}>
+                    {selectedOpt?.label || value || <span className="opacity-20 italic">Select...</span>}
                     </div>
-                )}
-                {col.tags && col.tags.length > 0 && (
-                    <button 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveTagMenu(activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? null : { rowId: row.id, colId: col.id });
-                        }}
-                        className={`p-1 rounded hover:bg-accent/10 transition-colors relative z-20 ${activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? 'text-accent' : 'text-muted'}`}
-                    >
-                        <Pencil size={10} />
-                    </button>
-                )}
-            </div>
-            {col.checkboxes && col.checkboxes.length > 0 && (
-              <div className="flex flex-wrap gap-1 relative z-20">
-                {col.checkboxes.map((cb, cbIdx) => {
-                  if (!cb) return null;
-                  const label = typeof cb === 'string' ? cb : cb.label;
-                  if (!label) return null;
-                  const color = typeof cb === 'string' ? null : cb.color;
-                  const isChecked = checked.includes(label);
+                    {activeFlags.length > 0 && (
+                        <div className="flex items-center gap-0.5">
+                            {activeFlags.map(f => (
+                                <div key={f.id} className="group/flag-icon relative flex items-center justify-center">
+                                    {React.createElement((LucideIcons as any)[f.icon] || LucideIcons.HelpCircle, { 
+                                        size: 10, 
+                                        style: { color: f.color } 
+                                    })}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black/90 border border-white/10 rounded text-[7px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover/flag-icon:opacity-100 transition-all pointer-events-none z-[9999] shadow-2xl text-white backdrop-blur-sm">
+                                        {f.name}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {col.tags && col.tags.length > 0 && (
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveTagMenu(activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? null : { rowId: row.id, colId: col.id });
+                            }}
+                            className={`p-1 rounded hover:bg-accent/10 transition-colors relative z-20 ${activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? 'text-accent' : 'text-muted'}`}
+                        >
+                            <Pencil size={10} />
+                        </button>
+                    )}
+                </div>
+                {col.checkboxes && col.checkboxes.length > 0 && (
+                <div className="flex flex-wrap gap-1 relative z-20">
+                    {col.checkboxes.map((cb, cbIdx) => {
+                    if (!cb) return null;
+                    const label = typeof cb === 'string' ? cb : cb.label;
+                    if (!label) return null;
+                    const color = typeof cb === 'string' ? null : cb.color;
+                    const isChecked = checked.includes(label);
 
-                  return (
-                    <button
-                      key={label + cbIdx}
+                    return (
+                        <button
+                        key={label + cbIdx}
 
-                      onClick={() => toggleCheckbox(col.id, label)}
-                      className={`text-[6px] font-black px-1 rounded border transition-colors uppercase ${
-                        isChecked ? (color ? '' : 'bg-accent border-accent text-white') : 'bg-transparent border-border text-muted hover:border-accent'
-                      }`}
-                      style={isChecked && color ? { backgroundColor: color, borderColor: color, color: '#fff' } : {}}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                        onClick={() => toggleCheckbox(col.id, label)}
+                        className={`text-[6px] font-black px-1 rounded border transition-colors uppercase ${
+                            isChecked ? (color ? '' : 'bg-accent border-accent text-white') : 'bg-transparent border-border text-muted hover:border-accent'
+                        }`}
+                        style={isChecked && color ? { backgroundColor: color, borderColor: color, color: '#fff' } : {}}
+                        >
+                        {label}
+                        </button>
+                    );
+                    })}
+                </div>
+                )}
+            </CellScaler>
             {activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id && (
                 <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-[100] p-2 min-w-[120px] animate-in fade-in slide-in-from-top-1">
                     <div className="text-[8px] font-black uppercase text-muted mb-2 tracking-widest border-b border-border/50 pb-1">Manage Tags</div>
@@ -852,49 +915,77 @@ interface RosterTableProps {
 
       return (
         <div className="flex flex-col items-center justify-center h-full w-full gap-0.5 relative overflow-visible rt-cell-content">
-          <div className="relative w-full flex flex-row items-center justify-center px-1 overflow-visible">
-            <input 
-              ref={col.id === activeCols[0].id ? inputRef : null}
-              value={value} 
-              autoComplete="off"
-              onChange={e => {
-                updateField(col.id, e.target.value);
-              }}
-              onKeyDown={e => e.key === 'Enter' && handleSaveEdit(row.id)}
-              onClick={() => setFocusedColId(col.id)}
-              onFocus={() => setFocusedColId(col.id)}
-              onBlur={() => setTimeout(() => setFocusedColId(null), 200)} 
-              className="flex-1 bg-transparent border-none text-[10px] text-center uppercase font-medium outline-none focus:ring-0 p-0 text-text placeholder:opacity-10"
-              style={textStyle}
-              placeholder="..."
-            />
-            {activeFlags.length > 0 && (
-                <div className="flex items-center gap-0.5 ml-1">
-                    {activeFlags.map(f => (
-                        <div key={f.id} className="group/flag-icon relative flex items-center justify-center">
-                            {React.createElement((LucideIcons as any)[f.icon] || LucideIcons.HelpCircle, { 
-                                size: 10, 
-                                style: { color: f.color } 
-                            })}
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black/90 border border-white/10 rounded text-[7px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover/flag-icon:opacity-100 transition-all pointer-events-none z-[9999] shadow-2xl text-white backdrop-blur-sm">
-                                {f.name}
+          <CellScaler>
+            <div className="relative w-full flex flex-row items-center justify-center px-1 overflow-visible">
+                <input 
+                ref={col.id === activeCols[0].id ? inputRef : null}
+                value={value} 
+                autoComplete="off"
+                onChange={e => {
+                    updateField(col.id, e.target.value);
+                }}
+                onKeyDown={e => e.key === 'Enter' && handleSaveEdit(row.id)}
+                onClick={() => setFocusedColId(col.id)}
+                onFocus={() => setFocusedColId(col.id)}
+                onBlur={() => setTimeout(() => setFocusedColId(null), 200)} 
+                className="flex-1 bg-transparent border-none text-[10px] text-center uppercase font-medium outline-none focus:ring-0 p-0 text-text placeholder:opacity-10"
+                style={textStyle}
+                placeholder="..."
+                />
+                {activeFlags.length > 0 && (
+                    <div className="flex items-center gap-0.5 ml-1">
+                        {activeFlags.map(f => (
+                            <div key={f.id} className="group/flag-icon relative flex items-center justify-center">
+                                {React.createElement((LucideIcons as any)[f.icon] || LucideIcons.HelpCircle, { 
+                                    size: 10, 
+                                    style: { color: f.color } 
+                                })}
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black/90 border border-white/10 rounded text-[7px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover/flag-icon:opacity-100 transition-all pointer-events-none z-[9999] shadow-2xl text-white backdrop-blur-sm">
+                                    {f.name}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
+                )}
+                {col.tags && col.tags.length > 0 && (
+                    <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveTagMenu(activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? null : { rowId: row.id, colId: col.id });
+                        }}
+                        className={`shrink-0 p-1 rounded hover:bg-accent/10 transition-colors ml-1 ${activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? 'text-accent' : 'text-muted'}`}
+                    >
+                        <Pencil size={10} />
+                    </button>
+                )}
+            </div>
+            {col.checkboxes && col.checkboxes.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                {col.checkboxes.map((cb, cbIdx) => {
+                    if (!cb) return null;
+                    const label = typeof cb === 'string' ? cb : cb.label;
+                    if (!label) return null;
+                    const color = typeof cb === 'string' ? null : cb.color;
+                    const isChecked = checked.includes(label);
+
+                    return (
+                    <button
+                        key={label + cbIdx}
+
+                        onClick={() => toggleCheckbox(col.id, label)}
+                        className={`text-[6px] font-black px-1 rounded border transition-colors uppercase ${
+                        isChecked ? (color ? '' : 'bg-accent border-accent text-white') : 'bg-transparent border-border text-muted hover:border-accent'
+                        }`}
+                        style={isChecked && color ? { backgroundColor: color, borderColor: color, color: '#fff' } : {}}
+                    >
+                        {label}
+                    </button>
+                    );
+                })}
                 </div>
             )}
-            {col.tags && col.tags.length > 0 && (
-                <button 
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveTagMenu(activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? null : { rowId: row.id, colId: col.id });
-                    }}
-                    className={`shrink-0 p-1 rounded hover:bg-accent/10 transition-colors ml-1 ${activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? 'text-accent' : 'text-muted'}`}
-                >
-                    <Pencil size={10} />
-                </button>
-            )}
-            {filteredSuggestions.length > 0 && (
+          </CellScaler>
+          {filteredSuggestions.length > 0 && (
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-card border border-border rounded-lg shadow-[0_10px_40px_-5px_rgba(0,0,0,0.5)] z-[9999] overflow-hidden min-w-[160px] animate-in fade-in slide-in-from-top-1 duration-100">
                     <div className="px-2 py-1 bg-surface/50 text-[7px] font-black text-muted/50 uppercase tracking-widest border-b border-border/30 mb-0.5">Suggestions</div>
                     <div className="max-h-48 overflow-y-auto p-1 space-y-0.5">
@@ -949,32 +1040,6 @@ interface RosterTableProps {
                     </div>
                 </div>
             )}
-          </div>
-          {col.checkboxes && col.checkboxes.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {col.checkboxes.map((cb, cbIdx) => {
-                if (!cb) return null;
-                const label = typeof cb === 'string' ? cb : cb.label;
-                if (!label) return null;
-                const color = typeof cb === 'string' ? null : cb.color;
-                const isChecked = checked.includes(label);
-
-                return (
-                  <button
-                    key={label + cbIdx}
-
-                    onClick={() => toggleCheckbox(col.id, label)}
-                    className={`text-[6px] font-black px-1 rounded border transition-colors uppercase ${
-                      isChecked ? (color ? '' : 'bg-accent border-accent text-white') : 'bg-transparent border-border text-muted hover:border-accent'
-                    }`}
-                    style={isChecked && color ? { backgroundColor: color, borderColor: color, color: '#fff' } : {}}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
       );
     }
@@ -984,81 +1049,83 @@ interface RosterTableProps {
         className={`flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap overflow-visible relative group/cell rt-cell-content ${canEditAny ? 'cursor-pointer hover:bg-accent/5' : ''}`}
         onClick={() => canEditAny && handleStartEdit(row, col.id)}
       >
-        <div className="flex items-center gap-1.5 px-1 overflow-visible">
-            <span 
-                className={`text-[10px] uppercase font-medium transition-all ${!showValue ? 'blur-[3px] select-none opacity-50 font-black tracking-widest' : ''}`} 
-                style={textStyle}
-            >
-                {showValue ? (selectedOpt?.label || value || '-') : '??????'}
-            </span>
-            {activeFlags.length > 0 && (
-                <div className="flex items-center gap-0.5">
-                    {activeFlags.map(f => (
-                        <div key={f.id} className="group/flag-icon relative flex items-center justify-center">
-                            {React.createElement((LucideIcons as any)[f.icon] || LucideIcons.HelpCircle, { 
-                                size: 10, 
-                                style: { color: f.color } 
-                            })}
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black/90 border border-white/10 rounded text-[7px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover/flag-icon:opacity-100 transition-all pointer-events-none z-[9999] shadow-2xl text-white backdrop-blur-sm">
-                                {f.name}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-            {appliedTags.length > 0 && (
-                <div className="flex items-center gap-0.5">
-                    {(col.tags || []).map((tagDef: any) => {
-                        const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef.label;
-                        if (!appliedTags.includes(tagLabel)) return null;
-
-                        const color = (typeof tagDef !== 'string') ? tagDef.color : '#fff';
-                        const iconName = (typeof tagDef !== 'string') ? tagDef.icon : null;
-                        
-                        return (
-                            <div 
-                                key={tagLabel} 
-                                className="group/tag-icon relative flex items-center justify-center"
-                            >
-                                {iconName && (LucideIcons as any)[iconName] ? (
-                                    React.createElement((LucideIcons as any)[iconName], {
-                                        size: 10,
-                                        style: { color: color || 'inherit' },
-                                        className: "opacity-80"
-                                    })
-                                ) : (
-                                    <div className="w-1.5 h-1.5 rounded-[1px] opacity-80" style={{ backgroundColor: color || '#fff' }} />
-                                )}
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black/90 border border-white/10 rounded text-[7px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover/tag-icon:opacity-100 transition-all pointer-events-none z-[9999] shadow-2xl text-white backdrop-blur-sm">
-                                    {tagLabel}
+        <CellScaler>
+            <div className="flex items-center gap-1.5 px-1 overflow-visible">
+                <span 
+                    className={`text-[10px] uppercase font-medium transition-all ${!showValue ? 'blur-[3px] select-none opacity-50 font-black tracking-widest' : ''}`} 
+                    style={textStyle}
+                >
+                    {showValue ? (selectedOpt?.label || value || '-') : '??????'}
+                </span>
+                {activeFlags.length > 0 && (
+                    <div className="flex items-center gap-0.5">
+                        {activeFlags.map(f => (
+                            <div key={f.id} className="group/flag-icon relative flex items-center justify-center">
+                                {React.createElement((LucideIcons as any)[f.icon] || LucideIcons.HelpCircle, { 
+                                    size: 10, 
+                                    style: { color: f.color } 
+                                })}
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black/90 border border-white/10 rounded text-[7px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover/flag-icon:opacity-100 transition-all pointer-events-none z-[9999] shadow-2xl text-white backdrop-blur-sm">
+                                    {f.name}
                                 </div>
                             </div>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
-        {checked.length > 0 && (
-          <div className="flex gap-0.5">
-            {(col.checkboxes || []).map((cbDef: any, cbIdx: number) => {
-              if (!cbDef) return null;
-              const cbLabel = typeof cbDef === 'string' ? cbDef : cbDef.label;
-              if (!cbLabel || !checked.includes(cbLabel)) return null;
+                        ))}
+                    </div>
+                )}
+                {appliedTags.length > 0 && (
+                    <div className="flex items-center gap-0.5">
+                        {(col.tags || []).map((tagDef: any) => {
+                            const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef.label;
+                            if (!appliedTags.includes(tagLabel)) return null;
 
-              const color = (typeof cbDef !== 'string') ? cbDef.color : null;
-              
-              return (
-                <span 
-                  key={cbLabel + cbIdx} 
-                  className="text-[6px] text-accent font-black tracking-widest bg-accent/10 px-1 rounded uppercase"
-                  style={color ? { color: color, backgroundColor: `${color}1A` } : {}}
-                >
-                  {cbLabel}
-                </span>
-              );
-            })}
-          </div>
-        )}
+                            const color = (typeof tagDef !== 'string') ? tagDef.color : '#fff';
+                            const iconName = (typeof tagDef !== 'string') ? tagDef.icon : null;
+                            
+                            return (
+                                <div 
+                                    key={tagLabel} 
+                                    className="group/tag-icon relative flex items-center justify-center"
+                                >
+                                    {iconName && (LucideIcons as any)[iconName] ? (
+                                        React.createElement((LucideIcons as any)[iconName], {
+                                            size: 10,
+                                            style: { color: color || 'inherit' },
+                                            className: "opacity-80"
+                                        })
+                                    ) : (
+                                        <div className="w-1.5 h-1.5 rounded-[1px] opacity-80" style={{ backgroundColor: color || '#fff' }} />
+                                    )}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black/90 border border-white/10 rounded text-[7px] font-black uppercase tracking-widest whitespace-nowrap opacity-0 group-hover/tag-icon:opacity-100 transition-all pointer-events-none z-[9999] shadow-2xl text-white backdrop-blur-sm">
+                                        {tagLabel}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+            {checked.length > 0 && (
+              <div className="flex gap-0.5">
+                {(col.checkboxes || []).map((cbDef: any, cbIdx: number) => {
+                  if (!cbDef) return null;
+                  const cbLabel = typeof cbDef === 'string' ? cbDef : cbDef.label;
+                  if (!cbLabel || !checked.includes(cbLabel)) return null;
+
+                  const color = (typeof cbDef !== 'string') ? cbDef.color : null;
+                  
+                  return (
+                    <span 
+                      key={cbLabel + cbIdx} 
+                      className="text-[6px] text-accent font-black tracking-widest bg-accent/10 px-1 rounded uppercase"
+                      style={color ? { color: color, backgroundColor: `${color}1A` } : {}}
+                    >
+                      {cbLabel}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+        </CellScaler>
         {selectedOpt?.entryId && (
             <Link 
                 to={`/${shortname}/records?database=${selectedOpt.dbShortcode}&record=${selectedOpt.entryId}`}
@@ -1200,15 +1267,20 @@ interface RosterTableProps {
                         </button>
                         
                         {showColorPicker === row.id && (
-                            <div 
-                                className={`fixed bg-card border border-border rounded-xl shadow-2xl p-3 z-[10000] min-w-[180px] animate-in fade-in slide-in-from-${pickerPosition === 'top' ? 'bottom' : 'top'}-2`}
-                                style={{
-                                    top: menuCoords.top,
+                            <motion.div
+                                drag
+                                dragMomentum={false}
+                                className={`fixed bg-card border border-border rounded-xl shadow-2xl p-3 z-[10000] min-w-[180px] cursor-default`}
+                                style={{ 
+                                    top: menuCoords.top, 
                                     left: menuCoords.left,
-                                    transform: `translateX(-100%) ${pickerPosition === 'top' ? 'translateY(-100%) translateY(-10px)' : 'translateY(10px)'}`
+                                    transform: `translateX(${menuCoords.left > window.innerWidth / 2 ? '-100%' : '0%'}) ${pickerPosition === 'top' ? 'translateY(-100%) translateY(-10px)' : 'translateY(10px)'}`
                                 }}
                             >
-                                <div className="text-[8px] font-black uppercase text-muted mb-2 tracking-widest border-b border-border/50 pb-1">Row Color</div>
+                                <div className="flex items-center justify-between mb-2 border-b border-border/50 pb-1 cursor-grab active:cursor-grabbing">
+                                    <div className="text-[8px] font-black uppercase text-muted tracking-widest">Row Color</div>
+                                    <GripVertical size={10} className="text-muted/30" />
+                                </div>
                                 <div className="grid grid-cols-4 gap-1.5 mb-3">
                                     {defaultRowColors.map(c => (
                                         <button 
@@ -1238,9 +1310,8 @@ interface RosterTableProps {
                                         placeholder="Hex (#...)"
                                     />
                                 </div>
-                            </div>
+                            </motion.div>
                         )}
-
                         <div className="flex flex-col gap-0.5">
                             <button onClick={() => handleSaveEdit(row.id)} className="p-0.5 text-green-500 hover:bg-green-500/10 rounded transition-colors" title="Save"><Check size={10} /></button>
                             <button onClick={handleCancelEdit} className="p-0.5 text-danger hover:bg-danger/10 rounded transition-colors" title="Cancel"><X size={10} /></button>
@@ -1281,15 +1352,20 @@ interface RosterTableProps {
                                     </button>
 
                                     {showBulkColorPicker && (
-                                        <div 
-                                            className={`fixed bg-card border border-border rounded-xl shadow-2xl p-4 z-[10000] min-w-[200px] animate-in fade-in slide-in-from-${pickerPosition === 'top' ? 'bottom' : 'top'}-2`}
+                                        <motion.div 
+                                            drag
+                                            dragMomentum={false}
+                                            className={`fixed bg-card border border-border rounded-xl shadow-2xl p-4 z-[10000] min-w-[200px] cursor-default`}
                                             style={{
                                                 top: menuCoords.top,
                                                 left: menuCoords.left,
                                                 transform: `${pickerPosition === 'top' ? 'translateY(-100%) translateY(-10px)' : 'translateY(10px)'}`
                                             }}
                                         >
-                                            <div className="text-[10px] font-black uppercase text-muted mb-3 tracking-widest border-b border-border/50 pb-2">Apply Bulk Color</div>
+                                            <div className="flex items-center justify-between mb-3 border-b border-border/50 pb-2 cursor-grab active:cursor-grabbing">
+                                                <div className="text-[10px] font-black uppercase text-muted tracking-widest">Apply Bulk Color</div>
+                                                <GripVertical size={10} className="text-muted/30" />
+                                            </div>
                                             <div className="grid grid-cols-4 gap-2 mb-4">
                                                 {defaultRowColors.map(c => (
                                                     <button 
@@ -1307,7 +1383,7 @@ interface RosterTableProps {
                                             <p className="text-[8px] text-muted font-bold uppercase tracking-widest text-center">
                                                 Applying to <span className="text-accent">{selectedRowIds.length}</span> rows
                                             </p>
-                                        </div>
+                                        </motion.div>
                                     )}
                                 </div>
                                 <button 

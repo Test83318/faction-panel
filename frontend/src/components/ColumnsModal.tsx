@@ -76,13 +76,18 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
   const allSections = useMemo(() => {
     const sections: any[] = [];
     const processSection = (s: any, rosterName: string) => {
+        if (!s) return;
         sections.push({ id: s.id, name: s.name, rosterName });
         if (s.children) {
-            s.children.forEach((child: any) => processSection(child, rosterName));
+            s.children.forEach((child: any) => {
+                if (child) processSection(child, rosterName);
+            });
         }
     };
     allRosters.forEach(r => {
-        (r.root_sections || []).forEach((s: any) => processSection(s, r.name));
+        if (r && r.root_sections) {
+            r.root_sections.forEach((s: any) => processSection(s, r.name));
+        }
     });
     return sections;
   }, [allRosters]);
@@ -250,7 +255,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                         className="w-full bg-surface border border-border p-2 rounded text-xs text-text focus:border-accent outline-none disabled:opacity-50"
                                     >
                                         <option value="">Select Field...</option>
-                                        {recordDatabases.find(db => db.id === col.linked_database_id)?.database_structure.map((f: any) => (
+                                        {recordDatabases.find(db => db.id === col.linked_database_id)?.database_structure?.map((f: any) => (
                                             <option key={f.id} value={f.id}>{f.name}</option>
                                         ))}
                                         <option value="id">Record ID</option>
@@ -320,10 +325,9 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                     onChange={(e) => updateColumn(index, 'database_field_id', e.target.value)}
                                     className="w-full bg-bg border border-border p-1.5 rounded text-[10px] font-bold text-accent focus:border-accent outline-none"
                                 >
-                                    {recordDatabases.find(db => db.id === datasets.find(d => d.id === col.dataset_id)?.record_database_id)?.database_structure.map((f: any) => (
+                                    {recordDatabases.find(db => db.id === datasets.find(d => d.id === col.dataset_id)?.record_database_id)?.database_structure?.map((f: any) => (
                                         <option key={f.id} value={f.id}>{f.name}</option>
-                                    ))}
-                                    <option value="id">Record ID</option>
+                                    ))}                                    <option value="id">Record ID</option>
                                 </select>
                             </div>
                         )}
@@ -522,7 +526,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                                 }}
                                                 className="w-full bg-surface border border-border p-1 rounded text-[8px] font-bold text-text focus:border-accent outline-none"
                                               >
-                                                  {dbStructure.map((f: any) => (
+                                                  {dbStructure?.map((f: any) => (
                                                       <option key={f.id} value={f.id}>{f.name}</option>
                                                   ))}
                                                   <option value="id">Record ID</option>
@@ -718,7 +722,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                                 }}
                                                 className="w-full bg-surface border border-border p-1 rounded text-[8px] font-bold text-text focus:border-accent outline-none"
                                               >
-                                                  {dbStructure.map((f: any) => (
+                                                  {dbStructure?.map((f: any) => (
                                                       <option key={f.id} value={f.id}>{f.name}</option>
                                                   ))}
                                                   <option value="id">Record ID</option>
