@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import { RosterContent, RosterColumn } from '../types';
 import { motion, Reorder } from 'motion/react';
@@ -197,18 +198,12 @@ interface RosterTableProps {
     const rect = e.currentTarget.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const isTop = spaceBelow < 250;
-    const pickerWidth = 180;
     
     setPickerPosition(isTop ? 'top' : 'bottom');
     
-    let left = rect.right;
-    if (left + pickerWidth > window.innerWidth) {
-        left = rect.left - pickerWidth;
-    }
-
     setMenuCoords({
-        top: isTop ? rect.top - 10 : rect.bottom + 10,
-        left: Math.max(10, left)
+        top: isTop ? rect.top : rect.bottom,
+        left: rect.left + (rect.width / 2)
     });
     setShowColorPicker(showColorPicker === rowId ? null : rowId);
     setShowBulkColorPicker(false);
@@ -220,18 +215,12 @@ interface RosterTableProps {
     const rect = e.currentTarget.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const isTop = spaceBelow < 250;
-    const pickerWidth = 200;
 
     setPickerPosition(isTop ? 'top' : 'bottom');
     
-    let left = rect.left;
-    if (left + pickerWidth > window.innerWidth) {
-        left = window.innerWidth - pickerWidth - 20;
-    }
-
     setMenuCoords({
-        top: isTop ? rect.top - 10 : rect.bottom + 10,
-        left: Math.max(10, left)
+        top: isTop ? rect.top : rect.bottom,
+        left: rect.left + (rect.width / 2)
     });
     setShowBulkColorPicker(!showBulkColorPicker);
     setShowColorPicker(null);
@@ -1266,7 +1255,7 @@ interface RosterTableProps {
                             <div className="w-2.5 h-2.5 rounded-full border border-border" style={{ backgroundColor: rowColor || 'transparent' }} />
                         </button>
                         
-                        {showColorPicker === row.id && (
+                        {showColorPicker === row.id && createPortal(
                             <motion.div
                                 drag
                                 dragMomentum={false}
@@ -1274,7 +1263,7 @@ interface RosterTableProps {
                                 style={{ 
                                     top: menuCoords.top, 
                                     left: menuCoords.left,
-                                    transform: `translateX(${menuCoords.left > window.innerWidth / 2 ? '-100%' : '0%'}) ${pickerPosition === 'top' ? 'translateY(-100%) translateY(-10px)' : 'translateY(10px)'}`
+                                    transform: `translateX(-50%) ${pickerPosition === 'top' ? 'translateY(-100%) translateY(-10px)' : 'translateY(10px)'}`
                                 }}
                             >
                                 <div className="flex items-center justify-between mb-2 border-b border-border/50 pb-1 cursor-grab active:cursor-grabbing">
@@ -1310,7 +1299,8 @@ interface RosterTableProps {
                                         placeholder="Hex (#...)"
                                     />
                                 </div>
-                            </motion.div>
+                            </motion.div>,
+                            document.body
                         )}
                         <div className="flex flex-col gap-0.5">
                             <button onClick={() => handleSaveEdit(row.id)} className="p-0.5 text-green-500 hover:bg-green-500/10 rounded transition-colors" title="Save"><Check size={10} /></button>
@@ -1351,7 +1341,7 @@ interface RosterTableProps {
                                         Bulk Color
                                     </button>
 
-                                    {showBulkColorPicker && (
+                                    {showBulkColorPicker && createPortal(
                                         <motion.div 
                                             drag
                                             dragMomentum={false}
@@ -1383,7 +1373,8 @@ interface RosterTableProps {
                                             <p className="text-[8px] text-muted font-bold uppercase tracking-widest text-center">
                                                 Applying to <span className="text-accent">{selectedRowIds.length}</span> rows
                                             </p>
-                                        </motion.div>
+                                        </motion.div>,
+                                        document.body
                                     )}
                                 </div>
                                 <button 
