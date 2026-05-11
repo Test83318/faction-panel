@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from
 import { Link, useParams } from 'react-router-dom';
 import { RosterContent, RosterColumn } from '../types';
 import { motion, Reorder } from 'motion/react';
-import { Plus, Trash2, Check, X, Pencil, Tag, ExternalLink, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Check, X, Pencil, Tag, ExternalLink, GripVertical, SeparatorHorizontal } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import api from '../api';
 import toast from 'react-hot-toast';
@@ -71,6 +71,7 @@ interface RosterTableProps {
   onDeleteRow?: (id: number) => void;
   onBulkDeleteRow?: (ids: number[]) => void;
   onAddRow?: () => void;
+  onAddSpacer?: () => void;
   onRefresh?: () => void;
   onReorderRows?: (newOrder: RosterContent[]) => void;
   globalEditingRowId?: number | null;
@@ -1183,6 +1184,7 @@ interface RosterTableProps {
         >
           {contents.map((row, idx) => {
             const isEditing = editingRowId === row.id;
+            const isSpacer = row.type === 'spacer';
             const effectiveRowColor = isEditing ? rowColor : row.color;
 
             // Check if any column in this row has checkboxes
@@ -1241,19 +1243,52 @@ interface RosterTableProps {
                     </div>
                   </div>
                 </td>
-                {activeCols.map((col) => (
-                  <td 
-                      key={col.id} 
-                      className={`rt-td p-0 h-[34px] relative hover:z-[100] transition-colors ${isEditing && editingColId === col.id ? 'bg-accent/5 ring-1 ring-inset ring-accent/30 z-[5001]' : 'hover:bg-surface/50'}`}
-                      style={{ 
-                        zIndex: isEditing && editingColId === col.id ? 5001 : 0,
-                        ...cellStyle
-                      }}
-                      onClick={() => !isEditing && isColEditable(col) && handleStartEdit(row, col.id)}
-                  >
-                    {renderCell(row, col)}
-                  </td>
-                ))}
+                {isSpacer ? (
+                    <td 
+                        colSpan={activeCols.length}
+                        className={`rt-td p-0 h-[34px] relative transition-colors ${isEditing ? 'bg-accent/5 ring-1 ring-inset ring-accent/30 z-[5001]' : 'hover:bg-surface/50'}`}
+                        style={{ 
+                            ...cellStyle,
+                            backgroundColor: effectiveRowColor ? `${effectiveRowColor}44` : (effectiveRowColor ? undefined : 'rgba(255,255,255,0.02)'),
+                        }}
+                        onClick={() => !isEditing && canEditPredefined && handleStartEdit(row, 'spacer_text')}
+                    >
+                        {isEditing ? (
+                            <div className="flex items-center justify-center w-full h-full px-4">
+                                <input 
+                                    ref={inputRef}
+                                    value={editData['spacer_text'] || ''}
+                                    onChange={e => updateField('spacer_text', e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleSaveEdit(row.id)}
+                                    className="w-full bg-transparent border-none text-[10px] text-center uppercase font-black outline-none focus:ring-0 p-0 text-text placeholder:opacity-20"
+                                    placeholder="Spacer Text (Optional)"
+                                />
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center w-full h-full px-4">
+                                <span className="text-[10px] uppercase font-black tracking-widest opacity-60 italic">
+                                    {row.content?.['spacer_text'] || ''}
+                                </span>
+                            </div>
+                        )}
+                    </td>
+                ) : (
+                    <>
+                        {activeCols.map((col) => (
+                        <td 
+                            key={col.id} 
+                            className={`rt-td p-0 h-[34px] relative hover:z-[100] transition-colors ${isEditing && editingColId === col.id ? 'bg-accent/5 ring-1 ring-inset ring-accent/30 z-[5001]' : 'hover:bg-surface/50'}`}
+                            style={{ 
+                                zIndex: isEditing && editingColId === col.id ? 5001 : 0,
+                                ...cellStyle
+                            }}
+                            onClick={() => !isEditing && isColEditable(col) && handleStartEdit(row, col.id)}
+                        >
+                            {renderCell(row, col)}
+                        </td>
+                        ))}
+                    </>
+                )}
                 <td className="rt-td p-0" style={cellStyle}>
                 <div className="flex items-center justify-center gap-1">
                   {isEditing ? (
@@ -1418,6 +1453,12 @@ interface RosterTableProps {
                             className="flex items-center gap-1.5 px-3 py-1 bg-accent/10 hover:bg-accent/20 text-accent text-[9px] font-black uppercase tracking-widest rounded-lg transition-all border border-accent/20"
                         >
                             <Plus size={12} /> Add One
+                        </button>
+                        <button 
+                            onClick={() => onAddSpacer?.()}
+                            className="flex items-center gap-1.5 px-3 py-1 bg-muted/10 hover:bg-muted/20 text-muted text-[9px] font-black uppercase tracking-widest rounded-lg transition-all border border-border"
+                        >
+                            <SeparatorHorizontal size={12} /> Add Spacer
                         </button>
                     </div>
                 </div>

@@ -47,7 +47,7 @@ export interface RosterContent {
   section_id: number;
   roster_id?: number;
   order: number;
-  type: 'predefined' | 'defined';
+  type: 'predefined' | 'defined' | 'spacer';
   color?: string | null;
   content: any;
   updated_at?: string;

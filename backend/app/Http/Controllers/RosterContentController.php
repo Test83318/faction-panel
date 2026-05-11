@@ -20,7 +20,7 @@ class RosterContentController extends Controller
         }
 
         $validated = $request->validate([
-            'type' => 'required|string|in:predefined,defined',
+            'type' => 'required|string|in:predefined,defined,spacer',
             'color' => 'nullable|string',
             'content' => 'nullable|array',
         ]);
@@ -66,7 +66,7 @@ class RosterContentController extends Controller
         }
 
         $validated = $request->validate([
-            'type' => 'sometimes|string|in:predefined,defined',
+            'type' => 'sometimes|string|in:predefined,defined,spacer',
             'color' => 'sometimes|nullable|string',
             'content' => 'sometimes|array',
             'order' => 'sometimes|integer',
@@ -201,7 +201,7 @@ class RosterContentController extends Controller
             'contents' => 'required|array',
             'contents.*.id' => 'required|exists:roster_contents,id',
             'contents.*.content' => 'sometimes|array',
-            'contents.*.type' => 'sometimes|string|in:predefined,defined',
+            'contents.*.type' => 'sometimes|string|in:predefined,defined,spacer',
             'contents.*.color' => 'sometimes|nullable|string',
             'contents.*.order' => 'sometimes|integer',
         ]);

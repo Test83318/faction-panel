@@ -104,6 +104,18 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     }
   };
 
+  const handleAddSpacer = async (sectionId: number) => {
+    const loadToast = toast.loading('Adding spacer...');
+    try {
+      await api.post(`/sections/${sectionId}/contents`, { type: 'spacer', content: {} });
+      toast.success('Spacer added', { id: loadToast });
+      onRefresh?.();
+    } catch (err) {
+      toast.error('Failed to add spacer', { id: loadToast });
+      console.error('Failed to add spacer', err);
+    }
+  };
+
   const handleUpdateRow = async (id: number, data: any, force = false, lastUpdatedAt?: string | null) => {
     try {
       await api.put(`/contents/${id}`, { 
@@ -269,6 +281,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
                 canModerate={canModerate}
                 permissions={permissions}
                 onAddRow={() => handleAddRow(section.id)}
+                onAddSpacer={() => handleAddSpacer(section.id)}
                 onUpdateRow={handleUpdateRow}
                 onDeleteRow={handleDeleteRow}
                 onBulkDeleteRow={handleBulkDeleteRows}
@@ -368,6 +381,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           canModerate={canModerate}
           permissions={permissions}
           onAddRow={() => handleAddRow(section.id)}
+          onAddSpacer={() => handleAddSpacer(section.id)}
           onUpdateRow={handleUpdateRow}
           onDeleteRow={handleDeleteRow}
           onBulkDeleteRow={handleBulkDeleteRows}
