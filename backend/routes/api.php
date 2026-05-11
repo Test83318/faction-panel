@@ -176,6 +176,26 @@ Route::middleware('auth:sanctum')->group(function () {
     // Audit Logs
     Route::get('/factions/{shortname}/audit-logs', [AuditLogController::class, 'index']);
 
+    // Statistics Management
+    Route::get('/factions/{shortname}/statistics', [\App\Http\Controllers\StatisticsController::class, 'index']);
+    Route::post('/factions/{shortname}/statistics', [\App\Http\Controllers\StatisticsController::class, 'store']);
+    Route::get('/statistics/{model}', [\App\Http\Controllers\StatisticsController::class, 'show']);
+    Route::put('/statistics/{model}', [\App\Http\Controllers\StatisticsController::class, 'update']);
+    Route::delete('/statistics/{model}', [\App\Http\Controllers\StatisticsController::class, 'destroy']);
+    Route::post('/statistics/{model}/recalculate', [\App\Http\Controllers\StatisticsController::class, 'recalculate']);
+
+    // Statistics Widgets
+    Route::post('/statistics/{model}/widgets', [\App\Http\Controllers\StatisticsWidgetController::class, 'store']);
+    Route::put('/statistics-widgets/{widget}', [\App\Http\Controllers\StatisticsWidgetController::class, 'update']);
+    Route::delete('/statistics-widgets/{widget}', [\App\Http\Controllers\StatisticsWidgetController::class, 'destroy']);
+    Route::post('/statistics-widgets/{widget}/recalculate', [\App\Http\Controllers\StatisticsWidgetController::class, 'recalculate']);
+    Route::put('/statistics/{model}/widgets/reorder', [\App\Http\Controllers\StatisticsWidgetController::class, 'reorder']);
+
+    // Statistics Permissions
+    Route::get('/statistics/{model}/permissions', [\App\Http\Controllers\StatisticsPermissionController::class, 'index']);
+    Route::put('/statistics/{model}/permissions', [\App\Http\Controllers\StatisticsPermissionController::class, 'update']);
+    Route::delete('/statistics/{model}/permissions/{permissionId}', [\App\Http\Controllers\StatisticsPermissionController::class, 'destroy']);
+
     // Faction Snapshots
     Route::get('/factions/{shortname}/snapshots', [FactionSnapshotController::class, 'index']);
     Route::post('/factions/{shortname}/snapshots', [FactionSnapshotController::class, 'store']);

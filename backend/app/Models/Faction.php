@@ -195,4 +195,9 @@ class Faction extends Model
     {
         return $this->hasMany(RosterDataset::class);
     }
+
+    public function statisticsModels()
+    {
+        return $this->hasMany(StatisticsModel::class);
+    }
 }

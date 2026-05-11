@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Users, Settings, Layers, Database, History, RefreshCw, Camera } from 'lucide-react';
+import { Users, Settings, Layers, Database, History, RefreshCw, Camera, BarChart3 } from 'lucide-react';
 
 interface SidebarProps {
   shortname: string;
@@ -10,6 +10,7 @@ interface SidebarProps {
   canViewAuditLogs: boolean;
   canViewSnapshots?: boolean;
   canViewGtawSync?: boolean;
+  canViewStatistics?: boolean;
   user: any | null;
   siteVersion?: string;
   customFooterText?: string | null;
@@ -23,6 +24,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   canViewAuditLogs,
   canViewSnapshots = false,
   canViewGtawSync = false,
+  canViewStatistics = false,
   user, 
   siteVersion = '1.0.0', 
   customFooterText 
@@ -45,6 +47,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <Database size={14} />
             Faction Records
+          </NavLink>
+        )}
+
+        {canViewStatistics && (
+          <NavLink 
+            to={`/${shortname}/statistics`}
+            className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
+          >
+            <BarChart3 size={14} />
+            Faction Statistics
           </NavLink>
         )}
 

@@ -99,28 +99,38 @@ class FactionSnapshotController extends Controller
         return $snapshot;
     }
 
+    private $systemFields = [
+        'id', 'faction_id', 'roster_id', 'parent_id', 'section_id', 'created_at', 'updated_at', 'deleted_at', 
+        'created_by', 'editing_by', 'editing_at', 'editing_col', 'user_roster_permissions', 'allow_branding'
+    ];
+
+    private function captureModel($model, $extraExclusions = [])
+    {
+        return $model->makeHidden(array_merge($this->systemFields, $extraExclusions))->toArray();
+    }
+
     private function captureFactionState(Faction $faction)
     {
         return [
-            'faction' => $faction->only(['name', 'shortname', 'description', 'color', 'roster_template', 'quick_search_enabled', 'quick_search_settings']),
+            'faction' => $this->captureModel($faction, ['gtaw_faction_id', 'faction_leader']),
             'roles' => $faction->roles()->with('permissions')->get()->map(function($role) {
                 return [
-                    'role' => $role->only(['name', 'weight', 'color', 'type']),
-                    'permissions' => $role->permissions->map(fn($p) => $p->only(['permission_key', 'value']))->toArray()
+                    'role' => $this->captureModel($role),
+                    'permissions' => $role->permissions->map(fn($p) => $this->captureModel($p))->toArray()
                 ];
             })->toArray(),
-            'flags' => $faction->rosterFlags()->get()->map(fn($f) => $f->only(['name', 'rules', 'color', 'icon', 'order', 'is_active', 'excluded_rosters']))->toArray(),
+            'flags' => $faction->rosterFlags()->get()->map(fn($f) => $this->captureModel($f))->toArray(),
             'datasets' => $faction->rosterDatasets()->with('options')->get()->map(fn($d) => [
-                'dataset' => $d->only(['name', 'type', 'is_published', 'linked_database_id', 'linking_settings']),
-                'options' => $d->options->map(fn($o) => $o->only(['label', 'color', 'is_bold', 'order']))->toArray()
+                'dataset' => $this->captureModel($d),
+                'options' => $d->options->map(fn($o) => $this->captureModel($o, ['dataset_id']))->toArray()
             ])->toArray(),
             'rosters' => $faction->rosters()->get()->map(function($roster) {
                 return [
-                    'roster' => $roster->only(['name', 'shortname', 'color', 'order', 'roster_options', 'columns', 'layout_settings', 'default_sections_per_row']),
+                    'roster' => $this->captureModel($roster),
                     'sections' => $this->captureSections($roster->id)
                 ];
             })->toArray(),
-            'groups' => $faction->groups()->get()->map(fn($g) => $g->only(['name', 'shortname', 'color', 'description']))->toArray()
+            'groups' => $faction->groups()->get()->map(fn($g) => $this->captureModel($g))->toArray()
         ];
     }
 
@@ -132,8 +142,8 @@ class FactionSnapshotController extends Controller
             ->get()
             ->map(function($section) use ($rosterId) {
                 return [
-                    'section' => $section->only(['name', 'shortname', 'color', 'type', 'order', 'section_options', 'columns', 'use_roster_columns', 'layout_settings', 'subsections_per_row', 'content_html']),
-                    'contents' => $section->contents->map(fn($c) => $c->only(['content', 'type', 'color', 'order']))->toArray(),
+                    'section' => $this->captureModel($section),
+                    'contents' => $section->contents->map(fn($c) => $this->captureModel($c))->toArray(),
                     'children' => $this->captureSections($rosterId, $section->id)
                 ];
             })->toArray();

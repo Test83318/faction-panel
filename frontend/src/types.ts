@@ -222,6 +222,48 @@ export interface HelpArticle {
   category?: HelpCategory;
 }
 
+export interface StatisticsModel {
+  id: number;
+  faction_id: number;
+  name: string;
+  description: string | null;
+  created_by: number;
+  widgets_count?: number;
+  widgets?: StatisticsWidget[];
+  creator?: {
+    id: number;
+    username: string;
+  };
+  user_permissions?: {
+    view_statistics: boolean;
+    modify_statistics: boolean;
+    delete_statistics: boolean;
+  };
+}
+
+export interface StatisticsWidget {
+  id: number;
+  statistics_model_id: number;
+  name: string;
+  type: 'pie' | 'bar' | 'line' | 'table';
+  configuration: any;
+  cache_result: any;
+  last_calculated_at: string | null;
+  is_intensive: boolean;
+  order: number;
+  width: number;
+}
+
+export interface StatisticsPermission {
+  id: number;
+  statistics_model_id: number;
+  group_id: number | null;
+  role_id: number | null;
+  permissions: string[];
+  group?: Group;
+  role?: Role;
+}
+
 export interface Faction {
   id: number;
   name: string;

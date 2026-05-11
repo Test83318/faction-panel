@@ -377,7 +377,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
     setShowSectionModal(true);
   };
 
-  const calculateCount = (count: any, scope: 'roster' | 'section', targetSection?: any) => {
+  const calculateCount = (count: any, scope: 'roster' | 'section', targetSection?: any): string => {
     // Helper to get all contents for a section recursively
     const getSectionContents = (sec: any): any[] => {
         let items = [...(sec.contents || [])];
@@ -389,204 +389,224 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         return items;
     };
 
-    // New Formula Evaluation Logic
-    if (count.conditions && Array.isArray(count.conditions)) {
-        let result = 0;
-        let currentGroupPool: any[] = [];
-        let lastArithmeticOp = '+';
+    const getSingleValue = (c: any): number => {
+        // New Formula Evaluation Logic
+        if (c.conditions && Array.isArray(c.conditions)) {
+            let result = 0;
+            let currentGroupPool: any[] = [];
+            let lastArithmeticOp = '+';
 
-        const commitGroup = () => {
-            if (lastArithmeticOp === '+') result += currentGroupPool.length;
-            else if (lastArithmeticOp === '-') result -= currentGroupPool.length;
-        };
+            const commitGroup = () => {
+                if (lastArithmeticOp === '+') result += currentGroupPool.length;
+                else if (lastArithmeticOp === '-') result -= currentGroupPool.length;
+            };
 
-        count.conditions.forEach((cond: any, idx: number) => {
-            // 1. Determine the pool for this condition based on scope
-            let condPool: any[] = [];
-            const condScope = cond.scope || 'default';
+            c.conditions.forEach((cond: any, idx: number) => {
+                // 1. Determine the pool for this condition based on scope
+                let condPool: any[] = [];
+                const condScope = cond.scope || 'default';
 
-            if (condScope === 'roster') {
-                condPool = allContents.filter(c => c.roster_id === activeDivId);
-            } else if (condScope === 'specific_sections') {
-                const sIds = (cond.section_ids || []).map((id: any) => Number(id));
-                condPool = allContents.filter(c => sIds.includes(Number(c.section_id)));
-            } else if (condScope === 'section') {
-                condPool = targetSection ? getSectionContents(targetSection) : allContents.filter(c => c.roster_id === activeDivId);
-            } else {
-                // Default legacy behavior
-                if (scope === 'roster') {
-                    condPool = allContents.filter(c => c.roster_id === activeDivId);
+                if (condScope === 'roster') {
+                    condPool = allContents.filter(item => item.roster_id === activeDivId);
+                } else if (condScope === 'specific_sections') {
+                    const sIds = (cond.section_ids || []).map((id: any) => Number(id));
+                    condPool = allContents.filter(item => sIds.includes(Number(item.section_id)));
+                } else if (condScope === 'section') {
+                    condPool = targetSection ? getSectionContents(targetSection) : allContents.filter(item => item.roster_id === activeDivId);
                 } else {
-                    condPool = targetSection ? getSectionContents(targetSection) : [];
-                }
-            }
-
-            // 2. Filter the pool by the condition rule
-            const matchedRows = condPool.filter(row => {
-                const content = row.content || {};
-
-                if (cond.type === 'rows') {
-                    if (!cond.settings?.target_col) return true;
-                    const rawVal = content[cond.settings.target_col];
-                    
-                    const disregardEmpty = cond.settings.disregard_empty !== undefined ? cond.settings.disregard_empty : true;
-                    if (rawVal === null || rawVal === undefined || rawVal === '') {
-                        return disregardEmpty ? false : true;
+                    // Default legacy behavior
+                    if (scope === 'roster') {
+                        condPool = allContents.filter(item => item.roster_id === activeDivId);
+                    } else {
+                        condPool = targetSection ? getSectionContents(targetSection) : [];
                     }
-
-                    // Resolve ID to label if it matches a dataset option
-                    let label = rawVal.toString();
-                    const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
-                    const col = rosterCols.find((c: any) => c.id === cond.settings.target_col);
-                    if (col && col.dataset_id) {
-                        const dataset = datasets.find(d => d.id === col.dataset_id);
-                        const option = dataset?.options?.find((o: any) => String(o.id) === String(rawVal));
-                        if (option) label = option.value;
-                    }
-
-                    const val = label.trim().toLowerCase();
-                    const matchVal = (cond.settings.match_value || '').toString().trim().toLowerCase();
-                    
-                    if (cond.settings.match_type === 'exists') return !!val;
-                    if (cond.settings.match_type === 'equals') return val === matchVal;
-                    if (cond.settings.match_type === 'not_equals') return val !== matchVal;
-                    if (cond.settings.match_type === 'contains') return val.includes(matchVal);
-                    if (cond.settings.match_type === 'is_null') return !rawVal || rawVal === '';
-                    return true;
                 }
 
-                if (cond.type === 'flags') {
-                    if (!cond.settings?.flag_id) return false;
-                    const flag = flags.find(f => f.id === cond.settings.flag_id);
-                    if (!flag) return false;
-                    
-                    const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
-                    return rosterCols.some((col: any) => {
-                        if (!(col.flags || []).includes(flag.id)) return false;
-                        const val = (content[col.id] || '').toString().toLowerCase().trim();
-                        if (!val) return false;
-                        return (flag.rules || []).some((rule: any) => {
-                            if (rule.type === 'equals') return val === (rule.value || '').toString().toLowerCase().trim();
-                            if (rule.type === 'contains') return val.includes((rule.value || '').toString().toLowerCase().trim());
-                            if (rule.type === 'exists_elsewhere') {
-                                const otherPool = rule.scope === 'global' ? allContents : allContents.filter(c => c.roster_id === row.roster_id);
-                                return otherPool.some(c => c.id !== row.id && Object.values(c.content || {}).some(v => (v || '').toString().toLowerCase().trim() === val));
-                            }
-                            return false;
+                // 2. Filter the pool by the condition rule
+                const matchedRows = condPool.filter(row => {
+                    const content = row.content || {};
+
+                    if (cond.type === 'rows') {
+                        if (!cond.settings?.target_col) return true;
+                        const rawVal = content[cond.settings.target_col];
+                        
+                        const disregardEmpty = cond.settings.disregard_empty !== undefined ? cond.settings.disregard_empty : true;
+                        if (rawVal === null || rawVal === undefined || rawVal === '') {
+                            return disregardEmpty ? false : true;
+                        }
+
+                        // Resolve ID to label if it matches a dataset option
+                        let label = rawVal.toString();
+                        const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
+                        const col = rosterCols.find((colItem: any) => colItem.id === cond.settings.target_col);
+                        if (col && col.dataset_id) {
+                            const dataset = datasets.find(d => d.id === col.dataset_id);
+                            const option = dataset?.options?.find((o: any) => String(o.id) === String(rawVal));
+                            if (option) label = option.value;
+                        }
+
+                        const val = label.trim().toLowerCase();
+                        const matchVal = (cond.settings.match_value || '').toString().trim().toLowerCase();
+                        
+                        if (cond.settings.match_type === 'exists') return !!val;
+                        if (cond.settings.match_type === 'equals') return val === matchVal;
+                        if (cond.settings.match_type === 'not_equals') return val !== matchVal;
+                        if (cond.settings.match_type === 'contains') return val.includes(matchVal);
+                        if (cond.settings.match_type === 'is_null') return !rawVal || rawVal === '';
+                        return true;
+                    }
+
+                    if (cond.type === 'flags') {
+                        if (!cond.settings?.flag_id) return false;
+                        const flag = flags.find(f => f.id === cond.settings.flag_id);
+                        if (!flag) return false;
+                        
+                        const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
+                        return rosterCols.some((col: any) => {
+                            if (!(col.flags || []).includes(flag.id)) return false;
+                            const val = (content[col.id] || '').toString().toLowerCase().trim();
+                            if (!val) return false;
+                            return (flag.rules || []).some((rule: any) => {
+                                if (rule.type === 'equals') return val === (rule.value || '').toString().toLowerCase().trim();
+                                if (rule.type === 'contains') return val.includes((rule.value || '').toString().toLowerCase().trim());
+                                if (rule.type === 'exists_elsewhere') {
+                                    const otherPool = rule.scope === 'global' ? allContents : allContents.filter(item => item.roster_id === row.roster_id);
+                                    return otherPool.some(item => item.id !== row.id && Object.values(item.content || {}).some(v => (v || '').toString().toLowerCase().trim() === val));
+                                }
+                                return false;
+                            });
                         });
-                    });
-                }
-
-                if (cond.type === 'checkboxes') {
-                    if (!cond.settings?.target_col || !cond.settings?.checkbox_label) return false;
-                    const rowCheckboxes = row.content?.[`${cond.settings.target_col}_cb`] || [];
-                    const rowTags = row.content?.[`${cond.settings.target_col}_tags`] || [];
-                    return rowCheckboxes.includes(cond.settings.checkbox_label) || rowTags.includes(cond.settings.checkbox_label);
-                }
-
-                return false;
-            });
-
-            // 3. Combine using operator
-            if (idx === 0) {
-                currentGroupPool = matchedRows;
-            } else {
-                if (cond.operator === '+' || cond.operator === '-') {
-                    commitGroup();
-                    currentGroupPool = matchedRows;
-                    lastArithmeticOp = cond.operator;
-                } else if (cond.operator === 'AND') {
-                    const matchedIds = new Set(matchedRows.map(r => r.id));
-                    currentGroupPool = currentGroupPool.filter(r => matchedIds.has(r.id));
-                } else if (cond.operator === 'OR') {
-                    const currentIds = new Set(currentGroupPool.map(r => r.id));
-                    const uniqueNew = matchedRows.filter(r => !currentIds.has(r.id));
-                    currentGroupPool = [...currentGroupPool, ...uniqueNew];
-                }
-            }
-        });
-
-        commitGroup();
-        return Math.max(0, result);
-    }
-
-    // Legacy Logic Fallback
-    let pool: any[] = [];
-    if (scope === 'roster') {
-        pool = allContents.filter(c => c.roster_id === activeDivId);
-    } else {
-        pool = getSectionContents(targetSection);
-    }
-
-    if (count.type === 'sum') {
-        const otherCounts = scope === 'roster' ? (activeDivision.counts || []) : (targetSection.counts || []);
-        const toSum = otherCounts.filter((c: any) => count.settings.sum_ids?.includes(c.id));
-        return toSum.reduce((acc: number, cur: any) => acc + calculateCount(cur, scope, targetSection), 0);
-    }
-
-    return pool.filter(row => {
-        const content = row.content || {};
-        
-        if (count.type === 'rows') {
-            if (!count.settings.target_col) return true;
-            const rawVal = content[count.settings.target_col];
-            if (rawVal === null || rawVal === undefined || rawVal === '') {
-                return count.settings.disregard_empty ? false : true;
-            }
-
-            // Resolve ID to label if it matches a dataset option
-            let label = rawVal.toString();
-            const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
-            const col = rosterCols.find((c: any) => c.id === count.settings.target_col);
-            if (col && col.dataset_id) {
-                const dataset = datasets.find(d => d.id === col.dataset_id);
-                const option = dataset?.options?.find((o: any) => String(o.id) === String(rawVal));
-                if (option) label = option.value;
-            }
-
-            const val = label.trim();
-            
-            if (count.settings.match_type === 'exists') return !!val;
-            if (count.settings.match_type === 'equals') return val.toLowerCase() === (count.settings.match_value || '').toString().toLowerCase().trim();
-            if (count.settings.match_type === 'contains') return val.toLowerCase().includes((count.settings.match_value || '').toString().toLowerCase().trim());
-            return true;
-        }
-
-        if (count.type === 'flags') {
-            if (!count.settings.flag_id) return false;
-            const flag = flags.find(f => f.id === count.settings.flag_id);
-            if (!flag) return false;
-            
-            // Need columns for evaluateFlag
-            const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
-            // This is a bit complex as evaluateFlag is in RosterTable. 
-            // We'll implement a simplified version here for counts.
-            return rosterCols.some((col: any) => {
-                if (!(col.flags || []).includes(flag.id)) return false;
-                const val = (content[col.id] || '').toString().toLowerCase().trim();
-                if (!val) return false;
-                return (flag.rules || []).some((rule: any) => {
-                    if (rule.type === 'equals') return val === (rule.value || '').toString().toLowerCase().trim();
-                    if (rule.type === 'contains') return val.includes((rule.value || '').toString().toLowerCase().trim());
-                    if (rule.type === 'exists_elsewhere') {
-                        // Global/Roster check
-                        const otherPool = rule.scope === 'global' ? allContents : allContents.filter(c => c.roster_id === row.roster_id);
-                        return otherPool.some(c => c.id !== row.id && Object.values(c.content || {}).some(v => (v || '').toString().toLowerCase().trim() === val));
                     }
+
+                    if (cond.type === 'checkboxes') {
+                        if (!cond.settings?.target_col || !cond.settings?.checkbox_label) return false;
+                        const rowCheckboxes = row.content?.[`${cond.settings.target_col}_cb`] || [];
+                        const rowTags = row.content?.[`${cond.settings.target_col}_tags`] || [];
+                        return rowCheckboxes.includes(cond.settings.checkbox_label) || rowTags.includes(cond.settings.checkbox_label);
+                    }
+
+                    if (cond.type === 'tags') {
+                        if (!cond.settings?.target_col || !cond.settings?.checkbox_label) return false;
+                        const rowTags = row.content?.[`${cond.settings.target_col}_tags`] || [];
+                        return rowTags.includes(cond.settings.checkbox_label);
+                    }
+
                     return false;
                 });
+
+                // 3. Combine using operator
+                if (idx === 0) {
+                    currentGroupPool = matchedRows;
+                } else {
+                    if (cond.operator === '+' || cond.operator === '-') {
+                        commitGroup();
+                        currentGroupPool = matchedRows;
+                        lastArithmeticOp = cond.operator;
+                    } else if (cond.operator === 'AND') {
+                        const matchedIds = new Set(matchedRows.map(r => r.id));
+                        currentGroupPool = currentGroupPool.filter(r => matchedIds.has(r.id));
+                    } else if (cond.operator === 'OR') {
+                        const currentIds = new Set(currentGroupPool.map(r => r.id));
+                        const uniqueNew = matchedRows.filter(r => !currentIds.has(r.id));
+                        currentGroupPool = [...currentGroupPool, ...uniqueNew];
+                    }
+                }
             });
+
+            commitGroup();
+            return Math.max(0, result);
         }
 
-        if (count.type === 'checkboxes') {
-            if (!count.settings.target_col || !count.settings.checkbox_label) return false;
-            const rowCheckboxes = row.content?.[`${count.settings.target_col}_cb`] || [];
-            const rowTags = row.content?.[`${count.settings.target_col}_tags`] || [];
-            return rowCheckboxes.includes(count.settings.checkbox_label) || rowTags.includes(count.settings.checkbox_label);
+        // Legacy Logic Fallback
+        let pool: any[] = [];
+        if (scope === 'roster') {
+            pool = allContents.filter(c => c.roster_id === activeDivId);
+        } else {
+            pool = getSectionContents(targetSection);
         }
 
-        return false;
-    }).length;
+        if (c.type === 'sum') {
+            const otherCounts = scope === 'roster' ? (activeDivision.counts || []) : (targetSection.counts || []);
+            const toSum = otherCounts.filter((item: any) => c.settings.sum_ids?.includes(item.id));
+            return toSum.reduce((acc: number, cur: any) => acc + Number(calculateCount(cur, scope, targetSection)), 0);
+        }
+
+        return pool.filter(row => {
+            const content = row.content || {};
+            
+            if (c.type === 'rows') {
+                if (!c.settings.target_col) return true;
+                const rawVal = content[c.settings.target_col];
+                if (rawVal === null || rawVal === undefined || rawVal === '') {
+                    return c.settings.disregard_empty ? false : true;
+                }
+
+                // Resolve ID to label if it matches a dataset option
+                let label = rawVal.toString();
+                const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
+                const col = rosterCols.find((colItem: any) => colItem.id === c.settings.target_col);
+                if (col && col.dataset_id) {
+                    const dataset = datasets.find(d => d.id === col.dataset_id);
+                    const option = dataset?.options?.find((o: any) => String(o.id) === String(rawVal));
+                    if (option) label = option.value;
+                }
+
+                const val = label.trim();
+                
+                if (c.settings.match_type === 'exists') return !!val;
+                if (c.settings.match_type === 'equals') return val.toLowerCase() === (c.settings.match_value || '').toString().toLowerCase().trim();
+                if (c.settings.match_type === 'contains') return val.toLowerCase().includes((c.settings.match_value || '').toString().toLowerCase().trim());
+                return true;
+            }
+
+            if (c.type === 'flags') {
+                if (!c.settings.flag_id) return false;
+                const flag = flags.find(f => f.id === c.settings.flag_id);
+                if (!flag) return false;
+                
+                const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
+                return rosterCols.some((col: any) => {
+                    if (!(col.flags || []).includes(flag.id)) return false;
+                    const val = (content[col.id] || '').toString().toLowerCase().trim();
+                    if (!val) return false;
+                    return (flag.rules || []).some((rule: any) => {
+                        if (rule.type === 'equals') return val === (rule.value || '').toString().toLowerCase().trim();
+                        if (rule.type === 'contains') return val.includes((rule.value || '').toString().toLowerCase().trim());
+                        if (rule.type === 'exists_elsewhere') {
+                            const otherPool = rule.scope === 'global' ? allContents : allContents.filter(item => item.roster_id === row.roster_id);
+                            return otherPool.some(item => item.id !== row.id && Object.values(item.content || {}).some(v => (v || '').toString().toLowerCase().trim() === val));
+                        }
+                        return false;
+                    });
+                });
+            }
+
+            if (c.type === 'checkboxes') {
+                if (!c.settings.target_col || !c.settings.checkbox_label) return false;
+                const rowCheckboxes = row.content?.[`${c.settings.target_col}_cb`] || [];
+                const rowTags = row.content?.[`${c.settings.target_col}_tags`] || [];
+                return rowCheckboxes.includes(c.settings.checkbox_label) || rowTags.includes(c.settings.checkbox_label);
+            }
+
+            if (c.type === 'tags') {
+                if (!c.settings.target_col || !c.settings.checkbox_label) return false;
+                const rowTags = row.content?.[`${c.settings.target_col}_tags`] || [];
+                return rowTags.includes(c.settings.checkbox_label);
+            }
+
+            return false;
+        }).length;
+    };
+
+    const primaryValue = getSingleValue(count);
+    if (count.secondary_count_id) {
+        const secondaryCount = (scope === 'roster' ? activeDivision.counts : targetSection?.counts)?.find((item: any) => String(item.id) === String(count.secondary_count_id));
+        if (secondaryCount) {
+            const secondaryValue = getSingleValue(secondaryCount);
+            return `${primaryValue} / ${secondaryValue}`;
+        }
+    }
+    return String(primaryValue);
   };
 
   return (
@@ -665,16 +685,20 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                     {/* Integrated Roster Counts */}
                     <div className="flex items-center gap-5">
                         {[0, 1, 2].map(colIdx => {
-                            const colCounts = (activeDivision.counts || []).filter((c: any) => (c.column_idx || 0) === colIdx).slice(0, 2);
+                            const colCounts = (activeDivision.counts || [])
+                                .filter((c: any) => (c.column_idx || 0) === colIdx && !c.is_hidden)
+                                .slice(0, 2);
                             if (colCounts.length === 0) return null;
                             return (
-                                <div key={colIdx} className="flex flex-col justify-center gap-0 min-w-[60px]">
+                                <div key={colIdx} className="flex flex-col justify-center gap-1.5 min-w-[70px]">
                                     {colCounts.map((count: any) => (
-                                        <div key={count.id} className="flex items-center justify-between gap-3">
-                                            <span className="text-[7.5px] font-black text-muted uppercase tracking-widest truncate max-w-[50px]">{count.name}</span>
-                                            <span className="text-[10px] font-black tabular-nums leading-none" style={{ color: count.color }}>
-                                                {calculateCount(count, 'roster')}
-                                            </span>
+                                        <div key={count.id} className="flex items-center justify-between gap-3 group/count">
+                                            <div className="flex flex-col">
+                                                <span className="text-[7px] font-black text-muted uppercase tracking-widest leading-none mb-0.5">{count.name}</span>
+                                                <span className="text-[10px] font-black tabular-nums leading-none" style={{ color: count.color }}>
+                                                    {calculateCount(count, 'roster')}
+                                                </span>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -750,6 +774,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                               <SectionCard 
                                 key={section.id} 
                                 section={section} 
+                                user={user}
                                 canModerate={isGlobalMod}
                                 permissions={rosterPerms}
                                 onAddChild={handleAddChildSection}
@@ -759,13 +784,13 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                 columns={section.use_roster_columns ? (rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns) : (section.columns || rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns)}
                                 rosterColumns={rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns}
                                 datasets={datasets}
+                                recordData={recordData}
                                 allContents={allContents}
                                 flags={flags}
                                 editMode={editMode}
                                 rosterColor={activeDivision.color}
                                 onRefresh={fetchRosters}
-                                onReorderRows={handleReorderRows}
-                                globalEditingRowId={globalEditingRowId}
+                                onReorderRows={handleReorderRows}                                globalEditingRowId={globalEditingRowId}
                                 setGlobalEditingRowId={setGlobalEditingRowId}
                                 syncedHeights={rowSyncedHeights}
                                 onRowHeightSync={rowOnRowHeightSync}
@@ -807,8 +832,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                     editMode={editMode}
                                     rosterColor={activeDivision.color}
                                     onRefresh={fetchRosters}
-                                    onReorderRows={handleReorderRows}
-                                    globalEditingRowId={globalEditingRowId}
+                                    onReorderRows={handleReorderRows}                                    globalEditingRowId={globalEditingRowId}
                                     setGlobalEditingRowId={setGlobalEditingRowId}
                                     syncedHeights={rowSyncedHeights}
                                     onRowHeightSync={rowOnRowHeightSync}

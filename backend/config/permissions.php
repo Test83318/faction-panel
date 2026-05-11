@@ -167,6 +167,31 @@ return [
                 ],
             ],
         ],
+        'statistics' => [
+            'name' => 'Statistics',
+            'permissions' => [
+                'view_statistics' => [
+                    'name' => 'View Statistics',
+                    'description' => 'Allows viewing the faction statistics system.',
+                    'type' => 'VIEW',
+                ],
+                'create_statistics_model' => [
+                    'name' => 'Create Statistics Model',
+                    'description' => 'Allows creating new statistics models.',
+                    'type' => 'CREATE',
+                ],
+                'global_statistics_moderation' => [
+                    'name' => 'Global Statistics Model Moderator',
+                    'description' => 'Grants full control over all statistics models (modify, delete).',
+                    'type' => 'MODIFY',
+                ],
+                'view_all_statistics_models' => [
+                    'name' => 'View all Statistics Models',
+                    'description' => 'Allows viewing all statistics models without moderation ability.',
+                    'type' => 'VIEW',
+                ],
+            ],
+        ],
         'snapshots' => [
             'name' => 'Faction Snapshots',
             'permissions' => [

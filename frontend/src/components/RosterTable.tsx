@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import { RosterContent, RosterColumn } from '../types';
 import { motion, Reorder } from 'motion/react';
-import { Plus, Trash2, Check, X, Pencil, Tag, ExternalLink, GripVertical, SeparatorHorizontal } from 'lucide-react';
+import { Plus, Trash2, Check, X, Pencil, Tag, ExternalLink, GripVertical, SeparatorHorizontal, Settings2 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import api from '../api';
 import toast from 'react-hot-toast';
@@ -38,7 +38,7 @@ const CellScaler: React.FC<{ children: React.ReactNode, className?: string }> = 
     }, [updateScale]);
 
     return (
-        <div ref={containerRef} className={`w-full h-full flex items-center justify-center overflow-hidden ${className}`}>
+        <div ref={containerRef} className={`w-full h-full flex items-center justify-center overflow-visible ${className}`}>
             <div 
                 ref={contentRef} 
                 className="flex flex-col items-center justify-center whitespace-nowrap"
@@ -99,6 +99,7 @@ interface RosterTableProps {
   onDeleteRow,
   onBulkDeleteRow,
   onAddRow,
+  onAddSpacer,
   onRefresh,
   onReorderRows,
   globalEditingRowId,
@@ -203,15 +204,15 @@ interface RosterTableProps {
     
     setPickerPosition(isTop ? 'top' : 'bottom');
     
-    let left = rect.left + (rect.width / 2);
+    let left = rect.left + (rect.width / 2) - pickerHalfWidth;
     
     // Boundary check: Right edge
-    if (left + pickerHalfWidth > window.innerWidth - 20) {
-        left = window.innerWidth - pickerHalfWidth - 20;
+    if (left + (pickerHalfWidth * 2) > window.innerWidth - 20) {
+        left = window.innerWidth - (pickerHalfWidth * 2) - 20;
     }
     // Boundary check: Left edge
-    if (left - pickerHalfWidth < 20) {
-        left = pickerHalfWidth + 20;
+    if (left < 20) {
+        left = 20;
     }
 
     setMenuCoords({
@@ -232,15 +233,15 @@ interface RosterTableProps {
 
     setPickerPosition(isTop ? 'top' : 'bottom');
     
-    let left = rect.left + (rect.width / 2);
+    let left = rect.left + (rect.width / 2) - pickerHalfWidth;
 
     // Boundary check: Right edge
-    if (left + pickerHalfWidth > window.innerWidth - 20) {
-        left = window.innerWidth - pickerHalfWidth - 20;
+    if (left + (pickerHalfWidth * 2) > window.innerWidth - 20) {
+        left = window.innerWidth - (pickerHalfWidth * 2) - 20;
     }
     // Boundary check: Left edge
-    if (left - pickerHalfWidth < 20) {
-        left = pickerHalfWidth + 20;
+    if (left < 20) {
+        left = 20;
     }
 
     setMenuCoords({
@@ -250,17 +251,6 @@ interface RosterTableProps {
     setShowBulkColorPicker(!showBulkColorPicker);
     setShowColorPicker(null);
   };
-
-  useEffect(() => {
-    const handleGlobalClick = () => {
-        setShowBulkColorPicker(false);
-        setShowColorPicker(null);
-    };
-    if (showBulkColorPicker || showColorPicker) {
-        window.addEventListener('click', handleGlobalClick);
-    }
-    return () => window.removeEventListener('click', handleGlobalClick);
-  }, [showBulkColorPicker, showColorPicker]);
 
   const handleBulkColorUpdate = async (color: string | null) => {
     if (selectedRowIds.length === 0) return;
@@ -478,17 +468,19 @@ interface RosterTableProps {
     setLastUpdatedAt(row.updated_at || null);
   };
 
-  const handleSaveEdit = async (rowId: number) => {
+  const handleSaveEdit = useCallback(async (rowId: number, colorOverride?: string | null) => {
     if (editingRowId !== rowId) return;
 
-    const dataToSave = { content: { ...editData }, color: rowColor };
+    const dataToSave = { 
+        content: { ...editData }, 
+        color: colorOverride !== undefined ? colorOverride : rowColor 
+    };
     const colId = editingColId;
     const updatedAt = lastUpdatedAt;
 
     setGlobalEditingRowId?.(null);
     setEditingRowId(null);
     setEditingColId(null);
-    setRowColor(null);
     setLastUpdatedAt(null);
     setActiveTagMenu(null);
     setShowColorPicker(null);
@@ -507,8 +499,33 @@ interface RosterTableProps {
             next.delete(rowId);
             return next;
         });
+        setRowColor(null);
+        setEditData({});
     }
-  };
+  }, [editingRowId, editData, rowColor, editingColId, lastUpdatedAt, onUpdateRow, setGlobalEditingRowId]);
+
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('.color-picker-window')) return;
+        
+        if (showColorPicker !== null) {
+            handleSaveEdit(showColorPicker);
+        }
+        
+        setShowBulkColorPicker(false);
+        setShowColorPicker(null);
+    };
+    if (showBulkColorPicker || showColorPicker !== null) {
+        const timer = setTimeout(() => {
+            window.addEventListener('click', handleGlobalClick);
+        }, 0);
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('click', handleGlobalClick);
+        };
+    }
+  }, [showBulkColorPicker, showColorPicker, handleSaveEdit]);
 
   const handleCancelEdit = async () => {
     const id = editingRowId;
@@ -526,6 +543,8 @@ interface RosterTableProps {
     }
   };
   const handleRowBlur = (e: React.FocusEvent, rowId: number) => {
+    if (showColorPicker === rowId) return;
+
     const nextFocus = e.relatedTarget as Node;
     if (!e.currentTarget.contains(nextFocus)) {
       handleSaveEdit(rowId);
@@ -1197,12 +1216,11 @@ interface RosterTableProps {
         >
           {contents.map((row, idx) => {
             const isEditing = editingRowId === row.id;
+            const isSaving = savingRows.has(row.id);
             const isSpacer = row.type === 'spacer';
-            const effectiveRowColor = isEditing ? rowColor : row.color;
-
-            // Check if any column in this row has checkboxes
+            const effectiveRowColor = (isEditing || isSaving) ? rowColor : row.color;
             const hasCheckbox = activeCols.some(col => {
-                const checked = isEditing ? (editData[`${col.id}_cb`] || []) : (row.content?.[`${col.id}_cb`] || []);
+                const checked = (isEditing || isSaving) ? (editData[`${col.id}_cb`] || []) : (row.content?.[`${col.id}_cb`] || []);
                 return checked.length > 0;
             });
 
@@ -1212,6 +1230,8 @@ interface RosterTableProps {
                 backgroundColor: effectiveRowColor ? `${effectiveRowColor}33` : undefined,
                 height: syncedHeight ? `${syncedHeight}px` : (maxRowHeight ? `${maxRowHeight}px` : undefined)
             };
+
+            const isLocked = !isEditing && row.editing_by && row.editing_by !== user?.id && row.editing_at && (new Date().getTime() - new Date(row.editing_at).getTime() < 60000);
 
             return (
               <Reorder.Item 
@@ -1262,24 +1282,45 @@ interface RosterTableProps {
                         className={`rt-td p-0 h-[34px] relative transition-colors ${isEditing ? 'bg-accent/5 ring-1 ring-inset ring-accent/30 z-[5001]' : 'hover:bg-surface/50'}`}
                         style={{ 
                             ...cellStyle,
-                            backgroundColor: effectiveRowColor ? `${effectiveRowColor}44` : (effectiveRowColor ? undefined : 'rgba(255,255,255,0.02)'),
+                            backgroundColor: effectiveRowColor ? `${effectiveRowColor}33` : 'rgba(255,255,255,0.02)',
                         }}
                         onClick={() => !isEditing && canEditPredefined && handleStartEdit(row, 'spacer_text')}
                     >
-                        {isEditing ? (
-                            <div className="flex items-center justify-center w-full h-full px-4">
+                        {isSaving ? (
+                            <div className="flex items-center justify-center h-full w-full">
+                                <div className="px-2 py-0.5 bg-accent/10 border border-accent/20 rounded animate-pulse flex items-center gap-1.5">
+                                    <div className="w-1 h-1 rounded-full bg-accent animate-bounce" />
+                                    <span className="text-[7px] font-black text-accent uppercase tracking-widest">Saving</span>
+                                </div>
+                            </div>
+                        ) : (isLocked && (row.editing_col === 'spacer_text' || !row.editing_col)) ? (
+                             <div className="flex items-center justify-center h-full w-full">
+                                <div className="px-2 py-0.5 bg-danger/10 border border-danger/20 rounded flex items-center gap-1.5 group/lock relative">
+                                    <div className="w-1 h-1 rounded-full bg-danger" />
+                                    <span className="text-[7px] font-black text-danger uppercase tracking-widest">Editing</span>
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black text-white text-[7px] font-bold uppercase rounded opacity-0 group-hover/lock:opacity-100 transition-opacity whitespace-nowrap z-[100]">
+                                        {row.editor?.username || 'Another user'} is editing
+                                    </div>
+                                </div>
+                            </div>
+                        ) : isEditing ? (
+                            <div className="flex items-center justify-center w-full h-full px-4 gap-2">
                                 <input 
                                     ref={inputRef}
                                     value={editData['spacer_text'] || ''}
                                     onChange={e => updateField('spacer_text', e.target.value)}
                                     onKeyDown={e => e.key === 'Enter' && handleSaveEdit(row.id)}
-                                    className="w-full bg-transparent border-none text-[10px] text-center uppercase font-black outline-none focus:ring-0 p-0 text-text placeholder:opacity-20"
+                                    className="flex-1 bg-transparent border-none text-[10px] text-center uppercase font-black outline-none focus:ring-0 p-0 text-text placeholder:opacity-20"
                                     placeholder="Spacer Text (Optional)"
                                 />
+                                <div className="flex items-center gap-1 bg-accent/10 px-2 py-0.5 rounded border border-accent/20">
+                                    <div className="w-1 h-1 rounded-full bg-accent animate-pulse" />
+                                    <span className="text-[7px] font-black text-accent uppercase tracking-widest">Editing</span>
+                                </div>
                             </div>
                         ) : (
                             <div className="flex items-center justify-center w-full h-full px-4">
-                                <span className="text-[10px] uppercase font-black tracking-widest opacity-60 italic">
+                                <span className={`text-[10px] uppercase font-black tracking-[0.2em] ${effectiveRowColor ? 'text-text drop-shadow-sm' : 'opacity-60 italic'}`}>
                                     {row.content?.['spacer_text'] || ''}
                                 </span>
                             </div>
@@ -1318,11 +1359,12 @@ interface RosterTableProps {
                             <motion.div
                                 drag
                                 dragMomentum={false}
-                                className={`fixed bg-card border border-border rounded-xl shadow-2xl p-3 z-[10000] min-w-[180px] cursor-default`}
+                                onClick={(e) => e.stopPropagation()}
+                                className={`fixed bg-card border border-border rounded-xl shadow-2xl p-3 z-[10000] min-w-[180px] cursor-default color-picker-window`}
                                 style={{ 
                                     top: menuCoords.top, 
                                     left: menuCoords.left,
-                                    transform: `translateX(-50%) ${pickerPosition === 'top' ? 'translateY(-100%) translateY(-10px)' : 'translateY(10px)'}`
+                                    transform: `${pickerPosition === 'top' ? 'translateY(-100%) translateY(-10px)' : 'translateY(10px)'}`
                                 }}
                             >
                                 <div className="flex items-center justify-between mb-2 border-b border-border/50 pb-1 cursor-grab active:cursor-grabbing">
@@ -1336,7 +1378,6 @@ interface RosterTableProps {
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setRowColor(c.value);
-                                                setShowColorPicker(null);
                                             }}
                                             className={`w-full aspect-square rounded-md border transition-all ${rowColor === c.value ? 'ring-2 ring-accent ring-offset-2 ring-offset-card' : 'border-border hover:border-accent'}`}
                                             style={{ backgroundColor: c.value || 'transparent' }}
@@ -1404,7 +1445,8 @@ interface RosterTableProps {
                                         <motion.div 
                                             drag
                                             dragMomentum={false}
-                                            className={`fixed bg-card border border-border rounded-xl shadow-2xl p-4 z-[10000] min-w-[200px] cursor-default`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className={`fixed bg-card border border-border rounded-xl shadow-2xl p-4 z-[10000] min-w-[200px] cursor-default color-picker-window`}
                                             style={{
                                                 top: menuCoords.top,
                                                 left: menuCoords.left,

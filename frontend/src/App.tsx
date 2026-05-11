@@ -24,6 +24,8 @@ import GroupManagement from './components/GroupManagement';
 import Administration from './components/Administration';
 import GtawSync from './components/GtawSync';
 import AuditLogs from './components/AuditLogs';
+import Statistics from './components/Statistics';
+import StatisticsDashboard from './components/StatisticsDashboard';
 import Welcome from './components/Welcome';
 import Credits from './components/Credits';
 import GlobalLayout from './layouts/GlobalLayout';
@@ -158,6 +160,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
   const canViewGroups = user?.is_superadmin || permissions.includes('view_groups') || isGroupLeader;
   const canViewRecords = user?.is_superadmin || permissions.includes('view_faction_records');
   const canViewAuditLogs = user?.is_superadmin || permissions.includes('view_audit_logs');
+  const canViewStatistics = user?.is_superadmin || permissions.includes('view_statistics');
   const canViewSnapshots = user?.is_superadmin || permissions.includes('view_snapshots') || permissions.includes('administrator');
   const canViewGtawSync = (user?.is_superadmin || permissions.includes('manage_integrations')) && factionData?.gtaw_faction_id;
 
@@ -179,6 +182,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
       canViewGroups={canViewGroups}
       canViewRecords={canViewRecords}
       canViewAuditLogs={canViewAuditLogs}
+      canViewStatistics={canViewStatistics}
       canViewSnapshots={canViewSnapshots}
       canViewGtawSync={canViewGtawSync}
       siteVersion={siteVersion}
@@ -206,6 +210,20 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
           canViewRecords ? (
             <main className="main flex-1 overflow-auto p-5">
               <FactionRecords shortname={shortname!} permissions={permissions} user={user} />
+            </main>
+          ) : <Navigate to={`/${shortname}/roster`} />
+        } />
+        <Route path="statistics" element={
+          canViewStatistics ? (
+            <main className="main flex-1 overflow-auto p-5">
+              <Statistics shortname={shortname!} user={user} permissions={permissions} rosters={rosters} datasets={datasets} recordData={recordData} />
+            </main>
+          ) : <Navigate to={`/${shortname}/roster`} />
+        } />
+        <Route path="statistics/:modelId" element={
+          canViewStatistics ? (
+            <main className="main flex-1 overflow-auto p-5">
+              <StatisticsDashboard shortname={shortname!} user={user} permissions={permissions} rosters={rosters} datasets={datasets} recordData={recordData} />
             </main>
           ) : <Navigate to={`/${shortname}/roster`} />
         } />

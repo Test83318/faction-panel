@@ -23,7 +23,7 @@ interface SectionCardProps {
   onAddChild?: (parentId: number) => void;
   onEdit?: (section: RosterSection) => void;
   onManageCounts?: (section: RosterSection) => void;
-  calculateCount?: (count: any, scope: 'roster' | 'section', targetSection?: any) => number;
+  calculateCount?: (count: any, scope: 'roster' | 'section', targetSection?: any) => string;
   onRefresh?: () => void;
   onReorderRows?: (sectionId: number, newOrder: any[]) => void;
   globalEditingRowId?: number | null;
@@ -60,6 +60,55 @@ export const SectionCard: React.FC<SectionCardProps> = ({
 }) => {
   const canEditSection = canModerate || permissions?.add_sections;
   const canAddChildSection = canModerate || permissions?.add_sections;
+
+  const renderCounts = (target: any) => {
+    if (!target.counts || target.counts.length === 0) return null;
+    
+    return (
+        <div className="flex items-center gap-4 pl-3 border-l border-border/50">
+            {target.counts.filter((c: any) => !c.is_hidden).map((count: any) => {
+                const value = calculateCount?.(count, 'section', target);
+                return (
+                    <div key={count.id} className="flex items-center gap-2 group/count">
+                        <div className="flex flex-col items-end">
+                            <span className="text-[7px] font-black text-muted uppercase tracking-widest leading-none mb-0.5">{count.name}</span>
+                            <span className="text-[10px] font-black tabular-nums leading-none" style={{ color: count.color }}>
+                                {value}
+                            </span>
+                        </div>
+                        {count.tag && (
+                            <div className="px-1.5 py-0.5 bg-surface border border-border rounded text-[7px] font-black uppercase tracking-tighter text-muted group-hover/count:text-text transition-colors">
+                                {count.tag}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+  };
+
+  const processHtml = (html: string) => {
+      if (!html) return '';
+      let processed = html;
+      
+      // Search for counts in this section and its parents to resolve variables
+      const findCounts = (s: any): any[] => {
+          let c = [...(s.counts || [])];
+          // We could potentially look at roster level counts too if needed
+          return c;
+      };
+
+      const availableCounts = findCounts(section);
+      availableCounts.forEach((count: any) => {
+          if (count.variable_name) {
+              const value = calculateCount?.(count, 'section', section) || '0';
+              const regex = new RegExp(`{${count.variable_name}}`, 'g');
+              processed = processed.replace(regex, String(value));
+          }
+      });
+      return processed;
+  };
 
   const renderChild = (child: RosterSection, syncProps?: { syncedHeights?: { [key: number]: number }, onRowHeightSync?: (index: number, height: number, hasCheckbox: boolean) => void }) => {
     return (
@@ -120,6 +169,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     try {
       await api.put(`/contents/${id}`, { 
         ...data,
+        color: data.color, // Explicitly include color to ensure it's not lost
         force,
         last_updated_at: lastUpdatedAt
       });
@@ -227,21 +277,10 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           '--accent-rgb': effectiveColor.startsWith('#') ? hexToRgb(effectiveColor) : undefined
         } as React.CSSProperties}
       >
-        <div className="section-header py-0.5 px-2 border-b border-border bg-border/20 flex justify-between items-center">
+        <div className="section-header h-[24px] px-2 border-b border-border bg-border/20 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <span className="text-[9px] font-bold text-text uppercase">{section.name}</span>
-            {section.counts && section.counts.length > 0 && (
-                <div className="flex items-center gap-3 pl-3 border-l border-border/50">
-                    {section.counts.map((count: any) => (
-                        <div key={count.id} className="flex items-center gap-1.5">
-                            <span className="text-[7px] font-black text-muted uppercase tracking-widest">{count.name}</span>
-                            <span className="text-[9px] font-black tabular-nums" style={{ color: count.color }}>
-                                {calculateCount?.(count, 'section', section)}
-                            </span>
-                        </div>
-                    ))}
-                </div>
-            )}
+            {renderCounts(section)}
           </div>
           <div className="flex items-center gap-2">
             {canEditSection && (
@@ -319,18 +358,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
               <span className="font-bold text-[11px] text-text uppercase truncate">
                 {section.name}
               </span>
-              {!section.parent_id && section.counts && section.counts.length > 0 && (
-                  <div className="flex items-center gap-3 pl-3 border-l border-border/50">
-                      {section.counts.map((count: any) => (
-                          <div key={count.id} className="flex items-center gap-1.5">
-                              <span className="text-[7px] font-black text-muted uppercase tracking-widest">{count.name}</span>
-                              <span className="text-[9px] font-black tabular-nums" style={{ color: count.color }}>
-                                  {calculateCount?.(count, 'section', section)}
-                              </span>
-                          </div>
-                      ))}
-                  </div>
-              )}
+              {!section.parent_id && renderCounts(section)}
           </div>
           <div className="flex items-center gap-1 ml-auto">
             {canEditSection && (
@@ -400,7 +428,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             <div className="p-4 bg-card/30">
                 <div 
                     className="prose prose-invert max-w-none text-[11px] leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: section.content_html || '' }}
+                    dangerouslySetInnerHTML={{ __html: processHtml(section.content_html || '') }}
                 />
             </div>
         )}
