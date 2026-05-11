@@ -12,6 +12,7 @@ interface CountManagerModalProps {
     onSave: () => void;
     columns: any[];
     flags: any[];
+    allSections?: any[];
 }
 
 export const CountManagerModal: React.FC<CountManagerModalProps> = ({ 
@@ -21,14 +22,32 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
     onClose, 
     onSave,
     columns,
-    flags
+    flags,
+    allSections = []
 }) => {
-    const [counts, setCounts] = useState<any[]>(target.counts || []);
+    const [counts, setCounts] = useState<any[]>(() => {
+        const existing = target.counts || [];
+        // Migrate legacy counts if needed
+        return existing.map((c: any) => {
+            if (!c.conditions) {
+                return {
+                    ...c,
+                    conditions: [{
+                        id: `cond_${Date.now()}_0`,
+                        operator: '+',
+                        type: c.type || 'rows',
+                        scope: type === 'roster' ? 'roster' : 'section',
+                        settings: c.settings || {}
+                    }]
+                };
+            }
+            return c;
+        });
+    });
     const [isSaving, setIsSaving] = useState(false);
     const [editingIdx, setEditingIdx] = useState<number | null>(null);
 
     const maxColumns = type === 'roster' ? 3 : 1;
-    const maxCountsPerColumn = type === 'roster' ? 2 : 1;
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -49,27 +68,25 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
     };
 
     const addCount = () => {
-        const currentCols = new Set(counts.map(c => c.column_idx || 0));
-        if (currentCols.size >= maxColumns && !currentCols.has(0)) {
-            toast.error(`Max ${maxColumns} columns allowed`);
-            return;
-        }
-
         const newCount = {
             id: `count_${Date.now()}`,
             name: 'New Count',
-            type: 'rows', // rows, flags, checkboxes, sum
             column_idx: 0,
             color: '#3b82f6',
-            settings: {
-                target_col: '',
-                disregard_empty: true,
-                match_type: 'exists', // exists, contains, equals
-                match_value: '',
-                flag_id: null,
-                checkbox_label: '',
-                sum_ids: []
-            }
+            conditions: [
+                {
+                    id: `cond_${Date.now()}_0`,
+                    operator: '+',
+                    type: 'rows',
+                    scope: type === 'roster' ? 'roster' : 'section',
+                    settings: {
+                        target_col: '',
+                        disregard_empty: true,
+                        match_type: 'exists',
+                        match_value: ''
+                    }
+                }
+            ]
         };
         setCounts([...counts, newCount]);
         setEditingIdx(counts.length);
@@ -86,17 +103,55 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
         if (editingIdx === idx) setEditingIdx(null);
     };
 
+    const addCondition = (countIdx: number) => {
+        const newCounts = [...counts];
+        const count = newCounts[countIdx];
+        count.conditions = [
+            ...count.conditions,
+            {
+                id: `cond_${Date.now()}_${count.conditions.length}`,
+                operator: 'AND',
+                type: 'rows',
+                scope: type === 'roster' ? 'roster' : 'section',
+                settings: {
+                    target_col: '',
+                    disregard_empty: true,
+                    match_type: 'exists',
+                    match_value: ''
+                }
+            }
+        ];
+        setCounts(newCounts);
+    };
+
+    const updateCondition = (countIdx: number, condIdx: number, fields: any) => {
+        const newCounts = [...counts];
+        const count = newCounts[countIdx];
+        count.conditions[condIdx] = { ...count.conditions[condIdx], ...fields };
+        setCounts(newCounts);
+    };
+
+    const removeCondition = (countIdx: number, condIdx: number) => {
+        const newCounts = [...counts];
+        newCounts[countIdx].conditions = newCounts[countIdx].conditions.filter((_: any, i: number) => i !== condIdx);
+        if (newCounts[countIdx].conditions.length === 0) {
+            removeCount(countIdx);
+        } else {
+            setCounts(newCounts);
+        }
+    };
+
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[700]">
-            <div className="bg-card w-full max-w-4xl h-[85vh] rounded-2xl border border-border shadow-2xl flex flex-col overflow-hidden">
-                <div className="p-6 border-b border-border bg-surface/30 flex justify-between items-center">
+            <div className="bg-card w-full max-w-5xl h-[90vh] rounded-2xl border border-border shadow-2xl flex flex-col overflow-hidden">
+                <div className="p-6 border-b border-border bg-surface/30 flex justify-between items-center shrink-0">
                     <div>
                         <h2 className="text-xl font-black uppercase tracking-tighter italic flex items-center gap-2">
                             <Calculator className="text-accent" size={24} />
                             Manage {type === 'roster' ? 'Roster' : 'Section'} Counts
                         </h2>
                         <p className="text-[10px] text-muted font-bold uppercase tracking-widest mt-1">
-                            Setup dynamic personnel counters and statistics
+                            Setup dynamic personnel counters with complex formula logic
                         </p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-surface rounded-full transition-colors">
@@ -108,249 +163,316 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                     <div className="flex justify-between items-center">
                         <div className="space-y-1">
                             <h3 className="text-xs font-black uppercase tracking-widest text-text">Counter Configurations</h3>
-                            <p className="text-[9px] text-muted font-bold uppercase">
+                            <p className="text-[9px] text-muted font-bold uppercase leading-relaxed">
                                 {type === 'roster' 
-                                    ? 'Roster counts take into account all root sections.' 
-                                    : 'Section counts are limited to this section only.'}
+                                    ? 'Roster counts can reference any section in the roster.' 
+                                    : 'Section counts default to this section but can reference others.'}
                             </p>
                         </div>
                         <button 
                             onClick={addCount}
-                            className="px-4 py-2 bg-accent/10 hover:bg-accent/20 text-accent rounded-lg text-[10px] font-black uppercase tracking-widest transition flex items-center gap-2 border border-accent/20"
+                            className="px-4 py-2 bg-accent/10 hover:bg-accent/20 text-accent rounded-lg text-[10px] font-black uppercase tracking-widest transition flex items-center gap-2 border border-accent/20 shadow-sm"
                         >
-                            <Plus size={14} /> Add Counter
+                            <PlusCircle size={14} /> Add Counter
                         </button>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                         {counts.map((count, idx) => (
-                            <div key={count.id} className={`bg-card border rounded-xl transition-all ${editingIdx === idx ? 'border-accent ring-1 ring-accent/20 shadow-lg' : 'border-border'}`}>
-                                <div className="p-4 flex items-center gap-4">
+                            <div key={count.id} className={`bg-card border rounded-2xl transition-all ${editingIdx === idx ? 'border-accent ring-1 ring-accent/20 shadow-xl' : 'border-border'}`}>
+                                <div className="p-5 flex items-center gap-4">
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: count.color }} />
+                                            <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: count.color }} />
                                             <input 
                                                 value={count.name}
                                                 onChange={(e) => updateCount(idx, { name: e.target.value })}
-                                                className="bg-transparent border-none p-0 font-black text-sm text-text focus:ring-0 uppercase tracking-tight italic"
+                                                className="bg-transparent border-none p-0 font-black text-lg text-text focus:ring-0 uppercase tracking-tighter italic"
                                                 placeholder="Counter Name"
                                             />
-                                            <div className="px-2 py-0.5 bg-surface border border-border rounded text-[8px] font-black uppercase text-muted tracking-widest">
-                                                {count.type}
-                                            </div>
-                                            {type === 'roster' && (
-                                                <div className="px-2 py-0.5 bg-accent/5 text-accent border border-accent/10 rounded text-[8px] font-black uppercase tracking-widest">
-                                                    Col {count.column_idx + 1}
+                                            <div className="flex items-center gap-1.5 ml-2">
+                                                <div className="px-2 py-0.5 bg-surface border border-border rounded text-[8px] font-black uppercase text-muted tracking-widest">
+                                                    {count.conditions?.length || 0} Conditions
                                                 </div>
-                                            )}
+                                                {type === 'roster' && (
+                                                    <div className="px-2 py-0.5 bg-accent/5 text-accent border border-accent/10 rounded text-[8px] font-black uppercase tracking-widest">
+                                                        Col {count.column_idx + 1}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button 
                                             onClick={() => setEditingIdx(editingIdx === idx ? null : idx)}
-                                            className={`p-2 rounded-lg transition-colors ${editingIdx === idx ? 'bg-accent text-white' : 'text-muted hover:bg-surface'}`}
+                                            className={`p-2 rounded-xl transition-all ${editingIdx === idx ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-muted hover:bg-surface border border-transparent hover:border-border'}`}
                                         >
-                                            <Settings2 size={16} />
+                                            <Settings2 size={18} />
                                         </button>
                                         <button 
                                             onClick={() => removeCount(idx)}
-                                            className="p-2 text-muted hover:text-danger hover:bg-danger/5 rounded-lg transition-colors"
+                                            className="p-2 text-muted hover:text-danger hover:bg-danger/5 rounded-xl transition-all border border-transparent hover:border-danger/10"
                                         >
-                                            <Trash2 size={16} />
+                                            <Trash2 size={18} />
                                         </button>
                                     </div>
                                 </div>
 
                                 {editingIdx === idx && (
-                                    <div className="px-6 pb-6 border-t border-border/50 pt-6 space-y-6 animate-in slide-in-from-top-2 duration-200">
-                                        <div className="grid grid-cols-2 gap-8">
-                                            <div className="space-y-4">
+                                    <div className="px-6 pb-8 border-t border-border/50 pt-6 space-y-8 animate-in slide-in-from-top-4 duration-300">
+                                        <div className="grid grid-cols-12 gap-8">
+                                            <div className="col-span-3 space-y-6">
                                                 <div>
-                                                    <label className="block text-[9px] font-black uppercase tracking-widest text-accent mb-2 flex items-center gap-2">
-                                                        <Target size={12} /> Calculation Type
+                                                    <label className="block text-[9px] font-black uppercase tracking-widest text-accent mb-3 flex items-center gap-2">
+                                                        Display Style
                                                     </label>
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        {[
-                                                            { id: 'rows', label: 'Row Count', icon: Hash },
-                                                            { id: 'flags', label: 'Flag Count', icon: Filter },
-                                                            { id: 'checkboxes', label: 'Checkbox', icon: Check },
-                                                            { id: 'sum', label: 'Summation', icon: Sigma }
-                                                        ].map(t => (
-                                                            <button 
-                                                                key={t.id}
-                                                                onClick={() => updateCount(idx, { type: t.id })}
-                                                                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-[10px] font-bold uppercase transition-all ${count.type === t.id ? 'bg-accent border-accent text-white shadow-md shadow-accent/20' : 'bg-surface border-border text-muted hover:border-accent/30'}`}
-                                                            >
-                                                                <t.icon size={12} /> {t.label}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                <div>
-                                                    <label className="block text-[9px] font-black uppercase tracking-widest text-accent mb-2">Display Color</label>
-                                                    <div className="flex gap-3">
-                                                        <input 
-                                                            type="color"
-                                                            value={count.color}
-                                                            onChange={e => updateCount(idx, { color: e.target.value })}
-                                                            className="h-10 w-14 bg-surface border border-border rounded-lg p-1 cursor-pointer"
-                                                        />
-                                                        <input 
-                                                            value={count.color}
-                                                            onChange={e => updateCount(idx, { color: e.target.value })}
-                                                            className="flex-1 bg-surface border border-border rounded-lg px-3 py-2 text-xs text-text outline-none focus:border-accent font-mono uppercase"
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                {type === 'roster' && (
-                                                    <div>
-                                                        <label className="block text-[9px] font-black uppercase tracking-widest text-accent mb-2">Display Column (1-3)</label>
-                                                        <div className="flex gap-2">
-                                                            {[0, 1, 2].map(num => (
-                                                                <button 
-                                                                    key={num}
-                                                                    onClick={() => updateCount(idx, { column_idx: num })}
-                                                                    className={`flex-1 py-2 rounded-lg border font-black text-xs transition-all ${count.column_idx === num ? 'bg-accent border-accent text-white shadow-md' : 'bg-surface border-border text-muted'}`}
-                                                                >
-                                                                    {num + 1}
-                                                                </button>
-                                                            ))}
+                                                    <div className="space-y-4">
+                                                        <div>
+                                                            <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Primary Color</label>
+                                                            <div className="flex gap-2">
+                                                                <input 
+                                                                    type="color"
+                                                                    value={count.color}
+                                                                    onChange={e => updateCount(idx, { color: e.target.value })}
+                                                                    className="h-9 w-12 bg-surface border border-border rounded-lg p-1 cursor-pointer"
+                                                                />
+                                                                <input 
+                                                                    value={count.color}
+                                                                    onChange={e => updateCount(idx, { color: e.target.value })}
+                                                                    className="flex-1 bg-surface border border-border rounded-lg px-3 py-1.5 text-[10px] text-text outline-none focus:border-accent font-mono uppercase"
+                                                                />
+                                                            </div>
                                                         </div>
+
+                                                        {type === 'roster' && (
+                                                            <div>
+                                                                <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Column Position</label>
+                                                                <div className="flex gap-1">
+                                                                    {[0, 1, 2].map(num => (
+                                                                        <button 
+                                                                            key={num}
+                                                                            onClick={() => updateCount(idx, { column_idx: num })}
+                                                                            className={`flex-1 py-1.5 rounded-lg border font-black text-[10px] transition-all ${count.column_idx === num ? 'bg-accent border-accent text-white shadow-sm' : 'bg-surface border-border text-muted hover:border-accent/30'}`}
+                                                                        >
+                                                                            {num + 1}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
+                                                </div>
                                             </div>
 
-                                            <div className="space-y-4 bg-surface/30 p-5 rounded-2xl border border-border/50">
-                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-muted border-b border-border/50 pb-2 mb-4">Calculation Settings</h4>
-                                                
-                                                {count.type === 'rows' && (
-                                                    <div className="space-y-4">
-                                                        <div>
-                                                            <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Target Column</label>
-                                                            <select 
-                                                                value={count.settings.target_col}
-                                                                onChange={e => updateCount(idx, { settings: { ...count.settings, target_col: e.target.value } })}
-                                                                className="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs"
-                                                            >
-                                                                <option value="">Any Column (Total Rows)</option>
-                                                                {columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                                            </select>
-                                                        </div>
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-[10px] font-bold text-muted uppercase">Disregard Empty Rows</span>
-                                                            <button 
-                                                                onClick={() => updateCount(idx, { settings: { ...count.settings, disregard_empty: !count.settings.disregard_empty } })}
-                                                                className={`w-8 h-4 rounded-full relative transition-colors ${count.settings.disregard_empty ? 'bg-accent' : 'bg-muted/30'}`}
-                                                            >
-                                                                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${count.settings.disregard_empty ? 'right-0.5' : 'left-0.5'}`} />
-                                                            </button>
-                                                        </div>
-                                                        {count.settings.target_col && (
-                                                            <div className="space-y-4 pt-2 border-t border-border/50">
-                                                                <div>
-                                                                    <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Match Type</label>
-                                                                    <select 
-                                                                        value={count.settings.match_type}
-                                                                        onChange={e => updateCount(idx, { settings: { ...count.settings, match_type: e.target.value } })}
-                                                                        className="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs"
-                                                                    >
-                                                                        <option value="exists">Value Exists</option>
-                                                                        <option value="equals">Exact Match</option>
-                                                                        <option value="contains">Contains Text</option>
-                                                                    </select>
-                                                                </div>
-                                                                {count.settings.match_type !== 'exists' && (
-                                                                    <div>
-                                                                        <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Match Value</label>
-                                                                        <input 
-                                                                            value={count.settings.match_value}
-                                                                            onChange={e => updateCount(idx, { settings: { ...count.settings, match_value: e.target.value } })}
-                                                                            className="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs"
-                                                                            placeholder="e.g. Command"
-                                                                        />
+                                            <div className="col-span-9 space-y-4">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="block text-[9px] font-black uppercase tracking-widest text-accent flex items-center gap-2">
+                                                        <Sigma size={12} /> Calculation Formula
+                                                    </label>
+                                                    <button 
+                                                        onClick={() => addCondition(idx)}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-accent/10 hover:bg-accent/20 text-accent rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border border-accent/20"
+                                                    >
+                                                        <Plus size={12} /> Add Condition
+                                                    </button>
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                    {count.conditions.map((cond: any, cIdx: number) => (
+                                                        <div key={cond.id} className="relative group/cond">
+                                                            {cIdx > 0 && (
+                                                                <div className="absolute -top-3 left-10 flex items-center gap-1 z-10">
+                                                                    <div className="flex bg-card border border-border rounded-full p-0.5 shadow-sm">
+                                                                        {['AND', 'OR', '+', '-'].map(op => (
+                                                                            <button 
+                                                                                key={op}
+                                                                                onClick={() => updateCondition(idx, cIdx, { operator: op })}
+                                                                                className={`px-2 py-0.5 rounded-full text-[8px] font-black transition-all ${cond.operator === op ? 'bg-accent text-white' : 'hover:bg-surface text-muted'}`}
+                                                                            >
+                                                                                {op}
+                                                                            </button>
+                                                                        ))}
                                                                     </div>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {count.type === 'flags' && (
-                                                    <div>
-                                                        <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Target Flag</label>
-                                                        <select 
-                                                            value={count.settings.flag_id || ''}
-                                                            onChange={e => updateCount(idx, { settings: { ...count.settings, flag_id: parseInt(e.target.value) } })}
-                                                            className="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs"
-                                                        >
-                                                            <option value="">Select Flag...</option>
-                                                            {flags.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                                                        </select>
-                                                    </div>
-                                                )}
-
-                                                {count.type === 'checkboxes' && (
-                                                    <div className="space-y-4">
-                                                        <div>
-                                                            <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Column</label>
-                                                            <select 
-                                                                value={count.settings.target_col}
-                                                                onChange={e => updateCount(idx, { settings: { ...count.settings, target_col: e.target.value } })}
-                                                                className="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs"
-                                                            >
-                                                                <option value="">Select Column...</option>
-                                                                {columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                                            </select>
-                                                        </div>
-                                                        {count.settings.target_col && (
-                                                            <div>
-                                                                <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Checkbox/Tag Label</label>
-                                                                <select 
-                                                                    value={count.settings.checkbox_label}
-                                                                    onChange={e => updateCount(idx, { settings: { ...count.settings, checkbox_label: e.target.value } })}
-                                                                    className="w-full bg-card border border-border rounded-lg px-3 py-2 text-xs"
-                                                                >
-                                                                    <option value="">Select Label...</option>
-                                                                    {(() => {
-                                                                        const col = columns.find(c => c.id === count.settings.target_col);
-                                                                        const labels = [
-                                                                            ...(col?.checkboxes || []).map((cb: any) => typeof cb === 'string' ? cb : cb.label),
-                                                                            ...(col?.tags || []).map((t: any) => typeof t === 'string' ? t : t.label)
-                                                                        ];
-                                                                        return Array.from(new Set(labels)).map(l => <option key={l} value={l}>{l}</option>);
-                                                                    })()}
-                                                                </select>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {count.type === 'sum' && (
-                                                    <div>
-                                                        <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-2">Sum Up Counters</label>
-                                                        <div className="space-y-2">
-                                                            {counts.filter((c, i) => i !== idx && c.type !== 'sum').map(c => (
-                                                                <button 
-                                                                    key={c.id}
-                                                                    onClick={() => {
-                                                                        const current = count.settings.sum_ids || [];
-                                                                        const next = current.includes(c.id) ? current.filter((id: string) => id !== c.id) : [...current, c.id];
-                                                                        updateCount(idx, { settings: { ...count.settings, sum_ids: next } });
-                                                                    }}
-                                                                    className={`w-full flex items-center justify-between p-2 rounded border text-[9px] font-bold uppercase transition-all ${count.settings.sum_ids?.includes(c.id) ? 'bg-accent/10 border-accent text-accent' : 'bg-card border-border text-muted'}`}
-                                                                >
-                                                                    <span>{c.name}</span>
-                                                                    {count.settings.sum_ids?.includes(c.id) && <Check size={10} />}
-                                                                </button>
-                                                            ))}
-                                                            {counts.filter(c => c.type !== 'sum').length <= 1 && (
-                                                                <p className="text-[8px] text-muted italic">Create at least two other counters to use summation.</p>
+                                                                </div>
                                                             )}
+                                                            
+                                                            <div className={`bg-surface/30 border border-border/50 rounded-xl p-4 flex flex-col gap-4 ${cIdx > 0 ? 'mt-4' : ''}`}>
+                                                                <div className="flex items-start gap-4">
+                                                                    <div className="flex flex-col gap-4 flex-1">
+                                                                        <div className="grid grid-cols-3 gap-4">
+                                                                            <div>
+                                                                                <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Scope</label>
+                                                                                <select 
+                                                                                    value={cond.scope || (type === 'roster' ? 'roster' : 'section')}
+                                                                                    onChange={e => updateCondition(idx, cIdx, { scope: e.target.value })}
+                                                                                    className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-[10px] font-bold uppercase"
+                                                                                >
+                                                                                    <option value="roster">Entire Roster</option>
+                                                                                    <option value="section">Current Section (Incl. Children)</option>
+                                                                                    <option value="specific_sections">Specific Sections</option>
+                                                                                </select>
+                                                                            </div>
+                                                                            <div>
+                                                                                <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Type</label>
+                                                                                <select 
+                                                                                    value={cond.type}
+                                                                                    onChange={e => updateCondition(idx, cIdx, { type: e.target.value })}
+                                                                                    className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-[10px] font-bold uppercase"
+                                                                                >
+                                                                                    <option value="rows">Column Value</option>
+                                                                                    <option value="flags">Flag Status</option>
+                                                                                    <option value="checkboxes">Checkbox/Tag</option>
+                                                                                </select>
+                                                                            </div>
+                                                                            {cond.scope === 'specific_sections' && (
+                                                                                <div>
+                                                                                    <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Target Sections</label>
+                                                                                    <div className="relative group/sections">
+                                                                                        <div className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-[10px] font-bold uppercase truncate min-h-[28px]">
+                                                                                            {(cond.section_ids || []).length > 0 
+                                                                                                ? `${(cond.section_ids || []).length} Selected` 
+                                                                                                : 'Select Sections...'}
+                                                                                        </div>
+                                                                                        <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl shadow-2xl z-[50] p-2 hidden group-hover/sections:block max-h-48 overflow-y-auto">
+                                                                                            {allSections.map(s => (
+                                                                                                <button 
+                                                                                                    key={s.id}
+                                                                                                    onClick={() => {
+                                                                                                        const current = cond.section_ids || [];
+                                                                                                        const next = current.includes(s.id) ? current.filter((id: number) => id !== s.id) : [...current, s.id];
+                                                                                                        updateCondition(idx, cIdx, { section_ids: next });
+                                                                                                    }}
+                                                                                                    className={`w-full text-left px-2 py-1.5 rounded text-[9px] font-bold uppercase flex items-center justify-between transition-colors ${cond.section_ids?.includes(s.id) ? 'bg-accent/10 text-accent' : 'hover:bg-surface text-muted'}`}
+                                                                                                >
+                                                                                                    {s.name}
+                                                                                                    {cond.section_ids?.includes(s.id) && <Check size={10} />}
+                                                                                                </button>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+
+                                                                        <div className="grid grid-cols-2 gap-6 pt-2 border-t border-border/20">
+                                                                            {cond.type === 'rows' && (
+                                                                                <>
+                                                                                    <div className="space-y-3">
+                                                                                        <div>
+                                                                                            <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Column</label>
+                                                                                            <select 
+                                                                                                value={cond.settings.target_col}
+                                                                                                onChange={e => updateCondition(idx, cIdx, { settings: { ...cond.settings, target_col: e.target.value } })}
+                                                                                                className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-[10px]"
+                                                                                            >
+                                                                                                <option value="">Any Column (Total Rows)</option>
+                                                                                                {columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                                                            </select>
+                                                                                        </div>
+                                                                                        <div className="flex items-center justify-between px-1">
+                                                                                            <span className="text-[9px] font-bold text-muted uppercase">Ignore Empty</span>
+                                                                                            <button 
+                                                                                                onClick={() => updateCondition(idx, cIdx, { settings: { ...cond.settings, disregard_empty: !cond.settings.disregard_empty } })}
+                                                                                                className={`w-7 h-3.5 rounded-full relative transition-colors ${cond.settings.disregard_empty ? 'bg-accent' : 'bg-muted/30'}`}
+                                                                                            >
+                                                                                                <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all ${cond.settings.disregard_empty ? 'right-0.5' : 'left-0.5'}`} />
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    {cond.settings.target_col && (
+                                                                                        <div className="grid grid-cols-2 gap-3">
+                                                                                            <div>
+                                                                                                <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Match Type</label>
+                                                                                                <select 
+                                                                                                    value={cond.settings.match_type}
+                                                                                                    onChange={e => updateCondition(idx, cIdx, { settings: { ...cond.settings, match_type: e.target.value } })}
+                                                                                                    className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-[10px]"
+                                                                                                >
+                                                                                                    <option value="exists">Exists</option>
+                                                                                                    <option value="equals">=</option>
+                                                                                                    <option value="not_equals">!=</option>
+                                                                                                    <option value="contains">Contains</option>
+                                                                                                    <option value="is_null">Is Empty</option>
+                                                                                                </select>
+                                                                                            </div>
+                                                                                            {['equals', 'not_equals', 'contains'].includes(cond.settings.match_type) && (
+                                                                                                <div>
+                                                                                                    <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Value</label>
+                                                                                                    <input 
+                                                                                                        value={cond.settings.match_value}
+                                                                                                        onChange={e => updateCondition(idx, cIdx, { settings: { ...cond.settings, match_value: e.target.value } })}
+                                                                                                        className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-[10px] outline-none focus:border-accent"
+                                                                                                        placeholder="..."
+                                                                                                    />
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    )}
+                                                                                </>
+                                                                            )}
+
+                                                                            {cond.type === 'flags' && (
+                                                                                <div className="col-span-2">
+                                                                                    <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Target Flag</label>
+                                                                                    <select 
+                                                                                        value={cond.settings.flag_id || ''}
+                                                                                        onChange={e => updateCondition(idx, cIdx, { settings: { ...cond.settings, flag_id: parseInt(e.target.value) } })}
+                                                                                        className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-[10px]"
+                                                                                    >
+                                                                                        <option value="">Select Flag...</option>
+                                                                                        {flags.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                                                                                    </select>
+                                                                                </div>
+                                                                            )}
+
+                                                                            {cond.type === 'checkboxes' && (
+                                                                                <>
+                                                                                    <div>
+                                                                                        <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Column</label>
+                                                                                        <select 
+                                                                                            value={cond.settings.target_col}
+                                                                                            onChange={e => updateCondition(idx, cIdx, { settings: { ...cond.settings, target_col: e.target.value } })}
+                                                                                            className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-[10px]"
+                                                                                        >
+                                                                                            <option value="">Select Column...</option>
+                                                                                            {columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                                                        </select>
+                                                                                    </div>
+                                                                                    {cond.settings.target_col && (
+                                                                                        <div>
+                                                                                            <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Label</label>
+                                                                                            <select 
+                                                                                                value={cond.settings.checkbox_label}
+                                                                                                onChange={e => updateCondition(idx, cIdx, { settings: { ...cond.settings, checkbox_label: e.target.value } })}
+                                                                                                className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-[10px]"
+                                                                                            >
+                                                                                                <option value="">Select Label...</option>
+                                                                                                {(() => {
+                                                                                                    const col = columns.find(c => c.id === cond.settings.target_col);
+                                                                                                    const labels = [
+                                                                                                        ...(col?.checkboxes || []).map((cb: any) => typeof cb === 'string' ? cb : cb.label),
+                                                                                                        ...(col?.tags || []).map((t: any) => typeof t === 'string' ? t : t.label)
+                                                                                                    ];
+                                                                                                    return Array.from(new Set(labels)).map(l => <option key={l} value={l}>{l}</option>);
+                                                                                                })()}
+                                                                                            </select>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                    <button 
+                                                                        onClick={() => removeCondition(idx, cIdx)}
+                                                                        className="p-1.5 text-muted hover:text-danger rounded-lg transition-colors opacity-0 group-hover/cond:opacity-100"
+                                                                    >
+                                                                        <X size={14} />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                )}
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -359,25 +481,30 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                         ))}
 
                         {counts.length === 0 && (
-                            <div className="py-12 border border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-center space-y-2 bg-card/30">
-                                <Info size={32} className="text-muted opacity-20" />
-                                <p className="text-[10px] font-black uppercase tracking-widest text-muted">No counters configured</p>
+                            <div className="py-20 border border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-center space-y-4 bg-card/30">
+                                <Calculator size={48} className="text-muted opacity-10" />
+                                <div className="space-y-1">
+                                    <p className="text-[12px] font-black uppercase tracking-widest text-muted opacity-50">No counters configured</p>
+                                    <p className="text-[9px] font-bold text-muted/30 uppercase max-w-xs leading-relaxed">
+                                        Click "Add Counter" above to create dynamic personnel statistics for your roster.
+                                    </p>
+                                </div>
                             </div>
                         )}
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-border bg-surface/30 flex justify-end gap-3">
+                <div className="p-6 border-t border-border bg-surface/30 flex justify-end gap-3 shrink-0">
                     <button 
                         onClick={onClose}
-                        className="px-6 py-2 bg-surface hover:bg-bg border border-border text-text rounded-xl font-black text-[10px] uppercase tracking-widest transition-all"
+                        className="px-6 py-2.5 bg-surface hover:bg-bg border border-border text-text rounded-xl font-black text-[10px] uppercase tracking-widest transition-all hover:shadow-sm"
                     >
                         Cancel
                     </button>
                     <button 
                         onClick={handleSave}
                         disabled={isSaving}
-                        className="px-8 py-2 bg-accent hover:bg-accent/90 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-accent/20 disabled:opacity-50"
+                        className="px-10 py-2.5 bg-accent hover:bg-accent/90 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 shadow-lg shadow-accent/20 disabled:opacity-50"
                     >
                         <Save size={14} />
                         {isSaving ? 'Saving...' : 'Save Configuration'}
