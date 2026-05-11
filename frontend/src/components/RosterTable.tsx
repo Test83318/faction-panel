@@ -198,12 +198,24 @@ interface RosterTableProps {
     const rect = e.currentTarget.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const isTop = spaceBelow < 250;
+    const pickerHalfWidth = 90; // Half of 180px min-width
     
     setPickerPosition(isTop ? 'top' : 'bottom');
     
+    let left = rect.left + (rect.width / 2);
+    
+    // Boundary check: Right edge
+    if (left + pickerHalfWidth > window.innerWidth - 20) {
+        left = window.innerWidth - pickerHalfWidth - 20;
+    }
+    // Boundary check: Left edge
+    if (left - pickerHalfWidth < 20) {
+        left = pickerHalfWidth + 20;
+    }
+
     setMenuCoords({
         top: isTop ? rect.top : rect.bottom,
-        left: rect.left + (rect.width / 2)
+        left: left
     });
     setShowColorPicker(showColorPicker === rowId ? null : rowId);
     setShowBulkColorPicker(false);
@@ -215,12 +227,24 @@ interface RosterTableProps {
     const rect = e.currentTarget.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const isTop = spaceBelow < 250;
+    const pickerHalfWidth = 100; // Half of 200px min-width
 
     setPickerPosition(isTop ? 'top' : 'bottom');
     
+    let left = rect.left + (rect.width / 2);
+
+    // Boundary check: Right edge
+    if (left + pickerHalfWidth > window.innerWidth - 20) {
+        left = window.innerWidth - pickerHalfWidth - 20;
+    }
+    // Boundary check: Left edge
+    if (left - pickerHalfWidth < 20) {
+        left = pickerHalfWidth + 20;
+    }
+
     setMenuCoords({
         top: isTop ? rect.top : rect.bottom,
-        left: rect.left + (rect.width / 2)
+        left: left
     });
     setShowBulkColorPicker(!showBulkColorPicker);
     setShowColorPicker(null);
