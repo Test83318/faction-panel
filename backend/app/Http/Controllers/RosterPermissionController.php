@@ -17,7 +17,7 @@ class RosterPermissionController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        return response()->json($roster->rosterPermissions()->with('group')->get());
+        return response()->json($roster->rosterPermissions()->with(['group', 'role'])->get());
     }
 
     public function update(Request $request, Roster $roster)
@@ -28,16 +28,21 @@ class RosterPermissionController extends Controller
         }
 
         $validated = $request->validate([
-            'group_id' => 'nullable|exists:groups,id', // NULL for Public
+            'group_id' => 'nullable|exists:groups,id', // NULL for Public or when role is set
+            'role_id' => 'nullable|exists:roles,id',
             'permissions' => 'required|array',
         ]);
 
+        // If both are null, it's public. If one is set, it's for that specific target.
         $rosterPermission = $roster->rosterPermissions()->updateOrCreate(
-            ['group_id' => $validated['group_id']],
+            [
+                'group_id' => $validated['group_id'],
+                'role_id' => $validated['role_id']
+            ],
             ['permissions' => $validated['permissions']]
         );
 
-        return response()->json($rosterPermission->load('group'));
+        return response()->json($rosterPermission->load(['group', 'role']));
     }
 
     public function destroy(Roster $roster, $permissionId)

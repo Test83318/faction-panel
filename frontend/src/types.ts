@@ -125,8 +125,10 @@ export interface RosterPermission {
   id: number;
   roster_id: number;
   group_id: number | null;
+  role_id: number | null;
   permissions: string[];
   group?: Group;
+  role?: Role;
 }
 
 export interface FactionRecordDatabase {
@@ -169,8 +171,10 @@ export interface FactionRecordPermission {
   id: number;
   database_id: number;
   group_id: number | null;
+  role_id: number | null;
   permissions: string[];
   group?: Group;
+  role?: Role;
 }
 
 export interface MembershipTier {

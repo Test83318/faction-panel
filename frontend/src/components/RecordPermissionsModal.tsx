@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Shield, Users, Plus, Trash2, Check, Info } from 'lucide-react';
+import { X, Shield, Users, Plus, Trash2, Check, Info, Award } from 'lucide-react';
 import api from '../api';
 import toast from 'react-hot-toast';
-import { FactionRecordDatabase, FactionRecordPermission, Group } from '../types';
+import { FactionRecordDatabase, FactionRecordPermission, Group, Role } from '../types';
 
 interface RecordPermissionsModalProps {
     database: FactionRecordDatabase;
@@ -22,18 +22,21 @@ const AVAILABLE_PERMISSIONS = [
 export const RecordPermissionsModal: React.FC<RecordPermissionsModalProps> = ({ database, shortname, onClose }) => {
     const [permissions, setPermissions] = useState<FactionRecordPermission[]>([]);
     const [groups, setGroups] = useState<Group[]>([]);
+    const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(true);
-    const [showAddGroup, setShowAddGroup] = useState(false);
+    const [showAddTarget, setShowAddTarget] = useState(false);
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [permRes, groupRes] = await Promise.all([
+            const [permRes, groupRes, roleRes] = await Promise.all([
                 api.get(`/factions/${shortname}/records/${database.id}/permissions`),
-                api.get(`/factions/${shortname}/groups`)
+                api.get(`/factions/${shortname}/groups`),
+                api.get(`/factions/${shortname}/roles`)
             ]);
             setPermissions(permRes.data);
             setGroups(groupRes.data);
+            setRoles(roleRes.data);
         } catch (err) {
             toast.error('Failed to load permissions');
         } finally {
@@ -45,8 +48,8 @@ export const RecordPermissionsModal: React.FC<RecordPermissionsModalProps> = ({ 
         fetchData();
     }, [database.id]);
 
-    const handleTogglePermission = async (groupId: number | null, permKey: string) => {
-        const entry = permissions.find(p => p.group_id === groupId);
+    const handleTogglePermission = async (groupId: number | null, roleId: number | null, permKey: string) => {
+        const entry = permissions.find(p => p.group_id === groupId && p.role_id === roleId);
         let newPerms: string[] = [];
 
         if (entry) {
@@ -61,11 +64,12 @@ export const RecordPermissionsModal: React.FC<RecordPermissionsModalProps> = ({ 
         try {
             const res = await api.put(`/factions/${shortname}/records/${database.id}/permissions`, {
                 group_id: groupId,
+                role_id: roleId,
                 permissions: newPerms
             });
             
             setPermissions(prev => {
-                const index = prev.findIndex(p => p.group_id === groupId);
+                const index = prev.findIndex(p => p.group_id === groupId && p.role_id === roleId);
                 if (index > -1) {
                     const updated = [...prev];
                     updated[index] = res.data;
@@ -90,23 +94,24 @@ export const RecordPermissionsModal: React.FC<RecordPermissionsModalProps> = ({ 
         }
     };
 
-    const handleAddGroup = async (groupId: number | null) => {
-        if (permissions.some(p => p.group_id === groupId)) {
-            toast.error('This group already has a permission entry');
+    const handleAddTarget = async (groupId: number | null, roleId: number | null) => {
+        if (permissions.some(p => p.group_id === groupId && p.role_id === roleId)) {
+            toast.error('This target already has a permission entry');
             return;
         }
 
-        const loadToast = toast.loading('Adding group...');
+        const loadToast = toast.loading('Adding target...');
         try {
             const res = await api.put(`/factions/${shortname}/records/${database.id}/permissions`, {
                 group_id: groupId,
+                role_id: roleId,
                 permissions: ['view_database'] // Default permission
             });
             setPermissions([...permissions, res.data]);
-            setShowAddGroup(false);
-            toast.success(groupId === null ? 'Public access added' : 'Group added', { id: loadToast });
+            setShowAddTarget(false);
+            toast.success(groupId === null && roleId === null ? 'Public access added' : 'Target added', { id: loadToast });
         } catch (err) {
-            toast.error('Failed to add group', { id: loadToast });
+            toast.error('Failed to add target', { id: loadToast });
         }
     };
 
@@ -148,39 +153,58 @@ export const RecordPermissionsModal: React.FC<RecordPermissionsModalProps> = ({ 
                         <div className="flex justify-between items-center">
                             <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted">Permission Matrix</h3>
                             <button 
-                                onClick={() => setShowAddGroup(!showAddGroup)}
+                                onClick={() => setShowAddTarget(!showAddTarget)}
                                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                                    showAddGroup ? 'bg-accent text-white' : 'bg-surface hover:bg-accent/10 text-muted hover:text-accent border border-border'
+                                    showAddTarget ? 'bg-accent text-white' : 'bg-surface hover:bg-accent/10 text-muted hover:text-accent border border-border'
                                 }`}
                             >
-                                <Plus size={14} /> Add Group / Public
+                                <Plus size={14} /> Add Target
                             </button>
                         </div>
 
-                        {showAddGroup && (
-                            <div className="bg-surface border border-border rounded-xl p-4 grid grid-cols-2 md:grid-cols-4 gap-2 animate-in fade-in slide-in-from-top-2">
-                                {!permissions.some(p => p.group_id === null) && (
+                        {showAddTarget && (
+                            <div className="bg-surface border border-border rounded-xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2">
+                                {!permissions.some(p => p.group_id === null && p.role_id === null) && (
                                     <button 
-                                        onClick={() => handleAddGroup(null)}
-                                        className="flex items-center gap-2 p-3 bg-card border border-border rounded-lg hover:border-accent transition-all text-left group"
+                                        onClick={() => handleAddTarget(null, null)}
+                                        className="flex items-center gap-2 p-3 bg-card border border-border rounded-lg hover:border-accent transition-all text-left group w-fit"
                                     >
                                         <Users size={16} className="text-muted group-hover:text-accent" />
                                         <div className="text-[10px] font-black uppercase tracking-widest">Everyone / Public</div>
                                     </button>
                                 )}
-                                {groups.filter(g => !permissions.some(p => p.group_id === g.id)).map(group => (
-                                    <button 
-                                        key={group.id}
-                                        onClick={() => handleAddGroup(group.id)}
-                                        className="flex items-center gap-2 p-3 bg-card border border-border rounded-lg hover:border-accent transition-all text-left"
-                                    >
-                                        <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: group.color }} />
-                                        <div className="text-[10px] font-black uppercase tracking-widest truncate">{group.name}</div>
-                                    </button>
-                                ))}
-                                {groups.length === 0 && !permissions.some(p => p.group_id === null) && (
-                                     <div className="col-span-full text-center py-4 text-[10px] text-muted font-bold uppercase tracking-widest opacity-50">No more groups available to add</div>
-                                )}
+                                
+                                <div className="space-y-2">
+                                    <div className="text-[8px] font-black uppercase tracking-[0.2em] text-muted px-1">Faction Groups</div>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                        {groups.filter(g => !permissions.some(p => p.group_id === g.id)).map(group => (
+                                            <button 
+                                                key={group.id}
+                                                onClick={() => handleAddTarget(group.id, null)}
+                                                className="flex items-center gap-2 p-3 bg-card border border-border rounded-lg hover:border-accent transition-all text-left"
+                                            >
+                                                <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: group.color }} />
+                                                <div className="text-[10px] font-black uppercase tracking-widest truncate">{group.name}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <div className="text-[8px] font-black uppercase tracking-[0.2em] text-muted px-1">Site Roles</div>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                        {roles.filter(r => !permissions.some(p => p.role_id === r.id)).map(role => (
+                                            <button 
+                                                key={role.id}
+                                                onClick={() => handleAddTarget(null, role.id)}
+                                                className="flex items-center gap-2 p-3 bg-card border border-border rounded-lg hover:border-accent transition-all text-left"
+                                            >
+                                                <Award size={16} className="text-muted" style={{ color: role.color }} />
+                                                <div className="text-[10px] font-black uppercase tracking-widest truncate">{role.name}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -206,9 +230,13 @@ export const RecordPermissionsModal: React.FC<RecordPermissionsModalProps> = ({ 
                                         <tr key={entry.id} className="hover:bg-surface/30 transition-colors">
                                             <td className="py-4 px-6 border-b border-border">
                                                 <div className="flex items-center gap-3">
-                                                    {entry.group_id === null ? (
+                                                    {entry.group_id === null && entry.role_id === null ? (
                                                         <div className="w-9 h-9 rounded-xl bg-surface border border-border flex items-center justify-center text-muted">
                                                             <Users size={18} />
+                                                        </div>
+                                                    ) : entry.role_id ? (
+                                                        <div className="w-9 h-9 rounded-xl bg-surface border border-border flex items-center justify-center" style={{ color: entry.role?.color }}>
+                                                            <Award size={18} />
                                                         </div>
                                                     ) : (
                                                         <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-lg" style={{ backgroundColor: entry.group?.color || 'var(--accent)' }}>
@@ -216,15 +244,19 @@ export const RecordPermissionsModal: React.FC<RecordPermissionsModalProps> = ({ 
                                                         </div>
                                                     )}
                                                     <div>
-                                                        <div className="text-[11px] font-black uppercase tracking-tight">{entry.group_id === null ? 'Everyone / Public' : entry.group?.name}</div>
-                                                        <div className="text-[8px] font-bold text-muted uppercase tracking-widest opacity-60">{entry.group_id === null ? 'All faction members' : 'Specific group members'}</div>
+                                                        <div className="text-[11px] font-black uppercase tracking-tight">
+                                                            {entry.group_id === null && entry.role_id === null ? 'Everyone / Public' : (entry.role_id ? entry.role?.name : entry.group?.name)}
+                                                        </div>
+                                                        <div className="text-[8px] font-bold text-muted uppercase tracking-widest opacity-60">
+                                                            {entry.group_id === null && entry.role_id === null ? 'All faction members' : (entry.role_id ? 'Specific site role' : 'Specific group members')}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
                                             {AVAILABLE_PERMISSIONS.map(p => (
                                                 <td key={p.key} className="py-4 px-2 border-b border-border text-center">
                                                     <button 
-                                                        onClick={() => handleTogglePermission(entry.group_id, p.key)}
+                                                        onClick={() => handleTogglePermission(entry.group_id, entry.role_id, p.key)}
                                                         className={`w-7 h-7 rounded-lg transition-all flex items-center justify-center mx-auto border-2 ${
                                                             entry.permissions.includes(p.key) 
                                                                 ? 'bg-accent border-accent text-white shadow-lg shadow-accent/20' 

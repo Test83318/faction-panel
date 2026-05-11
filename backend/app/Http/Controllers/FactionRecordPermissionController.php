@@ -17,7 +17,7 @@ class FactionRecordPermissionController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        return response()->json($database->databasePermissions()->with('group')->get());
+        return response()->json($database->databasePermissions()->with(['group', 'role'])->get());
     }
 
     public function update(Request $request, string $shortname, FactionRecordDatabase $database)
@@ -29,15 +29,19 @@ class FactionRecordPermissionController extends Controller
 
         $validated = $request->validate([
             'group_id' => 'nullable|exists:groups,id',
+            'role_id' => 'nullable|exists:roles,id',
             'permissions' => 'required|array',
         ]);
 
         $permission = $database->databasePermissions()->updateOrCreate(
-            ['group_id' => $validated['group_id']],
+            [
+                'group_id' => $validated['group_id'],
+                'role_id' => $validated['role_id']
+            ],
             ['permissions' => $validated['permissions']]
         );
 
-        return response()->json($permission->load('group'));
+        return response()->json($permission->load(['group', 'role']));
     }
 
     public function destroy(string $shortname, FactionRecordDatabase $database, $permissionId)

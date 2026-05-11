@@ -226,8 +226,8 @@ class User extends Authenticatable
         // 2. Collect all permission sets applicable to this user
         $permissionSets = collect();
 
-        // Public permissions (group_id is null)
-        $publicPerms = $roster->rosterPermissions()->whereNull('group_id')->first();
+        // Public permissions (group_id and role_id are null)
+        $publicPerms = $roster->rosterPermissions()->whereNull('group_id')->whereNull('role_id')->first();
         if ($publicPerms) {
             $permissionSets->push($publicPerms->permissions);
         }
@@ -238,6 +238,13 @@ class User extends Authenticatable
             $groupPerms = $roster->rosterPermissions()->whereIn('group_id', $userGroupIds)->get();
             foreach ($groupPerms as $gp) {
                 $permissionSets->push($gp->permissions);
+            }
+
+            // Role permissions
+            $userRoleIds = $user->roles()->where('faction_id', $faction->id)->pluck('roles.id');
+            $rolePerms = $roster->rosterPermissions()->whereIn('role_id', $userRoleIds)->get();
+            foreach ($rolePerms as $rp) {
+                $permissionSets->push($rp->permissions);
             }
         }
 
@@ -273,8 +280,8 @@ class User extends Authenticatable
         // 2. Collect all permission sets applicable to this user
         $permissionSets = collect();
 
-        // Public permissions (group_id is null)
-        $publicPerms = $database->databasePermissions()->whereNull('group_id')->first();
+        // Public permissions (group_id and role_id are null)
+        $publicPerms = $database->databasePermissions()->whereNull('group_id')->whereNull('role_id')->first();
         if ($publicPerms) {
             $permissionSets->push($publicPerms->permissions);
         }
@@ -285,6 +292,13 @@ class User extends Authenticatable
             $groupPerms = $database->databasePermissions()->whereIn('group_id', $userGroupIds)->get();
             foreach ($groupPerms as $gp) {
                 $permissionSets->push($gp->permissions);
+            }
+
+            // Role permissions
+            $userRoleIds = $user->roles()->where('faction_id', $faction->id)->pluck('roles.id');
+            $rolePerms = $database->databasePermissions()->whereIn('role_id', $userRoleIds)->get();
+            foreach ($rolePerms as $rp) {
+                $permissionSets->push($rp->permissions);
             }
         }
 
