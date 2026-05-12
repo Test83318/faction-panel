@@ -106,6 +106,7 @@ interface RosterTableProps {
   onReorderRows,
   globalEditingRowId,
   setGlobalEditingRowId,
+  saveTrigger,
   syncedHeights,
   onRowHeightSync
   }) => {
