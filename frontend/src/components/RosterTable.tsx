@@ -766,7 +766,13 @@ interface RosterTableProps {
 
     const isEditing = editingRowId === row.id;
     const isSaving = savingRows.has(row.id);
-    const value = isEditing ? editData[col.id] : (row.content?.[col.id] || '');
+    let value = isEditing ? editData[col.id] : (row.content?.[col.id] || '');
+    
+    // Fallback: If value is an object but the column type is not linked, it's stale data
+    if (value && typeof value === 'object' && col.type !== 'linked_roster_data') {
+        value = '';
+    }
+
     const checked = isEditing ? (editData[`${col.id}_cb`] || []) : (row.content?.[`${col.id}_cb`] || []);
     const appliedTags = isEditing ? (editData[`${col.id}_tags`] || []) : (row.content?.[`${col.id}_tags`] || []);
 
