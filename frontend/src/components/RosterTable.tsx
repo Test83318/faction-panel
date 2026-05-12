@@ -728,6 +728,7 @@ interface RosterTableProps {
   };
 
   const toggleCheckbox = (colId: string, cb: string) => {
+    setHasTyped(false);
     const key = `${colId}_cb`;
     const current = editData[key] || [];
     const next = current.includes(cb) ? current.filter((c: string) => c !== cb) : [...current, cb];
@@ -735,6 +736,7 @@ interface RosterTableProps {
   };
 
   const toggleTag = (colId: string, tag: string) => {
+    setHasTyped(false);
     const key = `${colId}_tags`;
     const current = editData[key] || [];
     const next = current.includes(tag) ? current.filter((t: string) => t !== tag) : [...current, tag];
@@ -756,6 +758,7 @@ interface RosterTableProps {
   };
 
   const [focusedColId, setFocusedColId] = useState<string | null>(null);
+  const [hasTyped, setHasTyped] = useState(false);
 
   const inlineCheckboxes = localStorage.getItem('roster-inline-checkboxes') === 'true';
 
@@ -1083,7 +1086,7 @@ interface RosterTableProps {
       });
 
       const searchTerm = (value || '').toString().toLowerCase();
-      const filteredSuggestions = (focusedColId === col.id && searchTerm.length >= 1) 
+      const filteredSuggestions = (focusedColId === col.id && searchTerm.length >= 1 && hasTyped) 
         ? suggestionPool.filter(opt => 
             (opt.label || '').toString().toLowerCase().includes(searchTerm)
           ).slice(0, 8) 
@@ -1102,6 +1105,7 @@ interface RosterTableProps {
                 value={value} 
                 autoComplete="off"
                 onChange={e => {
+                    setHasTyped(true);
                     updateField(col.id, e.target.value);
                 }}
                 onKeyDown={e => e.key === 'Enter' && handleSaveEdit(row.id)}
@@ -1110,6 +1114,7 @@ interface RosterTableProps {
                     setFocusedColId(col.id);
                 }}
                 onFocus={() => {
+                    setHasTyped(false);
                     setFocusedColId(col.id);
                     setEditingColId(col.id);
                 }}
