@@ -401,9 +401,16 @@ interface RosterTableProps {
             case 'orphaned_database_link':
                 // For a link to be orphaned, the column must be linked to a database
                 if (!boundDataset?.record_database_id) return false;
-                // It must have a value that looks like an ID
-                if (!rawValue || (isNaN(Number(rawValue)) && !String(rawValue).startsWith('temp_') && !String(rawValue).startsWith('opt_'))) return false;
-                // And that ID must NOT exist in the options (which are derived from the database entries)
+
+                // If "Flag Regardless of Manual Addition" is NOT enabled, only flag values that look like IDs
+                if (!rule.flag_regardless_of_manual_addition) {
+                    if (!rawValue || (isNaN(Number(rawValue)) && !String(rawValue).startsWith('temp_') && !String(rawValue).startsWith('opt_'))) return false;
+                } else {
+                    // If enabled, flag any non-empty value that isn't a valid link
+                    if (!rawValue) return false;
+                }
+
+                // And that ID/Value must NOT exist in the options
                 return !option;
             default:
                 return false;
