@@ -168,12 +168,6 @@ interface RosterTableProps {
   }, [contents, editData, activeCols, editingRowId, editingColId]);
 
   useEffect(() => {
-    if (saveTrigger && saveTrigger > 0 && editingRowId) {
-        handleSaveEdit(editingRowId);
-    }
-  }, [saveTrigger, editingRowId, handleSaveEdit]);
-
-  useEffect(() => {
     if (globalEditingRowId !== editingRowId) {
         setEditingRowId(null);
         setEditingColId(null);
@@ -600,6 +594,12 @@ interface RosterTableProps {
         setRowColor(null);
     }
   }, [editingRowId, editData, rowColor, editingColId, lastUpdatedAt, onUpdateRow, setGlobalEditingRowId]);
+
+  useEffect(() => {
+    if (saveTrigger && saveTrigger > 0 && editingRowId) {
+        handleSaveEdit(editingRowId);
+    }
+  }, [saveTrigger, editingRowId, handleSaveEdit]);
 
   useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
