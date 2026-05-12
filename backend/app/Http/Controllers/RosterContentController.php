@@ -77,15 +77,20 @@ class RosterContentController extends Controller
         // Conflict detection
         if (!$request->force && isset($validated['last_updated_at'])) {
             $lastUpdated = \Illuminate\Support\Carbon::parse($validated['last_updated_at']);
+            
+            // Get the last user who updated this
+            $lastAudit = $content->audits()->where('event', 'updated')->latest()->first();
+            $lastUpdatedByMe = $lastAudit && $lastAudit->user_id === $user->id;
+
             // Use timestamp comparison with 1s buffer for precision mismatches
-            if ($content->updated_at->timestamp > ($lastUpdated->timestamp + 1)) {
+            if ($content->updated_at->timestamp > ($lastUpdated->timestamp + 1) && !$lastUpdatedByMe) {
                 return response()->json([
                     'message' => 'This row was recently updated by another user.',
                     'conflict' => true,
                     'current_data' => $content->content,
                     'updated_at' => $content->updated_at,
-                    'updated_by' => $content->audits()->where('event', 'updated')->latest()->first()?->user?->username ?? 'Another user',
-                    'updated_by_id' => $content->audits()->where('event', 'updated')->latest()->first()?->user?->id
+                    'updated_by' => $lastAudit?->user?->username ?? 'Another user',
+                    'updated_by_id' => $lastAudit?->user_id
                     ], 409);            }
         }
 
