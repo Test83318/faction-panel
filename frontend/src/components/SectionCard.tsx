@@ -66,6 +66,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   onReorderRows,
   globalEditingRowId,
   setGlobalEditingRowId,
+  globalSaveTrigger,
   syncedHeights,
   onRowHeightSync,
   isChild = false

@@ -973,8 +973,10 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
           {globalEditingRowId !== null && (
               <button 
                   onClick={() => setGlobalSaveTrigger(prev => prev + 1)}
-                  className="h-9 px-4 bg-accent text-white rounded-lg shadow-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-accent/90 active:scale-95 transition-all animate-in slide-in-from-right-4 duration-300"
+                  className="h-9 px-4 bg-accent text-white rounded-lg shadow-[0_0_20px_rgba(var(--accent-rgb),0.4)] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-accent/90 active:scale-95 transition-all animate-in slide-in-from-right-4 duration-300 relative overflow-hidden group/save"
               >
+                  <div className="absolute inset-0 bg-white/20 group-hover/save:translate-x-full -translate-x-full transition-transform duration-500 skew-x-12" />
+                  <div className="absolute inset-0 bg-accent animate-pulse opacity-50 blur-xl -z-10" />
                   <Plus size={14} className="rotate-45" />
                   Save & Finish Editing
               </button>
