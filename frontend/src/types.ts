@@ -80,6 +80,7 @@ export interface RosterSection {
   id: number;
   roster_id: number;
   name: string;
+  image_url?: string | null;
   shortname: string;
   color?: string;
   type: 'master' | 'section' | 'subsection' | 'content';

@@ -314,7 +314,12 @@ export const SectionCard: React.FC<SectionCardProps> = ({
       >
         <div className="section-header h-[24px] px-2 border-b border-border bg-border/20 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <span className="text-[9px] font-bold text-text uppercase">{section.name}</span>
+            <div className="flex items-center gap-2">
+                {section.image_url && (
+                    <img src={section.image_url} alt="" className="w-3 h-3 object-contain" />
+                )}
+                <span className="text-[9px] font-bold text-text uppercase">{section.name}</span>
+            </div>
             {renderCounts(section)}
           </div>
           <div className="flex items-center gap-2">
@@ -390,23 +395,26 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         <div className="w-[5px] shrink-0" style={{ backgroundColor: effectiveColor }} />
         <div className="flex-1 flex items-center px-2 justify-center gap-1.5 overflow-hidden">
           <div className="flex items-center gap-3">
-              <span className="font-bold text-[11px] text-text uppercase truncate">
-                {section.name}
-              </span>
-              {!section.parent_id && renderCounts(section)}
+              <div className="flex items-center gap-2">
+                {section.image_url && (
+                    <img src={section.image_url} alt="" className="w-3.5 h-3.5 object-contain" />
+                )}
+                <span className="font-bold text-[11px] text-text uppercase truncate">
+                    {section.name}
+                </span>
+              </div>
+              {renderCounts(section)}
           </div>
           <div className="flex items-center gap-1 ml-auto">
             {canEditSection && (
                 <>
-                    {!section.parent_id && (
-                        <button 
-                            onClick={() => onManageCounts?.(section)}
-                            className="px-1.5 py-0.5 hover:bg-bg rounded text-muted hover:text-accent flex items-center gap-1 transition-colors"
-                            title="Manage Section Counts"
-                        >
-                            <span className="text-[7px] font-black uppercase tracking-widest">counts</span>
-                        </button>
-                    )}
+                    <button 
+                        onClick={() => onManageCounts?.(section)}
+                        className="px-1.5 py-0.5 hover:bg-bg rounded text-muted hover:text-accent flex items-center gap-1 transition-colors"
+                        title="Manage Section Counts"
+                    >
+                        <span className="text-[7px] font-black uppercase tracking-widest">counts</span>
+                    </button>
                     {canAddChildSection && (
                         <button 
                             onClick={() => onAddChild?.(section.id)}

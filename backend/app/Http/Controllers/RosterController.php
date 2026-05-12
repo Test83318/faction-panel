@@ -344,6 +344,79 @@ class RosterController extends Controller
         return response()->json(['message' => 'Roster deleted']);
     }
 
+    public function resolveLinks(Request $request)
+    {
+        $links = $request->input('links', []);
+        $results = [];
+
+        // Group by row_id to minimize queries
+        $rowIds = collect($links)->pluck('row_id')->filter()->unique();
+        $contents = RosterContent::whereIn('id', $rowIds)->with('section.roster')->get()->keyBy('id');
+
+        // Cache for rosters and datasets to avoid repeated lookups
+        $rosterCache = [];
+        $datasetCache = [];
+
+        foreach ($links as $link) {
+            $rosterId = $link['roster_id'] ?? null;
+            $rowId = $link['row_id'] ?? null;
+            $colId = $link['col_id'] ?? null;
+
+            if (!$rosterId || !$rowId || !$colId) {
+                $results[] = '-';
+                continue;
+            }
+
+            $content = $contents->get($rowId);
+            if (!$content || $content->section->roster_id != $rosterId) {
+                $results[] = '-';
+                continue;
+            }
+
+            $value = $content->content[$colId] ?? '-';
+            
+            // Resolve label if it's a dataset/predefined type
+            if (!isset($rosterCache[$rosterId])) {
+                $rosterCache[$rosterId] = $content->section->roster;
+            }
+            $roster = $rosterCache[$rosterId];
+            
+            $col = collect($roster->columns ?? [])->firstWhere('id', $colId);
+            if (!$col) {
+                $col = collect($content->section->columns ?? [])->firstWhere('id', $colId);
+            }
+
+            if ($col && isset($col['dataset_id'])) {
+                $datasetId = $col['dataset_id'];
+                if (!isset($datasetCache[$datasetId])) {
+                    $datasetCache[$datasetId] = \App\Models\RosterDataset::find($datasetId);
+                }
+                $dataset = $datasetCache[$datasetId];
+
+                if ($dataset) {
+                    if ($dataset->record_database_id) {
+                        $db = \App\Models\FactionRecordDatabase::find($dataset->record_database_id);
+                        if ($db) {
+                            $entry = $db->entries()->where('entry_id', $value)->first();
+                            if ($entry) {
+                                $fieldId = $col['database_field_id'] ?? $db->database_structure[0]['id'] ?? 'id';
+                                if ($fieldId === 'id') $value = $entry->entry_id;
+                                else $value = $entry->data[$fieldId] ?? $value;
+                            }
+                        }
+                    } else {
+                        $option = $dataset->options()->where('id', $value)->first();
+                        if ($option) $value = $option->value;
+                    }
+                }
+            }
+
+            $results[] = (string)$value;
+        }
+
+        return response()->json(['results' => $results]);
+    }
+
     public function reorder(Request $request, $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();

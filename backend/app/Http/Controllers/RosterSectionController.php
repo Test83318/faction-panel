@@ -115,6 +115,7 @@ class RosterSectionController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'image_url' => 'nullable|string|url',
             'shortname' => 'required|string|max:6',
             'color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'type' => 'required|in:master,section,subsection,content',
@@ -166,6 +167,7 @@ class RosterSectionController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
+            'image_url' => 'sometimes|nullable|string|url',
             'shortname' => 'sometimes|string|max:6',
             'color' => ['sometimes', 'nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'type' => 'sometimes|in:master,section,subsection,content',

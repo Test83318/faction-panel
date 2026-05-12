@@ -8,6 +8,7 @@ import * as LucideIcons from 'lucide-react';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { hexToRgb } from '../utils';
+import { LinkedDataModal } from './LinkedDataModal';
 
 const CellScaler: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className }) => {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -126,6 +127,43 @@ interface RosterTableProps {
   const tableRef = useRef<HTMLTableElement>(null);
   const [editData, setEditData] = useState<any>({});
   const [activeTagMenu, setActiveTagMenu] = useState<{ rowId: number, colId: string } | null>(null);
+  const [linkedDataModal, setLinkedDataModal] = useState<{ rowId: number, colId: string, initialData?: any } | null>(null);
+  const [resolvedLinks, setResolvedLinks] = useState<Map<string, any>>(new Map());
+
+  useEffect(() => {
+    // Resolve links when contents or editData change
+    const linksToResolve: any[] = [];
+    const collectLinks = (rows: RosterContent[]) => {
+        rows.forEach(row => {
+            activeCols.forEach(col => {
+                if (col.type === 'linked_roster_data') {
+                    const val = (editingRowId === row.id && editingColId === col.id) ? editData[col.id] : row.content?.[col.id];
+                    if (val && typeof val === 'object' && val.roster_id && val.row_id && val.col_id) {
+                        linksToResolve.push({ rowId: row.id, colId: col.id, config: val });
+                    }
+                }
+            });
+        });
+    };
+    collectLinks(contents);
+
+    if (linksToResolve.length > 0) {
+        const fetchLinks = async () => {
+            try {
+                const res = await api.post('/rosters/resolve-links', { links: linksToResolve.map(l => l.config) });
+                const newResolved = new Map(resolvedLinks);
+                res.data.results.forEach((val: any, idx: number) => {
+                    const link = linksToResolve[idx];
+                    newResolved.set(`${link.rowId}_${link.colId}`, val);
+                });
+                setResolvedLinks(newResolved);
+            } catch (err) {
+                console.error('Failed to resolve links', err);
+            }
+        };
+        fetchLinks();
+    }
+  }, [contents, editData, activeCols, editingRowId, editingColId]);
 
   useEffect(() => {
     if (globalEditingRowId !== editingRowId) {
@@ -360,6 +398,13 @@ interface RosterTableProps {
                         return vStr === value && vStr !== '';
                     });
                 });
+            case 'orphaned_database_link':
+                // For a link to be orphaned, the column must be linked to a database
+                if (!boundDataset?.record_database_id) return false;
+                // It must have a value that looks like an ID
+                if (!rawValue || (isNaN(Number(rawValue)) && !String(rawValue).startsWith('temp_') && !String(rawValue).startsWith('opt_'))) return false;
+                // And that ID must NOT exist in the options (which are derived from the database entries)
+                return !option;
             default:
                 return false;
         }
@@ -679,12 +724,16 @@ interface RosterTableProps {
     if (col.type.startsWith('predefined_') || col.type.includes('predefined')) {
         return canEditPredefined;
     }
+    if (col.type === 'linked_roster_data') return canEditDefined;
     return canEditDefined;
   };
 
   const [focusedColId, setFocusedColId] = useState<string | null>(null);
 
+  const inlineCheckboxes = localStorage.getItem('roster-inline-checkboxes') === 'true';
+
   const renderCell = (row: RosterContent, col: RosterColumn) => {
+
     const isEditing = editingRowId === row.id;
     const isSaving = savingRows.has(row.id);
     const value = isEditing ? editData[col.id] : (row.content?.[col.id] || '');
@@ -818,21 +867,53 @@ interface RosterTableProps {
         );
     }
 
+    if (col.type === 'linked_roster_data') {
+        const resolvedValue = resolvedLinks.get(`${row.id}_${col.id}`) || '-';
+        if (isEditing) {
+            return (
+                <div className="flex flex-col items-center justify-center h-full w-full gap-1 rt-cell-content">
+                    <span className="text-[10px] uppercase font-medium opacity-60 italic">{resolvedValue}</span>
+                    <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setLinkedDataModal({ rowId: row.id, colId: col.id, initialData: value });
+                        }}
+                        className="px-2 py-0.5 bg-accent/10 hover:bg-accent/20 text-accent text-[7px] font-black uppercase tracking-widest rounded border border-accent/20 transition-all"
+                    >
+                        Options
+                    </button>
+                </div>
+            );
+        }
+        return (
+            <div className="flex flex-col items-center justify-center h-full w-full rt-cell-content">
+                <CellScaler>
+                    <span className="text-[10px] uppercase font-medium">{resolvedValue}</span>
+                </CellScaler>
+            </div>
+        );
+    }
+
     const isValueId = value && (!isNaN(Number(value)) || String(value).startsWith('temp_') || String(value).startsWith('opt_'));
     const selectedOpt = effectiveOptions.find(o => 
         String(o.id) === String(value) || (!isValueId && o.label === value)
     );
+    
     const textStyle: React.CSSProperties = {
       color: selectedOpt?.color || 'inherit',
       fontWeight: selectedOpt?.bold ? 'bold' : 'normal',
     };
 
     const activeFlags = flags.filter(f => (col.flags || []).some(flagId => Number(flagId) === Number(f.id)) && evaluateFlag(row, col, f));
+    const hasOrphanedFlag = activeFlags.some(f => (f.rules || []).some((r: any) => r.type === 'orphaned_database_link'));
 
     if (isEditing && isColEditable(col)) {
       if (col.type === 'dropdown' || col.type === 'predefined_dropdown' || col.type === 'hidden_dropdown' || col.type === 'predefined_hidden_dropdown') {
         return (
-          <div className="flex flex-col items-center justify-center h-full w-full gap-0.5 relative group/cell overflow-visible rt-cell-content">
+          <div 
+            className={`flex flex-col items-center justify-center h-full w-full gap-0.5 relative group/cell overflow-visible rt-cell-content ${hasOrphanedFlag ? 'ring-1 ring-danger ring-inset bg-danger/5' : ''}`}
+            title={hasOrphanedFlag ? 'Linked database record no longer exists' : undefined}
+          >
             <select 
               value={selectedOpt?.id || value} 
               onChange={e => updateField(col.id, e.target.value)}
@@ -874,8 +955,32 @@ interface RosterTableProps {
                             <Pencil size={10} />
                         </button>
                     )}
+                    {inlineCheckboxes && col.checkboxes && col.checkboxes.length > 0 && (
+                        <div className="flex flex-wrap gap-1 relative z-20">
+                            {col.checkboxes.map((cb, cbIdx) => {
+                                if (!cb) return null;
+                                const label = typeof cb === 'string' ? cb : cb.label;
+                                if (!label) return null;
+                                const color = typeof cb === 'string' ? null : cb.color;
+                                const isChecked = checked.includes(label);
+
+                                return (
+                                    <button
+                                        key={label + cbIdx}
+                                        onClick={() => toggleCheckbox(col.id, label)}
+                                        className={`text-[6px] font-black px-1 rounded border transition-colors uppercase ${
+                                            isChecked ? (color ? '' : 'bg-accent border-accent text-white') : 'bg-transparent border-border text-muted hover:border-accent'
+                                        }`}
+                                        style={isChecked && color ? { backgroundColor: color, borderColor: color, color: '#fff' } : {}}
+                                    >
+                                        {label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
-                {col.checkboxes && col.checkboxes.length > 0 && (
+                {!inlineCheckboxes && col.checkboxes && col.checkboxes.length > 0 && (
                 <div className="flex flex-wrap gap-1 relative z-20">
                     {col.checkboxes.map((cb, cbIdx) => {
                     if (!cb) return null;
@@ -959,8 +1064,9 @@ interface RosterTableProps {
 
       return (
         <div 
-            className="flex flex-col items-center justify-center h-full w-full gap-0.5 relative overflow-visible rt-cell-content cursor-text"
+            className={`flex flex-col items-center justify-center h-full w-full gap-0.5 relative overflow-visible rt-cell-content cursor-text ${hasOrphanedFlag ? 'ring-1 ring-danger ring-inset bg-danger/5' : ''}`}
             onClick={() => inputRef.current?.focus()}
+            title={hasOrphanedFlag ? 'Linked database record no longer exists' : undefined}
         >
           <CellScaler>
             <div className="relative w-full flex flex-row items-center justify-center px-1 overflow-visible">
@@ -1029,8 +1135,32 @@ interface RosterTableProps {
                         <Pencil size={10} />
                     </button>
                 )}
-            </div>
-            {col.checkboxes && col.checkboxes.length > 0 && (
+                {inlineCheckboxes && col.checkboxes && col.checkboxes.length > 0 && (
+                    <div className="flex flex-wrap gap-1 ml-1">
+                    {col.checkboxes.map((cb, cbIdx) => {
+                        if (!cb) return null;
+                        const label = typeof cb === 'string' ? cb : cb.label;
+                        if (!label) return null;
+                        const color = typeof cb === 'string' ? null : cb.color;
+                        const isChecked = checked.includes(label);
+
+                        return (
+                        <button
+                            key={label + cbIdx}
+                            onClick={() => toggleCheckbox(col.id, label)}
+                            className={`text-[6px] font-black px-1 rounded border transition-colors uppercase ${
+                            isChecked ? (color ? '' : 'bg-accent border-accent text-white') : 'bg-transparent border-border text-muted hover:border-accent'
+                            }`}
+                            style={isChecked && color ? { backgroundColor: color, borderColor: color, color: '#fff' } : {}}
+                        >
+                            {label}
+                        </button>
+                        );
+                    })}
+                    </div>
+                )}
+                </div>
+                {!inlineCheckboxes && col.checkboxes && col.checkboxes.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                 {col.checkboxes.map((cb, cbIdx) => {
                     if (!cb) return null;
@@ -1054,8 +1184,9 @@ interface RosterTableProps {
                     );
                 })}
                 </div>
-            )}
-          </CellScaler>
+                )}
+                </CellScaler>
+
           {filteredSuggestions.length > 0 && (
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-card border border-border rounded-lg shadow-[0_10px_40px_-5px_rgba(0,0,0,0.5)] z-[9999] overflow-hidden min-w-[160px] animate-in fade-in slide-in-from-top-1 duration-100">
                     <div className="px-2 py-1 bg-surface/50 text-[7px] font-black text-muted/50 uppercase tracking-widest border-b border-border/30 mb-0.5">Suggestions</div>
@@ -1117,7 +1248,8 @@ interface RosterTableProps {
 
     return (
       <div 
-        className={`flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap overflow-visible relative group/cell rt-cell-content ${canEditAny ? 'cursor-pointer hover:bg-accent/5' : ''}`}
+        className={`flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap overflow-visible relative group/cell rt-cell-content ${canEditAny ? 'cursor-pointer hover:bg-accent/5' : ''} ${hasOrphanedFlag ? 'ring-1 ring-danger ring-inset bg-danger/5' : ''}`}
+        title={hasOrphanedFlag ? 'Linked database record no longer exists' : undefined}
         onClick={() => canEditAny && handleStartEdit(row, col.id)}
       >
         <CellScaler>
@@ -1174,8 +1306,29 @@ interface RosterTableProps {
                         })}
                     </div>
                 )}
+                {inlineCheckboxes && checked.length > 0 && (
+                    <div className="flex gap-0.5">
+                        {(col.checkboxes || []).map((cbDef: any, cbIdx: number) => {
+                            if (!cbDef) return null;
+                            const cbLabel = typeof cbDef === 'string' ? cbDef : cbDef.label;
+                            if (!cbLabel || !checked.includes(cbLabel)) return null;
+
+                            const color = (typeof cbDef !== 'string') ? cbDef.color : null;
+                            
+                            return (
+                                <span 
+                                    key={cbLabel + cbIdx} 
+                                    className="text-[6px] text-accent font-black tracking-widest bg-accent/10 px-1 rounded uppercase"
+                                    style={color ? { color: color, backgroundColor: `${color}1A` } : {}}
+                                >
+                                    {cbLabel}
+                                </span>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
-            {checked.length > 0 && (
+            {!inlineCheckboxes && checked.length > 0 && (
               <div className="flex gap-0.5">
                 {(col.checkboxes || []).map((cbDef: any, cbIdx: number) => {
                   if (!cbDef) return null;
@@ -1278,7 +1431,6 @@ interface RosterTableProps {
                 value={row}
                 dragListener={editMode && canEditPredefined && !editingRowId}
                 className={`rt-tr group/row ${isEditing ? 'bg-accent/5 z-[5000] relative' : ''} ${selectedRowIds.includes(row.id) ? 'bg-accent/5' : ''} ${editMode && canEditPredefined && !editingRowId ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                onBlur={(e) => handleRowBlur(e, row.id)}
                 style={{ height: syncedHeight ? `${syncedHeight}px` : (maxRowHeight ? `${maxRowHeight}px` : undefined) }}
                 data-row-index={idx}
                 data-has-checkbox={hasCheckbox}
@@ -1579,6 +1731,19 @@ interface RosterTableProps {
           )}
         </tbody>
       </table>
+
+      {linkedDataModal && (
+          <LinkedDataModal 
+            isOpen={true}
+            shortname={shortname!}
+            initialData={linkedDataModal.initialData}
+            onClose={() => setLinkedDataModal(null)}
+            onSave={(data) => {
+                updateField(linkedDataModal.colId, data);
+                setLinkedDataModal(null);
+            }}
+          />
+      )}
     </div>
   );
 };

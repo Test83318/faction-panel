@@ -111,6 +111,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Roster Management
     Route::post('/factions/{shortname}/rosters', [RosterController::class, 'store']);
+    Route::post('/rosters/resolve-links', [RosterController::class, 'resolveLinks']);
     Route::put('/rosters/{roster}', [RosterController::class, 'update']);
     Route::delete('/rosters/{roster}', [RosterController::class, 'destroy']);
     Route::put('/factions/{shortname}/rosters/reorder', [RosterController::class, 'reorder']);

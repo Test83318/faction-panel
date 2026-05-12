@@ -13,6 +13,7 @@ class RosterSection extends Model
     protected $fillable = [
         'roster_id',
         'name',
+        'image_url',
         'shortname',
         'color',
         'type',
