@@ -29,6 +29,7 @@ interface SectionCardProps {
   onReorderRows?: (sectionId: number, newOrder: any[]) => void;
   globalEditingRowId?: number | null;
   setGlobalEditingRowId?: (id: number | null) => void;
+  globalSaveTrigger?: number;
   syncedHeights?: { [key: number]: number };
   onRowHeightSync?: (index: number, height: number, hasCheckbox: boolean) => void;
   isChild?: boolean;
@@ -158,6 +159,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             onReorderRows={onReorderRows}
             globalEditingRowId={globalEditingRowId}
             setGlobalEditingRowId={setGlobalEditingRowId}
+            globalSaveTrigger={globalSaveTrigger}
             syncedHeights={syncProps?.syncedHeights}
             onRowHeightSync={syncProps?.onRowHeightSync}
             isChild={true}
@@ -368,6 +370,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
                 onReorderRows={(newOrder) => onReorderRows?.(section.id, newOrder)}
                 globalEditingRowId={globalEditingRowId}
                 setGlobalEditingRowId={setGlobalEditingRowId}
+                saveTrigger={globalSaveTrigger}
                 syncedHeights={syncedHeights}
                 onRowHeightSync={onRowHeightSync}
             />
@@ -460,6 +463,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           onReorderRows={(newOrder) => onReorderRows?.(section.id, newOrder)}
           globalEditingRowId={globalEditingRowId}
           setGlobalEditingRowId={setGlobalEditingRowId}
+          saveTrigger={globalSaveTrigger}
           syncedHeights={syncedHeights}
           onRowHeightSync={onRowHeightSync}
         />

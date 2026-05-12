@@ -85,6 +85,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [globalEditingRowId, setGlobalEditingRowId] = useState<number | null>(null);
+  const [globalSaveTrigger, setGlobalSaveTrigger] = useState(0);
 
   // Real-time polling
   useEffect(() => {
@@ -826,6 +827,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         onReorderRows={handleReorderRows}
                         globalEditingRowId={globalEditingRowId}
                         setGlobalEditingRowId={setGlobalEditingRowId}
+                        globalSaveTrigger={globalSaveTrigger}
                     />
                 ))}
 
@@ -864,6 +866,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                 onUpdateRowLocal={handleUpdateRowLocal}
                                 onReorderRows={handleReorderRows}                                globalEditingRowId={globalEditingRowId}
                                 setGlobalEditingRowId={setGlobalEditingRowId}
+                                globalSaveTrigger={globalSaveTrigger}
                                 syncedHeights={rowSyncedHeights}
                                 onRowHeightSync={rowOnRowHeightSync}
                               />
@@ -907,6 +910,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                     onUpdateRowLocal={handleUpdateRowLocal}
                                     onReorderRows={handleReorderRows}                                    globalEditingRowId={globalEditingRowId}
                                     setGlobalEditingRowId={setGlobalEditingRowId}
+                                    globalSaveTrigger={globalSaveTrigger}
                                     syncedHeights={rowSyncedHeights}
                                     onRowHeightSync={rowOnRowHeightSync}
                                 />
@@ -966,6 +970,15 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
       {/* Compact Accessibility Controls - OUTSIDE main scaled container */}
       <div className="fixed bottom-12 right-6 z-[300] flex items-center gap-2">
+          {globalEditingRowId !== null && (
+              <button 
+                  onClick={() => setGlobalSaveTrigger(prev => prev + 1)}
+                  className="h-9 px-4 bg-accent text-white rounded-lg shadow-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-accent/90 active:scale-95 transition-all animate-in slide-in-from-right-4 duration-300"
+              >
+                  <Plus size={14} className="rotate-45" />
+                  Save & Finish Editing
+              </button>
+          )}
           <div className="flex items-center bg-card border border-border rounded-lg shadow-xl overflow-hidden h-9">
               <button 
                   onClick={() => setScaling(Math.max(100, scaling - 5))}

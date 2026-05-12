@@ -75,9 +75,10 @@ interface RosterTableProps {
   onAddRow?: () => void;
   onAddSpacer?: () => void;
   onRefresh?: () => void;
-  onReorderRows?: (newOrder: RosterContent[]) => void;
+  onReorderRows?: (newOrder: any[]) => void;
   globalEditingRowId?: number | null;
   setGlobalEditingRowId?: (id: number | null) => void;
+  saveTrigger?: number;
   syncedHeights?: { [key: number]: number };
   onRowHeightSync?: (index: number, height: number, hasCheckbox: boolean) => void;
   }
@@ -164,6 +165,12 @@ interface RosterTableProps {
         fetchLinks();
     }
   }, [contents, editData, activeCols, editingRowId, editingColId]);
+
+  useEffect(() => {
+    if (saveTrigger && saveTrigger > 0 && editingRowId) {
+        handleSaveEdit(editingRowId);
+    }
+  }, [saveTrigger, editingRowId, handleSaveEdit]);
 
   useEffect(() => {
     if (globalEditingRowId !== editingRowId) {
