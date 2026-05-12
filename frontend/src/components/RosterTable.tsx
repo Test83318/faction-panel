@@ -958,7 +958,10 @@ interface RosterTableProps {
         : [];
 
       return (
-        <div className="flex flex-col items-center justify-center h-full w-full gap-0.5 relative overflow-visible rt-cell-content">
+        <div 
+            className="flex flex-col items-center justify-center h-full w-full gap-0.5 relative overflow-visible rt-cell-content cursor-text"
+            onClick={() => inputRef.current?.focus()}
+        >
           <CellScaler>
             <div className="relative w-full flex flex-row items-center justify-center px-1 overflow-visible">
                 <input 
@@ -969,7 +972,10 @@ interface RosterTableProps {
                     updateField(col.id, e.target.value);
                 }}
                 onKeyDown={e => e.key === 'Enter' && handleSaveEdit(row.id)}
-                onClick={() => setFocusedColId(col.id)}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setFocusedColId(col.id);
+                }}
                 onFocus={() => {
                     setFocusedColId(col.id);
                     setEditingColId(col.id);
@@ -984,6 +990,19 @@ interface RosterTableProps {
                 style={textStyle}
                 placeholder="..."
                 />
+                {value && (
+                    <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            updateField(col.id, '');
+                            inputRef.current?.focus();
+                        }}
+                        className="p-0.5 hover:bg-accent/10 rounded text-muted hover:text-danger transition-colors ml-0.5"
+                        title="Clear Field"
+                    >
+                        <X size={8} />
+                    </button>
+                )}
                 {activeFlags.length > 0 && (
                     <div className="flex items-center gap-0.5 ml-1">
                         {activeFlags.map(f => (
@@ -1355,7 +1374,7 @@ interface RosterTableProps {
                                 zIndex: isEditing && editingColId === col.id ? 5001 : 0,
                                 ...cellStyle
                             }}
-                            onClick={() => !isEditing && isColEditable(col) && handleStartEdit(row, col.id)}
+                            onClick={() => isColEditable(col) && (editingRowId !== row.id || editingColId !== col.id) && handleStartEdit(row, col.id)}
                         >
                             {renderCell(row, col)}
                         </td>
@@ -1423,6 +1442,16 @@ interface RosterTableProps {
                         )}
                         <div className="flex flex-col gap-0.5">
                             <button onClick={() => handleSaveEdit(row.id)} className="p-0.5 text-green-500 hover:bg-green-500/10 rounded transition-colors" title="Save"><Check size={10} /></button>
+                            <button 
+                                onClick={() => {
+                                    setEditData({});
+                                    toast.success('Row cleared (unsaved)');
+                                }} 
+                                className="p-0.5 text-muted hover:text-danger hover:bg-danger/10 rounded transition-colors" 
+                                title="Clear Row"
+                            >
+                                <Trash2 size={10} />
+                            </button>
                             <button onClick={handleCancelEdit} className="p-0.5 text-danger hover:bg-danger/10 rounded transition-colors" title="Cancel"><X size={10} /></button>
                         </div>
                     </div>
