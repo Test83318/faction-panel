@@ -609,6 +609,39 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
     return String(primaryValue);
   };
 
+  const handleUpdateRowLocal = (rowId: number, data: any) => {
+    const newRosters = [...rosters];
+    let found = false;
+
+    const updateSectionContents = (sections: any[]) => {
+      for (const s of sections) {
+        if (s.contents) {
+            const idx = s.contents.findIndex((c: any) => c.id === rowId);
+            if (idx !== -1) {
+                s.contents[idx] = { 
+                    ...s.contents[idx], 
+                    content: data.content,
+                    color: data.color,
+                    updated_at: new Date().toISOString() 
+                };
+                found = true;
+                return true;
+            }
+        }
+        if (s.children && updateSectionContents(s.children)) return true;
+      }
+      return false;
+    };
+
+    for (const r of newRosters) {
+      if (updateSectionContents(r.root_sections || [])) break;
+    }
+
+    if (found) {
+        setRosters(newRosters);
+    }
+  };
+
   return (
     <div 
         className="flex flex-col h-full relative" 
@@ -752,6 +785,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         editMode={editMode}
                         rosterColor={activeDivision.color}
                         onRefresh={fetchRosters}
+                        onUpdateRowLocal={handleUpdateRowLocal}
                         onReorderRows={handleReorderRows}
                         globalEditingRowId={globalEditingRowId}
                         setGlobalEditingRowId={setGlobalEditingRowId}
@@ -790,6 +824,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                 editMode={editMode}
                                 rosterColor={activeDivision.color}
                                 onRefresh={fetchRosters}
+                                onUpdateRowLocal={handleUpdateRowLocal}
                                 onReorderRows={handleReorderRows}                                globalEditingRowId={globalEditingRowId}
                                 setGlobalEditingRowId={setGlobalEditingRowId}
                                 syncedHeights={rowSyncedHeights}
@@ -832,6 +867,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                     editMode={editMode}
                                     rosterColor={activeDivision.color}
                                     onRefresh={fetchRosters}
+                                    onUpdateRowLocal={handleUpdateRowLocal}
                                     onReorderRows={handleReorderRows}                                    globalEditingRowId={globalEditingRowId}
                                     setGlobalEditingRowId={setGlobalEditingRowId}
                                     syncedHeights={rowSyncedHeights}

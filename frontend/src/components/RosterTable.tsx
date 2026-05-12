@@ -465,15 +465,21 @@ interface RosterTableProps {
         api.post(`/contents/${rowIdToSave}/unlock`).catch(() => {});
     }
 
-    // Passive locking
-    api.post(`/contents/${row.id}/lock`, { col_id: colId }).catch(() => {});
+    // Only reset data if we are switching to a NEW row
+    if (editingRowId !== row.id) {
+        setEditData(row.content || {});
+        setRowColor(row.color || null);
+        setLastUpdatedAt(row.updated_at || null);
+    }
+
+    // Passive locking - only if row or column changed
+    if (editingRowId !== row.id || editingColId !== colId) {
+        api.post(`/contents/${row.id}/lock`, { col_id: colId }).catch(() => {});
+    }
 
     setGlobalEditingRowId?.(row.id);
     setEditingRowId(row.id);
     setEditingColId(colId);
-    setEditData(row.content || {});
-    setRowColor(row.color || null);
-    setLastUpdatedAt(row.updated_at || null);
   };
 
   const handleSaveEdit = useCallback(async (rowId: number, colorOverride?: string | null) => {

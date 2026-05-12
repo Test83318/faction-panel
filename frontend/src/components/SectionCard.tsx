@@ -25,6 +25,7 @@ interface SectionCardProps {
   onManageCounts?: (section: RosterSection) => void;
   calculateCount?: (count: any, scope: 'roster' | 'section', targetSection?: any) => string;
   onRefresh?: () => void;
+  onUpdateRowLocal?: (id: number, data: any) => void;
   onReorderRows?: (sectionId: number, newOrder: any[]) => void;
   globalEditingRowId?: number | null;
   setGlobalEditingRowId?: (id: number | null) => void;
@@ -60,6 +61,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   onManageCounts,
   calculateCount,
   onRefresh,
+  onUpdateRowLocal,
   onReorderRows,
   globalEditingRowId,
   setGlobalEditingRowId,
@@ -152,6 +154,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             onManageCounts={onManageCounts}
             calculateCount={calculateCount}
             onRefresh={onRefresh}
+            onUpdateRowLocal={onUpdateRowLocal}
             onReorderRows={onReorderRows}
             globalEditingRowId={globalEditingRowId}
             setGlobalEditingRowId={setGlobalEditingRowId}
@@ -187,6 +190,9 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   };
 
   const handleUpdateRow = async (id: number, data: any, force = false, lastUpdatedAt?: string | null) => {
+    // Optimistically update local state
+    onUpdateRowLocal?.(id, data);
+    
     try {
       await api.put(`/contents/${id}`, { 
         ...data,
@@ -237,6 +243,8 @@ export const SectionCard: React.FC<SectionCardProps> = ({
       }
       toast.error('Failed to save changes');
       console.error('Failed to update row', err);
+      // Revert optimistic update on error by refreshing
+      onRefresh?.();
       throw err;
     }
   };
