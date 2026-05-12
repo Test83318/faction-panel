@@ -128,6 +128,7 @@ class IntegrationController extends Controller
             'added' => 0,
             'updated' => 0,
             'removed' => 0,
+            'duplicates_removed' => 0,
             'name_changes' => 0,
             'activity_logs' => 0
         ];
@@ -260,10 +261,25 @@ class IntegrationController extends Controller
                     foreach ($group as $entry) {
                         if ($entry->id !== $keepId) {
                             $entry->delete();
-                            $syncResults['removed']++;
+                            $syncResults['duplicates_removed']++;
                         }
                     }
                 });
+
+            // Recalculate is_alt markers
+            $finalEntries = $charDb->entries()->get();
+            $userCounts = $finalEntries->groupBy(fn($e) => $e->data['user_id'] ?? null)->map->count();
+
+            foreach ($finalEntries as $entry) {
+                $userId = $entry->data['user_id'] ?? null;
+                $isAlt = ($userCounts[$userId] ?? 1) > 1;
+                
+                if (($entry->data['is_alt'] ?? null) !== $isAlt) {
+                    $newData = $entry->data;
+                    $newData['is_alt'] = $isAlt;
+                    $entry->update(['data' => $newData]);
+                }
+            }
         });
 
         return response()->json([
