@@ -323,7 +323,7 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                                             {cIdx > 0 && (
                                                                 <div className="absolute -top-3 left-10 flex items-center gap-1 z-10">
                                                                     <div className="flex bg-card border border-border rounded-full p-0.5 shadow-sm">
-                                                                        {['AND', 'OR', '+', '-'].map(op => (
+                                                                        {['AND', 'OR', '+', '-', '*', '/'].map(op => (
                                                                             <button 
                                                                                 key={op}
                                                                                 onClick={() => updateCondition(idx, cIdx, { operator: op })}
@@ -340,19 +340,21 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                                                 <div className="flex items-start gap-4">
                                                                     <div className="flex flex-col gap-4 flex-1">
                                                                         <div className="grid grid-cols-3 gap-4">
-                                                                            <div>
-                                                                                <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Scope</label>
-                                                                                <select 
-                                                                                    value={cond.scope || (type === 'roster' ? 'roster' : 'section')}
-                                                                                    onChange={e => updateCondition(idx, cIdx, { scope: e.target.value })}
-                                                                                    className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-[10px] font-bold uppercase"
-                                                                                >
-                                                                                    <option value="roster">Entire Roster</option>
-                                                                                    <option value="section">Current Section (Incl. Children)</option>
-                                                                                    <option value="specific_sections">Specific Sections</option>
-                                                                                </select>
-                                                                            </div>
-                                                                            <div>
+                                                                            {cond.type !== 'value' && (
+                                                                                <div>
+                                                                                    <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Scope</label>
+                                                                                    <select 
+                                                                                        value={cond.scope || (type === 'roster' ? 'roster' : 'section')}
+                                                                                        onChange={e => updateCondition(idx, cIdx, { scope: e.target.value })}
+                                                                                        className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-[10px] font-bold uppercase"
+                                                                                    >
+                                                                                        <option value="roster">Entire Roster</option>
+                                                                                        <option value="section">Current Section (Incl. Children)</option>
+                                                                                        <option value="specific_sections">Specific Sections</option>
+                                                                                    </select>
+                                                                                </div>
+                                                                            )}
+                                                                            <div className={cond.type === 'value' ? 'col-span-3' : ''}>
                                                                                 <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Type</label>
                                                                                 <select 
                                                                                     value={cond.type}
@@ -363,9 +365,10 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                                                                     <option value="flags">Flag Status</option>
                                                                                     <option value="checkboxes">Checkboxes</option>
                                                                                     <option value="tags">Right-side Tags</option>
+                                                                                    <option value="value">Constant Value</option>
                                                                                 </select>
                                                                             </div>
-                                                                            {cond.scope === 'specific_sections' && (
+                                                                            {cond.scope === 'specific_sections' && cond.type !== 'value' && (
                                                                                 <div>
                                                                                     <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Target Sections</label>
                                                                                     <div className="relative group/sections">
@@ -396,6 +399,20 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                                                         </div>
 
                                                                         <div className="grid grid-cols-2 gap-6 pt-2 border-t border-border/20">
+                                                                            {cond.type === 'value' && (
+                                                                                <div className="col-span-2">
+                                                                                    <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Fixed Number</label>
+                                                                                    <input 
+                                                                                        type="number"
+                                                                                        step="any"
+                                                                                        value={cond.settings.value || ''}
+                                                                                        onChange={e => updateCondition(idx, cIdx, { settings: { ...cond.settings, value: e.target.value } })}
+                                                                                        className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-[10px] outline-none focus:border-accent"
+                                                                                        placeholder="Enter a value (e.g. 3 or 0.5)"
+                                                                                    />
+                                                                                </div>
+                                                                            )}
+
                                                                             {cond.type === 'rows' && (
                                                                                 <>
                                                                                     <div className="space-y-3">
@@ -410,14 +427,25 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                                                                                 {columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                                                                             </select>
                                                                                         </div>
-                                                                                        <div className="flex items-center justify-between px-1">
-                                                                                            <span className="text-[9px] font-bold text-muted uppercase">Ignore Empty</span>
-                                                                                            <button 
-                                                                                                onClick={() => updateCondition(idx, cIdx, { settings: { ...cond.settings, disregard_empty: !cond.settings.disregard_empty } })}
-                                                                                                className={`w-7 h-3.5 rounded-full relative transition-colors ${cond.settings.disregard_empty ? 'bg-accent' : 'bg-muted/30'}`}
-                                                                                            >
-                                                                                                <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all ${cond.settings.disregard_empty ? 'right-0.5' : 'left-0.5'}`} />
-                                                                                            </button>
+                                                                                        <div className="flex flex-col gap-2">
+                                                                                            <div className="flex items-center justify-between px-1">
+                                                                                                <span className="text-[9px] font-bold text-muted uppercase">Ignore Empty</span>
+                                                                                                <button 
+                                                                                                    onClick={() => updateCondition(idx, cIdx, { settings: { ...cond.settings, disregard_empty: !cond.settings.disregard_empty } })}
+                                                                                                    className={`w-7 h-3.5 rounded-full relative transition-colors ${cond.settings.disregard_empty ? 'bg-accent' : 'bg-muted/30'}`}
+                                                                                                >
+                                                                                                    <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all ${cond.settings.disregard_empty ? 'right-0.5' : 'left-0.5'}`} />
+                                                                                                </button>
+                                                                                            </div>
+                                                                                            <div className="flex items-center justify-between px-1">
+                                                                                                <span className="text-[9px] font-bold text-muted uppercase">Exclude Spacers</span>
+                                                                                                <button 
+                                                                                                    onClick={() => updateCondition(idx, cIdx, { settings: { ...cond.settings, exclude_spacers: !cond.settings.exclude_spacers } })}
+                                                                                                    className={`w-7 h-3.5 rounded-full relative transition-colors ${cond.settings.exclude_spacers ? 'bg-accent' : 'bg-muted/30'}`}
+                                                                                                >
+                                                                                                    <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all ${cond.settings.exclude_spacers ? 'right-0.5' : 'left-0.5'}`} />
+                                                                                                </button>
+                                                                                            </div>
                                                                                         </div>
                                                                                     </div>
                                                                                     {cond.settings.target_col && (

@@ -5,7 +5,7 @@ import api from '../api';
 import toast from 'react-hot-toast';
 
 interface FlagRule {
-    type: 'equals' | 'not_equals' | 'contains' | 'in_dataset' | 'not_in_dataset' | 'exists_elsewhere';
+    type: 'equals' | 'not_equals' | 'contains' | 'in_dataset' | 'not_in_dataset' | 'exists_elsewhere' | 'orphaned_database_link';
     value?: string;
     dataset_id?: number;
     scope?: 'section' | 'roster' | 'global';
@@ -354,6 +354,7 @@ const FlagManagerModal: React.FC<FlagManagerModalProps> = ({ shortname, onClose 
                                                         <option value="in_dataset">In Dataset</option>
                                                         <option value="not_in_dataset">Not In Dataset</option>
                                                         <option value="exists_elsewhere">Exists Elsewhere</option>
+                                                        <option value="orphaned_database_link">Orphaned Database Link</option>
                                                     </select>
                                                 </div>
 

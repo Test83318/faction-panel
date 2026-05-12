@@ -393,127 +393,140 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         // New Formula Evaluation Logic
         if (c.conditions && Array.isArray(c.conditions)) {
             let result = 0;
-            let currentGroupPool: any[] = [];
+            let currentGroupValue = 0;
             let lastArithmeticOp = '+';
 
-            const commitGroup = () => {
-                if (lastArithmeticOp === '+') result += currentGroupPool.length;
-                else if (lastArithmeticOp === '-') result -= currentGroupPool.length;
+            const commitGroup = (val: number) => {
+                if (lastArithmeticOp === '+') result += val;
+                else if (lastArithmeticOp === '-') result -= val;
+                else if (lastArithmeticOp === '*') result *= val;
+                else if (lastArithmeticOp === '/') result = val === 0 ? 0 : result / val;
             };
 
             c.conditions.forEach((cond: any, idx: number) => {
-                // 1. Determine the pool for this condition based on scope
-                let condPool: any[] = [];
-                const condScope = cond.scope || 'default';
+                let condMatchedValue = 0;
 
-                if (condScope === 'roster') {
-                    condPool = allContents.filter(item => item.roster_id === activeDivId);
-                } else if (condScope === 'specific_sections') {
-                    const sIds = (cond.section_ids || []).map((id: any) => Number(id));
-                    condPool = allContents.filter(item => sIds.includes(Number(item.section_id)));
-                } else if (condScope === 'section') {
-                    condPool = targetSection ? getSectionContents(targetSection) : allContents.filter(item => item.roster_id === activeDivId);
+                if (cond.type === 'value') {
+                    condMatchedValue = parseFloat(cond.settings?.value || 0);
                 } else {
-                    // Default legacy behavior
-                    if (scope === 'roster') {
+                    // 1. Determine the pool for this condition based on scope
+                    let condPool: any[] = [];
+                    const condScope = cond.scope || 'default';
+
+                    if (condScope === 'roster') {
                         condPool = allContents.filter(item => item.roster_id === activeDivId);
+                    } else if (condScope === 'specific_sections') {
+                        const sIds = (cond.section_ids || []).map((id: any) => Number(id));
+                        condPool = allContents.filter(item => sIds.includes(Number(item.section_id)));
+                    } else if (condScope === 'section') {
+                        condPool = targetSection ? getSectionContents(targetSection) : allContents.filter(item => item.roster_id === activeDivId);
                     } else {
-                        condPool = targetSection ? getSectionContents(targetSection) : [];
-                    }
-                }
-
-                // 2. Filter the pool by the condition rule
-                const matchedRows = condPool.filter(row => {
-                    const content = row.content || {};
-
-                    if (cond.type === 'rows') {
-                        if (!cond.settings?.target_col) return true;
-                        const rawVal = content[cond.settings.target_col];
-                        
-                        const disregardEmpty = cond.settings.disregard_empty !== undefined ? cond.settings.disregard_empty : true;
-                        if (rawVal === null || rawVal === undefined || rawVal === '') {
-                            return disregardEmpty ? false : true;
+                        // Default legacy behavior
+                        if (scope === 'roster') {
+                            condPool = allContents.filter(item => item.roster_id === activeDivId);
+                        } else {
+                            condPool = targetSection ? getSectionContents(targetSection) : [];
                         }
-
-                        // Resolve ID to label if it matches a dataset option
-                        let label = rawVal.toString();
-                        const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
-                        const col = rosterCols.find((colItem: any) => colItem.id === cond.settings.target_col);
-                        if (col && col.dataset_id) {
-                            const dataset = datasets.find(d => d.id === col.dataset_id);
-                            const option = dataset?.options?.find((o: any) => String(o.id) === String(rawVal));
-                            if (option) label = option.value;
-                        }
-
-                        const val = label.trim().toLowerCase();
-                        const matchVal = (cond.settings.match_value || '').toString().trim().toLowerCase();
-                        
-                        if (cond.settings.match_type === 'exists') return !!val;
-                        if (cond.settings.match_type === 'equals') return val === matchVal;
-                        if (cond.settings.match_type === 'not_equals') return val !== matchVal;
-                        if (cond.settings.match_type === 'contains') return val.includes(matchVal);
-                        if (cond.settings.match_type === 'is_null') return !rawVal || rawVal === '';
-                        return true;
                     }
 
-                    if (cond.type === 'flags') {
-                        if (!cond.settings?.flag_id) return false;
-                        const flag = flags.find(f => f.id === cond.settings.flag_id);
-                        if (!flag) return false;
-                        
-                        const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
-                        return rosterCols.some((col: any) => {
-                            if (!(col.flags || []).includes(flag.id)) return false;
-                            const val = (content[col.id] || '').toString().toLowerCase().trim();
-                            if (!val) return false;
-                            return (flag.rules || []).some((rule: any) => {
-                                if (rule.type === 'equals') return val === (rule.value || '').toString().toLowerCase().trim();
-                                if (rule.type === 'contains') return val.includes((rule.value || '').toString().toLowerCase().trim());
-                                if (rule.type === 'exists_elsewhere') {
-                                    const otherPool = rule.scope === 'global' ? allContents : allContents.filter(item => item.roster_id === row.roster_id);
-                                    return otherPool.some(item => item.id !== row.id && Object.values(item.content || {}).some(v => (v || '').toString().toLowerCase().trim() === val));
-                                }
-                                return false;
+                    if (cond.settings?.exclude_spacers) {
+                        condPool = condPool.filter(item => item.type !== 'spacer');
+                    }
+
+                    // 2. Filter the pool by the condition rule
+                    const matchedRows = condPool.filter(row => {
+                        const content = row.content || {};
+
+                        if (cond.type === 'rows') {
+                            if (!cond.settings?.target_col) return true;
+                            const rawVal = content[cond.settings.target_col];
+                            
+                            const disregardEmpty = cond.settings.disregard_empty !== undefined ? cond.settings.disregard_empty : true;
+                            if (rawVal === null || rawVal === undefined || rawVal === '') {
+                                return disregardEmpty ? false : true;
+                            }
+
+                            // Resolve ID to label if it matches a dataset option
+                            let label = rawVal.toString();
+                            const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
+                            const col = rosterCols.find((colItem: any) => colItem.id === cond.settings.target_col);
+                            if (col && col.dataset_id) {
+                                const dataset = datasets.find(d => d.id === col.dataset_id);
+                                const option = dataset?.options?.find((o: any) => String(o.id) === String(rawVal));
+                                if (option) label = option.value;
+                            }
+
+                            const val = label.trim().toLowerCase();
+                            const matchVal = (cond.settings.match_value || '').toString().trim().toLowerCase();
+                            
+                            if (cond.settings.match_type === 'exists') return !!val;
+                            if (cond.settings.match_type === 'equals') return val === matchVal;
+                            if (cond.settings.match_type === 'not_equals') return val !== matchVal;
+                            if (cond.settings.match_type === 'contains') return val.includes(matchVal);
+                            if (cond.settings.match_type === 'is_null') return !rawVal || rawVal === '';
+                            return true;
+                        }
+
+                        if (cond.type === 'flags') {
+                            if (!cond.settings?.flag_id) return false;
+                            const flag = flags.find(f => f.id === cond.settings.flag_id);
+                            if (!flag) return false;
+                            
+                            const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
+                            return rosterCols.some((col: any) => {
+                                if (!(col.flags || []).includes(flag.id)) return false;
+                                const val = (content[col.id] || '').toString().toLowerCase().trim();
+                                if (!val) return false;
+                                return (flag.rules || []).some((rule: any) => {
+                                    if (rule.type === 'equals') return val === (rule.value || '').toString().toLowerCase().trim();
+                                    if (rule.type === 'contains') return val.includes((rule.value || '').toString().toLowerCase().trim());
+                                    if (rule.type === 'exists_elsewhere') {
+                                        const otherPool = rule.scope === 'global' ? allContents : allContents.filter(item => item.roster_id === row.roster_id);
+                                        return otherPool.some(item => item.id !== row.id && Object.values(item.content || {}).some(v => (v || '').toString().toLowerCase().trim() === val));
+                                    }
+                                    return false;
+                                });
                             });
-                        });
-                    }
+                        }
 
-                    if (cond.type === 'checkboxes') {
-                        if (!cond.settings?.target_col || !cond.settings?.checkbox_label) return false;
-                        const rowCheckboxes = row.content?.[`${cond.settings.target_col}_cb`] || [];
-                        const rowTags = row.content?.[`${cond.settings.target_col}_tags`] || [];
-                        return rowCheckboxes.includes(cond.settings.checkbox_label) || rowTags.includes(cond.settings.checkbox_label);
-                    }
+                        if (cond.type === 'checkboxes') {
+                            if (!cond.settings?.target_col || !cond.settings?.checkbox_label) return false;
+                            const rowCheckboxes = row.content?.[`${cond.settings.target_col}_cb`] || [];
+                            const rowTags = row.content?.[`${cond.settings.target_col}_tags`] || [];
+                            return rowCheckboxes.includes(cond.settings.checkbox_label) || rowTags.includes(cond.settings.checkbox_label);
+                        }
 
-                    if (cond.type === 'tags') {
-                        if (!cond.settings?.target_col || !cond.settings?.checkbox_label) return false;
-                        const rowTags = row.content?.[`${cond.settings.target_col}_tags`] || [];
-                        return rowTags.includes(cond.settings.checkbox_label);
-                    }
+                        if (cond.type === 'tags') {
+                            if (!cond.settings?.target_col || !cond.settings?.checkbox_label) return false;
+                            const rowTags = row.content?.[`${cond.settings.target_col}_tags`] || [];
+                            return rowTags.includes(cond.settings.checkbox_label);
+                        }
 
-                    return false;
-                });
+                        return false;
+                    });
+                    condMatchedValue = matchedRows.length;
+                }
 
                 // 3. Combine using operator
                 if (idx === 0) {
-                    currentGroupPool = matchedRows;
+                    currentGroupValue = condMatchedValue;
                 } else {
-                    if (cond.operator === '+' || cond.operator === '-') {
-                        commitGroup();
-                        currentGroupPool = matchedRows;
+                    if (['+', '-', '*', '/'].includes(cond.operator)) {
+                        commitGroup(currentGroupValue);
+                        currentGroupValue = condMatchedValue;
                         lastArithmeticOp = cond.operator;
                     } else if (cond.operator === 'AND') {
-                        const matchedIds = new Set(matchedRows.map(r => r.id));
-                        currentGroupPool = currentGroupPool.filter(r => matchedIds.has(r.id));
+                        // AND only makes sense for row pools, for values it's ambiguous
+                        // For simplicity, we treat it as "min" or "0 if any is 0"
+                        currentGroupValue = Math.min(currentGroupValue, condMatchedValue);
                     } else if (cond.operator === 'OR') {
-                        const currentIds = new Set(currentGroupPool.map(r => r.id));
-                        const uniqueNew = matchedRows.filter(r => !currentIds.has(r.id));
-                        currentGroupPool = [...currentGroupPool, ...uniqueNew];
+                        // For row pools it's union, for values we treat as "max"
+                        currentGroupValue = Math.max(currentGroupValue, condMatchedValue);
                     }
                 }
             });
 
-            commitGroup();
+            commitGroup(currentGroupValue);
             return Math.max(0, result);
         }
 
@@ -598,15 +611,20 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         }).length;
     };
 
+    const formatValue = (val: number): string => {
+        if (Number.isInteger(val)) return String(val);
+        return parseFloat(val.toFixed(2)).toString();
+    };
+
     const primaryValue = getSingleValue(count);
     if (count.secondary_count_id) {
         const secondaryCount = (scope === 'roster' ? activeDivision.counts : targetSection?.counts)?.find((item: any) => String(item.id) === String(count.secondary_count_id));
         if (secondaryCount) {
             const secondaryValue = getSingleValue(secondaryCount);
-            return `${primaryValue} / ${secondaryValue}`;
+            return `${formatValue(primaryValue)} / ${formatValue(secondaryValue)}`;
         }
     }
-    return String(primaryValue);
+    return formatValue(primaryValue);
   };
 
   return (
@@ -1218,6 +1236,18 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                   placeholder="e.g. Division Leadership" 
                 />
               </div>
+
+              <div>
+                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">Section Logo URL (Optional)</label>
+                <input 
+                  value={sectionData.image_url || ''} 
+                  onChange={e => setSectionData({ ...sectionData, image_url: e.target.value })} 
+                  className="w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition" 
+                  placeholder="e.g. https://example.com/logo.png" 
+                />
+                <p className="text-[8px] text-muted mt-1 uppercase font-bold tracking-widest">Displays as a small logo next to the name.</p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">Short Name (Max 6)</label>
