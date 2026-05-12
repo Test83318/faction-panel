@@ -452,8 +452,10 @@ interface RosterTableProps {
   const handleStartEdit = (row: RosterContent, colId: string) => {
     if (!canEditAny) return;
 
+    const isDifferentRow = editingRowId !== row.id;
+
     // If another row is being edited, save it first
-    if (editingRowId && editingRowId !== row.id) {
+    if (isDifferentRow && editingRowId) {
         const rowIdToSave = editingRowId;
         const dataToSave = { 
             content: { ...editData }, 
@@ -465,15 +467,13 @@ interface RosterTableProps {
         api.post(`/contents/${rowIdToSave}/unlock`).catch(() => {});
     }
 
-    // Only reset data if we are switching to a NEW row
-    if (editingRowId !== row.id) {
+    // Only reset data and lock if we are switching to a NEW row
+    if (isDifferentRow) {
         setEditData(row.content || {});
         setRowColor(row.color || null);
         setLastUpdatedAt(row.updated_at || null);
-    }
-
-    // Passive locking - only if row or column changed
-    if (editingRowId !== row.id || editingColId !== colId) {
+        
+        // Passive locking - only once per row session
         api.post(`/contents/${row.id}/lock`, { col_id: colId }).catch(() => {});
     }
 
@@ -483,6 +483,7 @@ interface RosterTableProps {
   };
 
   const handleSaveEdit = useCallback(async (rowId: number, colorOverride?: string | null) => {
+    // Only save if this is the row we are actually editing
     if (editingRowId !== rowId) return;
 
     const dataToSave = { 
@@ -492,6 +493,7 @@ interface RosterTableProps {
     const colId = editingColId;
     const updatedAt = lastUpdatedAt;
 
+    // Clear editing state first to prevent double-saves or race conditions
     setGlobalEditingRowId?.(null);
     setEditingRowId(null);
     setEditingColId(null);
@@ -513,8 +515,9 @@ interface RosterTableProps {
             next.delete(rowId);
             return next;
         });
+        // We don't reset editData to {} here immediately, 
+        // handleStartEdit will handle re-initialization for the next row.
         setRowColor(null);
-        setEditData({});
     }
   }, [editingRowId, editData, rowColor, editingColId, lastUpdatedAt, onUpdateRow, setGlobalEditingRowId]);
 
@@ -556,14 +559,8 @@ interface RosterTableProps {
         api.post(`/contents/${id}/unlock`).catch(() => {});
     }
   };
-  const handleRowBlur = (e: React.FocusEvent, rowId: number) => {
-    if (showColorPicker === rowId) return;
-
-    const nextFocus = e.relatedTarget as Node;
-    if (!e.currentTarget.contains(nextFocus)) {
-      handleSaveEdit(rowId);
-    }
-  };
+  
+  // REMOVED handleRowBlur auto-save as it causes race conditions during same-row navigation
 
   const updateField = (colId: string, value: any) => {
     let newData = { ...editData, [colId]: value };
