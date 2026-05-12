@@ -211,6 +211,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                           <option value="predefined_hidden_text">Predefined Hidden Text</option>
                           <option value="predefined_hidden_dropdown">Predefined Hidden Dropdown</option>
                           <option value="database_data">Database Data Column</option>
+                          <option value="linked_roster_data">Linked Roster Column</option>
                         </select>
                       </div>
 
