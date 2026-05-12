@@ -338,9 +338,29 @@ interface RosterTableProps {
     
     // Resolve ID to label if possible
     const boundDataset = col.dataset_id ? datasets.find(d => d.id === col.dataset_id) : null;
-    const option = boundDataset?.options?.find((o: any) => String(o.id) === String(rawValue));
-    const label = option ? option.value : rawValue.toString();
+    let option = boundDataset?.options?.find((o: any) => String(o.id) === String(rawValue));
 
+    // Check recordData if it's a database link
+    if (!option && boundDataset?.record_database_id) {
+        const db = recordData.find(d => d.id === boundDataset.record_database_id);
+        if (db && db.entries) {
+            // Find by ID or by the actual data value (for manual entries that might match)
+            const entry = db.entries.find((e: any) => {
+                if (String(e.entry_id) === String(rawValue)) return true;
+                
+                // Also check if it matches the display value
+                let fieldId = col.database_field_id || db.database_structure?.[0]?.id;
+                const displayVal = (fieldId === 'id') ? String(e.entry_id) : e.data?.[fieldId];
+                return String(displayVal) === String(rawValue);
+            });
+
+            if (entry) {
+                option = { id: entry.entry_id, value: entry.data?.[col.database_field_id || ''] || entry.entry_id };
+            }
+        }
+    }
+
+    const label = option ? option.value : rawValue.toString();
     const value = label.toLowerCase().trim();
 
     return flag.rules.some((rule: any) => {
@@ -410,13 +430,13 @@ interface RosterTableProps {
                     if (!rawValue) return false;
                 }
 
-                // And that ID/Value must NOT exist in the options
+                // And that ID/Value must NOT exist in the options (calculated above from recordData)
                 return !option;
             default:
                 return false;
         }
     });
-  }, [datasets, contents, allContents, editingRowId, editData]);
+  }, [datasets, contents, allContents, editingRowId, editData, recordData]);
 
   const handleBulkAdd = () => {
     const count = Math.min(Math.max(1, rowCountToAdd), 20);
