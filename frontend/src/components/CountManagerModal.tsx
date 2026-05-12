@@ -562,18 +562,17 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                         ))}
                     </Reorder.Group>
 
-                        {counts.length === 0 && (
-                            <div className="py-20 border border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-center space-y-4 bg-card/30">
-                                <Calculator size={48} className="text-muted opacity-10" />
-                                <div className="space-y-1">
-                                    <p className="text-[12px] font-black uppercase tracking-widest text-muted opacity-50">No counters configured</p>
-                                    <p className="text-[9px] font-bold text-muted/30 uppercase max-w-xs leading-relaxed">
-                                        Click "Add Counter" above to create dynamic personnel statistics for your roster.
-                                    </p>
-                                </div>
+                    {counts.length === 0 && (
+                        <div className="py-20 border border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-center space-y-4 bg-card/30">
+                            <Calculator size={48} className="text-muted opacity-10" />
+                            <div className="space-y-1">
+                                <p className="text-[12px] font-black uppercase tracking-widest text-muted opacity-50">No counters configured</p>
+                                <p className="text-[9px] font-bold text-muted/30 uppercase max-w-xs leading-relaxed">
+                                    Click "Add Counter" above to create dynamic personnel statistics for your roster.
+                                </p>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="p-6 border-t border-border bg-surface/30 flex justify-end gap-3 shrink-0">
