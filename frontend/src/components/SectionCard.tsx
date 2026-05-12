@@ -33,6 +33,15 @@ interface SectionCardProps {
   isChild?: boolean;
 }
 
+const MemoizedHtml = React.memo(({ html }: { html: string }) => {
+  return (
+    <div 
+        className="prose prose-invert max-w-none text-[11px] leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}, (prev, next) => prev.html === next.html);
+
 export const SectionCard: React.FC<SectionCardProps> = ({ 
   section, 
   user,
@@ -88,14 +97,13 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     );
   };
 
-  const processHtml = (html: string) => {
+  const processHtmlInner = React.useCallback((html: string) => {
       if (!html) return '';
       let processed = html;
       
       // Search for counts in this section and its parents to resolve variables
       const findCounts = (s: any): any[] => {
           let c = [...(s.counts || [])];
-          // We could potentially look at roster level counts too if needed
           return c;
       };
 
@@ -108,7 +116,20 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           }
       });
       return processed;
-  };
+  }, [section, calculateCount]);
+
+  const [processedHtml, setProcessedHtml] = React.useState(() => 
+    section.type === 'content' ? processHtmlInner(section.content_html || '') : ''
+  );
+
+  React.useEffect(() => {
+    if (section.type === 'content') {
+        const newHtml = processHtmlInner(section.content_html || '');
+        if (newHtml !== processedHtml) {
+            setProcessedHtml(newHtml);
+        }
+    }
+  }, [section.content_html, section.counts, allContents, processHtmlInner, section.type]);
 
   const renderChild = (child: RosterSection, syncProps?: { syncedHeights?: { [key: number]: number }, onRowHeightSync?: (index: number, height: number, hasCheckbox: boolean) => void }) => {
     return (
@@ -426,10 +447,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
       <div className="sections-container w-full divide-y divide-border">
         {section.type === 'content' && (
             <div className="p-4 bg-card/30">
-                <div 
-                    className="prose prose-invert max-w-none text-[11px] leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: processHtml(section.content_html || '') }}
-                />
+                <MemoizedHtml html={processedHtml} />
             </div>
         )}
 
