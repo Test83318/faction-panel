@@ -8,6 +8,7 @@ import * as LucideIcons from 'lucide-react';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { hexToRgb } from '../utils';
+import { LinkedDataModal } from './LinkedDataModal';
 
 const CellScaler: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className }) => {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -126,6 +127,43 @@ interface RosterTableProps {
   const tableRef = useRef<HTMLTableElement>(null);
   const [editData, setEditData] = useState<any>({});
   const [activeTagMenu, setActiveTagMenu] = useState<{ rowId: number, colId: string } | null>(null);
+  const [linkedDataModal, setLinkedDataModal] = useState<{ rowId: number, colId: string, initialData?: any } | null>(null);
+  const [resolvedLinks, setResolvedLinks] = useState<Map<string, any>>(new Map());
+
+  useEffect(() => {
+    // Resolve links when contents or editData change
+    const linksToResolve: any[] = [];
+    const collectLinks = (rows: RosterContent[]) => {
+        rows.forEach(row => {
+            activeCols.forEach(col => {
+                if (col.type === 'linked_roster_data') {
+                    const val = (editingRowId === row.id && editingColId === col.id) ? editData[col.id] : row.content?.[col.id];
+                    if (val && typeof val === 'object' && val.roster_id && val.row_id && val.col_id) {
+                        linksToResolve.push({ rowId: row.id, colId: col.id, config: val });
+                    }
+                }
+            });
+        });
+    };
+    collectLinks(contents);
+
+    if (linksToResolve.length > 0) {
+        const fetchLinks = async () => {
+            try {
+                const res = await api.post('/rosters/resolve-links', { links: linksToResolve.map(l => l.config) });
+                const newResolved = new Map(resolvedLinks);
+                res.data.results.forEach((val: any, idx: number) => {
+                    const link = linksToResolve[idx];
+                    newResolved.set(`${link.rowId}_${link.colId}`, val);
+                });
+                setResolvedLinks(newResolved);
+            } catch (err) {
+                console.error('Failed to resolve links', err);
+            }
+        };
+        fetchLinks();
+    }
+  }, [contents, editData, activeCols, editingRowId, editingColId]);
 
   useEffect(() => {
     if (globalEditingRowId !== editingRowId) {
@@ -686,6 +724,7 @@ interface RosterTableProps {
     if (col.type.startsWith('predefined_') || col.type.includes('predefined')) {
         return canEditPredefined;
     }
+    if (col.type === 'linked_roster_data') return canEditDefined;
     return canEditDefined;
   };
 
@@ -823,6 +862,33 @@ interface RosterTableProps {
             <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-20 rt-cell-content">
                 <CellScaler>
                     <span className="text-[10px] uppercase font-bold">-</span>
+                </CellScaler>
+            </div>
+        );
+    }
+
+    if (col.type === 'linked_roster_data') {
+        const resolvedValue = resolvedLinks.get(`${row.id}_${col.id}`) || '-';
+        if (isEditing) {
+            return (
+                <div className="flex flex-col items-center justify-center h-full w-full gap-1 rt-cell-content">
+                    <span className="text-[10px] uppercase font-medium opacity-60 italic">{resolvedValue}</span>
+                    <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setLinkedDataModal({ rowId: row.id, colId: col.id, initialData: value });
+                        }}
+                        className="px-2 py-0.5 bg-accent/10 hover:bg-accent/20 text-accent text-[7px] font-black uppercase tracking-widest rounded border border-accent/20 transition-all"
+                    >
+                        Options
+                    </button>
+                </div>
+            );
+        }
+        return (
+            <div className="flex flex-col items-center justify-center h-full w-full rt-cell-content">
+                <CellScaler>
+                    <span className="text-[10px] uppercase font-medium">{resolvedValue}</span>
                 </CellScaler>
             </div>
         );
@@ -1639,6 +1705,19 @@ interface RosterTableProps {
           )}
         </tbody>
       </table>
+
+      {linkedDataModal && (
+          <LinkedDataModal 
+            isOpen={true}
+            shortname={shortname!}
+            initialData={linkedDataModal.initialData}
+            onClose={() => setLinkedDataModal(null)}
+            onSave={(data) => {
+                updateField(linkedDataModal.colId, data);
+                setLinkedDataModal(null);
+            }}
+          />
+      )}
     </div>
   );
 };
