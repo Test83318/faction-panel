@@ -199,6 +199,12 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     } catch (err: any) {
       if (err.response?.status === 409) {
         const conflictData = err.response.data;
+        
+        // Suppress if the conflict is from the same user (e.g. another tab)
+        if (conflictData.updated_by_id && user?.id && Number(conflictData.updated_by_id) === Number(user.id)) {
+            return await handleUpdateRow(id, data, true);
+        }
+
         toast((t) => (
           <div className="flex flex-col gap-2 min-w-[250px]">
             <p className="font-bold text-danger uppercase text-[10px] tracking-widest">Conflict Detected</p>

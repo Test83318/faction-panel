@@ -84,9 +84,9 @@ class RosterContentController extends Controller
                     'conflict' => true,
                     'current_data' => $content->content,
                     'updated_at' => $content->updated_at,
-                    'updated_by' => $content->audits()->where('event', 'updated')->latest()->first()?->user?->username ?? 'Another user'
-                ], 409);
-            }
+                    'updated_by' => $content->audits()->where('event', 'updated')->latest()->first()?->user?->username ?? 'Another user',
+                    'updated_by_id' => $content->audits()->where('event', 'updated')->latest()->first()?->user?->id
+                    ], 409);            }
         }
 
         if (isset($validated['content'])) {

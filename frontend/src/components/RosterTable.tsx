@@ -447,14 +447,22 @@ interface RosterTableProps {
     if (editingRowId && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [editingRowId]);
+  }, [editingRowId, editingColId]);
 
   const handleStartEdit = (row: RosterContent, colId: string) => {
     if (!canEditAny) return;
 
-    // If another row is being edited, unlock it first
-    if (globalEditingRowId && globalEditingRowId !== row.id) {
-        api.post(`/contents/${globalEditingRowId}/unlock`).catch(() => {});
+    // If another row is being edited, save it first
+    if (editingRowId && editingRowId !== row.id) {
+        const rowIdToSave = editingRowId;
+        const dataToSave = { 
+            content: { ...editData }, 
+            color: rowColor 
+        };
+        const updatedAt = lastUpdatedAt;
+        
+        onUpdateRow?.(rowIdToSave, dataToSave, false, updatedAt);
+        api.post(`/contents/${rowIdToSave}/unlock`).catch(() => {});
     }
 
     // Passive locking
@@ -680,7 +688,7 @@ interface RosterTableProps {
     const checked = isEditing ? (editData[`${col.id}_cb`] || []) : (row.content?.[`${col.id}_cb`] || []);
     const appliedTags = isEditing ? (editData[`${col.id}_tags`] || []) : (row.content?.[`${col.id}_tags`] || []);
 
-    const isLocked = !isEditing && row.editing_by && row.editing_by !== user?.id && row.editing_at && (new Date().getTime() - new Date(row.editing_at).getTime() < 60000);
+    const isLocked = !isEditing && row.editing_by && Number(row.editing_by) !== Number(user?.id) && row.editing_at && (new Date().getTime() - new Date(row.editing_at).getTime() < 60000);
 
     const isHiddenType = col.type.includes('hidden');
     const canViewHidden = canModerate || permissions?.view_hidden_data;
@@ -951,7 +959,7 @@ interface RosterTableProps {
           <CellScaler>
             <div className="relative w-full flex flex-row items-center justify-center px-1 overflow-visible">
                 <input 
-                ref={col.id === activeCols[0].id ? inputRef : null}
+                ref={col.id === editingColId ? inputRef : null}
                 value={value} 
                 autoComplete="off"
                 onChange={e => {
@@ -959,8 +967,16 @@ interface RosterTableProps {
                 }}
                 onKeyDown={e => e.key === 'Enter' && handleSaveEdit(row.id)}
                 onClick={() => setFocusedColId(col.id)}
-                onFocus={() => setFocusedColId(col.id)}
-                onBlur={() => setTimeout(() => setFocusedColId(null), 200)} 
+                onFocus={() => {
+                    setFocusedColId(col.id);
+                    setEditingColId(col.id);
+                }}
+                onBlur={(e) => {
+                    if (e.relatedTarget && (e.relatedTarget as HTMLElement).closest('.rt-tr')) {
+                        return;
+                    }
+                    setTimeout(() => setFocusedColId(null), 200);
+                }} 
                 className="flex-1 bg-transparent border-none text-[10px] text-center uppercase font-medium outline-none focus:ring-0 p-0 text-text placeholder:opacity-10"
                 style={textStyle}
                 placeholder="..."
@@ -1231,7 +1247,7 @@ interface RosterTableProps {
                 height: syncedHeight ? `${syncedHeight}px` : (maxRowHeight ? `${maxRowHeight}px` : undefined)
             };
 
-            const isLocked = !isEditing && row.editing_by && row.editing_by !== user?.id && row.editing_at && (new Date().getTime() - new Date(row.editing_at).getTime() < 60000);
+            const isLocked = !isEditing && row.editing_by && Number(row.editing_by) !== Number(user?.id) && row.editing_at && (new Date().getTime() - new Date(row.editing_at).getTime() < 60000);
 
             return (
               <Reorder.Item 
