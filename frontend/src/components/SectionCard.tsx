@@ -25,6 +25,7 @@ interface SectionCardProps {
   onManageCounts?: (section: RosterSection) => void;
   calculateCount?: (count: any, scope: 'roster' | 'section', targetSection?: any) => string;
   onRefresh?: () => void;
+  onUpdateRowLocal?: (id: number, data: any) => void;
   onReorderRows?: (sectionId: number, newOrder: any[]) => void;
   globalEditingRowId?: number | null;
   setGlobalEditingRowId?: (id: number | null) => void;
@@ -60,6 +61,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   onManageCounts,
   calculateCount,
   onRefresh,
+  onUpdateRowLocal,
   onReorderRows,
   globalEditingRowId,
   setGlobalEditingRowId,
@@ -152,6 +154,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             onManageCounts={onManageCounts}
             calculateCount={calculateCount}
             onRefresh={onRefresh}
+            onUpdateRowLocal={onUpdateRowLocal}
             onReorderRows={onReorderRows}
             globalEditingRowId={globalEditingRowId}
             setGlobalEditingRowId={setGlobalEditingRowId}
@@ -187,6 +190,9 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   };
 
   const handleUpdateRow = async (id: number, data: any, force = false, lastUpdatedAt?: string | null) => {
+    // Optimistically update local state
+    onUpdateRowLocal?.(id, data);
+    
     try {
       await api.put(`/contents/${id}`, { 
         ...data,
@@ -199,6 +205,12 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     } catch (err: any) {
       if (err.response?.status === 409) {
         const conflictData = err.response.data;
+        
+        // Suppress if the conflict is from the same user (e.g. another tab)
+        if (conflictData.updated_by_id && user?.id && Number(conflictData.updated_by_id) === Number(user.id)) {
+            return await handleUpdateRow(id, data, true);
+        }
+
         toast((t) => (
           <div className="flex flex-col gap-2 min-w-[250px]">
             <p className="font-bold text-danger uppercase text-[10px] tracking-widest">Conflict Detected</p>
@@ -231,6 +243,8 @@ export const SectionCard: React.FC<SectionCardProps> = ({
       }
       toast.error('Failed to save changes');
       console.error('Failed to update row', err);
+      // Revert optimistic update on error by refreshing
+      onRefresh?.();
       throw err;
     }
   };
