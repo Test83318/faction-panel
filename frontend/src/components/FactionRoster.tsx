@@ -63,7 +63,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
   const [scaling, setScaling] = useState(() => {
     const saved = localStorage.getItem('roster-scaling');
     const val = saved ? parseInt(saved) : 100;
-    return Math.min(130, Math.max(100, val));
+    return Math.min(130, Math.max(80, val));
   });
 
   useEffect(() => {
@@ -983,7 +983,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
           )}
           <div className="flex items-center bg-card border border-border rounded-lg shadow-xl overflow-hidden h-9">
               <button 
-                  onClick={() => setScaling(Math.max(100, scaling - 5))}
+                  onClick={() => setScaling(Math.max(80, scaling - 5))}
                   className="w-9 h-full flex items-center justify-center hover:bg-surface text-muted hover:text-accent transition-colors border-r border-border active:scale-95"
                   title="Zoom Out"
               >
