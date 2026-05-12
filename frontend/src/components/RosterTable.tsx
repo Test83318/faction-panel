@@ -129,6 +129,159 @@ interface RosterTableProps {
   const [activeTagMenu, setActiveTagMenu] = useState<{ rowId: number, colId: string } | null>(null);
   const [linkedDataModal, setLinkedDataModal] = useState<{ rowId: number, colId: string, initialData?: any } | null>(null);
   const [resolvedLinks, setResolvedLinks] = useState<Map<string, any>>(new Map());
+  const [clipboard, setClipboard] = useState<{ value: any, checkboxes: any[], tags: any[], type?: 'cell' | 'column', colData?: any[] } | null>(null);
+  const [selectedHeaderColId, setSelectedHeaderColId] = useState<string | null>(null);
+
+  const editDataRef = useRef(editData);
+  const clipboardRef = useRef(clipboard);
+  const editingRowIdRef = useRef(editingRowId);
+  const editingColIdRef = useRef(editingColId);
+  const selectedHeaderColIdRef = useRef(selectedHeaderColId);
+
+  useEffect(() => { editDataRef.current = editData; }, [editData]);
+  useEffect(() => { clipboardRef.current = clipboard; }, [clipboard]);
+  useEffect(() => { editingRowIdRef.current = editingRowId; }, [editingRowId]);
+  useEffect(() => { editingColIdRef.current = editingColId; }, [editingColId]);
+  useEffect(() => { selectedHeaderColIdRef.current = selectedHeaderColId; }, [selectedHeaderColId]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+        const ctrl = e.ctrlKey || e.metaKey;
+        if (!ctrl) return;
+
+        // CELL COPY-PASTE (Existing Logic)
+        if (editingRowIdRef.current && editingColIdRef.current) {
+            const colId = editingColIdRef.current;
+
+            if (e.key.toLowerCase() === 'c') {
+                const selection = window.getSelection()?.toString();
+                if (selection && selection.length > 0) return; // Let default copy happen if text is selected
+
+                const val = editDataRef.current[colId];
+                const cbs = editDataRef.current[`${colId}_cb`] || [];
+                const tags = editDataRef.current[`${colId}_tags`] || [];
+                
+                setClipboard({ value: val, checkboxes: cbs, tags: tags, type: 'cell' });
+                toast.success('Cell data copied', { id: 'roster-copy', duration: 1000 });
+            }
+
+            if (e.key.toLowerCase() === 'v') {
+                if (clipboardRef.current) {
+                    // Only prevent default if we actually have something to paste from our internal clipboard
+                    // This allows standard pasting of text from outside to still work if they haven't "copied" a cell yet
+                    e.preventDefault();
+                    const clip = clipboardRef.current;
+                    const newData = { ...editDataRef.current };
+                    
+                    if (clip.type === 'column' && clip.colData) {
+                        // If we have column data, find the entry for the current row if possible
+                        // But usually pasting a whole column into a cell doesn't make sense 
+                        // unless we just paste the "first" value or something?
+                        // Let's stick to cell-to-cell or column-to-column for now.
+                        toast.error('Cannot paste column data into a single cell');
+                        return;
+                    }
+
+                    newData[colId] = clip.value;
+                    newData[`${colId}_cb`] = clip.checkboxes;
+                    newData[`${colId}_tags`] = clip.tags;
+                    
+                    setEditData(newData);
+                    toast.success('Cell data pasted', { id: 'roster-paste', duration: 1000 });
+                }
+            }
+            return;
+        }
+
+        // COLUMN COPY-PASTE (New Logic)
+        if (selectedHeaderColIdRef.current) {
+            const colId = selectedHeaderColIdRef.current;
+
+            if (e.key.toLowerCase() === 'c') {
+                e.preventDefault();
+                const colData = contents.map(row => ({
+                    value: row.content?.[colId] || '',
+                    checkboxes: row.content?.[`${colId}_cb`] || [],
+                    tags: row.content?.[`${colId}_tags`] || []
+                }));
+
+                setClipboard({ 
+                    value: null, 
+                    checkboxes: [], 
+                    tags: [], 
+                    type: 'column', 
+                    colData 
+                });
+                toast.success(`Column ${colId} data copied (${contents.length} rows)`, { id: 'roster-copy', duration: 1500 });
+            }
+
+            if (e.key.toLowerCase() === 'v') {
+                if (clipboardRef.current && clipboardRef.current.type === 'column' && clipboardRef.current.colData) {
+                    e.preventDefault();
+                    const clip = clipboardRef.current;
+                    
+                    const performPaste = async () => {
+                        const loadToast = toast.loading(`Pasting column data to ${colId}...`);
+                        try {
+                            const updates = contents.map((row, idx) => {
+                                const rowClip = clip.colData![idx];
+                                if (!rowClip) return null;
+                                
+                                return {
+                                    id: row.id,
+                                    content: {
+                                        ...(row.content || {}),
+                                        [colId]: rowClip.value,
+                                        [`${colId}_cb`]: rowClip.checkboxes,
+                                        [`${colId}_tags`]: rowClip.tags,
+                                    }
+                                };
+                            }).filter(Boolean);
+
+                            await api.put(`/sections/${sectionId}/contents/batch`, { contents: updates });
+                            toast.success('Column data pasted successfully', { id: loadToast });
+                            onRefresh?.();
+                        } catch (err) {
+                            toast.error('Failed to paste column data', { id: loadToast });
+                        }
+                    };
+
+                    performPaste();
+                } else if (clipboardRef.current && clipboardRef.current.type === 'cell') {
+                    // Paste single cell to entire column
+                    e.preventDefault();
+                    const clip = clipboardRef.current;
+
+                    const performPaste = async () => {
+                        const loadToast = toast.loading(`Pasting cell data to entire column ${colId}...`);
+                        try {
+                            const updates = contents.map((row) => ({
+                                id: row.id,
+                                content: {
+                                    ...(row.content || {}),
+                                    [colId]: clip.value,
+                                    [`${colId}_cb`]: clip.checkboxes,
+                                    [`${colId}_tags`]: clip.tags,
+                                }
+                            }));
+
+                            await api.put(`/sections/${sectionId}/contents/batch`, { contents: updates });
+                            toast.success('Cell data pasted to column', { id: loadToast });
+                            onRefresh?.();
+                        } catch (err) {
+                            toast.error('Failed to paste cell data', { id: loadToast });
+                        }
+                    };
+
+                    performPaste();
+                }
+            }
+        }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [contents, sectionId, onRefresh]);
 
   useEffect(() => {
     // Resolve links when contents or editData change
@@ -1377,7 +1530,18 @@ interface RosterTableProps {
                 ) : '#'}
             </th>
             {activeCols.map((col) => (
-              <th key={col.id} className="rt-th text-center">{col.name}</th>
+              <th 
+                key={col.id} 
+                className={`rt-th text-center cursor-pointer transition-colors ${selectedHeaderColId === col.id ? 'bg-accent/20 text-accent ring-2 ring-accent/30 ring-inset' : 'hover:bg-accent/5'}`}
+                onClick={() => {
+                    if (editingRowId) {
+                        handleSaveEdit(editingRowId);
+                    }
+                    setSelectedHeaderColId(selectedHeaderColId === col.id ? null : col.id);
+                }}
+              >
+                {col.name}
+              </th>
             ))}
             <th className="rt-th"></th>
           </tr>
