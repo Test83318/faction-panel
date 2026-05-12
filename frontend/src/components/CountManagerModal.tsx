@@ -28,10 +28,11 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
     const [counts, setCounts] = useState<any[]>(() => {
         const existing = target.counts || [];
         // Migrate legacy counts if needed
-        return existing.map((c: any) => {
-            if (!c.conditions) {
+        return existing.map((c: any, i: number) => {
+            const count = { ...c, id: c.id || `count_${i}_${Date.now()}` };
+            if (!count.conditions) {
                 return {
-                    ...c,
+                    ...count,
                     conditions: [{
                         id: `cond_${Date.now()}_0`,
                         operator: '+',
@@ -41,7 +42,7 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                     }]
                 };
             }
-            return c;
+            return count;
         });
     });
     const [isSaving, setIsSaving] = useState(false);
@@ -180,10 +181,22 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                         </button>
                     </div>
 
-                    <div className="space-y-4">
+                    <Reorder.Group 
+                        axis="y" 
+                        values={counts} 
+                        onReorder={setCounts} 
+                        className="space-y-4"
+                    >
                         {counts.map((count, idx) => (
-                            <div key={count.id} className={`bg-card border rounded-2xl transition-all ${editingIdx === idx ? 'border-accent ring-1 ring-accent/20 shadow-xl' : 'border-border'}`}>
+                            <Reorder.Item 
+                                key={count.id} 
+                                value={count}
+                                className={`bg-card border rounded-2xl transition-all ${editingIdx === idx ? 'border-accent ring-1 ring-accent/20 shadow-xl' : 'border-border'}`}
+                            >
                                 <div className="p-5 flex items-center gap-4">
+                                    <div className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-accent transition-colors shrink-0">
+                                        <GripVertical size={18} />
+                                    </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-3">
                                             <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: count.color }} />
@@ -545,8 +558,9 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                         </div>
                                     </div>
                                 )}
-                            </div>
+                            </Reorder.Item>
                         ))}
+                    </Reorder.Group>
 
                         {counts.length === 0 && (
                             <div className="py-20 border border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-center space-y-4 bg-card/30">

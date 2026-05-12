@@ -249,6 +249,21 @@ class IntegrationController extends Controller
                     $syncResults['removed']++;
                 }
             }
+
+            // Post-sync duplicate cleanup for Characters Database
+            $charDb->entries()->get()
+                ->groupBy(fn($e) => $e->data['char_id'] ?? null)
+                ->filter(fn($g, $id) => $id && $g->count() > 1)
+                ->each(function($group) use (&$syncResults) {
+                    // Keep the one with highest ID (most recent/intended record)
+                    $keepId = $group->max('id');
+                    foreach ($group as $entry) {
+                        if ($entry->id !== $keepId) {
+                            $entry->delete();
+                            $syncResults['removed']++;
+                        }
+                    }
+                });
         });
 
         return response()->json([

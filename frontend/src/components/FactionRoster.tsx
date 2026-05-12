@@ -130,6 +130,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
     name: '',
     shortname: '',
     color: '',
+    image_url: '',
     type: 'section' as 'master' | 'section' | 'subsection',
     parent_id: null as number | null,
     columns: null as any[] | null,
@@ -243,6 +244,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         name: '', 
         shortname: '', 
         color: '', 
+        image_url: '',
         type: 'section', 
         parent_id: null, 
         columns: null, 
@@ -346,6 +348,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         name: '',
         shortname: '',
         color: '',
+        image_url: '',
         type: 'section',
         parent_id: parentId,
         columns: null,
@@ -365,6 +368,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         name: section.name,
         shortname: section.shortname,
         color: section.color || '',
+        image_url: section.image_url || '',
         type: section.type,
         parent_id: section.parent_id,
         columns: section.columns,
@@ -770,7 +774,22 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                             {canAddSections && (
                                 <button 
                                     onClick={() => {
-                                        setSectionData({ id: null, roster_id: activeDivId, name: '', shortname: '', color: '', type: 'section', parent_id: null, columns: null, use_roster_columns: true, children: [], layout_settings: null, subsections_per_row: 1, content_html: '' });
+                                        setSectionData({ 
+                                            id: null, 
+                                            roster_id: activeDivId, 
+                                            name: '', 
+                                            shortname: '', 
+                                            color: '', 
+                                            image_url: '',
+                                            type: 'section', 
+                                            parent_id: null, 
+                                            columns: null, 
+                                            use_roster_columns: true, 
+                                            children: [], 
+                                            layout_settings: null, 
+                                            subsections_per_row: 1, 
+                                            content_html: '' 
+                                        });
                                         setShowSectionModal(true);
                                     }}
                                     className="px-2 py-1 hover:bg-surface rounded text-muted hover:text-accent transition-colors flex items-center gap-1"
@@ -903,7 +922,22 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         {canModerate && (
                             <button 
                                 onClick={() => {
-                                    setSectionData({ id: null, roster_id: activeDivId, name: '', shortname: '', color: '', type: 'section', parent_id: null, columns: null, children: [], layout_settings: null, subsections_per_row: 1 });
+                                    setSectionData({ 
+                                        id: null, 
+                                        roster_id: activeDivId, 
+                                        name: '', 
+                                        shortname: '', 
+                                        color: '', 
+                                        image_url: '',
+                                        type: 'section', 
+                                        parent_id: null, 
+                                        columns: null, 
+                                        use_roster_columns: true,
+                                        children: [], 
+                                        layout_settings: null, 
+                                        subsections_per_row: 1,
+                                        content_html: ''
+                                    });
                                     setShowSectionModal(true);
                                 }}
                                 className="mt-4 px-4 py-2 bg-accent/10 hover:bg-accent/20 text-accent rounded font-bold text-[10px] uppercase tracking-widest transition-all"
