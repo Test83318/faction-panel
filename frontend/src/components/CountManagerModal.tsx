@@ -33,22 +33,30 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                     id: col.name, // Use name as ID for matching across sheets
                     name: col.name, 
                     type: col.type,
-                    checkboxes: [...(col.checkboxes || [])],
-                    tags: [...(col.tags || [])],
+                    checkboxes: [...(col.checkboxes || [])].filter(Boolean),
+                    tags: [...(col.tags || [])].filter(Boolean),
                     ids: [col.id] // Track original IDs
                 };
             } else {
                 // Merge checkboxes and tags
-                const existingCbs = acc[col.name].checkboxes.map((cb: any) => typeof cb === 'string' ? cb : cb.label);
+                const existingCbs = acc[col.name].checkboxes
+                    .filter(Boolean)
+                    .map((cb: any) => typeof cb === 'string' ? cb : cb?.label);
+                
                 (col.checkboxes || []).forEach((cb: any) => {
-                    const label = typeof cb === 'string' ? cb : cb.label;
-                    if (!existingCbs.includes(label)) acc[col.name].checkboxes.push(cb);
+                    if (!cb) return;
+                    const label = typeof cb === 'string' ? cb : cb?.label;
+                    if (label && !existingCbs.includes(label)) acc[col.name].checkboxes.push(cb);
                 });
 
-                const existingTags = acc[col.name].tags.map((t: any) => typeof t === 'string' ? t : t.label);
+                const existingTags = acc[col.name].tags
+                    .filter(Boolean)
+                    .map((t: any) => typeof t === 'string' ? t : t?.label);
+                
                 (col.tags || []).forEach((t: any) => {
-                    const label = typeof t === 'string' ? t : t.label;
-                    if (!existingTags.includes(label)) acc[col.name].tags.push(t);
+                    if (!t) return;
+                    const label = typeof t === 'string' ? t : t?.label;
+                    if (label && !existingTags.includes(label)) acc[col.name].tags.push(t);
                 });
 
                 if (!acc[col.name].ids.includes(col.id)) acc[col.name].ids.push(col.id);
@@ -564,8 +572,8 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                                                                                 {(() => {
                                                                                                     const col = columns.find(c => c.id === cond.settings.target_col);
                                                                                                     const labels = cond.type === 'checkboxes' 
-                                                                                                        ? (col?.checkboxes || []).map((cb: any) => typeof cb === 'string' ? cb : cb.label)
-                                                                                                        : (col?.tags || []).map((t: any) => typeof t === 'string' ? t : t.label);
+                                                                                                        ? (col?.checkboxes || []).filter(Boolean).map((cb: any) => typeof cb === 'string' ? cb : cb.label)
+                                                                                                        : (col?.tags || []).filter(Boolean).map((t: any) => typeof t === 'string' ? t : t.label);
                                                                                                     return Array.from(new Set(labels)).map(l => <option key={String(l)} value={String(l)}>{String(l)}</option>);
                                                                                                 })()}
                                                                                             </select>

@@ -16,7 +16,7 @@ interface ColumnsModalProps {
 
 export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumns, type, shortname, onClose, onSave }) => {
   const normalizeItems = (items: any[]) => {
-    return (items || []).map((item, idx) => {
+    return (items || []).filter(Boolean).map((item, idx) => {
         if (typeof item === 'string') {
             return { id: `item_${Date.now()}_${idx}_${Math.random()}`, label: item };
         }
@@ -98,8 +98,8 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
       // Filter out empty checkboxes and tags before saving
       const cleanedColumns = columns.map(col => ({
           ...col,
-          checkboxes: (col.checkboxes || []).filter((cb: any) => (typeof cb === 'string' ? cb : cb.label)?.trim() !== ''),
-          tags: (col.tags || []).filter((tag: any) => (typeof tag === 'string' ? tag : tag.label)?.trim() !== '')
+          checkboxes: (col.checkboxes || []).filter(Boolean).filter((cb: any) => (typeof cb === 'string' ? cb : cb.label)?.trim() !== ''),
+          tags: (col.tags || []).filter(Boolean).filter((tag: any) => (typeof tag === 'string' ? tag : tag.label)?.trim() !== '')
       }));
 
       const endpoint = type === 'roster' ? `/rosters/${target.id}` : `/sections/${target.id}`;
@@ -423,7 +423,8 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                         className="space-y-2"
                       >
                         {(col.checkboxes || []).map((cb: any, cbIdx: number) => {
-                          const label = typeof cb === 'string' ? cb : cb.label;
+                          const label = typeof cb === 'string' ? cb : cb?.label;
+if (!label) return null;
                           const color = typeof cb === 'string' ? null : cb.color;
                           const autoApply = typeof cb === 'string' ? null : cb.auto_apply;
                           const key = cb.id || `cb_${cbIdx}_${label}`;
@@ -458,7 +459,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                         value={color || '#ffffff'} 
                                         onChange={(e) => {
                                             const newCbs = [...(col.checkboxes || [])];
-                                            const newLabel = typeof cb === 'string' ? cb : cb.label;
+                                            const newLabel = typeof cb === 'string' ? cb : cb?.label;
                                             const existingAutoApply = typeof cb === 'string' ? null : cb.auto_apply;
                                             newCbs[cbIdx] = { label: newLabel, color: e.target.value, auto_apply: existingAutoApply };
                                             updateColumn(index, 'checkboxes', newCbs);
@@ -495,7 +496,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                           <button 
                                             onClick={() => {
                                                 const newCbs = [...(col.checkboxes || [])];
-                                                const newLabel = typeof cb === 'string' ? cb : cb.label;
+                                                const newLabel = typeof cb === 'string' ? cb : cb?.label;
                                                 const newColor = typeof cb === 'string' ? null : cb.color;
                                                 
                                                 if (autoApply) {
@@ -570,7 +571,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                         className="space-y-2"
                       >
                         {(col.tags || []).map((tag: any, tagIdx: number) => {
-                          const label = typeof tag === 'string' ? tag : tag.label;
+                          const label = typeof tag === 'string' ? tag : tag?.label;
                           const color = typeof tag === 'string' ? null : tag.color;
                           const icon = typeof tag === 'string' ? null : tag.icon;
                           const autoApply = typeof tag === 'string' ? null : tag.auto_apply;
@@ -617,7 +618,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                         <button 
                                             onClick={() => {
                                                 const newTags = [...(col.tags || [])];
-                                                const newLabel = typeof tag === 'string' ? tag : tag.label;
+                                                const newLabel = typeof tag === 'string' ? tag : tag?.label;
                                                 const newColor = typeof tag === 'string' ? null : tag.color;
                                                 newTags[tagIdx] = { label: newLabel, color: newColor, icon: null, auto_apply: autoApply };
                                                 updateColumn(index, 'tags', newTags);
@@ -632,7 +633,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                                 key={ti}
                                                 onClick={() => {
                                                     const newTags = [...(col.tags || [])];
-                                                    const newLabel = typeof tag === 'string' ? tag : tag.label;
+                                                    const newLabel = typeof tag === 'string' ? tag : tag?.label;
                                                     const newColor = typeof tag === 'string' ? null : tag.color;
                                                     newTags[tagIdx] = { label: newLabel, color: newColor, icon: ti, auto_apply: autoApply };
                                                     updateColumn(index, 'tags', newTags);
@@ -651,7 +652,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                         value={color || '#ffffff'} 
                                         onChange={(e) => {
                                             const newTags = [...(col.tags || [])];
-                                            const newLabel = typeof tag === 'string' ? tag : tag.label;
+                                            const newLabel = typeof tag === 'string' ? tag : tag?.label;
                                             const newIcon = typeof tag === 'string' ? null : tag.icon;
                                             const existingAutoApply = typeof tag === 'string' ? null : tag.auto_apply;
                                             newTags[tagIdx] = { label: newLabel, color: e.target.value, icon: newIcon, auto_apply: existingAutoApply };
@@ -689,7 +690,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                                           <button 
                                             onClick={() => {
                                                 const newTags = [...(col.tags || [])];
-                                                const newLabel = typeof tag === 'string' ? tag : tag.label;
+                                                const newLabel = typeof tag === 'string' ? tag : tag?.label;
                                                 const newColor = typeof tag === 'string' ? null : tag.color;
                                                 const newIcon = typeof tag === 'string' ? null : tag.icon;
                                                 

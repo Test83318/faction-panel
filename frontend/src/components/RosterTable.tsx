@@ -680,11 +680,14 @@ interface RosterTableProps {
                                     isMatch = !!dbVal;
                                 }
                                 
-                                if (isMatch && !currentCbs.includes(cb.label)) {
-                                    currentCbs.push(cb.label);
+                                const label = cb?.label;
+                                if (!label) return;
+                                
+                                if (isMatch && !currentCbs.includes(label)) {
+                                    currentCbs.push(label);
                                     changed = true;
-                                } else if (!isMatch && currentCbs.includes(cb.label)) {
-                                    const idx = currentCbs.indexOf(cb.label);
+                                } else if (!isMatch && currentCbs.includes(label)) {
+                                    const idx = currentCbs.indexOf(label);
                                     currentCbs.splice(idx, 1);
                                     changed = true;
                                 }
@@ -714,11 +717,14 @@ interface RosterTableProps {
                                     isMatch = !!dbVal;
                                 }
                                 
-                                if (isMatch && !currentTags.includes(tag.label)) {
-                                    currentTags.push(tag.label);
+                                const label = tag?.label;
+                                if (!label) return;
+
+                                if (isMatch && !currentTags.includes(label)) {
+                                    currentTags.push(label);
                                     changed = true;
-                                } else if (!isMatch && currentTags.includes(tag.label)) {
-                                    const idx = currentTags.indexOf(tag.label);
+                                } else if (!isMatch && currentTags.includes(label)) {
+                                    const idx = currentTags.indexOf(label);
                                     currentTags.splice(idx, 1);
                                     changed = true;
                                 }
@@ -1003,7 +1009,7 @@ interface RosterTableProps {
                         <div className="flex flex-wrap gap-1 relative z-20">
                             {col.checkboxes.map((cb, cbIdx) => {
                                 if (!cb) return null;
-                                const label = typeof cb === 'string' ? cb : cb.label;
+                                const label = typeof cb === 'string' ? cb : cb?.label;
                                 if (!label) return null;
                                 const color = typeof cb === 'string' ? null : cb.color;
                                 const isChecked = checked.includes(label);
@@ -1028,7 +1034,7 @@ interface RosterTableProps {
                 <div className="flex flex-wrap gap-1 relative z-20">
                     {col.checkboxes.map((cb, cbIdx) => {
                     if (!cb) return null;
-                    const label = typeof cb === 'string' ? cb : cb.label;
+                    const label = typeof cb === 'string' ? cb : cb?.label;
                     if (!label) return null;
                     const color = typeof cb === 'string' ? null : cb.color;
                     const isChecked = checked.includes(label);
@@ -1055,7 +1061,7 @@ interface RosterTableProps {
                     <div className="text-[8px] font-black uppercase text-muted mb-2 tracking-widest border-b border-border/50 pb-1">Manage Tags</div>
                     <div className="space-y-1">
                         {col.tags?.map(tagDef => {
-                            const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef.label;
+                            const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef?.label;
                             const color = typeof tagDef === 'string' ? null : tagDef.color;
                             const iconName = typeof tagDef === 'string' ? null : tagDef.icon;
                             const isTagged = appliedTags.includes(tagLabel);
@@ -1185,7 +1191,7 @@ interface RosterTableProps {
                     <div className="flex flex-wrap gap-1 ml-1">
                     {col.checkboxes.map((cb, cbIdx) => {
                         if (!cb) return null;
-                        const label = typeof cb === 'string' ? cb : cb.label;
+                        const label = typeof cb === 'string' ? cb : cb?.label;
                         if (!label) return null;
                         const color = typeof cb === 'string' ? null : cb.color;
                         const isChecked = checked.includes(label);
@@ -1210,7 +1216,7 @@ interface RosterTableProps {
                 <div className="flex flex-wrap gap-1">
                 {col.checkboxes.map((cb, cbIdx) => {
                     if (!cb) return null;
-                    const label = typeof cb === 'string' ? cb : cb.label;
+                    const label = typeof cb === 'string' ? cb : cb?.label;
                     if (!label) return null;
                     const color = typeof cb === 'string' ? null : cb.color;
                     const isChecked = checked.includes(label);
@@ -1262,7 +1268,7 @@ interface RosterTableProps {
                     <div className="text-[8px] font-black uppercase text-muted mb-2 tracking-widest border-b border-border/50 pb-1">Manage Tags</div>
                     <div className="space-y-1">
                         {col.tags?.map(tagDef => {
-                            const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef.label;
+                            const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef?.label;
                             const color = typeof tagDef === 'string' ? null : tagDef.color;
                             const iconName = typeof tagDef === 'string' ? null : tagDef.icon;
                             const isTagged = appliedTags.includes(tagLabel);
@@ -1324,7 +1330,7 @@ interface RosterTableProps {
                 {appliedTags.length > 0 && (
                     <div className="flex items-center gap-0.5">
                         {(col.tags || []).map((tagDef: any) => {
-                            const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef.label;
+                            const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef?.label;
                             if (!appliedTags.includes(tagLabel)) return null;
 
                             const color = (typeof tagDef !== 'string') ? tagDef.color : '#fff';
@@ -1356,7 +1362,7 @@ interface RosterTableProps {
                     <div className="flex gap-0.5">
                         {(col.checkboxes || []).map((cbDef: any, cbIdx: number) => {
                             if (!cbDef) return null;
-                            const cbLabel = typeof cbDef === 'string' ? cbDef : cbDef.label;
+                            const cbLabel = typeof cbDef === 'string' ? cbDef : cbDef?.label;
                             if (!cbLabel || !checked.includes(cbLabel)) return null;
 
                             const color = (typeof cbDef !== 'string') ? cbDef.color : null;
@@ -1378,7 +1384,7 @@ interface RosterTableProps {
               <div className="flex gap-0.5">
                 {(col.checkboxes || []).map((cbDef: any, cbIdx: number) => {
                   if (!cbDef) return null;
-                  const cbLabel = typeof cbDef === 'string' ? cbDef : cbDef.label;
+                  const cbLabel = typeof cbDef === 'string' ? cbDef : cbDef?.label;
                   if (!cbLabel || !checked.includes(cbLabel)) return null;
 
                   const color = (typeof cbDef !== 'string') ? cbDef.color : null;

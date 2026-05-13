@@ -89,7 +89,7 @@ const FactionSnapshots: React.FC = () => {
                 responseType: 'blob'
             });
             
-            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/json' }));
             const link = document.createElement('a');
             link.href = url;
             const filename = `snapshot_${shortname}_${new Date(snapshot.created_at).toISOString().split('T')[0]}.json`;
