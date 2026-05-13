@@ -359,12 +359,13 @@ class RosterController extends Controller
 
     public function resolveLinks(Request $request)
     {
+        $user = Auth::guard('sanctum')->user();
         $links = $request->input('links', []);
         $results = [];
 
         // Group by row_id to minimize queries
         $rowIds = collect($links)->pluck('row_id')->filter()->unique();
-        $contents = RosterContent::whereIn('id', $rowIds)->with('section.roster')->get()->keyBy('id');
+        $contents = RosterContent::whereIn('id', $rowIds)->with('section.roster.faction')->get()->keyBy('id');
 
         // Cache for rosters and datasets to avoid repeated lookups
         $rosterCache = [];
@@ -386,6 +387,12 @@ class RosterController extends Controller
                 continue;
             }
 
+            // Check if user can view this roster
+            if (!User::hasRosterPermission($user, $content->section->roster, 'view_roster')) {
+                $results[] = '-';
+                continue;
+            }
+
             $value = $content->content[$colId] ?? '-';
             
             // Resolve label if it's a dataset/predefined type
@@ -397,6 +404,14 @@ class RosterController extends Controller
             $col = collect($roster->columns ?? [])->firstWhere('id', $colId);
             if (!$col) {
                 $col = collect($content->section->columns ?? [])->firstWhere('id', $colId);
+            }
+
+            // Mask if it's a hidden column and user doesn't have permission
+            if ($col && str_contains($col['type'] ?? '', 'hidden')) {
+                if (!User::hasRosterPermission($user, $roster, 'view_hidden_data')) {
+                    $results[] = '????';
+                    continue;
+                }
             }
 
             if ($col && isset($col['dataset_id'])) {

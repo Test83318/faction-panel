@@ -208,9 +208,22 @@ class User extends Authenticatable
             ->max('weight') ?? 0;
     }
 
+    public function isGroupLeaderInFaction(int $factionId): bool
+    {
+        return $this->groups()
+            ->where('faction_id', $factionId)
+            ->wherePivot('is_leader', true)
+            ->exists();
+    }
+
     public static function hasRosterPermission(?User $user, Roster $roster, string $permissionKey): bool
     {
         $faction = $roster->faction;
+
+        // 0. Check for global 'view_faction_roster' if the key is 'view_roster'
+        if ($permissionKey === 'view_roster' && self::hasFactionPermission($user, $faction, 'view_faction_roster')) {
+            return true;
+        }
 
         // 1. Superadmin/Faction Leader/Global Roster Moderator/Creator always have access
         if ($user) {

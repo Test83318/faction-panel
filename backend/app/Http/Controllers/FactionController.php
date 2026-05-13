@@ -351,8 +351,11 @@ class FactionController extends Controller
     public function getMembers(string $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
+        $user = Auth::user();
         
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'view_users')) {
+        if (!User::hasFactionPermission($user, $faction, 'view_users') && 
+            !User::hasFactionPermission($user, $faction, 'manage_group_members') &&
+            !$user->isGroupLeaderInFaction($faction->id)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
