@@ -121,7 +121,13 @@ class IntegrationController extends Controller
         $activityDb = $dbs['ACTIVITY'];
 
         $currentEntries = $charDb->entries()->get();
-        $gtawMembers = $res['data']['members'];
+        
+        // 1. Deduplicate GTA:W members list first
+        $gtawMembers = collect($res['data']['members'] ?? [])
+            ->groupBy('character_id')
+            ->map(fn($group) => $group->sortByDesc('rank')->first())
+            ->values()
+            ->toArray();
 
         $now = now()->toDateString();
         $syncResults = [
@@ -134,8 +140,40 @@ class IntegrationController extends Controller
         ];
 
         DB::transaction(function () use ($charDb, $historyDb, $nameChangeDb, $activityDb, $currentEntries, $gtawMembers, $abasData, $now, &$syncResults) {
+            // 2. Pre-sync duplicate cleanup for Characters Database (before any other logic)
+            $charDb->entries()->get()
+                ->groupBy(fn($e) => $e->data['char_id'] ?? null)
+                ->filter(fn($g, $id) => $id && $g->count() > 1)
+                ->each(function($group) use (&$syncResults) {
+                    $keepId = $group->max('id');
+                    foreach ($group as $entry) {
+                        if ($entry->id !== $keepId) {
+                            $entry->delete();
+                            $syncResults['duplicates_removed']++;
+                        }
+                    }
+                });
+
+            // Refresh current entries after cleanup
+            $freshEntries = $charDb->entries()->get();
             $processedCharIds = [];
-            $userCharCounts = collect($gtawMembers)->groupBy('user_id')->map->count();
+
+            // 3. Pre-calculate is_alt markers based on highest rank
+            $userGroups = collect($gtawMembers)->groupBy('user_id');
+            $isAltMap = [];
+            foreach ($userGroups as $userId => $group) {
+                if ($group->count() <= 1) {
+                    $isAltMap[$group->first()['character_id']] = false;
+                    continue;
+                }
+                
+                $highestRank = $group->max('rank');
+                $primaryChar = $group->where('rank', $highestRank)->sortByDesc('character_id')->first();
+                
+                foreach ($group as $m) {
+                    $isAltMap[$m['character_id']] = ($m['character_id'] !== $primaryChar['character_id']);
+                }
+            }
 
             // Pre-calculate Total ABAS for each user
             $userAbasTotals = [];
@@ -150,7 +188,7 @@ class IntegrationController extends Controller
                 $charId = $member['character_id'];
                 $processedCharIds[] = $charId;
 
-                $existingEntry = $currentEntries->first(function ($e) use ($charId) {
+                $existingEntry = $freshEntries->first(function ($e) use ($charId) {
                     return ($e->data['char_id'] ?? null) == $charId;
                 });
 
@@ -161,11 +199,12 @@ class IntegrationController extends Controller
                     'id' => $member['character_id'],
                     'name' => $member['character_name'],
                     'rank' => $member['rank_name'],
+                    'rank_id' => $member['rank'] ?? 0,
                     'abas' => $abasString,
                     'total_abas' => number_format($userAbasTotals[$member['user_id']] ?? 0, 2),
                     'user_id' => $member['user_id'],
                     'char_id' => $member['character_id'],
-                    'is_alt' => ($userCharCounts[$member['user_id']] ?? 1) > 1,
+                    'is_alt' => $isAltMap[$charId] ?? false,
                 ];
 
                 // Check for ABAS change
@@ -231,7 +270,7 @@ class IntegrationController extends Controller
             }
 
             // Remove characters no longer in faction
-            foreach ($currentEntries as $entry) {
+            foreach ($freshEntries as $entry) {
                 $charId = $entry->data['char_id'] ?? null;
                 if ($charId && !in_array($charId, $processedCharIds)) {
                     // Log to history before deleting
@@ -251,33 +290,33 @@ class IntegrationController extends Controller
                 }
             }
 
-            // Post-sync duplicate cleanup for Characters Database
-            $charDb->entries()->get()
-                ->groupBy(fn($e) => $e->data['char_id'] ?? null)
-                ->filter(fn($g, $id) => $id && $g->count() > 1)
-                ->each(function($group) use (&$syncResults) {
-                    // Keep the one with highest ID (most recent/intended record)
-                    $keepId = $group->max('id');
-                    foreach ($group as $entry) {
-                        if ($entry->id !== $keepId) {
-                            $entry->delete();
-                            $syncResults['duplicates_removed']++;
-                        }
-                    }
-                });
-
-            // Recalculate is_alt markers
+            // Final check: Recalculate is_alt markers for all entries based on stored rank_id
             $finalEntries = $charDb->entries()->get();
-            $userCounts = $finalEntries->groupBy(fn($e) => $e->data['user_id'] ?? null)->map->count();
+            $userGroups = $finalEntries->groupBy(fn($e) => $e->data['user_id'] ?? null);
 
-            foreach ($finalEntries as $entry) {
-                $userId = $entry->data['user_id'] ?? null;
-                $isAlt = ($userCounts[$userId] ?? 1) > 1;
-                
-                if (($entry->data['is_alt'] ?? null) !== $isAlt) {
-                    $newData = $entry->data;
-                    $newData['is_alt'] = $isAlt;
-                    $entry->update(['data' => $newData]);
+            foreach ($userGroups as $userId => $group) {
+                if ($group->count() <= 1) {
+                    $entry = $group->first();
+                    if (($entry->data['is_alt'] ?? null) !== false) {
+                        $newData = $entry->data;
+                        $newData['is_alt'] = false;
+                        $entry->update(['data' => $newData]);
+                    }
+                    continue;
+                }
+
+                $highestRank = $group->max(fn($e) => (int)($e->data['rank_id'] ?? 0));
+                $primaryChar = $group->where(fn($e) => (int)($e->data['rank_id'] ?? 0) === $highestRank)
+                                    ->sortByDesc(fn($e) => (int)($e->data['char_id'] ?? 0))
+                                    ->first();
+
+                foreach ($group as $entry) {
+                    $isAlt = (($entry->data['char_id'] ?? null) !== ($primaryChar->data['char_id'] ?? null));
+                    if (($entry->data['is_alt'] ?? null) !== $isAlt) {
+                        $newData = $entry->data;
+                        $newData['is_alt'] = $isAlt;
+                        $entry->update(['data' => $newData]);
+                    }
                 }
             }
         });
