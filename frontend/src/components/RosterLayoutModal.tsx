@@ -22,6 +22,7 @@ const RosterLayoutModal: React.FC<RosterLayoutModalProps> = ({ roster, onClose, 
     const [rows, setRows] = useState<RosterRow[]>(roster.layout_settings?.rows || []);
     const [unassignedSections, setUnassignedSections] = useState<any[]>([]);
     const [defaultPerRow, setDefaultPerRow] = useState(roster.default_sections_per_row || 2);
+    const [layoutMode, setLayoutMode] = useState<'grid' | 'columns'>(roster.layout_settings?.layout_mode || 'grid');
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
@@ -93,7 +94,8 @@ const RosterLayoutModal: React.FC<RosterLayoutModalProps> = ({ roster, onClose, 
             await api.put(`/rosters/${roster.id}`, {
                 default_sections_per_row: defaultPerRow,
                 layout_settings: {
-                    rows: rows.filter(r => r.section_ids.length > 0)
+                    rows: rows.filter(r => r.section_ids.length > 0),
+                    layout_mode: layoutMode
                 },
                 section_order: fullOrder
             });
@@ -124,25 +126,136 @@ const RosterLayoutModal: React.FC<RosterLayoutModalProps> = ({ roster, onClose, 
 
                 <div className="p-6 flex-1 overflow-y-auto space-y-8">
                     {/* Global Defaults */}
-                    <div className="bg-surface/30 border border-border rounded-xl p-4 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 text-accent">
-                                <Settings size={16} />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Global Default Layout</span>
+                    <div className="bg-surface/30 border border-border rounded-xl p-4 space-y-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-3 text-accent">
+                                    <Settings size={16} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Global Default Layout</span>
+                                </div>
+                                <p className="text-[9px] text-muted italic opacity-60">Any sections not assigned to a custom row below will follow these settings.</p>
                             </div>
-                            <div className="flex gap-2">
-                                {[1, 2, 3, 4].map(num => (
+                            
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center gap-2 self-end">
+                                    <span className="text-[8px] font-black text-muted uppercase tracking-widest mr-2">Columns:</span>
+                                    {[1, 2, 3, 4].map(num => (
+                                        <button 
+                                            key={num}
+                                            onClick={() => setDefaultPerRow(num)}
+                                            className={`px-3 py-1.5 rounded-lg border font-black text-[10px] transition-all ${defaultPerRow === num ? 'bg-accent border-accent text-white shadow-lg shadow-accent/20' : 'bg-card border-border text-muted hover:border-accent/30'}`}
+                                        >
+                                            {num}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="flex items-center gap-2 self-end">
+                                    <span className="text-[8px] font-black text-muted uppercase tracking-widest mr-2">Display Mode:</span>
                                     <button 
-                                        key={num}
-                                        onClick={() => setDefaultPerRow(num)}
-                                        className={`px-3 py-1.5 rounded-lg border font-black text-[10px] transition-all ${defaultPerRow === num ? 'bg-accent border-accent text-white shadow-lg shadow-accent/20' : 'bg-card border-border text-muted hover:border-accent/30'}`}
+                                        onClick={() => setLayoutMode('grid')}
+                                        className={`px-3 py-1.5 rounded-lg border font-black text-[10px] transition-all flex items-center gap-2 ${layoutMode === 'grid' ? 'bg-accent border-accent text-white shadow-lg shadow-accent/20' : 'bg-card border-border text-muted hover:border-accent/30'}`}
                                     >
-                                        {num} COL
+                                        <Layout size={12} />
+                                        GRID
                                     </button>
-                                ))}
+                                    <button 
+                                        onClick={() => setLayoutMode('columns')}
+                                        className={`px-3 py-1.5 rounded-lg border font-black text-[10px] transition-all flex items-center gap-2 ${layoutMode === 'columns' ? 'bg-accent border-accent text-white shadow-lg shadow-accent/20' : 'bg-card border-border text-muted hover:border-accent/30'}`}
+                                    >
+                                        <Columns size={12} />
+                                        COLUMNS
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <p className="text-[9px] text-muted italic opacity-60">Any sections not assigned to a custom row below will automatically fill into rows of {defaultPerRow}.</p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="p-4 bg-card/50 rounded-xl border border-border/50 flex flex-col gap-4">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-accent">Visual Preview</span>
+                                    <span className="text-[8px] font-bold text-muted uppercase tracking-tighter italic opacity-60">Demonstration</span>
+                                </div>
+                                
+                                <div className="aspect-video w-full bg-surface/50 rounded-lg border border-border/30 p-4 relative overflow-hidden">
+                                    {layoutMode === 'grid' ? (
+                                        <div className="grid grid-cols-2 gap-3 h-full">
+                                            <div className="bg-accent/20 border-2 border-accent/40 rounded-lg flex flex-col h-[70%] relative">
+                                                <div className="h-2 w-full bg-accent/40" />
+                                                <div className="flex-1 p-2 space-y-1">
+                                                    <div className="h-1 w-full bg-accent/20 rounded-full" />
+                                                    <div className="h-1 w-2/3 bg-accent/10 rounded-full" />
+                                                </div>
+                                            </div>
+                                            <div className="bg-muted/10 border-2 border-border/40 rounded-lg flex flex-col h-[40%]">
+                                                <div className="h-2 w-full bg-border/20" />
+                                            </div>
+                                            {/* Second Row - Pushed down by the tall first block */}
+                                            <div className="bg-muted/10 border-2 border-border/40 rounded-lg flex flex-col h-[50%] mt-auto">
+                                                <div className="h-2 w-full bg-border/20" />
+                                            </div>
+                                            <div className="bg-muted/10 border-2 border-border/40 rounded-lg flex flex-col h-[50%] mt-auto">
+                                                <div className="h-2 w-full bg-border/20" />
+                                            </div>
+                                            
+                                            {/* Helper Line */}
+                                            <div className="absolute top-[70%] left-0 right-0 border-t border-dashed border-accent/40 flex justify-center">
+                                                <span className="bg-surface px-1.5 text-[6px] font-black uppercase text-accent -translate-y-1/2 tracking-tighter">New Row Starts Here</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-3 h-full items-start">
+                                            <div className="flex flex-col gap-2 h-full">
+                                                <div className="bg-accent/20 border-2 border-accent/40 rounded-lg flex flex-col h-[70%]">
+                                                    <div className="h-2 w-full bg-accent/40" />
+                                                    <div className="flex-1 p-2 space-y-1">
+                                                        <div className="h-1 w-full bg-accent/20 rounded-full" />
+                                                        <div className="h-1 w-2/3 bg-accent/10 rounded-full" />
+                                                    </div>
+                                                </div>
+                                                <div className="bg-muted/10 border-2 border-border/40 rounded-lg flex flex-col h-[20%]">
+                                                    <div className="h-2 w-full bg-border/20" />
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-2 h-full">
+                                                <div className="bg-muted/10 border-2 border-border/40 rounded-lg flex flex-col h-[40%]">
+                                                    <div className="h-2 w-full bg-border/20" />
+                                                </div>
+                                                <div className="bg-muted/10 border-2 border-accent/40 rounded-lg flex flex-col h-[50%] animate-bounce-slow">
+                                                    <div className="h-2 w-full bg-accent/40" />
+                                                    <div className="flex-1 p-2 flex items-center justify-center">
+                                                        <span className="text-[6px] font-black text-accent uppercase tracking-tighter">Pushed Up</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col justify-center gap-4">
+                                <div className="p-4 bg-card border border-border rounded-xl">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="p-2 bg-accent/10 rounded-lg text-accent">
+                                            {layoutMode === 'grid' ? <Layout size={18} /> : <Columns size={18} />}
+                                        </div>
+                                        <h3 className="text-xs font-black uppercase tracking-widest">{layoutMode === 'grid' ? 'Grid Mode' : 'Columns Mode'}</h3>
+                                    </div>
+                                    <p className="text-[10px] text-muted font-medium leading-relaxed uppercase tracking-tight">
+                                        {layoutMode === 'grid' ? (
+                                            <>Sections are aligned in strict rows. If one section in a row is taller than others, the next row will wait and start below the tallest point. This ensures all sections in a row have their tops aligned.</>
+                                        ) : (
+                                            <>Sections flow independently within their respective columns. If a section is short, the one below it will move up to fill the gap, regardless of how tall sections are in other columns.</>
+                                        )}
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center gap-3 px-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                                    <span className="text-[8px] font-black text-muted uppercase tracking-[0.2em]">Currently Selected</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Custom Rows */}

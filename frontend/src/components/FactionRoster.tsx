@@ -915,17 +915,19 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                     </SyncGridRow>
                   ))}
 
-                  <SyncGridRow 
-                    columns={activeDivision.default_sections_per_row || 2}
-                    className="grid gap-4 w-full items-start"
-                  >
-                    {({ syncedHeights: rowSyncedHeights, onRowHeightSync: rowOnRowHeightSync }) => (
-                        <>
-                            {activeDivision.root_sections?.filter((s: any) => {
+                  <div className="unassigned-sections-container">
+                    {activeDivision.layout_settings?.layout_mode === 'columns' ? (
+                      <div 
+                        className="grid gap-4 w-full items-start"
+                        style={{ gridTemplateColumns: `repeat(${activeDivision.default_sections_per_row || 2}, minmax(0, 1fr))` }}
+                      >
+                        {Array.from({ length: activeDivision.default_sections_per_row || 2 }).map((_, colIdx) => (
+                          <div key={colIdx} className="flex flex-col gap-4">
+                            {(activeDivision.root_sections || []).filter((s: any) => {
                                 if (s.type === 'master') return false;
                                 const inCustomRow = activeDivision.layout_settings?.rows?.some((r: any) => r.section_ids?.includes(s.id));
                                 return !inCustomRow;
-                            }).map((section: any) => (
+                            }).filter((_: any, idx: number) => idx % (activeDivision.default_sections_per_row || 2) === colIdx).map((section: any) => (
                                 <SectionCard 
                                     key={section.id} 
                                     section={section} 
@@ -946,16 +948,59 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                     rosterColor={activeDivision.color}
                                     onRefresh={fetchRosters}
                                     onUpdateRowLocal={handleUpdateRowLocal}
-                                    onReorderRows={handleReorderRows}                                    globalEditingRowId={globalEditingRowId}
+                                    onReorderRows={handleReorderRows}
+                                    globalEditingRowId={globalEditingRowId}
                                     setGlobalEditingRowId={setGlobalEditingRowId}
                                     globalSaveTrigger={globalSaveTrigger}
-                                    syncedHeights={rowSyncedHeights}
-                                    onRowHeightSync={rowOnRowHeightSync}
                                 />
                             ))}
-                        </>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <SyncGridRow 
+                        columns={activeDivision.default_sections_per_row || 2}
+                        className="grid gap-4 w-full items-start"
+                      >
+                        {({ syncedHeights: rowSyncedHeights, onRowHeightSync: rowOnRowHeightSync }) => (
+                            <>
+                                {activeDivision.root_sections?.filter((s: any) => {
+                                    if (s.type === 'master') return false;
+                                    const inCustomRow = activeDivision.layout_settings?.rows?.some((r: any) => r.section_ids?.includes(s.id));
+                                    return !inCustomRow;
+                                }).map((section: any) => (
+                                    <SectionCard 
+                                        key={section.id} 
+                                        section={section} 
+                                        user={user}
+                                        canModerate={isGlobalMod}
+                                        permissions={rosterPerms}
+                                        onAddChild={handleAddChildSection}
+                                        onEdit={handleEditSection}
+                                        onManageCounts={(s) => setShowCountsModal({ target: s, type: 'section' })}
+                                        calculateCount={calculateCount}
+                                        columns={section.use_roster_columns ? (rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns) : (section.columns || rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns)}
+                                        rosterColumns={rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns}
+                                        datasets={datasets}
+                                        recordData={recordData}
+                                        allContents={allContents}
+                                        flags={flags}
+                                        editMode={editMode}
+                                        rosterColor={activeDivision.color}
+                                        onRefresh={fetchRosters}
+                                        onUpdateRowLocal={handleUpdateRowLocal}
+                                        onReorderRows={handleReorderRows}                                    globalEditingRowId={globalEditingRowId}
+                                        setGlobalEditingRowId={setGlobalEditingRowId}
+                                        globalSaveTrigger={globalSaveTrigger}
+                                        syncedHeights={rowSyncedHeights}
+                                        onRowHeightSync={rowOnRowHeightSync}
+                                    />
+                                ))}
+                            </>
+                        )}
+                      </SyncGridRow>
                     )}
-                  </SyncGridRow>
+                  </div>
                 </div>
 
                 {(!activeDivision.root_sections || activeDivision.root_sections.length === 0) && (
