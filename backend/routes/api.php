@@ -29,6 +29,9 @@ Route::get('/setup/status', [SetupController::class, 'status']);
 Route::post('/setup', [SetupController::class, 'setup']);
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/login', function () {
+    return response()->json(['message' => 'Unauthenticated.'], 401);
+})->name('login');
 Route::post('/register', [AuthController::class, 'register']);
 Route::get('/auth/registration-status', [AuthController::class, 'registrationStatus']);
 Route::get('/auth/gtaw/redirect', [AuthController::class, 'gtawRedirect']);

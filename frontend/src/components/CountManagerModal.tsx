@@ -10,7 +10,7 @@ interface CountManagerModalProps {
     shortname: string;
     onClose: () => void;
     onSave: () => void;
-    columns: any[];
+    columns: any[]; // All potential columns for this roster
     flags: any[];
     allSections?: any[];
 }
@@ -21,10 +21,42 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
     shortname, 
     onClose, 
     onSave,
-    columns,
+    columns: rawColumns,
     flags,
     allSections = []
 }) => {
+    // Group columns by name to handle shared columns across sections
+    const columns = useMemo(() => {
+        const grouped = rawColumns.reduce((acc: any, col: any) => {
+            if (!acc[col.name]) {
+                acc[col.name] = { 
+                    id: col.name, // Use name as ID for matching across sheets
+                    name: col.name, 
+                    type: col.type,
+                    checkboxes: [...(col.checkboxes || [])],
+                    tags: [...(col.tags || [])],
+                    ids: [col.id] // Track original IDs
+                };
+            } else {
+                // Merge checkboxes and tags
+                const existingCbs = acc[col.name].checkboxes.map((cb: any) => typeof cb === 'string' ? cb : cb.label);
+                (col.checkboxes || []).forEach((cb: any) => {
+                    const label = typeof cb === 'string' ? cb : cb.label;
+                    if (!existingCbs.includes(label)) acc[col.name].checkboxes.push(cb);
+                });
+
+                const existingTags = acc[col.name].tags.map((t: any) => typeof t === 'string' ? t : t.label);
+                (col.tags || []).forEach((t: any) => {
+                    const label = typeof t === 'string' ? t : t.label;
+                    if (!existingTags.includes(label)) acc[col.name].tags.push(t);
+                });
+
+                if (!acc[col.name].ids.includes(col.id)) acc[col.name].ids.push(col.id);
+            }
+            return acc;
+        }, {});
+        return Object.values(grouped);
+    }, [rawColumns]);
     const [counts, setCounts] = useState<any[]>(() => {
         const existing = target.counts || [];
         // Migrate legacy counts if needed

@@ -444,7 +444,33 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
                         if (cond.type === 'rows') {
                             if (!cond.settings?.target_col) return true;
-                            const rawVal = content[cond.settings.target_col];
+                            
+                            // 1. Find the column ID in THIS roster that matches the target column name
+                            const targetColName = cond.settings.target_col; // Now storing name as ID
+                            const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
+                            
+                            // Find section-specific columns if the section doesn't use roster columns
+                            let currentCols = rosterCols;
+                            const findSection = (sections: any[]): any => {
+                                for (const s of sections) {
+                                    if (s.id === row.section_id) return s;
+                                    if (s.children) {
+                                        const found = findSection(s.children);
+                                        if (found) return found;
+                                    }
+                                }
+                                return null;
+                            };
+                            const roster = rosters.find((r: any) => r.id === (row.roster_id || activeDivId));
+                            const section = roster ? findSection(roster.root_sections || []) : null;
+                            if (section && !section.use_roster_columns && section.columns) {
+                                currentCols = section.columns;
+                            }
+
+                            const col = currentCols.find((c: any) => c.name === targetColName || c.id === targetColName);
+                            if (!col) return false;
+
+                            const rawVal = content[col.id];
                             
                             const disregardEmpty = cond.settings.disregard_empty !== undefined ? cond.settings.disregard_empty : true;
                             if (rawVal === null || rawVal === undefined || rawVal === '') {
@@ -453,8 +479,6 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
                             // Resolve ID to label if it matches a dataset option
                             let label = rawVal.toString();
-                            const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
-                            const col = rosterCols.find((colItem: any) => colItem.id === cond.settings.target_col);
                             if (col && col.dataset_id) {
                                 const dataset = datasets.find(d => d.id === col.dataset_id);
                                 const option = dataset?.options?.find((o: any) => String(o.id) === String(rawVal));
@@ -496,14 +520,28 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
                         if (cond.type === 'checkboxes') {
                             if (!cond.settings?.target_col || !cond.settings?.checkbox_label) return false;
-                            const rowCheckboxes = row.content?.[`${cond.settings.target_col}_cb`] || [];
-                            const rowTags = row.content?.[`${cond.settings.target_col}_tags`] || [];
+                            
+                            // Find matching column by name
+                            const targetColName = cond.settings.target_col;
+                            const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
+                            const col = rosterCols.find((c: any) => c.name === targetColName || c.id === targetColName);
+                            if (!col) return false;
+
+                            const rowCheckboxes = row.content?.[`${col.id}_cb`] || [];
+                            const rowTags = row.content?.[`${col.id}_tags`] || [];
                             return rowCheckboxes.includes(cond.settings.checkbox_label) || rowTags.includes(cond.settings.checkbox_label);
                         }
 
                         if (cond.type === 'tags') {
                             if (!cond.settings?.target_col || !cond.settings?.checkbox_label) return false;
-                            const rowTags = row.content?.[`${cond.settings.target_col}_tags`] || [];
+                            
+                            // Find matching column by name
+                            const targetColName = cond.settings.target_col;
+                            const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
+                            const col = rosterCols.find((c: any) => c.name === targetColName || c.id === targetColName);
+                            if (!col) return false;
+
+                            const rowTags = row.content?.[`${col.id}_tags`] || [];
                             return rowTags.includes(cond.settings.checkbox_label);
                         }
 
@@ -1582,7 +1620,27 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
             target={showCountsModal.target}
             type={showCountsModal.type}
             shortname={shortname!}
-            columns={showCountsModal.type === 'roster' ? showCountsModal.target.columns : (rosters.find((r: any) => r.id === showCountsModal.target.roster_id || activeDivId)?.columns || [])}
+            columns={(() => {
+                const rosterId = showCountsModal.type === 'roster' ? showCountsModal.target.id : (showCountsModal.target.roster_id || activeDivId);
+                const roster = rosters.find(r => r.id === rosterId);
+                if (!roster) return [];
+                
+                // Get roster columns
+                let cols = [...(roster.columns || [])];
+                
+                // Get all section-specific columns
+                const getSectionCols = (sections: any[]) => {
+                    sections.forEach(s => {
+                        if (!s.use_roster_columns && s.columns) {
+                            cols.push(...s.columns);
+                        }
+                        if (s.children) getSectionCols(s.children);
+                    });
+                };
+                getSectionCols(roster.root_sections || []);
+                
+                return cols;
+            })()}
             flags={flags}
             allSections={(() => {
                 const rosterId = showCountsModal.type === 'roster' ? showCountsModal.target.id : (showCountsModal.target.roster_id || activeDivId);
