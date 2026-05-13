@@ -191,7 +191,7 @@ const FactionSnapshots: React.FC = () => {
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <button 
-                                                onClick={() => handleDownload(s.id)}
+                                                onClick={() => handleDownload(s)}
                                                 className="p-2 text-muted hover:text-text hover:bg-surface rounded-lg transition-all"
                                                 title="Download Snapshot"
                                             >
