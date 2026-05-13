@@ -189,13 +189,16 @@ export interface MembershipTier {
 export interface User {
   id: number;
   username: string;
+  avatar_url?: string | null;
   gtaw_id: number | null;
   gtaw_username: string | null;
+  gtaw_linked: boolean;
   is_superadmin: boolean;
   membership_tier_id: number | null;
   membership_tier?: MembershipTier;
   max_factions: number;
   allow_custom_branding: boolean;
+  always_match_row_height: boolean;
   factions_count?: number;
   roles?: Role[];
 }

@@ -50,7 +50,7 @@ const GtawSync: React.FC<{ faction: any; user: any }> = ({ faction, user }) => {
 
     return (
         <div className="relative flex flex-col gap-6 max-w-5xl mx-auto w-full">
-            <div className={`flex flex-col gap-6 transition-all duration-500 ${!user.gtaw_id ? 'blur-xl pointer-events-none select-none opacity-20 scale-[0.98]' : ''}`}>
+            <div className={`flex flex-col gap-6 transition-all duration-500 ${!user.gtaw_linked ? 'blur-xl pointer-events-none select-none opacity-20 scale-[0.98]' : ''}`}>
                 <div className="flex justify-between items-center">
                     <div>
                         <h2 className="text-2xl font-black uppercase tracking-tight text-text flex items-center gap-3">
@@ -159,7 +159,7 @@ const GtawSync: React.FC<{ faction: any; user: any }> = ({ faction, user }) => {
                 </div>
             </div>
 
-            {!user.gtaw_id && (
+            {!user.gtaw_linked && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-8 z-10">
                     <div className="bg-card border border-border rounded-3xl p-12 shadow-2xl flex flex-col items-center max-w-md w-full">
                         <div className="w-20 h-20 bg-accent/20 rounded-2xl flex items-center justify-center text-accent mb-8 shadow-2xl shadow-accent/20 border border-accent/30">

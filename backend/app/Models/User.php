@@ -23,7 +23,7 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
-    protected $appends = ['max_factions', 'allow_custom_branding'];
+    protected $appends = ['max_factions', 'allow_custom_branding', 'gtaw_linked'];
 
     protected function casts(): array
     {
@@ -33,7 +33,13 @@ class User extends Authenticatable
             'membership_tier_id' => 'integer',
             'allow_custom_branding' => 'boolean',
             'always_match_row_height' => 'boolean',
+            'gtaw_linked' => 'boolean',
         ];
+    }
+
+    public function getGtawLinkedAttribute(): bool
+    {
+        return !empty($this->gtaw_access_token);
     }
 
     public function membershipTier()

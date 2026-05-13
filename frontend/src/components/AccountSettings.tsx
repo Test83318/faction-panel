@@ -170,7 +170,7 @@ const AccountSettings: React.FC = () => {
                         </section>
 
                         {/* Password Change */}
-                        {(!user.gtaw_id || user.password) && (
+                        {(!user.gtaw_linked || user.password) && (
                             <section className="bg-card border border-border rounded-2xl p-6 shadow-sm">
                                 <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest mb-6 pb-4 border-b border-border/50">
                                     <Key size={16} className="text-accent" />
@@ -232,13 +232,12 @@ const AccountSettings: React.FC = () => {
                                     <LinkIcon size={16} className="text-accent" />
                                     GTA:W Integration
                                 </h2>
-                                {user.gtaw_id ? (
+                                {user.gtaw_linked ? (
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between p-4 bg-surface border border-border rounded-xl">
                                             <div className="flex flex-col">
                                                 <span className="text-[10px] font-bold text-muted uppercase tracking-widest">Linked Account</span>
-                                                <span className="font-bold">{user.gtaw_username}</span>
-                                                <span className="text-[8px] text-muted">ID: {user.gtaw_id}</span>
+                                                <span className="font-bold">{user.gtaw_username || 'GTA:W Account'}</span>
                                             </div>
                                             <div className="p-2 bg-green-500/10 text-green-500 rounded-full">
                                                 <Check size={16} />

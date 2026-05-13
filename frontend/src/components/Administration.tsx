@@ -945,7 +945,7 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
 
                 {activeTab === 'integrations' && (
                     <motion.div key="integrations" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="bg-card border border-border rounded-lg p-8 relative overflow-hidden">
-                        <div className={`flex flex-col items-center text-center max-w-2xl mx-auto space-y-8 ${!user.gtaw_id ? 'blur-md pointer-events-none select-none opacity-20' : ''}`}>
+                        <div className={`flex flex-col items-center text-center max-w-2xl mx-auto space-y-8 ${!user.gtaw_linked ? 'blur-md pointer-events-none select-none opacity-20' : ''}`}>
                             <div className="w-20 h-20 bg-accent/10 rounded-3xl flex items-center justify-center text-accent"><LinkIcon size={40} /></div>
                             <div>
                                 <h3 className="text-2xl font-black uppercase tracking-tight mb-2">GTA World Integration</h3>
@@ -978,7 +978,7 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                             )}
                         </div>
 
-                        {!user.gtaw_id && (
+                        {!user.gtaw_linked && (
                             <div className="absolute inset-0 flex flex-col items-center justify-center p-8 z-10 bg-card/20 backdrop-blur-[2px]">
                                 <div className="w-16 h-16 bg-accent/20 rounded-2xl flex items-center justify-center text-accent mb-6 shadow-2xl shadow-accent/20 border border-accent/30">
                                     <ShieldAlert size={32} />
