@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Faction;
 use App\Models\FactionRecordDatabase;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -17,12 +18,22 @@ class FactionRecordController extends Controller
             ->with('creator:id,username')
             ->get();
 
+        // Filter by 'view_database' permission
+        $user = Auth::user();
+        $databases = $databases->filter(function ($database) use ($user) {
+            return User::hasRecordPermission($user, $database, 'view_database');
+        })->values();
+
         return response()->json($databases);
     }
 
     public function store(Request $request, string $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
+
+        if (!User::hasFactionPermission(Auth::user(), $faction, 'create_faction_record_database')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -47,11 +58,18 @@ class FactionRecordController extends Controller
 
     public function show(string $shortname, FactionRecordDatabase $database)
     {
+        if (!User::hasRecordPermission(Auth::user(), $database, 'view_database')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
         return response()->json($database->load('creator:id,username'));
     }
 
     public function update(Request $request, string $shortname, FactionRecordDatabase $database)
     {
+        if (!User::hasFactionPermission(Auth::user(), $database->faction, 'global_faction_record_moderation') && $database->created_by !== Auth::id()) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
@@ -79,6 +97,10 @@ class FactionRecordController extends Controller
 
     public function destroy(string $shortname, FactionRecordDatabase $database)
     {
+        if (!User::hasFactionPermission(Auth::user(), $database->faction, 'global_faction_record_moderation') && $database->created_by !== Auth::id()) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $database->delete();
         return response()->json(null, 204);
     }

@@ -49,8 +49,13 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                 setSelectedEntry(null);
                 setSelectedEntryDetails(null);
             }
-        } catch (err) {
-            toast.error('Failed to fetch entries');
+        } catch (err: any) {
+            if (err.response?.status === 403) {
+                toast.error('You do not have permission to view this database');
+                onBack();
+            } else {
+                toast.error('Failed to fetch entries');
+            }
         } finally {
             setLoading(false);
         }
@@ -240,32 +245,40 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
                             </div>
                         </div>
 
-                        <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+                        <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm overflow-x-auto">
                             <table className="w-full text-left text-xs">
                                 <thead className="bg-surface/50 border-b border-border">
                                     <tr>
-                                        <th className="p-4 font-black uppercase tracking-widest text-muted">ID</th>
-                                        {link.database.database_structure.slice(0, 3).map((f: any) => (
-                                            <th key={f.id} className="p-4 font-black uppercase tracking-widest text-muted">{f.name}</th>
-                                        ))}
-                                        <th className="p-4 font-black uppercase tracking-widest text-muted text-right">Actions</th>
+                                        <th className="p-4 font-black uppercase tracking-widest text-muted w-24">ID</th>
+                                        {link.database.database_structure
+                                            .filter((f: any) => !link.config?.display_fields?.length || link.config.display_fields.includes(f.id))
+                                            .slice(0, link.config?.display_fields?.length ? undefined : 3)
+                                            .map((f: any) => (
+                                                <th key={f.id} className="p-4 font-black uppercase tracking-widest text-muted">{f.name}</th>
+                                            ))
+                                        }
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border/30">
                                     {link.entries.map((le: any) => (
-                                        <tr key={le.id} className="hover:bg-surface/30 transition-colors">
-                                            <td className="p-4 font-black text-accent">#{link.database.record_shortcode}{le.entry_id}</td>
-                                            {link.database.database_structure.slice(0, 3).map((f: any) => (
-                                                <td key={f.id} className="p-4">{renderFieldValue(f, le.data?.[f.id])}</td>
-                                            ))}
-                                            <td className="p-4 text-right flex justify-end">
-                                                <Link 
-                                                    to={`/${shortname}/records?database=${link.database.record_shortcode || link.database.id}&record=${le.entry_id}`}
-                                                    className="p-1.5 text-muted hover:text-accent transition-colors"
-                                                >
-                                                    <ExternalLink size={14} />
-                                                </Link>
-                                            </td>
+                                        <tr 
+                                            key={le.id} 
+                                            onClick={() => {
+                                                const newParams = new URLSearchParams(searchParams);
+                                                newParams.set('database', link.database.record_shortcode || link.database.id);
+                                                newParams.set('record', String(le.entry_id));
+                                                setSearchParams(newParams);
+                                            }}
+                                            className="hover:bg-surface/30 transition-colors cursor-pointer group"
+                                        >
+                                            <td className="p-4 font-black text-accent group-hover:underline">#{link.database.record_shortcode}{le.entry_id}</td>
+                                            {link.database.database_structure
+                                                .filter((f: any) => !link.config?.display_fields?.length || link.config.display_fields.includes(f.id))
+                                                .slice(0, link.config?.display_fields?.length ? undefined : 3)
+                                                .map((f: any) => (
+                                                    <td key={f.id} className="p-4">{renderFieldValue(f, le.data?.[f.id])}</td>
+                                                ))
+                                            }
                                         </tr>
                                     ))}
                                     {link.entries.length === 0 && (
@@ -294,33 +307,54 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
 
                         <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
                             <div className="overflow-x-auto">
-                                <table className="w-full text-left text-[10px]">
+                                <table className="w-full text-left text-[10px] border-collapse">
                                     <thead className="bg-surface/50 border-b border-border">
                                         <tr>
-                                            <th className="p-3 font-black uppercase tracking-widest text-muted">Section</th>
+                                            <th className="p-3 font-black uppercase tracking-widest text-muted w-32">Section</th>
                                             {integ.roster.columns.map((col: any) => (
-                                                <th key={col.id} className="p-3 font-black uppercase tracking-widest text-muted">{col.name}</th>
+                                                <th key={col.id} className="p-3 font-black uppercase tracking-widest text-muted text-center">{col.name}</th>
                                             ))}
-                                            <th className="p-3 font-black uppercase tracking-widest text-muted text-right">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border/30">
                                         {integ.contents.map((row: any) => (
-                                            <tr key={row.id} className="hover:bg-surface/30 transition-colors">
+                                            <tr 
+                                                key={row.id} 
+                                                onClick={() => {
+                                                    const newParams = new URLSearchParams(searchParams);
+                                                    newParams.delete('database');
+                                                    newParams.delete('record');
+                                                    newParams.set('roster', integ.roster.shortname);
+                                                    setSearchParams(newParams);
+                                                }}
+                                                className="hover:bg-surface/30 transition-colors cursor-pointer group"
+                                            >
                                                 <td className="p-3">
                                                     <span className="px-2 py-0.5 bg-accent/10 text-accent border border-accent/20 rounded font-black uppercase text-[8px]">{row.section?.name}</span>
                                                 </td>
-                                                {integ.roster.columns.map((col: any) => (
-                                                    <td key={col.id} className="p-3 font-medium">
-                                                        {row.content?.[col.id] || <span className="opacity-20">-</span>}
-                                                    </td>
-                                                ))}
-                                                <td className="p-3 text-right">
-                                                    <div className="flex items-center justify-end gap-1.5 text-green-500">
-                                                        <CheckSquare size={12} />
-                                                        <span className="font-black uppercase text-[8px]">Linked</span>
-                                                    </div>
-                                                </td>
+                                                {integ.roster.columns.map((col: any) => {
+                                                    const val = row.content?.[col.id];
+                                                    const checked = row.content?.[`${col.id}_cb`] || [];
+                                                    const tags = row.content?.[`${col.id}_tags`] || [];
+
+                                                    return (
+                                                        <td key={col.id} className="p-3">
+                                                            <div className="flex flex-col items-center justify-center gap-1">
+                                                                <span className="font-black uppercase text-[10px] text-center">{val || '-'}</span>
+                                                                {(checked.length > 0 || tags.length > 0) && (
+                                                                    <div className="flex flex-wrap justify-center gap-1">
+                                                                        {checked.map((cb: string) => (
+                                                                            <span key={cb} className="px-1 py-0.5 bg-accent/10 text-accent rounded-[2px] text-[6px] font-black uppercase tracking-widest border border-accent/20">{cb}</span>
+                                                                        ))}
+                                                                        {tags.map((tag: string) => (
+                                                                            <span key={tag} className="px-1 py-0.5 bg-surface border border-border rounded-[2px] text-[6px] font-black uppercase tracking-widest">{tag}</span>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    );
+                                                })}
                                             </tr>
                                         ))}
                                     </tbody>

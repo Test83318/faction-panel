@@ -107,6 +107,7 @@ class FactionRecordEntryController extends Controller
                         $linkedEntries = $query->get();
                         
                         $linkedData[] = [
+                            'config' => $link,
                             'database' => $targetDb->only(['id', 'name', 'record_shortcode', 'database_structure']),
                             'entries' => $linkedEntries
                         ];
