@@ -249,7 +249,7 @@ export interface StatisticsWidget {
   id: number;
   statistics_model_id: number;
   name: string;
-  type: 'pie' | 'bar' | 'line' | 'table';
+  type: 'pie' | 'bar' | 'line' | 'table' | 'stat' | 'radar';
   configuration: any;
   cache_result: any;
   last_calculated_at: string | null;
