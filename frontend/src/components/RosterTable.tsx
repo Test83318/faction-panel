@@ -81,9 +81,10 @@ interface RosterTableProps {
   saveTrigger?: number;
   syncedHeights?: { [key: number]: number };
   onRowHeightSync?: (index: number, height: number, hasCheckbox: boolean) => void;
-  }
+  isDynamic?: boolean;
+}
 
-  export const RosterTable: React.FC<RosterTableProps> = ({ 
+export const RosterTable: React.FC<RosterTableProps> = ({ 
   sectionId,
   contents, 
   allContents,
@@ -108,11 +109,12 @@ interface RosterTableProps {
   setGlobalEditingRowId,
   saveTrigger,
   syncedHeights,
-  onRowHeightSync
-  }) => {
-  const { shortname } = useParams();
-  const canEditDefined = canModerate || permissions?.edit_defined_fields;
-  const canEditPredefined = canModerate || permissions?.edit_predefined;
+  onRowHeightSync,
+  isDynamic = false
+}) => {
+  const { shortname } = useParams<{ shortname: string }>();
+  const canEditDefined = !isDynamic && (canModerate || permissions?.edit_defined_fields);
+  const canEditPredefined = !isDynamic && (canModerate || permissions?.edit_predefined);
   const canEditAny = canEditDefined || canEditPredefined;
 
   const activeCols = columns && columns.length > 0 ? columns : [

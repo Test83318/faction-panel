@@ -158,6 +158,23 @@ class FactionController extends Controller
             ->orderBy('id')
             ->get();
         
+        // Resolve dynamic sections
+        $dynamicService = new \App\Services\DynamicSectionService();
+        $resolveDynamic = function($sections) use (&$resolveDynamic, $dynamicService, $faction) {
+            foreach ($sections as $section) {
+                if ($section->data_source === 'dynamic') {
+                    $dynamicService->resolve($section, $faction);
+                }
+                if ($section->children) {
+                    $resolveDynamic($section->children);
+                }
+            }
+        };
+
+        foreach ($rosters as $roster) {
+            $resolveDynamic($roster->rootSections);
+        }
+        
         $filteredRosters = $rosters->filter(function ($roster) use ($user, $canViewGlobal) {
             return $canViewGlobal || User::hasRosterPermission($user, $roster, 'view_roster');
         })->values();

@@ -1,5 +1,5 @@
 import React from 'react';
-import { MoreHorizontal, Plus, Calculator } from 'lucide-react';
+import { MoreHorizontal, Plus, Calculator, Database } from 'lucide-react';
 import { RosterSection } from '../types';
 import { RosterTable } from './RosterTable';
 import { SyncGridRow } from './SyncGridRow';
@@ -304,6 +304,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     }
   };
 
+  const isDynamic = section.data_source === 'dynamic';
   const effectiveColor = section.color || rosterColor || 'var(--accent)';
 
   if (section.type === 'master' || section.type === 'subsection') {
@@ -323,6 +324,12 @@ export const SectionCard: React.FC<SectionCardProps> = ({
                 )}
                 <span className="text-[9px] font-bold text-text uppercase">{section.name}</span>
             </div>
+            {isDynamic && (
+                <div className="px-1.5 py-0.5 bg-accent/10 border border-accent/20 rounded flex items-center gap-1 animate-pulse">
+                    <Database size={8} className="text-accent" />
+                    <span className="text-[7px] font-black uppercase text-accent tracking-tighter">Dynamic</span>
+                </div>
+            )}
             {renderCounts(section)}
           </div>
           <div className="flex items-center gap-2">
@@ -346,8 +353,8 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           </div>
         </div>
         
-        {/* Rows for master/subsection */}
-        {(section.contents?.length > 0 || editMode || !section.children || section.children.length === 0) && (
+        {/* Rows for master/subsection/dynamic */}
+        {(section.contents?.length > 0 || (editMode && !isDynamic) || !section.children || section.children.length === 0) && (
             <RosterTable 
                 sectionId={section.id}
                 contents={section.contents || []} 
@@ -359,21 +366,30 @@ export const SectionCard: React.FC<SectionCardProps> = ({
                 datasets={datasets}
                 recordData={recordData}
                 flags={flags}
-                editMode={editMode}
-                canModerate={canModerate}
-                permissions={permissions}
-                onAddRow={() => handleAddRow(section.id)}
-                onAddSpacer={() => handleAddSpacer(section.id)}
-                onUpdateRow={handleUpdateRow}
-                onDeleteRow={handleDeleteRow}
-                onBulkDeleteRow={handleBulkDeleteRows}
+                editMode={editMode && !isDynamic}
+                canModerate={canModerate && !isDynamic}
+                permissions={isDynamic ? { 
+                    ...permissions, 
+                    manage_columns: false, 
+                    add_sections: false, 
+                    remove_sections: false, 
+                    modify_roster: false,
+                    edit_defined_fields: false,
+                    edit_predefined: false
+                } : permissions}
+                onAddRow={isDynamic ? undefined : () => handleAddRow(section.id)}
+                onAddSpacer={isDynamic ? undefined : () => handleAddSpacer(section.id)}
+                onUpdateRow={isDynamic ? undefined : handleUpdateRow}
+                onDeleteRow={isDynamic ? undefined : handleDeleteRow}
+                onBulkDeleteRow={isDynamic ? undefined : handleBulkDeleteRows}
                 onRefresh={onRefresh}
-                onReorderRows={(newOrder) => onReorderRows?.(section.id, newOrder)}
+                onReorderRows={isDynamic ? undefined : (newOrder) => onReorderRows?.(section.id, newOrder)}
                 globalEditingRowId={globalEditingRowId}
                 setGlobalEditingRowId={setGlobalEditingRowId}
                 saveTrigger={globalSaveTrigger}
                 syncedHeights={syncedHeights}
                 onRowHeightSync={onRowHeightSync}
+                isDynamic={isDynamic}
             />
         )}
 
@@ -441,7 +457,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
       </div>
 
       {/* Main Section Content / Rows */}
-      {section.type !== 'content' && (section.contents?.length > 0 || editMode || !section.children || section.children.length === 0) && (
+      {section.type !== 'content' && (section.contents?.length > 0 || (editMode && !isDynamic) || !section.children || section.children.length === 0) && (
         <RosterTable 
           sectionId={section.id}
           contents={section.contents || []} 
@@ -452,21 +468,30 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           datasets={datasets}
           recordData={recordData}
           flags={flags}
-          editMode={editMode}
-          canModerate={canModerate}
-          permissions={permissions}
-          onAddRow={() => handleAddRow(section.id)}
-          onAddSpacer={() => handleAddSpacer(section.id)}
-          onUpdateRow={handleUpdateRow}
-          onDeleteRow={handleDeleteRow}
-          onBulkDeleteRow={handleBulkDeleteRows}
+          editMode={editMode && !isDynamic}
+          canModerate={canModerate && !isDynamic}
+          permissions={isDynamic ? { 
+            ...permissions, 
+            manage_columns: false, 
+            add_sections: false, 
+            remove_sections: false, 
+            modify_roster: false,
+            edit_defined_fields: false,
+            edit_predefined: false
+          } : permissions}
+          onAddRow={isDynamic ? undefined : () => handleAddRow(section.id)}
+          onAddSpacer={isDynamic ? undefined : () => handleAddSpacer(section.id)}
+          onUpdateRow={isDynamic ? undefined : handleUpdateRow}
+          onDeleteRow={isDynamic ? undefined : handleDeleteRow}
+          onBulkDeleteRow={isDynamic ? undefined : handleBulkDeleteRows}
           onRefresh={onRefresh}
-          onReorderRows={(newOrder) => onReorderRows?.(section.id, newOrder)}
+          onReorderRows={isDynamic ? undefined : (newOrder) => onReorderRows?.(section.id, newOrder)}
           globalEditingRowId={globalEditingRowId}
           setGlobalEditingRowId={setGlobalEditingRowId}
           saveTrigger={globalSaveTrigger}
           syncedHeights={syncedHeights}
           onRowHeightSync={onRowHeightSync}
+          isDynamic={isDynamic}
         />
       )}
 

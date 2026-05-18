@@ -84,6 +84,7 @@ export interface RosterSection {
   shortname: string;
   color?: string;
   type: 'master' | 'section' | 'subsection' | 'content';
+  data_source?: 'manual' | 'dynamic';
   order: number;
   parent_id?: number | null;
   section_options?: any;

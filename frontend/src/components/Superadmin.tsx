@@ -568,7 +568,7 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                 {/* Edit Faction Modal */}
                 {editingFaction && (
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
-                        <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl">
+                        <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl max-h-[90vh] overflow-y-auto">
                             <h2 className="text-2xl font-black uppercase tracking-tighter italic mb-6">Edit Faction</h2>
                             <form onSubmit={submitFactionEdit} className="space-y-4">
                                 <div>

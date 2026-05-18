@@ -132,6 +132,7 @@ class RosterSectionController extends Controller
             'shortname' => 'required|string|max:6',
             'color' => ['nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'type' => 'required|in:master,section,subsection,content',
+            'data_source' => 'sometimes|in:manual,dynamic',
             'parent_id' => 'nullable|exists:roster_sections,id',
             'section_options' => 'nullable|array',
             'columns' => 'nullable|array',
@@ -179,18 +180,18 @@ class RosterSectionController extends Controller
         }
 
         $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
+            'name' => 'sometimes|required|string|max:255',
             'image_url' => 'sometimes|nullable|string|url',
-            'shortname' => 'sometimes|string|max:6',
+            'shortname' => 'sometimes|required|string|max:6',
             'color' => ['sometimes', 'nullable', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
             'type' => 'sometimes|in:master,section,subsection,content',
+            'data_source' => 'sometimes|in:manual,dynamic',
             'parent_id' => 'sometimes|nullable|exists:roster_sections,id',
             'section_options' => 'sometimes|nullable|array',
             'columns' => 'sometimes|nullable|array',
             'use_roster_columns' => 'sometimes|boolean',
             'layout_settings' => 'sometimes|nullable|array',
-            'counts' => 'sometimes|nullable|array',
-            'subsections_per_row' => 'sometimes|nullable|integer|min:1|max:3',
+            'subsections_per_row' => 'sometimes|integer|min:1|max:3',
             'content_html' => 'sometimes|nullable|string',
         ]);
 

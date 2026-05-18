@@ -147,7 +147,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
-      <div className="bg-card p-6 rounded-lg max-w-2xl w-full border border-border shadow-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-card p-6 rounded-lg max-w-2xl w-full border border-border shadow-2xl max-h-[90vh] overflow-y-auto flex flex-col">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold flex items-center gap-2 text-text">
             <Settings2 size={18} /> Manage Columns: {target.name}

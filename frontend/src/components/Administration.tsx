@@ -1023,7 +1023,7 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
 
             {showRoleModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
-                    <div className="bg-card p-6 rounded-lg max-w-sm w-full border border-border shadow-2xl">
+                    <div className="bg-card p-6 rounded-lg max-w-sm w-full border border-border shadow-2xl max-h-[90vh] overflow-y-auto">
                         <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-text">{editingRole ? 'Edit Rank' : 'Create New Rank'}</h2>
                         <form onSubmit={handleRoleSubmit} className="space-y-4">
                             <div>
@@ -1090,7 +1090,7 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
 
             {showRankModal && editingMember && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
-                    <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl text-text overflow-hidden flex flex-col max-h-[90vh]">
+                    <div className="bg-card p-8 rounded-2xl max-w-md w-full border border-border shadow-2xl text-text overflow-hidden flex flex-col max-h-[90vh] overflow-y-auto">
                         <div className="mb-6">
                             <h2 className="text-xl font-black uppercase tracking-tight italic">Manage Ranks</h2>
                             <p className="text-[10px] text-muted font-bold uppercase tracking-widest">Updating permissions for <span className="text-accent">{editingMember.username}</span></p>

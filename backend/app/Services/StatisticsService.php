@@ -43,9 +43,20 @@ class StatisticsService
         $result = [];
 
         foreach ($series as $s) {
-            if (empty($s['source_id'])) continue;
+            if (empty($s['source_id']) && $s['source_type'] !== 'count') continue;
             
-            $pool = $this->getSourcePool($s['source_type'], $s['source_id'], $totalRowsProcessed);
+            // Handle Count source type separately as it's not a pool of rows
+            if ($s['source_type'] === 'count') {
+                $val = $this->evaluateCount($s['count_config'] ?? [], $s['count_parent_type'] ?? 'roster', $s['count_parent_id'] ?? null, $totalRowsProcessed);
+                $result[] = [
+                    'name' => $s['name'],
+                    'value' => $val,
+                    'color' => $s['color'] ?? null
+                ];
+                continue;
+            }
+
+            $pool = $this->getSourcePool($s['source_type'], $s['source_id'], $totalRowsProcessed, $s);
             
             // Handle Logic Groups
             if (isset($s['logic_groups']) && !empty($s['logic_groups'])) {
@@ -61,6 +72,8 @@ class StatisticsService
                     $math = $group['math_operator'] ?? '+';
                     if ($math === '+') $totalValue += $groupValue;
                     else if ($math === '-') $totalValue -= $groupValue;
+                    else if ($math === '*') $totalValue *= $groupValue;
+                    else if ($math === '/' && $groupValue != 0) $totalValue /= $groupValue;
                 }
                 
                 $result[] = [
@@ -69,7 +82,7 @@ class StatisticsService
                     'color' => $s['color'] ?? null
                 ];
             } else {
-                // Backward compatibility or simple series
+                // Simple series
                 $filtered = $this->applyConditions($pool, $s['conditions'] ?? [], $s['source_type'], 'AND');
                 
                 $operation = $s['operation'] ?? 'count';
@@ -92,10 +105,11 @@ class StatisticsService
             return $pool->count();
         }
 
-        $dataKey = $sourceType === 'roster' ? 'content' : 'data';
+        $dataKey = $sourceType === 'database' ? 'data' : 'content';
 
         $values = $pool->map(function($item) use ($dataKey, $targetCol) {
-            $val = $item->$dataKey[$targetCol] ?? 0;
+            $data = $item->$dataKey ?? [];
+            $val = $data[$targetCol] ?? 0;
             return is_numeric($val) ? (float)$val : 0;
         });
 
@@ -116,7 +130,7 @@ class StatisticsService
     protected function calculateGrouped(StatisticsWidget $widget, array $config, &$totalRowsProcessed): array
     {
         $groupBy = $config['group_by'];
-        $pool = $this->getSourcePool($groupBy['source_type'], $groupBy['source_id'], $totalRowsProcessed);
+        $pool = $this->getSourcePool($groupBy['source_type'], $groupBy['source_id'], $totalRowsProcessed, $config);
         
         // Apply global filters if any
         if (isset($config['filters'])) {
@@ -124,10 +138,11 @@ class StatisticsService
         }
 
         $colKey = $groupBy['column'];
-        $dataKey = $groupBy['source_type'] === 'roster' ? 'content' : 'data';
+        $dataKey = $groupBy['source_type'] === 'database' ? 'data' : 'content';
 
         $grouped = $pool->groupBy(function ($item) use ($dataKey, $colKey) {
-            $val = $item->$dataKey[$colKey] ?? 'Unknown';
+            $data = $item->$dataKey ?? [];
+            $val = $data[$colKey] ?? 'Unknown';
             return is_array($val) ? json_encode($val) : (string)$val;
         });
 
@@ -149,13 +164,28 @@ class StatisticsService
         return $this->calculateSeries($widget, $series, $totalRowsProcessed);
     }
 
-    protected function getSourcePool(string $type, $id, &$totalRowsProcessed): Collection
+    protected function getSourcePool(string $type, $id, &$totalRowsProcessed, array $config = []): Collection
     {
         if ($type === 'roster') {
             $roster = Roster::with('rootSections')->find($id);
             if (!$roster) return collect();
 
-            $sectionIds = $this->getAllSectionIds($roster->rootSections);
+            $sectionIds = [];
+            if (!empty($config['section_ids'])) {
+                $sections = RosterSection::whereIn('id', $config['section_ids'])->get();
+                $sectionIds = $this->getAllSectionIds($sections);
+            } else {
+                $sectionIds = $this->getAllSectionIds($roster->rootSections);
+            }
+
+            $contents = RosterContent::whereIn('section_id', $sectionIds)->get();
+            $totalRowsProcessed += $contents->count();
+            return $contents;
+        } elseif ($type === 'section') {
+            $section = RosterSection::with('children')->find($id);
+            if (!$section) return collect();
+
+            $sectionIds = $this->getAllSectionIds([$section]);
             $contents = RosterContent::whereIn('section_id', $sectionIds)->get();
             $totalRowsProcessed += $contents->count();
             return $contents;
@@ -183,11 +213,64 @@ class StatisticsService
         return $ids;
     }
 
+    protected function evaluateCount(array $count, string $parentType, $parentId, &$totalRowsProcessed): float
+    {
+        if (empty($count['conditions']) || !is_array($count['conditions'])) {
+            return 0;
+        }
+
+        $result = 0;
+        $lastArithmeticOp = '+';
+
+        foreach ($count['conditions'] as $cond) {
+            $condMatchedValue = 0;
+
+            if (($cond['type'] ?? '') === 'value') {
+                $condMatchedValue = (float)($cond['settings']['value'] ?? 0);
+            } else {
+                // Determine pool for this condition
+                $scope = $cond['scope'] ?? 'default';
+                $pool = collect();
+
+                if ($scope === 'roster' && !empty($cond['roster_id'])) {
+                    $pool = $this->getSourcePool('roster', $cond['roster_id'], $totalRowsProcessed);
+                } elseif ($scope === 'specific_sections' && !empty($cond['section_ids'])) {
+                    $sections = RosterSection::whereIn('id', $cond['section_ids'])->get();
+                    $sectionIds = $this->getAllSectionIds($sections);
+                    $pool = RosterContent::whereIn('section_id', $sectionIds)->get();
+                    $totalRowsProcessed += $pool->count();
+                } elseif ($scope === 'section' && $parentType === 'section') {
+                    $pool = $this->getSourcePool('section', $parentId, $totalRowsProcessed);
+                } else {
+                    // Default behavior
+                    if ($parentType === 'roster') {
+                        $pool = $this->getSourcePool('roster', $parentId, $totalRowsProcessed);
+                    } else {
+                        $pool = $this->getSourcePool('section', $parentId, $totalRowsProcessed);
+                    }
+                }
+
+                $filtered = $this->applyConditions($pool, $cond['filters'] ?? [], 'roster');
+                $condMatchedValue = $filtered->count();
+            }
+
+            // Apply arithmetic
+            if ($lastArithmeticOp === '+') $result += $condMatchedValue;
+            elseif ($lastArithmeticOp === '-') $result -= $condMatchedValue;
+            elseif ($lastArithmeticOp === '*') $result *= $condMatchedValue;
+            elseif ($lastArithmeticOp === '/' && $condMatchedValue != 0) $result /= $condMatchedValue;
+
+            $lastArithmeticOp = $cond['arithmetic_operator'] ?? '+';
+        }
+
+        return $result;
+    }
+
     protected function applyConditions(Collection $pool, array $conditions, string $sourceType, string $operator = 'AND'): Collection
     {
         if (empty($conditions)) return $pool;
 
-        $dataKey = $sourceType === 'roster' ? 'content' : 'data';
+        $dataKey = $sourceType === 'database' ? 'data' : 'content';
 
         if ($operator === 'OR') {
             return $pool->filter(function ($item) use ($conditions, $dataKey) {
@@ -211,7 +294,10 @@ class StatisticsService
 
     protected function matchCondition(array $data, array $cond): bool
     {
-        $val = $data[$cond['target_col']] ?? null;
+        $targetCol = $cond['target_col'] ?? null;
+        if (!$targetCol) return true;
+
+        $val = $data[$targetCol] ?? null;
         $matchVal = $cond['match_value'] ?? null;
         $matchType = $cond['match_type'] ?? 'equals';
 

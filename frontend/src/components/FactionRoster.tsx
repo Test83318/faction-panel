@@ -3,7 +3,7 @@ import { motion, AnimatePresence, Reorder } from 'motion/react';
 import toast from 'react-hot-toast';
 import api from '../api';
 import { Roster as RosterType } from '../types';
-import { Plus, Pencil, MoreVertical, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Database, Menu, Flag, FileCode2, Calculator, Minus } from 'lucide-react';
+import { Plus, Pencil, MoreVertical, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Database, Menu, Flag, FileCode2, Calculator, Minus, X } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 import { SyncGridRow } from './SyncGridRow';
 import RosterLayoutModal from './RosterLayoutModal';
@@ -132,12 +132,14 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
     shortname: '',
     color: '',
     image_url: '',
-    type: 'section' as 'master' | 'section' | 'subsection',
+    type: 'section' as 'master' | 'section' | 'subsection' | 'content',
+    data_source: 'manual' as 'manual' | 'dynamic',
     parent_id: null as number | null,
     columns: null as any[] | null,
     use_roster_columns: true,
     children: [] as any[],
     layout_settings: null as any,
+    section_options: null as any,
     subsections_per_row: 1,
     content_html: '' as string | null
   });
@@ -247,11 +249,13 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         color: '', 
         image_url: '',
         type: 'section', 
+        data_source: 'manual',
         parent_id: null, 
         columns: null, 
         use_roster_columns: true,
         children: [], 
         layout_settings: null, 
+        section_options: null,
         subsections_per_row: 1,
         content_html: '' 
       });
@@ -351,11 +355,13 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         color: '',
         image_url: '',
         type: 'section',
+        data_source: 'manual',
         parent_id: parentId,
         columns: null,
         use_roster_columns: true,
         children: [],
         layout_settings: null,
+        section_options: null,
         subsections_per_row: 1,
         content_html: ''
     });
@@ -371,11 +377,13 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         color: section.color || '',
         image_url: section.image_url || '',
         type: section.type,
+        data_source: section.data_source || 'manual',
         parent_id: section.parent_id,
         columns: section.columns,
         use_roster_columns: section.use_roster_columns !== undefined ? !!section.use_roster_columns : true,
         children: Array.isArray(section.children) ? section.children : [],
         layout_settings: section.layout_settings,
+        section_options: section.section_options || {},
         subsections_per_row: section.subsections_per_row || 1,
         content_html: section.content_html || ''
     });
@@ -1334,7 +1342,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
-          <div className="bg-card p-6 rounded-lg max-w-sm w-full border border-border shadow-2xl">
+          <div className="bg-card p-6 rounded-lg max-w-sm w-full border border-border shadow-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-text">
                 {newRoster.id ? <Settings2 size={18} /> : <Plus size={18} />} 
                 {newRoster.id ? 'Edit Roster' : 'Create New Roster'}
@@ -1389,7 +1397,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
       {showSectionModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
-          <div className="bg-card p-6 rounded-lg max-w-xl w-full border border-border shadow-2xl">
+          <div className="bg-card p-6 rounded-lg max-w-lg w-full border border-border shadow-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-text">
                 {sectionData.id ? 'Edit Section' : 'Add New Section'}
             </h2>
@@ -1444,6 +1452,39 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                       />
                     </div>
                   </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-3">Data Source Type</label>
+                <div className="flex gap-2">
+                  {[
+                    { id: 'manual', name: 'Manual Entry', description: 'Manually add and manage rows.', icon: Pencil },
+                    { id: 'dynamic', name: 'Dynamic Logic', description: 'Auto-populated from other sources.', icon: Database }
+                  ].map((ds) => (
+                    <button
+                      key={ds.id}
+                      type="button"
+                      onClick={() => setSectionData({ ...sectionData, data_source: ds.id as any })}
+                      className={`flex-1 p-3 rounded-lg border-2 transition-all text-left flex items-start gap-3 ${
+                        sectionData.data_source === ds.id 
+                          ? 'border-accent bg-accent/5' 
+                          : 'border-border hover:border-accent/50 hover:bg-surface'
+                      }`}
+                    >
+                      <div className={`p-2 rounded-lg ${sectionData.data_source === ds.id ? 'bg-accent text-white' : 'bg-surface text-muted'}`}>
+                        <ds.icon size={16} />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className={`text-[10px] font-black uppercase tracking-widest ${sectionData.data_source === ds.id ? 'text-text' : 'text-muted'}`}>
+                          {ds.name}
+                        </span>
+                        <span className="text-[8px] font-medium text-muted leading-tight uppercase tracking-tighter mt-0.5">
+                          {ds.description}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
@@ -1563,6 +1604,613 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         placeholder="<div>Styling HTML goes here...</div>"
                     />
                     <p className="text-[8px] text-muted mt-1 uppercase font-bold tracking-widest">You can use standard HTML and inline CSS.</p>
+                </div>
+              )}
+
+              {sectionData.data_source === 'dynamic' && (
+                <div className="space-y-4 p-4 bg-accent/5 border border-accent/20 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Database size={14} className="text-accent" />
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-accent">Dynamic Logic Configuration</h3>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[9px] text-muted font-black uppercase tracking-[0.2em] mb-1.5 opacity-60">Source Type</label>
+                            <select 
+                                value={sectionData.section_options?.dynamic_config?.source_type || ''} 
+                                onChange={e => {
+                                    const config = { ...(sectionData.section_options?.dynamic_config || {}), source_type: e.target.value, source_id: '' };
+                                    setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: config } });
+                                }}
+                                className="w-full bg-surface border border-border p-2 rounded text-[10px] font-bold uppercase tracking-widest outline-none focus:border-accent transition"
+                            >
+                                <option value="">Select Source</option>
+                                <option value="database">Database</option>
+                                <option value="section">Another Section</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[9px] text-muted font-black uppercase tracking-[0.2em] mb-1.5 opacity-60">Source Target</label>
+                            <select 
+                                value={sectionData.section_options?.dynamic_config?.source_id || ''} 
+                                onChange={e => {
+                                    const config = { ...(sectionData.section_options?.dynamic_config || {}), source_id: e.target.value };
+                                    setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: config } });
+                                }}
+                                className="w-full bg-surface border border-border p-2 rounded text-[10px] font-bold uppercase tracking-widest outline-none focus:border-accent transition"
+                                disabled={!sectionData.section_options?.dynamic_config?.source_type}
+                            >
+                                <option value="">Select Target</option>
+                                {sectionData.section_options?.dynamic_config?.source_type === 'database' && recordData.map(db => (
+                                    <option key={db.id} value={db.id}>{db.name}</option>
+                                ))}
+                                {sectionData.section_options?.dynamic_config?.source_type === 'section' && rosters.flatMap(r => {
+                                    const flatten = (sections: any[]): any[] => {
+                                        let res: any[] = [];
+                                        sections.forEach(s => {
+                                            if (s.id !== sectionData.id) res.push({ id: s.id, name: `${r.shortname} - ${s.name}` });
+                                            if (s.children) res.push(...flatten(s.children));
+                                        });
+                                        return res;
+                                    };
+                                    return flatten(r.root_sections || []);
+                                }).map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between border-b border-accent/20 pb-1">
+                            <label className="text-[9px] text-muted font-black uppercase tracking-[0.2em] opacity-60">Logic Rules</label>
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    const config = sectionData.section_options?.dynamic_config || {};
+                                    const rules = [...(config.rules || []), { type: 'not_in_roster', roster_id: 'all', match_field: '', target_field: '' }];
+                                    setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, rules } } });
+                                }}
+                                className="text-[8px] font-black uppercase tracking-widest text-accent hover:text-accent/80 transition-colors"
+                            >
+                                + Add Rule
+                            </button>
+                        </div>
+                        
+                        {(sectionData.section_options?.dynamic_config?.rules || []).map((rule: any, idx: number) => (
+                            <div key={idx} className="p-3 bg-card border border-border rounded-lg space-y-3 relative group/rule">
+                                <button 
+                                    type="button"
+                                    onClick={() => {
+                                        const config = sectionData.section_options?.dynamic_config || {};
+                                        const rules = config.rules.filter((_: any, i: number) => i !== idx);
+                                        setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, rules } } });
+                                    }}
+                                    className="absolute top-2 right-2 p-1 text-muted hover:text-danger opacity-0 group-hover/rule:opacity-100 transition-opacity"
+                                >
+                                    <Trash2 size={10} />
+                                </button>
+                                
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-[8px] text-muted font-black uppercase tracking-widest mb-1">Rule Type</label>
+                                        <select 
+                                            value={rule.type} 
+                                            onChange={e => {
+                                                const config = sectionData.section_options?.dynamic_config || {};
+                                                const rules = [...config.rules];
+                                                rules[idx] = { ...rules[idx], type: e.target.value };
+                                                setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, rules } } });
+                                            }}
+                                            className="w-full bg-surface border border-border p-1.5 rounded text-[9px] font-bold uppercase outline-none focus:border-accent"
+                                        >
+                                            <optgroup label="Relationship Rules">
+                                                <option value="not_in_roster">Not in Roster</option>
+                                                <option value="in_roster">In Roster</option>
+                                            </optgroup>
+                                            <optgroup label="Value Rules">
+                                                <option value="equals">Equals</option>
+                                                <option value="not_equals">Not Equals</option>
+                                                <option value="contains">Contains</option>
+                                                <option value="not_contains">Not Contains</option>
+                                                <option value="starts_with">Starts With</option>
+                                                <option value="ends_with">Ends With</option>
+                                                <option value="matches_regex">Matches Regex</option>
+                                                <option value="in_list">In List (Comma Sep)</option>
+                                                <option value="not_in_list">Not In List (Comma Sep)</option>
+                                                <option value="exists">Is Not Empty</option>
+                                                <option value="not_exists">Is Empty</option>
+                                            </optgroup>
+                                            <optgroup label="Comparison Rules">
+                                                <option value="is_numeric">Is Numeric</option>
+                                                <option value="greater_than">Greater Than</option>
+                                                <option value="less_than">Less Than</option>
+                                                <option value="between">Between (min,max)</option>
+                                                <option value="date_after">Date After</option>
+                                                <option value="date_before">Date Before</option>
+                                                <option value="date_between">Date Between (start,end)</option>
+                                                <option value="is_today">Is Today</option>
+                                                <option value="is_past">Is Past</option>
+                                                <option value="is_future">Is Future</option>
+                                            </optgroup>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[8px] text-muted font-black uppercase tracking-widest mb-1">Target / Value</label>
+                                        {(rule.type === 'not_in_roster' || rule.type === 'in_roster') ? (
+                                            <select 
+                                                value={rule.roster_id} 
+                                                onChange={e => {
+                                                    const config = sectionData.section_options?.dynamic_config || {};
+                                                    const rules = [...config.rules];
+                                                    rules[idx] = { ...rules[idx], roster_id: e.target.value };
+                                                    setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, rules } } });
+                                                }}
+                                                className="w-full bg-surface border border-border p-1.5 rounded text-[9px] font-bold uppercase outline-none focus:border-accent"
+                                            >
+                                                <option value="all">All Rosters</option>
+                                                {rosters.map(r => (
+                                                    <option key={r.id} value={r.id}>{r.name}</option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <input 
+                                                value={rule.value || ''} 
+                                                onChange={e => {
+                                                    const config = sectionData.section_options?.dynamic_config || {};
+                                                    const rules = [...config.rules];
+                                                    rules[idx] = { ...rules[idx], value: e.target.value };
+                                                    setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, rules } } });
+                                                }}
+                                                placeholder={rule.type?.includes('between') ? "val1,val2" : "Value to match..."}
+                                                className="w-full bg-surface border border-border p-1.5 rounded text-[9px] font-bold outline-none focus:border-accent" 
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-[8px] text-muted font-black uppercase tracking-widest mb-1">Source Field</label>
+                                        <select 
+                                            value={rule.match_field} 
+                                            onChange={e => {
+                                                const config = sectionData.section_options?.dynamic_config || {};
+                                                const rules = [...config.rules];
+                                                rules[idx] = { ...rules[idx], match_field: e.target.value };
+                                                setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, rules } } });
+                                            }}
+                                            disabled={!sectionData.section_options?.dynamic_config?.source_id}
+                                            className="w-full bg-surface border border-border p-1.5 rounded text-[9px] font-bold outline-none focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <option value="">Select Field...</option>
+                                            {(() => {
+                                                const sourceType = sectionData.section_options?.dynamic_config?.source_type;
+                                                const sourceId = sectionData.section_options?.dynamic_config?.source_id;
+                                                if (sourceType === 'database') {
+                                                    return recordData.find(db => String(db.id) === String(sourceId))?.database_structure?.map((f: any) => (
+                                                        <option key={f.id} value={f.id}>{f.name}</option>
+                                                    ));
+                                                }
+                                                if (sourceType === 'section') {
+                                                    const findSectionAndCols = (sections: any[]): any => {
+                                                        for (const s of sections) {
+                                                            if (String(s.id) === String(sourceId)) {
+                                                                const roster = rosters.find(r => r.id === s.roster_id);
+                                                                return s.use_roster_columns ? roster?.columns : s.columns;
+                                                            }
+                                                            if (s.children) {
+                                                                const found = findSectionAndCols(s.children);
+                                                                if (found) return found;
+                                                            }
+                                                        }
+                                                        return null;
+                                                    };
+                                                    let cols = null;
+                                                    for (const r of rosters) {
+                                                        cols = findSectionAndCols(r.root_sections || []);
+                                                        if (cols) break;
+                                                    }
+                                                    return cols?.map((c: any) => (
+                                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                                    ));
+                                                }
+                                                return null;
+                                            })()}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[8px] text-muted font-black uppercase tracking-widest mb-1">{(rule.type === 'not_in_roster' || rule.type === 'in_roster') ? 'Roster Field' : 'Logic'}</label>
+                                        {(rule.type === 'not_in_roster' || rule.type === 'in_roster') ? (
+                                            <select 
+                                                value={rule.target_field} 
+                                                onChange={e => {
+                                                    const config = sectionData.section_options?.dynamic_config || {};
+                                                    const rules = [...config.rules];
+                                                    rules[idx] = { ...rules[idx], target_field: e.target.value };
+                                                    setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, rules } } });
+                                                }}
+                                                disabled={!rule.roster_id}
+                                                className="w-full bg-surface border border-border p-1.5 rounded text-[9px] font-bold outline-none focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                <option value="">Select Field...</option>
+                                                {(() => {
+                                                    if (rule.roster_id === 'all') {
+                                                        const allCols = rosters.flatMap(r => r.columns || []);
+                                                        const uniqueCols = Array.from(new Map(allCols.map(c => [c.name, c])).values());
+                                                        return uniqueCols.map((c: any) => (
+                                                            <option key={c.name} value={c.id}>{c.name}</option>
+                                                        ));
+                                                    }
+                                                    return rosters.find(r => String(r.id) === String(rule.roster_id))?.columns?.map((c: any) => (
+                                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                                    ));
+                                                })()}
+                                            </select>
+                                        ) : (
+                                            <div className="text-[7px] text-muted italic pt-2 uppercase font-black">Filtered automatically</div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between border-b border-accent/20 pb-1">
+                            <div className="flex flex-col">
+                                <label className="text-[9px] text-muted font-black uppercase tracking-[0.2em] opacity-60">Data Mapping</label>
+                                <p className="text-[6px] text-muted uppercase font-bold tracking-tighter">Use {'{field_id}'} for template mapping</p>
+                            </div>
+                            <p className="text-[7px] text-accent font-black uppercase">Map source fields to roster columns</p>
+                        </div>
+                        
+                        <div className="bg-card border border-border rounded-lg overflow-hidden">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-surface/50 border-b border-border">
+                                    <tr>
+                                        <th className="px-3 py-2 text-[8px] font-black uppercase text-muted tracking-widest">Roster Column</th>
+                                        <th className="px-3 py-2 text-[8px] font-black uppercase text-muted tracking-widest">Source Field / Template</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {(sectionData.columns || rosters.find(r => r.id === (sectionData.roster_id || activeDivId))?.columns || []).map((col: any) => (
+                                        <tr key={col.id} className="hover:bg-surface/30">
+                                            <td className="px-3 py-2">
+                                                <span className="text-[9px] font-bold text-text uppercase">{col.name}</span>
+                                                <span className="text-[7px] text-muted block font-mono">{col.id}</span>
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                <div className="flex gap-1">
+                                                    <div className="flex-1">
+                                                        <input 
+                                                            value={sectionData.section_options?.dynamic_config?.mappings?.[col.id] || ''}
+                                                            onChange={e => {
+                                                                const config = sectionData.section_options?.dynamic_config || {};
+                                                                const mappings = { ...(config.mappings || {}), [col.id]: e.target.value };
+                                                                setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, mappings } } });
+                                                            }}
+                                                            disabled={!sectionData.section_options?.dynamic_config?.source_id}
+                                                            placeholder="Field ID or {template}"
+                                                            className="w-full bg-surface border border-border p-1 rounded text-[9px] font-bold outline-none focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        />
+                                                    </div>
+                                                    <select 
+                                                        className="bg-bg border border-border text-[8px] font-black uppercase p-1 rounded outline-none w-20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        disabled={!sectionData.section_options?.dynamic_config?.source_id}
+                                                        onChange={e => {
+                                                            if (!e.target.value) return;
+                                                            const config = sectionData.section_options?.dynamic_config || {};
+                                                            let current = config.mappings?.[col.id] || '';
+                                                            const toAdd = e.target.value.startsWith('__') ? `{${e.target.value}}` : e.target.value;
+                                                            const newVal = current ? `${current} ${toAdd}` : toAdd;
+                                                            const mappings = { ...(config.mappings || {}), [col.id]: newVal };
+                                                            setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, mappings } } });
+                                                            e.target.value = "";
+                                                        }}
+                                                    >
+                                                        <option value="">Quick Add</option>
+                                                        <optgroup label="Source Fields">
+                                                            {(() => {
+                                                                const sourceType = sectionData.section_options?.dynamic_config?.source_type;
+                                                                const sourceId = sectionData.section_options?.dynamic_config?.source_id;
+                                                                if (sourceType === 'database') {
+                                                                    return recordData.find(db => String(db.id) === String(sourceId))?.database_structure?.map((f: any) => (
+                                                                        <option key={f.id} value={f.id}>{f.name}</option>
+                                                                    ));
+                                                                }
+                                                                if (sourceType === 'section') {
+                                                                    const findSectionAndCols = (sections: any[]): any => {
+                                                                        for (const s of sections) {
+                                                                            if (String(s.id) === String(sourceId)) {
+                                                                                const roster = rosters.find(r => r.id === s.roster_id);
+                                                                                return s.use_roster_columns ? roster?.columns : s.columns;
+                                                                            }
+                                                                            if (s.children) {
+                                                                                const found = findSectionAndCols(s.children);
+                                                                                if (found) return found;
+                                                                            }
+                                                                        }
+                                                                        return null;
+                                                                    };
+                                                                    let cols = null;
+                                                                    for (const r of rosters) {
+                                                                        cols = findSectionAndCols(r.root_sections || []);
+                                                                        if (cols) break;
+                                                                    }
+                                                                    return cols?.map((c: any) => (
+                                                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                                                    ));
+                                                                }
+                                                                return null;
+                                                            })()}
+                                                        </optgroup>
+                                                        <optgroup label="System Fields">
+                                                            <option value="__created_at">Date Created</option>
+                                                            <option value="__updated_at">Date Updated</option>
+                                                        </optgroup>
+                                                        <optgroup label="Transformations">
+                                                            <option value="|upper">Uppercase</option>
+                                                            <option value="|lower">Lowercase</option>
+                                                            <option value="|capitalize">Capitalize</option>
+                                                            <option value="|first">First Letter Only</option>
+                                                        </optgroup>
+                                                    </select>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between border-b border-accent/20 pb-1">
+                            <label className="text-[9px] text-muted font-black uppercase tracking-[0.2em] opacity-60">Sorting</label>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[8px] text-muted font-black uppercase tracking-widest mb-1.5">Sort By Field</label>
+                                <select 
+                                    value={sectionData.section_options?.dynamic_config?.sort_field || ''} 
+                                    onChange={e => {
+                                        const config = sectionData.section_options?.dynamic_config || {};
+                                        setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, sort_field: e.target.value } } });
+                                    }}
+                                    disabled={!sectionData.section_options?.dynamic_config?.source_id}
+                                    className="w-full bg-surface border border-border p-2 rounded text-[9px] font-bold outline-none focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed" 
+                                >
+                                    <option value="">No Sorting</option>
+                                    {(() => {
+                                        const sourceType = sectionData.section_options?.dynamic_config?.source_type;
+                                        const sourceId = sectionData.section_options?.dynamic_config?.source_id;
+                                        if (sourceType === 'database') {
+                                            return recordData.find(db => String(db.id) === String(sourceId))?.database_structure?.map((f: any) => (
+                                                <option key={f.id} value={f.id}>{f.name}</option>
+                                            ));
+                                        }
+                                        if (sourceType === 'section') {
+                                            const findSectionAndCols = (sections: any[]): any => {
+                                                for (const s of sections) {
+                                                    if (String(s.id) === String(sourceId)) {
+                                                        const roster = rosters.find(r => r.id === s.roster_id);
+                                                        return s.use_roster_columns ? roster?.columns : s.columns;
+                                                    }
+                                                    if (s.children) {
+                                                        const found = findSectionAndCols(s.children);
+                                                        if (found) return found;
+                                                    }
+                                                }
+                                                return null;
+                                            };
+                                            let cols = null;
+                                            for (const r of rosters) {
+                                                cols = findSectionAndCols(r.root_sections || []);
+                                                if (cols) break;
+                                            }
+                                            return cols?.map((c: any) => (
+                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                            ));
+                                        }
+                                        return null;
+                                    })()}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[8px] text-muted font-black uppercase tracking-widest mb-1.5">Sort Order</label>
+                                <select 
+                                    value={sectionData.section_options?.dynamic_config?.sort_order || 'asc'} 
+                                    onChange={e => {
+                                        const config = sectionData.section_options?.dynamic_config || {};
+                                        setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, sort_order: e.target.value } } });
+                                    }}
+                                    disabled={!sectionData.section_options?.dynamic_config?.sort_field}
+                                    className="w-full bg-surface border border-border p-2 rounded text-[9px] font-bold outline-none focus:border-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <option value="asc">Ascending</option>
+                                    <option value="desc">Descending</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between border-b border-accent/20 pb-1">
+                            <label className="text-[9px] text-muted font-black uppercase tracking-[0.2em] opacity-60">Auto Customization</label>
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    const config = sectionData.section_options?.dynamic_config || {};
+                                    const custom = config.customization || { rules: [] };
+                                    const rules = [...(custom.rules || []), { target_column: '', action: 'add_tag', label: '', condition_field: '', condition_operator: 'equals', condition_value: '' }];
+                                    setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, customization: { ...custom, rules } } } });
+                                }}
+                                className="text-[8px] font-black uppercase tracking-widest text-accent hover:text-accent/80 transition-colors"
+                            >
+                                + Add Custom Rule
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-2">
+                            {(sectionData.section_options?.dynamic_config?.customization?.rules || []).map((rule: any, idx: number) => (
+                                <div key={idx} className="p-3 bg-card border border-border rounded-lg space-y-3 relative group/custom">
+                                    <button 
+                                        type="button"
+                                        onClick={() => {
+                                            const config = sectionData.section_options?.dynamic_config || {};
+                                            const rules = config.customization.rules.filter((_: any, i: number) => i !== idx);
+                                            setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, customization: { ...config.customization, rules } } } });
+                                        }}
+                                        className="absolute top-2 right-2 p-1 text-muted hover:text-danger opacity-0 group-hover/custom:opacity-100 transition-opacity"
+                                    >
+                                        <Trash2 size={10} />
+                                    </button>
+
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <div>
+                                            <label className="block text-[7px] text-muted font-black uppercase mb-1">Target Column</label>
+                                            <select 
+                                                value={rule.target_column}
+                                                onChange={e => {
+                                                    const config = sectionData.section_options?.dynamic_config || {};
+                                                    const rules = [...config.customization.rules];
+                                                    rules[idx] = { ...rules[idx], target_column: e.target.value };
+                                                    setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, customization: { ...config.customization, rules } } } });
+                                                }}
+                                                className="w-full bg-surface border border-border p-1 rounded text-[8px] font-bold outline-none"
+                                            >
+                                                <option value="">Select...</option>
+                                                {(sectionData.columns || rosters.find(r => r.id === (sectionData.roster_id || activeDivId))?.columns || []).map((col: any) => (
+                                                    <option key={col.id} value={col.id}>{col.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[7px] text-muted font-black uppercase mb-1">Action</label>
+                                            <select 
+                                                value={rule.action}
+                                                onChange={e => {
+                                                    const config = sectionData.section_options?.dynamic_config || {};
+                                                    const rules = [...config.customization.rules];
+                                                    rules[idx] = { ...rules[idx], action: e.target.value };
+                                                    setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, customization: { ...config.customization, rules } } } });
+                                                }}
+                                                className="w-full bg-surface border border-border p-1 rounded text-[8px] font-bold outline-none"
+                                            >
+                                                <option value="add_tag">Add Tag</option>
+                                                <option value="add_checkbox">Add Checkbox</option>
+                                                <option value="set_value">Set Value</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[7px] text-muted font-black uppercase mb-1">Label/Value</label>
+                                            <input 
+                                                value={rule.label}
+                                                onChange={e => {
+                                                    const config = sectionData.section_options?.dynamic_config || {};
+                                                    const rules = [...config.customization.rules];
+                                                    rules[idx] = { ...rules[idx], label: e.target.value };
+                                                    setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, customization: { ...config.customization, rules } } } });
+                                                }}
+                                                placeholder="e.g. Probation"
+                                                className="w-full bg-surface border border-border p-1 rounded text-[8px] font-bold outline-none"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-2 border-t border-border/50">
+                                        <p className="text-[7px] font-black uppercase text-muted mb-2">Condition (Optional)</p>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <select 
+                                                value={rule.condition_field}
+                                                onChange={e => {
+                                                    const config = sectionData.section_options?.dynamic_config || {};
+                                                    const rules = [...config.customization.rules];
+                                                    rules[idx] = { ...rules[idx], condition_field: e.target.value };
+                                                    setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, customization: { ...config.customization, rules } } } });
+                                                }}
+                                                disabled={!sectionData.section_options?.dynamic_config?.source_id}
+                                                className="w-full bg-surface border border-border p-1 rounded text-[8px] font-bold outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                <option value="">Select Field...</option>
+                                                {(() => {
+                                                    const sourceType = sectionData.section_options?.dynamic_config?.source_type;
+                                                    const sourceId = sectionData.section_options?.dynamic_config?.source_id;
+                                                    if (sourceType === 'database') {
+                                                        return recordData.find(db => String(db.id) === String(sourceId))?.database_structure?.map((f: any) => (
+                                                            <option key={f.id} value={f.id}>{f.name}</option>
+                                                        ));
+                                                    }
+                                                    if (sourceType === 'section') {
+                                                        const findSectionAndCols = (sections: any[]): any => {
+                                                            for (const s of sections) {
+                                                                if (String(s.id) === String(sourceId)) {
+                                                                    const roster = rosters.find(r => r.id === s.roster_id);
+                                                                    return s.use_roster_columns ? roster?.columns : s.columns;
+                                                                }
+                                                                if (s.children) {
+                                                                    const found = findSectionAndCols(s.children);
+                                                                    if (found) return found;
+                                                                }
+                                                            }
+                                                            return null;
+                                                        };
+                                                        let cols = null;
+                                                        for (const r of rosters) {
+                                                            cols = findSectionAndCols(r.root_sections || []);
+                                                            if (cols) break;
+                                                        }
+                                                        return cols?.map((c: any) => (
+                                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                                        ));
+                                                    }
+                                                    return null;
+                                                })()}
+                                            </select>
+                                            <select 
+                                                value={rule.condition_operator}
+                                                onChange={e => {
+                                                    const config = sectionData.section_options?.dynamic_config || {};
+                                                    const rules = [...config.customization.rules];
+                                                    rules[idx] = { ...rules[idx], condition_operator: e.target.value };
+                                                    setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, customization: { ...config.customization, rules } } } });
+                                                }}
+                                                className="w-full bg-surface border border-border p-1 rounded text-[8px] font-bold outline-none"
+                                            >
+                                                <option value="equals">Equals</option>
+                                                <option value="not_equals">Not Equals</option>
+                                                <option value="contains">Contains</option>
+                                                <option value="not_contains">Not Contains</option>
+                                                <option value="starts_with">Starts With</option>
+                                                <option value="ends_with">Ends With</option>
+                                                <option value="exists">Exists</option>
+                                                <option value="not_exists">Not Exists</option>
+                                                <option value="is_numeric">Is Numeric</option>
+                                                <option value="greater_than">Greater Than</option>
+                                                <option value="less_than">Less Than</option>
+                                                <option value="is_today">Is Today</option>
+                                                <option value="is_past">Is Past</option>
+                                                <option value="is_future">Is Future</option>
+                                            </select>
+                                            <input 
+                                                value={rule.condition_value}
+                                                onChange={e => {
+                                                    const config = sectionData.section_options?.dynamic_config || {};
+                                                    const rules = [...config.customization.rules];
+                                                    rules[idx] = { ...rules[idx], condition_value: e.target.value };
+                                                    setSectionData({ ...sectionData, section_options: { ...sectionData.section_options, dynamic_config: { ...config, customization: { ...config.customization, rules } } } });
+                                                }}
+                                                placeholder="Value"
+                                                className="w-full bg-surface border border-border p-1 rounded text-[8px] font-bold outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
               )}
 

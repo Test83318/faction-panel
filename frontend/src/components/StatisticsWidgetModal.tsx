@@ -179,9 +179,26 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
     };
 
     const getColumns = (sourceType: string, sourceId: any) => {
-        if (sourceType === 'roster') {
+        if (sourceType === 'roster' || sourceType === 'section') {
             const roster = rosters.find(r => r.id === parseInt(sourceId));
-            return roster?.columns || [];
+            if (roster) return roster.columns || [];
+            
+            // If it's a section, we might need to find the roster it belongs to or use its own columns
+            const findSection = (sections: any[]): any => {
+                for (const s of sections) {
+                    if (s.id === parseInt(sourceId)) return s;
+                    if (s.children) {
+                        const found = findSection(s.children);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            };
+
+            for (const r of rosters) {
+                const s = findSection(r.root_sections || []);
+                if (s) return s.use_roster_columns ? r.columns : s.columns;
+            }
         } else if (sourceType === 'database') {
             const db = recordData.find(d => d.id === parseInt(sourceId));
             return db?.database_structure || [];
@@ -197,6 +214,22 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
             c.name.toLowerCase().includes('value')
         );
     };
+
+    const getAllSections = () => {
+        const sections: any[] = [];
+        const processSections = (list: any[]) => {
+            list.forEach(s => {
+                sections.push(s);
+                if (s.children) processSections(s.children);
+            });
+        };
+        rosters.forEach(r => {
+            if (r.root_sections) processSections(r.root_sections);
+        });
+        return sections;
+    };
+
+    const sections = getAllSections();
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[700]">
@@ -296,6 +329,7 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
                                             className="w-full bg-card border border-border rounded-lg px-3 py-2 text-[10px] font-bold uppercase"
                                         >
                                             <option value="roster">Roster</option>
+                                            <option value="section">Section</option>
                                             <option value="database">Database</option>
                                         </select>
                                     </div>
@@ -309,6 +343,8 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
                                             <option value="">Select Source...</option>
                                             {config.group_by.source_type === 'roster' 
                                                 ? rosters.map(r => <option key={r.id} value={r.id}>{r.name}</option>)
+                                                : config.group_by.source_type === 'section'
+                                                ? sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)
                                                 : recordData.map(d => <option key={d.id} value={d.id}>{d.name}</option>)
                                             }
                                         </select>
@@ -327,6 +363,31 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
                                         </select>
                                     </div>
                                 </div>
+
+                                {config.group_by.source_type === 'roster' && config.group_by.source_id && (
+                                    <div className="bg-surface/30 p-6 rounded-2xl border border-border/50 space-y-4">
+                                        <div>
+                                            <h3 className="text-xs font-black uppercase tracking-widest text-text">Section Scoping</h3>
+                                            <p className="text-[9px] text-muted font-bold uppercase mt-1 text-accent">Leave empty to include ALL sections</p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {sections.filter(s => s.roster_id === parseInt(config.group_by.source_id)).map(s => (
+                                                <button 
+                                                    key={s.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const current = config.section_ids || [];
+                                                        const newVal = current.includes(s.id) ? current.filter((id: number) => id !== s.id) : [...current, s.id];
+                                                        setConfig({ ...config, section_ids: newVal });
+                                                    }}
+                                                    className={`px-3 py-1.5 rounded-lg border text-[9px] font-black uppercase transition-all truncate max-w-[200px] ${config.section_ids?.includes(s.id) ? 'bg-accent border-accent text-white shadow-lg shadow-accent/20' : 'bg-card border-border text-muted hover:border-accent/50'}`}
+                                                >
+                                                    {s.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-center">
@@ -438,55 +499,120 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
                                                             <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Source Type</label>
                                                             <select 
                                                                 value={series.source_type}
-                                                                onChange={e => updateSeries(idx, { source_type: e.target.value, source_id: null, logic_groups: [] })}
+                                                                onChange={e => updateSeries(idx, { 
+                                                                    source_type: e.target.value, 
+                                                                    source_id: null, 
+                                                                    logic_groups: [], 
+                                                                    count_config: null,
+                                                                    count_parent_id: null,
+                                                                    count_parent_type: 'roster'
+                                                                })}
                                                                 className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase"
                                                             >
                                                                 <option value="roster">Roster</option>
+                                                                <option value="section">Section</option>
                                                                 <option value="database">Database</option>
+                                                                <option value="count">Existing Count</option>
                                                             </select>
                                                         </div>
-                                                        <div>
-                                                            <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Select Source</label>
-                                                            <select 
-                                                                value={series.source_id || ''}
-                                                                onChange={e => updateSeries(idx, { source_id: e.target.value, logic_groups: [] })}
-                                                                className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase"
-                                                            >
-                                                                <option value="">Select Source...</option>
-                                                                {series.source_type === 'roster' 
-                                                                    ? rosters.map(r => <option key={r.id} value={r.id}>{r.name}</option>)
-                                                                    : recordData.map(d => <option key={d.id} value={d.id}>{d.name}</option>)
-                                                                }
-                                                            </select>
-                                                        </div>
-                                                        <div>
-                                                            <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Operation</label>
-                                                            <select 
-                                                                value={series.operation || 'count'}
-                                                                onChange={e => updateSeries(idx, { operation: e.target.value })}
-                                                                className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase"
-                                                            >
-                                                                <option value="count">Count Entries</option>
-                                                                <option value="sum">Sum Value</option>
-                                                                <option value="avg">Average Value</option>
-                                                                <option value="min">Minimum Value</option>
-                                                                <option value="max">Maximum Value</option>
-                                                            </select>
-                                                        </div>
-                                                        {series.operation && series.operation !== 'count' && (
-                                                            <div>
-                                                                <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Target Column</label>
-                                                                <select 
-                                                                    value={series.target_col || ''}
-                                                                    onChange={e => updateSeries(idx, { target_col: e.target.value })}
-                                                                    className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase"
-                                                                >
-                                                                    <option value="">Select Column...</option>
-                                                                    {getNumericColumns(series.source_type, series.source_id).map((c: any) => (
-                                                                        <option key={c.id} value={c.id}>{c.name}</option>
-                                                                    ))}
-                                                                </select>
-                                                            </div>
+
+                                                        {series.source_type === 'count' ? (
+                                                            <>
+                                                                <div>
+                                                                    <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Count Parent</label>
+                                                                    <div className="flex gap-1">
+                                                                        <select 
+                                                                            value={series.count_parent_type || 'roster'}
+                                                                            onChange={e => updateSeries(idx, { count_parent_type: e.target.value, count_parent_id: '', count_config: null })}
+                                                                            className="bg-surface border border-border rounded-lg px-2 py-1.5 text-[9px] font-black uppercase"
+                                                                        >
+                                                                            <option value="roster">Roster</option>
+                                                                            <option value="section">Section</option>
+                                                                        </select>
+                                                                        <select 
+                                                                            value={series.count_parent_id || ''}
+                                                                            onChange={e => updateSeries(idx, { count_parent_id: e.target.value, count_config: null })}
+                                                                            className="flex-1 bg-surface border border-border rounded-lg px-2 py-1.5 text-[9px] font-black uppercase"
+                                                                        >
+                                                                            <option value="">Select...</option>
+                                                                            {series.count_parent_type === 'section'
+                                                                                ? sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)
+                                                                                : rosters.map(r => <option key={r.id} value={r.id}>{r.name}</option>)
+                                                                            }
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Select Count</label>
+                                                                    <select 
+                                                                        value={series.count_config?.id || ''}
+                                                                        onChange={e => {
+                                                                            const parent = series.count_parent_type === 'section' 
+                                                                                ? sections.find(s => s.id === parseInt(series.count_parent_id))
+                                                                                : rosters.find(r => r.id === parseInt(series.count_parent_id));
+                                                                            const count = parent?.counts?.find((c: any) => c.id === e.target.value);
+                                                                            updateSeries(idx, { count_config: count });
+                                                                        }}
+                                                                        className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase"
+                                                                    >
+                                                                        <option value="">Select Count...</option>
+                                                                        {(series.count_parent_type === 'section' 
+                                                                            ? sections.find(s => s.id === parseInt(series.count_parent_id))
+                                                                            : rosters.find(r => r.id === parseInt(series.count_parent_id))
+                                                                        )?.counts?.map((c: any) => (
+                                                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <div>
+                                                                    <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Select Source</label>
+                                                                    <select 
+                                                                        value={series.source_id || ''}
+                                                                        onChange={e => updateSeries(idx, { source_id: e.target.value, logic_groups: [] })}
+                                                                        className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase"
+                                                                    >
+                                                                        <option value="">Select Source...</option>
+                                                                        {series.source_type === 'roster' 
+                                                                            ? rosters.map(r => <option key={r.id} value={r.id}>{r.name}</option>)
+                                                                            : series.source_type === 'section'
+                                                                            ? sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)
+                                                                            : recordData.map(d => <option key={d.id} value={d.id}>{d.name}</option>)
+                                                                        }
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Operation</label>
+                                                                    <select 
+                                                                        value={series.operation || 'count'}
+                                                                        onChange={e => updateSeries(idx, { operation: e.target.value })}
+                                                                        className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase"
+                                                                    >
+                                                                        <option value="count">Count Entries</option>
+                                                                        <option value="sum">Sum Value</option>
+                                                                        <option value="avg">Average Value</option>
+                                                                        <option value="min">Minimum Value</option>
+                                                                        <option value="max">Maximum Value</option>
+                                                                    </select>
+                                                                </div>
+                                                                {series.operation && series.operation !== 'count' && (
+                                                                    <div>
+                                                                        <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Target Column</label>
+                                                                        <select 
+                                                                            value={series.target_col || ''}
+                                                                            onChange={e => updateSeries(idx, { target_col: e.target.value })}
+                                                                            className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase"
+                                                                        >
+                                                                            <option value="">Select Column...</option>
+                                                                            {getNumericColumns(series.source_type, series.source_id).map((c: any) => (
+                                                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    </div>
+                                                                )}
+                                                            </>
                                                         )}
                                                         <div>
                                                             <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Color</label>

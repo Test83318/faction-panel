@@ -17,6 +17,7 @@ class RosterSection extends Model
         'shortname',
         'color',
         'type',
+        'data_source',
         'order',
         'parent_id',
         'section_options',

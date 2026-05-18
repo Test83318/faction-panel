@@ -135,7 +135,7 @@ export const RosterTemplateModal: React.FC<RosterTemplateModalProps> = ({ shortn
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
-            <div className="bg-card w-full max-w-4xl h-[80vh] rounded-lg border border-border shadow-2xl flex flex-col overflow-hidden">
+            <div className="bg-card w-full max-w-4xl max-h-[90vh] rounded-lg border border-border shadow-2xl flex flex-col overflow-y-auto">
                 {/* Header */}
                 <div className="p-6 border-b border-border flex justify-between items-center bg-surface/30">
                     <div>

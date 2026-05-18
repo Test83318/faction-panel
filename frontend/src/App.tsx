@@ -368,6 +368,7 @@ export default function App() {
     } finally {
       localStorage.removeItem('access_token');
       setUser(null);
+      window.location.href = '/';
     }
   };
 

@@ -120,7 +120,7 @@ export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ 
 
     if (loading) return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
-            <div className="bg-card p-12 rounded-2xl border border-border shadow-2xl flex flex-col items-center">
+            <div className="bg-card p-12 rounded-2xl border border-border shadow-2xl flex flex-col items-center max-h-[90vh] overflow-y-auto">
                 <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mb-4" />
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted">Loading Permissions...</p>
             </div>
@@ -129,7 +129,7 @@ export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ 
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
-            <div className="bg-card rounded-2xl max-w-4xl w-full border border-border shadow-2xl flex flex-col max-h-[85vh]">
+            <div className="bg-card rounded-2xl max-w-4xl w-full border border-border shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
                 <div className="p-6 border-b border-border flex justify-between items-center">
                     <div>
                         <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
