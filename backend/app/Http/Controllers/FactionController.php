@@ -388,7 +388,11 @@ class FactionController extends Controller
             });
         }
 
-        return $query->paginate($request->query('per_page', 25));
+        if ($request->has('page') || $request->has('per_page')) {
+            return $query->paginate($request->query('per_page', 25));
+        }
+
+        return $query->get();
     }
 
     public function getMemberProfile(string $shortname, User $member)

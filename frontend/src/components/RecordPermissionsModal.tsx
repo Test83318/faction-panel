@@ -40,7 +40,7 @@ export const RecordPermissionsModal: React.FC<RecordPermissionsModalProps> = ({ 
             setPermissions(permRes.data);
             setGroups(groupRes.data);
             setRoles(roleRes.data);
-            setFactionMembers(memberRes.data);
+            setFactionMembers(Array.isArray(memberRes.data) ? memberRes.data : (memberRes.data.data || []));
         } catch (err) {
             toast.error('Failed to load permissions');
         } finally {
