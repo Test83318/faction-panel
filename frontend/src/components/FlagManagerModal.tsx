@@ -10,6 +10,7 @@ interface FlagRule {
     dataset_id?: number;
     scope?: 'section' | 'roster' | 'global';
     target_col?: string;
+    flag_regardless_of_manual_addition?: boolean;
 }
 
 interface RosterFlag {
@@ -395,6 +396,22 @@ const FlagManagerModal: React.FC<FlagManagerModalProps> = ({ shortname, onClose 
                                                                     placeholder="e.g. name"
                                                                     className="w-full bg-card border border-border p-2 rounded-lg text-[10px] font-bold outline-none focus:border-accent"
                                                                 />
+                                                            </div>
+                                                        </div>
+                                                    ) : rule.type === 'orphaned_database_link' ? (
+                                                        <div className="flex items-center gap-3 h-full pt-1">
+                                                            <button 
+                                                                onClick={() => updateRule(idx, 'flag_regardless_of_manual_addition', !rule.flag_regardless_of_manual_addition)}
+                                                                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-[9px] font-black uppercase transition-all ${rule.flag_regardless_of_manual_addition ? 'bg-accent/10 border-accent text-accent' : 'bg-card border-border text-muted hover:border-accent/30'}`}
+                                                            >
+                                                                {rule.flag_regardless_of_manual_addition ? <Check size={12} /> : <div className="w-3 h-3" />}
+                                                                Flag Regardless of Manual Addition
+                                                            </button>
+                                                            <div className="flex items-center gap-1.5 text-muted group/hint cursor-help relative">
+                                                                <Info size={12} />
+                                                                <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-black/90 text-[8px] font-bold text-white rounded-lg opacity-0 group-hover/hint:opacity-100 pointer-events-none transition-all z-10 leading-relaxed uppercase">
+                                                                    If enabled, any value that is not a valid link to a database record will be flagged (including plain text).
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     ) : (

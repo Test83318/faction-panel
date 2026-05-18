@@ -747,6 +747,41 @@ export default function FactionRecords({ shortname, permissions, user }: Faction
                                                         </div>
                                                     </div>
 
+                                                    {link.database_id && (
+                                                        <div className="pt-2">
+                                                            <label className="block text-[8px] font-black text-muted uppercase tracking-[0.2em] mb-2">Display Fields</label>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {(() => {
+                                                                    const targetDb = databases.find(d => String(d.id) === String(link.database_id));
+                                                                    const structure = targetDb ? targetDb.database_structure : (String(link.database_id) === String(editMode?.id) ? formData.database_structure : []);
+                                                                    return structure?.map((f: any) => (
+                                                                        <button
+                                                                            key={f.id}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const next = [...formData.detail_customization.linked_databases];
+                                                                                const currentFields = next[idx].display_fields || [];
+                                                                                if (currentFields.includes(f.id)) {
+                                                                                    next[idx].display_fields = currentFields.filter((id: string) => id !== f.id);
+                                                                                } else {
+                                                                                    next[idx].display_fields = [...currentFields, f.id];
+                                                                                }
+                                                                                setFormData({ ...formData, detail_customization: { ...formData.detail_customization, linked_databases: next } });
+                                                                            }}
+                                                                            className={`px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest border transition-all ${
+                                                                                (link.display_fields || []).includes(f.id)
+                                                                                    ? 'bg-accent border-accent text-white'
+                                                                                    : 'bg-card border-border text-muted hover:border-accent hover:text-accent'
+                                                                            }`}
+                                                                        >
+                                                                            {f.name}
+                                                                        </button>
+                                                                    ));
+                                                                })()}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
                                                     <div className="pt-2 flex items-center gap-4">
                                                         <label className="flex items-center gap-2 cursor-pointer group">
                                                             <input 

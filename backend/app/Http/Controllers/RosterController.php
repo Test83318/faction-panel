@@ -24,6 +24,7 @@ class RosterController extends Controller
         
         $renameMap = [];
         $validMap = [];
+        $clearMap = [];
 
         foreach ($columns as $newCol) {
             $colId = $newCol['id'];
@@ -38,6 +39,11 @@ class RosterController extends Controller
             ];
 
             if ($oldCol) {
+                // If the type changed, we should clear the data for this column
+                if (($oldCol['type'] ?? null) !== ($newCol['type'] ?? null)) {
+                    $clearMap[] = $colId;
+                }
+
                 $oldCbs = $oldCol['checkboxes'] ?? [];
                 $newCbs = $newCol['checkboxes'] ?? [];
                 
@@ -84,6 +90,13 @@ class RosterController extends Controller
             if (!$data || !is_array($data)) continue;
 
             $changed = false;
+            foreach ($clearMap as $colId) {
+                if (isset($data[$colId])) {
+                    unset($data[$colId]);
+                    $changed = true;
+                }
+            }
+
             foreach ($validMap as $colId => $valids) {
                 // Handle Checkboxes
                 $cbKey = "{$colId}_cb";
@@ -346,12 +359,13 @@ class RosterController extends Controller
 
     public function resolveLinks(Request $request)
     {
+        $user = Auth::guard('sanctum')->user();
         $links = $request->input('links', []);
         $results = [];
 
         // Group by row_id to minimize queries
         $rowIds = collect($links)->pluck('row_id')->filter()->unique();
-        $contents = RosterContent::whereIn('id', $rowIds)->with('section.roster')->get()->keyBy('id');
+        $contents = RosterContent::whereIn('id', $rowIds)->with('section.roster.faction')->get()->keyBy('id');
 
         // Cache for rosters and datasets to avoid repeated lookups
         $rosterCache = [];
@@ -373,6 +387,12 @@ class RosterController extends Controller
                 continue;
             }
 
+            // Check if user can view this roster
+            if (!User::hasRosterPermission($user, $content->section->roster, 'view_roster')) {
+                $results[] = '-';
+                continue;
+            }
+
             $value = $content->content[$colId] ?? '-';
             
             // Resolve label if it's a dataset/predefined type
@@ -386,6 +406,14 @@ class RosterController extends Controller
                 $col = collect($content->section->columns ?? [])->firstWhere('id', $colId);
             }
 
+            // Mask if it's a hidden column and user doesn't have permission
+            if ($col && str_contains($col['type'] ?? '', 'hidden')) {
+                if (!User::hasRosterPermission($user, $roster, 'view_hidden_data')) {
+                    $results[] = '????';
+                    continue;
+                }
+            }
+
             if ($col && isset($col['dataset_id'])) {
                 $datasetId = $col['dataset_id'];
                 if (!isset($datasetCache[$datasetId])) {
@@ -396,7 +424,7 @@ class RosterController extends Controller
                 if ($dataset) {
                     if ($dataset->record_database_id) {
                         $db = \App\Models\FactionRecordDatabase::find($dataset->record_database_id);
-                        if ($db) {
+                        if ($db && is_numeric($value)) {
                             $entry = $db->entries()->where('entry_id', $value)->first();
                             if ($entry) {
                                 $fieldId = $col['database_field_id'] ?? $db->database_structure[0]['id'] ?? 'id';
@@ -405,8 +433,10 @@ class RosterController extends Controller
                             }
                         }
                     } else {
-                        $option = $dataset->options()->where('id', $value)->first();
-                        if ($option) $value = $option->value;
+                        if (is_numeric($value)) {
+                            $option = $dataset->options()->where('id', $value)->first();
+                            if ($option) $value = $option->value;
+                        }
                     }
                 }
             }

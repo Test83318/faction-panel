@@ -101,7 +101,7 @@ class FactionSnapshotController extends Controller
 
     private $systemFields = [
         'id', 'faction_id', 'roster_id', 'parent_id', 'section_id', 'created_at', 'updated_at', 'deleted_at', 
-        'created_by', 'editing_by', 'editing_at', 'editing_col', 'user_roster_permissions', 'allow_branding'
+        'created_by', 'editing_by', 'editing_at', 'editing_col'
     ];
 
     private function captureModel($model, $extraExclusions = [])
@@ -123,6 +123,10 @@ class FactionSnapshotController extends Controller
             'datasets' => $faction->rosterDatasets()->with('options')->get()->map(fn($d) => [
                 'dataset' => $this->captureModel($d),
                 'options' => $d->options->map(fn($o) => $this->captureModel($o, ['dataset_id']))->toArray()
+            ])->toArray(),
+            'recordDatabases' => $faction->recordDatabases()->with('entries')->get()->map(fn($db) => [
+                'database' => $this->captureModel($db),
+                'entries' => $db->entries->map(fn($e) => $this->captureModel($e, ['record_database_id']))->toArray()
             ])->toArray(),
             'rosters' => $faction->rosters()->get()->map(function($roster) {
                 return [
@@ -161,22 +165,61 @@ class FactionSnapshotController extends Controller
             $currentUserId = Auth::id();
 
             // 1. Wipe existing data (Keep members and audit logs)
+            // We delete in reverse order of dependencies
             $faction->rosters()->each(fn($r) => $r->delete());
-            $faction->roles()->each(fn($r) => $r->delete());
-            $faction->groups()->each(fn($g) => $g->delete());
-            $faction->rosterFlags()->each(fn($f) => $f->delete());
             $faction->rosterDatasets()->each(fn($d) => $d->delete());
+            $faction->recordDatabases()->each(fn($d) => $d->delete());
+            $faction->rosterFlags()->each(fn($f) => $f->delete());
+            $faction->groups()->each(fn($g) => $g->delete());
+            $faction->roles()->each(fn($r) => $r->delete());
 
-            // 2. Restore Faction basic info
-            $faction->update($data['faction']);
+            // 2. Restore Faction basic info (don't overwrite critical integration IDs if they are missing/null in snapshot)
+            $factionUpdate = $data['faction'];
+            unset($factionUpdate['gtaw_faction_id']); // Protect current integration
+            unset($factionUpdate['faction_leader']); // Protect current leadership
+            
+            // Ensure roster_template is explicitly handled for global variables
+            if (isset($factionUpdate['roster_template'])) {
+                $faction->roster_template = $factionUpdate['roster_template'];
+            }
+            
+            $faction->update($factionUpdate);
+
+            // Mapping old IDs to new IDs to maintain relationships
+            $roleMapping = [];
+            $datasetMapping = [];
+            $databaseMapping = [];
 
             // 3. Restore Roles
             foreach ($data['roles'] as $rData) {
+                $oldRoleId = $rData['role']['id'] ?? null;
                 $role = $faction->roles()->create($rData['role']);
+                if ($oldRoleId) $roleMapping[$oldRoleId] = $role->id;
+
                 foreach ($rData['permissions'] as $pData) {
                     $role->permissions()->create($pData);
                 }
             }
+            
+            // Helper to recursively update dataset_id in columns/settings
+            $mapColumnDatasets = function($columns) use ($datasetMapping) {
+                if (empty($columns)) return $columns;
+                return collect($columns)->map(function($col) use ($datasetMapping) {
+                    // Standard dataset linkage
+                    if (!empty($col['dataset_id'])) {
+                        $col['dataset_id'] = $datasetMapping[$col['dataset_id']] ?? null;
+                    }
+                    
+                    // Advanced: Deep mapping for settings (e.g. global variable dropdowns)
+                    if (isset($col['settings']) && is_array($col['settings'])) {
+                        if (!empty($col['settings']['dataset_id'])) {
+                            $col['settings']['dataset_id'] = $datasetMapping[$col['settings']['dataset_id']] ?? null;
+                        }
+                    }
+                    
+                    return $col;
+                })->toArray();
+            };
 
             // 4. Restore Groups
             foreach ($data['groups'] as $groupData) {
@@ -188,34 +231,67 @@ class FactionSnapshotController extends Controller
                 $faction->rosterFlags()->create(array_merge($fData, ['created_by' => $currentUserId]));
             }
 
-            // 6. Restore Datasets
+            // 6. Restore Record Databases
+            foreach ($data['recordDatabases'] ?? [] as $dbData) {
+                $oldDbId = $dbData['database']['id'] ?? null;
+                $db = $faction->recordDatabases()->create(array_merge($dbData['database'], ['created_by' => $currentUserId]));
+                if ($oldDbId) $databaseMapping[$oldDbId] = $db->id;
+
+                // Handle entries if they exist in snapshot
+                if (isset($dbData['entries'])) {
+                    foreach ($dbData['entries'] as $eData) {
+                        $db->entries()->create(array_merge($eData, ['created_by' => $currentUserId]));
+                    }
+                }
+            }
+
+            // 7. Restore Datasets
             foreach ($data['datasets'] ?? [] as $dData) {
-                $dataset = $faction->rosterDatasets()->create(array_merge($dData['dataset'], ['created_by' => $currentUserId]));
+                $oldDatasetId = $dData['dataset']['id'] ?? null;
+                $datasetInfo = array_merge($dData['dataset'], ['created_by' => $currentUserId]);
+                
+                // Map the record_database_id if it exists
+                if (!empty($datasetInfo['record_database_id'])) {
+                    $datasetInfo['record_database_id'] = $databaseMapping[$datasetInfo['record_database_id']] ?? null;
+                }
+
+                $dataset = $faction->rosterDatasets()->create($datasetInfo);
+                if ($oldDatasetId) $datasetMapping[$oldDatasetId] = $dataset->id;
+
                 foreach ($dData['options'] as $oData) {
                     $dataset->options()->create($oData);
                 }
             }
 
-            // 7. Restore Rosters & Content
+            // 8. Restore Rosters & Content
             foreach ($data['rosters'] as $rData) {
-                $roster = $faction->rosters()->create(array_merge($rData['roster'], ['created_by' => $currentUserId]));
+                $rosterInfo = array_merge($rData['roster'], ['created_by' => $currentUserId]);
+                $rosterInfo['columns'] = $mapColumnDatasets($rosterInfo['columns'] ?? []);
+
+                $roster = $faction->rosters()->create($rosterInfo);
                 
                 // Sections
-                $this->restoreSections($roster, $rData['sections'], $currentUserId);
+                $this->restoreSections($roster, $rData['sections'], $currentUserId, null, $datasetMapping, $mapColumnDatasets);
             }
         });
 
         return response()->json(['message' => 'Restore successful']);
     }
 
-    private function restoreSections($roster, $sections, $currentUserId, $parentId = null)
+    private function restoreSections($roster, $sections, $currentUserId, $parentId = null, $datasetMapping = [], $mapColumnDatasets = null)
     {
         foreach ($sections as $sData) {
-            $section = $roster->sections()->create(array_merge($sData['section'], [
+            $sectionInfo = array_merge($sData['section'], [
                 'roster_id' => $roster->id,
                 'parent_id' => $parentId,
                 'created_by' => $currentUserId
-            ]));
+            ]);
+
+            if ($mapColumnDatasets) {
+                $sectionInfo['columns'] = $mapColumnDatasets($sectionInfo['columns'] ?? []);
+            }
+
+            $section = $roster->sections()->create($sectionInfo);
 
             foreach ($sData['contents'] as $cData) {
                 $section->contents()->create(array_merge($cData, [
@@ -224,7 +300,7 @@ class FactionSnapshotController extends Controller
             }
 
             if (!empty($sData['children'])) {
-                $this->restoreSections($roster, $sData['children'], $currentUserId, $section->id);
+                $this->restoreSections($roster, $sData['children'], $currentUserId, $section->id, $datasetMapping);
             }
         }
     }
@@ -265,7 +341,7 @@ class FactionSnapshotController extends Controller
         }
 
         $request->validate([
-            'file' => 'required|file|mimes:json',
+            'file' => 'required|file|extensions:json',
         ]);
 
         $fileContent = file_get_contents($request->file('file')->path());

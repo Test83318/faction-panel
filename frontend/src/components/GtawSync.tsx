@@ -50,7 +50,7 @@ const GtawSync: React.FC<{ faction: any; user: any }> = ({ faction, user }) => {
 
     return (
         <div className="relative flex flex-col gap-6 max-w-5xl mx-auto w-full">
-            <div className={`flex flex-col gap-6 transition-all duration-500 ${!user.gtaw_id ? 'blur-xl pointer-events-none select-none opacity-20 scale-[0.98]' : ''}`}>
+            <div className={`flex flex-col gap-6 transition-all duration-500 ${!user.gtaw_linked ? 'blur-xl pointer-events-none select-none opacity-20 scale-[0.98]' : ''}`}>
                 <div className="flex justify-between items-center">
                     <div>
                         <h2 className="text-2xl font-black uppercase tracking-tight text-text flex items-center gap-3">
@@ -120,13 +120,25 @@ const GtawSync: React.FC<{ faction: any; user: any }> = ({ faction, user }) => {
                             {[
                                 { label: 'Added', value: results.added, color: 'text-green-500' },
                                 { label: 'Updated', value: results.updated, color: 'text-accent' },
-                                { label: 'Removed', value: results.removed, color: 'text-danger' },
+                                { 
+                                    label: 'Removed', 
+                                    value: results.removed, 
+                                    color: 'text-danger',
+                                    subValue: results.duplicates_removed,
+                                    subLabel: 'Duplicates'
+                                },
                                 { label: 'Name Changes', value: results.name_changes, color: 'text-purple-500' },
                                 { label: 'Activity Logs', value: results.activity_logs, color: 'text-orange-500' }
-                            ].map((item, idx) => (
-                                <div key={idx} className="p-6 text-center">
+                            ].map((item: any, idx) => (
+                                <div key={idx} className="p-6 text-center flex flex-col justify-center">
                                     <div className={`text-2xl font-black mb-1 ${item.color}`}>{item.value}</div>
                                     <div className="text-[8px] text-muted font-black uppercase tracking-widest">{item.label}</div>
+                                    {item.subValue > 0 && (
+                                        <div className="mt-3 pt-3 border-t border-border/50">
+                                            <div className="text-xs font-black text-muted/60 leading-none mb-1">{item.subValue}</div>
+                                            <div className="text-[6px] text-muted/40 font-black uppercase tracking-widest">{item.subLabel}</div>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -147,7 +159,7 @@ const GtawSync: React.FC<{ faction: any; user: any }> = ({ faction, user }) => {
                 </div>
             </div>
 
-            {!user.gtaw_id && (
+            {!user.gtaw_linked && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-8 z-10">
                     <div className="bg-card border border-border rounded-3xl p-12 shadow-2xl flex flex-col items-center max-w-md w-full">
                         <div className="w-20 h-20 bg-accent/20 rounded-2xl flex items-center justify-center text-accent mb-8 shadow-2xl shadow-accent/20 border border-accent/30">

@@ -52,30 +52,65 @@ class StatisticsService
                 $totalValue = 0;
                 foreach ($s['logic_groups'] as $group) {
                     $groupPool = $this->applyConditions($pool, $group['conditions'] ?? [], $s['source_type'], $group['operator'] ?? 'AND');
-                    $groupCount = $groupPool->count();
+                    
+                    $operation = $group['operation'] ?? 'count';
+                    $targetCol = $group['target_col'] ?? null;
+                    
+                    $groupValue = $this->aggregatePool($groupPool, $operation, $targetCol, $s['source_type']);
                     
                     $math = $group['math_operator'] ?? '+';
-                    if ($math === '+') $totalValue += $groupCount;
-                    else if ($math === '-') $totalValue -= $groupCount;
+                    if ($math === '+') $totalValue += $groupValue;
+                    else if ($math === '-') $totalValue -= $groupValue;
                 }
                 
                 $result[] = [
                     'name' => $s['name'],
-                    'value' => max(0, $totalValue),
+                    'value' => $totalValue,
                     'color' => $s['color'] ?? null
                 ];
             } else {
                 // Backward compatibility or simple series
                 $filtered = $this->applyConditions($pool, $s['conditions'] ?? [], $s['source_type'], 'AND');
+                
+                $operation = $s['operation'] ?? 'count';
+                $targetCol = $s['target_col'] ?? null;
+                
                 $result[] = [
                     'name' => $s['name'],
-                    'value' => $filtered->count(),
+                    'value' => $this->aggregatePool($filtered, $operation, $targetCol, $s['source_type']),
                     'color' => $s['color'] ?? null
                 ];
             }
         }
 
         return $result;
+    }
+
+    protected function aggregatePool(Collection $pool, string $operation, $targetCol, string $sourceType)
+    {
+        if ($operation === 'count' || !$targetCol) {
+            return $pool->count();
+        }
+
+        $dataKey = $sourceType === 'roster' ? 'content' : 'data';
+
+        $values = $pool->map(function($item) use ($dataKey, $targetCol) {
+            $val = $item->$dataKey[$targetCol] ?? 0;
+            return is_numeric($val) ? (float)$val : 0;
+        });
+
+        switch ($operation) {
+            case 'sum':
+                return $values->sum();
+            case 'avg':
+                return $values->count() > 0 ? round($values->average(), 2) : 0;
+            case 'min':
+                return $values->count() > 0 ? $values->min() : 0;
+            case 'max':
+                return $values->count() > 0 ? $values->max() : 0;
+            default:
+                return $pool->count();
+        }
     }
 
     protected function calculateGrouped(StatisticsWidget $widget, array $config, &$totalRowsProcessed): array

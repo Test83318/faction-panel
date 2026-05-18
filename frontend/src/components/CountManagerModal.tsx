@@ -10,7 +10,7 @@ interface CountManagerModalProps {
     shortname: string;
     onClose: () => void;
     onSave: () => void;
-    columns: any[];
+    columns: any[]; // All potential columns for this roster
     flags: any[];
     allSections?: any[];
 }
@@ -21,17 +21,58 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
     shortname, 
     onClose, 
     onSave,
-    columns,
+    columns: rawColumns,
     flags,
     allSections = []
 }) => {
+    // Group columns by name to handle shared columns across sections
+    const columns = useMemo(() => {
+        const grouped = rawColumns.reduce((acc: any, col: any) => {
+            if (!acc[col.name]) {
+                acc[col.name] = { 
+                    id: col.name, // Use name as ID for matching across sheets
+                    name: col.name, 
+                    type: col.type,
+                    checkboxes: [...(col.checkboxes || [])].filter(Boolean),
+                    tags: [...(col.tags || [])].filter(Boolean),
+                    ids: [col.id] // Track original IDs
+                };
+            } else {
+                // Merge checkboxes and tags
+                const existingCbs = acc[col.name].checkboxes
+                    .filter(Boolean)
+                    .map((cb: any) => typeof cb === 'string' ? cb : cb?.label);
+                
+                (col.checkboxes || []).forEach((cb: any) => {
+                    if (!cb) return;
+                    const label = typeof cb === 'string' ? cb : cb?.label;
+                    if (label && !existingCbs.includes(label)) acc[col.name].checkboxes.push(cb);
+                });
+
+                const existingTags = acc[col.name].tags
+                    .filter(Boolean)
+                    .map((t: any) => typeof t === 'string' ? t : t?.label);
+                
+                (col.tags || []).forEach((t: any) => {
+                    if (!t) return;
+                    const label = typeof t === 'string' ? t : t?.label;
+                    if (label && !existingTags.includes(label)) acc[col.name].tags.push(t);
+                });
+
+                if (!acc[col.name].ids.includes(col.id)) acc[col.name].ids.push(col.id);
+            }
+            return acc;
+        }, {});
+        return Object.values(grouped);
+    }, [rawColumns]);
     const [counts, setCounts] = useState<any[]>(() => {
         const existing = target.counts || [];
         // Migrate legacy counts if needed
-        return existing.map((c: any) => {
-            if (!c.conditions) {
+        return existing.map((c: any, i: number) => {
+            const count = { ...c, id: c.id || `count_${i}_${Date.now()}` };
+            if (!count.conditions) {
                 return {
-                    ...c,
+                    ...count,
                     conditions: [{
                         id: `cond_${Date.now()}_0`,
                         operator: '+',
@@ -41,7 +82,7 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                     }]
                 };
             }
-            return c;
+            return count;
         });
     });
     const [isSaving, setIsSaving] = useState(false);
@@ -180,10 +221,22 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                         </button>
                     </div>
 
-                    <div className="space-y-4">
+                    <Reorder.Group 
+                        axis="y" 
+                        values={counts} 
+                        onReorder={setCounts} 
+                        className="space-y-4"
+                    >
                         {counts.map((count, idx) => (
-                            <div key={count.id} className={`bg-card border rounded-2xl transition-all ${editingIdx === idx ? 'border-accent ring-1 ring-accent/20 shadow-xl' : 'border-border'}`}>
+                            <Reorder.Item 
+                                key={count.id} 
+                                value={count}
+                                className={`bg-card border rounded-2xl transition-all ${editingIdx === idx ? 'border-accent ring-1 ring-accent/20 shadow-xl' : 'border-border'}`}
+                            >
                                 <div className="p-5 flex items-center gap-4">
+                                    <div className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-accent transition-colors shrink-0">
+                                        <GripVertical size={18} />
+                                    </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-3">
                                             <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: count.color }} />
@@ -519,8 +572,8 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                                                                                 {(() => {
                                                                                                     const col = columns.find(c => c.id === cond.settings.target_col);
                                                                                                     const labels = cond.type === 'checkboxes' 
-                                                                                                        ? (col?.checkboxes || []).map((cb: any) => typeof cb === 'string' ? cb : cb.label)
-                                                                                                        : (col?.tags || []).map((t: any) => typeof t === 'string' ? t : t.label);
+                                                                                                        ? (col?.checkboxes || []).filter(Boolean).map((cb: any) => typeof cb === 'string' ? cb : cb.label)
+                                                                                                        : (col?.tags || []).filter(Boolean).map((t: any) => typeof t === 'string' ? t : t.label);
                                                                                                     return Array.from(new Set(labels)).map(l => <option key={String(l)} value={String(l)}>{String(l)}</option>);
                                                                                                 })()}
                                                                                             </select>
@@ -545,21 +598,21 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                         </div>
                                     </div>
                                 )}
-                            </div>
+                            </Reorder.Item>
                         ))}
+                    </Reorder.Group>
 
-                        {counts.length === 0 && (
-                            <div className="py-20 border border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-center space-y-4 bg-card/30">
-                                <Calculator size={48} className="text-muted opacity-10" />
-                                <div className="space-y-1">
-                                    <p className="text-[12px] font-black uppercase tracking-widest text-muted opacity-50">No counters configured</p>
-                                    <p className="text-[9px] font-bold text-muted/30 uppercase max-w-xs leading-relaxed">
-                                        Click "Add Counter" above to create dynamic personnel statistics for your roster.
-                                    </p>
-                                </div>
+                    {counts.length === 0 && (
+                        <div className="py-20 border border-dashed border-border rounded-3xl flex flex-col items-center justify-center text-center space-y-4 bg-card/30">
+                            <Calculator size={48} className="text-muted opacity-10" />
+                            <div className="space-y-1">
+                                <p className="text-[12px] font-black uppercase tracking-widest text-muted opacity-50">No counters configured</p>
+                                <p className="text-[9px] font-bold text-muted/30 uppercase max-w-xs leading-relaxed">
+                                    Click "Add Counter" above to create dynamic personnel statistics for your roster.
+                                </p>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="p-6 border-t border-border bg-surface/30 flex justify-end gap-3 shrink-0">

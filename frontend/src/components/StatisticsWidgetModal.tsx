@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, Trash2, Save, BarChart3, Settings2, Sigma, PieChart, Table as TableIcon, Filter, Columns } from 'lucide-react';
+import { X, Plus, Trash2, Save, BarChart3, Settings2, Sigma, PieChart, Table as TableIcon, Filter, Columns, Hash, Target } from 'lucide-react';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { StatisticsWidget, Roster, FactionRecordDatabase } from '../types';
@@ -24,7 +24,7 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
     onSave 
 }) => {
     const [name, setName] = useState(widget?.name || '');
-    const [type, setType] = useState<'pie' | 'bar' | 'line' | 'table'>(widget?.type || 'pie');
+    const [type, setType] = useState<'pie' | 'bar' | 'line' | 'table' | 'stat' | 'radar'>(widget?.type || 'pie');
     const [width, setWidth] = useState(widget?.width || 6);
     const [config, setConfig] = useState<any>(widget?.configuration || {
         mode: widget?.configuration?.group_by ? 'grouped' : 'series',
@@ -99,11 +99,15 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
             color: '#3b82f6',
             source_type: 'roster',
             source_id: rosters[0]?.id || null,
+            operation: 'count',
+            target_col: null,
             logic_groups: [
                 {
                     id: `group_${Date.now()}`,
                     operator: 'AND',
                     math_operator: '+',
+                    operation: 'count',
+                    target_col: null,
                     conditions: []
                 }
             ]
@@ -131,6 +135,8 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
                 id: `group_${Date.now()}`,
                 operator: 'AND',
                 math_operator: '+',
+                operation: 'count',
+                target_col: null,
                 conditions: []
             }
         ];
@@ -183,6 +189,15 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
         return [];
     };
 
+    const getNumericColumns = (sourceType: string, sourceId: any) => {
+        return getColumns(sourceType, sourceId).filter((c: any) => 
+            ['number', 'integer', 'float'].includes(c.type?.toLowerCase()) || 
+            c.name.toLowerCase().includes('count') ||
+            c.name.toLowerCase().includes('amount') ||
+            c.name.toLowerCase().includes('value')
+        );
+    };
+
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[700]">
             <div className="bg-card w-full max-w-5xl h-[90vh] rounded-2xl border border-border shadow-2xl flex flex-col overflow-hidden">
@@ -203,7 +218,7 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-surface/5">
                     <div className="grid grid-cols-12 gap-8">
-                        <div className="col-span-4">
+                        <div className="col-span-3">
                             <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-1.5">Widget Name</label>
                             <input 
                                 value={name}
@@ -212,14 +227,16 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
                                 placeholder="Widget title"
                             />
                         </div>
-                        <div className="col-span-5">
+                        <div className="col-span-6">
                             <label className="block text-[10px] font-black uppercase tracking-widest text-muted mb-1.5">Chart Type</label>
-                            <div className="grid grid-cols-4 gap-2">
+                            <div className="grid grid-cols-6 gap-2">
                                 {[
                                     { id: 'pie', icon: PieChart, label: 'Pie' },
                                     { id: 'bar', icon: BarChart3, label: 'Bar' },
                                     { id: 'line', icon: BarChart3, label: 'Line' },
                                     { id: 'table', icon: TableIcon, label: 'Table' },
+                                    { id: 'stat', icon: Hash, label: 'Stat' },
+                                    { id: 'radar', icon: Target, label: 'Radar' },
                                 ].map(t => (
                                     <button 
                                         type="button"
@@ -416,7 +433,7 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
 
                                             {editingIdx === idx && (
                                                 <div className="px-6 pb-6 border-t border-border/50 pt-6 space-y-6">
-                                                    <div className="grid grid-cols-3 gap-6">
+                                                    <div className="grid grid-cols-4 gap-6">
                                                         <div>
                                                             <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Source Type</label>
                                                             <select 
@@ -442,6 +459,35 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
                                                                 }
                                                             </select>
                                                         </div>
+                                                        <div>
+                                                            <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Operation</label>
+                                                            <select 
+                                                                value={series.operation || 'count'}
+                                                                onChange={e => updateSeries(idx, { operation: e.target.value })}
+                                                                className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase"
+                                                            >
+                                                                <option value="count">Count Entries</option>
+                                                                <option value="sum">Sum Value</option>
+                                                                <option value="avg">Average Value</option>
+                                                                <option value="min">Minimum Value</option>
+                                                                <option value="max">Maximum Value</option>
+                                                            </select>
+                                                        </div>
+                                                        {series.operation && series.operation !== 'count' && (
+                                                            <div>
+                                                                <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Target Column</label>
+                                                                <select 
+                                                                    value={series.target_col || ''}
+                                                                    onChange={e => updateSeries(idx, { target_col: e.target.value })}
+                                                                    className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase"
+                                                                >
+                                                                    <option value="">Select Column...</option>
+                                                                    {getNumericColumns(series.source_type, series.source_id).map((c: any) => (
+                                                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        )}
                                                         <div>
                                                             <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Color</label>
                                                             <div className="flex gap-2">
@@ -503,6 +549,34 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
                                                                                         <option value="-">-</option>
                                                                                     </select>
                                                                                 </div>
+                                                                                <div className="w-px h-3 bg-border" />
+                                                                                <div className="flex items-center gap-1.5">
+                                                                                    <span className="text-[8px] font-black uppercase text-muted">Op</span>
+                                                                                    <select 
+                                                                                        value={group.operation || 'count'}
+                                                                                        onChange={e => updateLogicGroup(idx, gIdx, { operation: e.target.value })}
+                                                                                        className="bg-card border border-border rounded px-1.5 py-0.5 text-[9px] font-black uppercase"
+                                                                                    >
+                                                                                        <option value="count">Count</option>
+                                                                                        <option value="sum">Sum</option>
+                                                                                        <option value="avg">Avg</option>
+                                                                                    </select>
+                                                                                </div>
+                                                                                {group.operation && group.operation !== 'count' && (
+                                                                                    <div className="flex items-center gap-1.5">
+                                                                                        <span className="text-[8px] font-black uppercase text-muted">Col</span>
+                                                                                        <select 
+                                                                                            value={group.target_col || ''}
+                                                                                            onChange={e => updateLogicGroup(idx, gIdx, { target_col: e.target.value })}
+                                                                                            className="bg-card border border-border rounded px-1.5 py-0.5 text-[9px] font-black uppercase"
+                                                                                        >
+                                                                                            <option value="">Select...</option>
+                                                                                            {getNumericColumns(series.source_type, series.source_id).map((c: any) => (
+                                                                                                <option key={c.id} value={c.id}>{c.name}</option>
+                                                                                            ))}
+                                                                                        </select>
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
                                                                             <div className="flex items-center gap-2">
                                                                                 <button 

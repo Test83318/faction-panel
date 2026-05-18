@@ -75,9 +75,10 @@ interface RosterTableProps {
   onAddRow?: () => void;
   onAddSpacer?: () => void;
   onRefresh?: () => void;
-  onReorderRows?: (newOrder: RosterContent[]) => void;
+  onReorderRows?: (newOrder: any[]) => void;
   globalEditingRowId?: number | null;
   setGlobalEditingRowId?: (id: number | null) => void;
+  saveTrigger?: number;
   syncedHeights?: { [key: number]: number };
   onRowHeightSync?: (index: number, height: number, hasCheckbox: boolean) => void;
   }
@@ -105,6 +106,7 @@ interface RosterTableProps {
   onReorderRows,
   globalEditingRowId,
   setGlobalEditingRowId,
+  saveTrigger,
   syncedHeights,
   onRowHeightSync
   }) => {
@@ -338,9 +340,29 @@ interface RosterTableProps {
     
     // Resolve ID to label if possible
     const boundDataset = col.dataset_id ? datasets.find(d => d.id === col.dataset_id) : null;
-    const option = boundDataset?.options?.find((o: any) => String(o.id) === String(rawValue));
-    const label = option ? option.value : rawValue.toString();
+    let option = boundDataset?.options?.find((o: any) => String(o.id) === String(rawValue));
 
+    // Check recordData if it's a database link
+    if (!option && boundDataset?.record_database_id) {
+        const db = recordData.find(d => d.id === boundDataset.record_database_id);
+        if (db && db.entries) {
+            // Find by ID or by the actual data value (for manual entries that might match)
+            const entry = db.entries.find((e: any) => {
+                if (String(e.entry_id) === String(rawValue)) return true;
+                
+                // Also check if it matches the display value
+                let fieldId = col.database_field_id || db.database_structure?.[0]?.id;
+                const displayVal = (fieldId === 'id') ? String(e.entry_id) : e.data?.[fieldId];
+                return String(displayVal) === String(rawValue);
+            });
+
+            if (entry) {
+                option = { id: entry.entry_id, value: entry.data?.[col.database_field_id || ''] || entry.entry_id };
+            }
+        }
+    }
+
+    const label = option ? option.value : rawValue.toString();
     const value = label.toLowerCase().trim();
 
     return flag.rules.some((rule: any) => {
@@ -401,15 +423,22 @@ interface RosterTableProps {
             case 'orphaned_database_link':
                 // For a link to be orphaned, the column must be linked to a database
                 if (!boundDataset?.record_database_id) return false;
-                // It must have a value that looks like an ID
-                if (!rawValue || (isNaN(Number(rawValue)) && !String(rawValue).startsWith('temp_') && !String(rawValue).startsWith('opt_'))) return false;
-                // And that ID must NOT exist in the options (which are derived from the database entries)
+
+                // If "Flag Regardless of Manual Addition" is NOT enabled, only flag values that look like IDs
+                if (!rule.flag_regardless_of_manual_addition) {
+                    if (!rawValue || (isNaN(Number(rawValue)) && !String(rawValue).startsWith('temp_') && !String(rawValue).startsWith('opt_'))) return false;
+                } else {
+                    // If enabled, flag any non-empty value that isn't a valid link
+                    if (!rawValue) return false;
+                }
+
+                // And that ID/Value must NOT exist in the options (calculated above from recordData)
                 return !option;
             default:
                 return false;
         }
     });
-  }, [datasets, contents, allContents, editingRowId, editData]);
+  }, [datasets, contents, allContents, editingRowId, editData, recordData]);
 
   const handleBulkAdd = () => {
     const count = Math.min(Math.max(1, rowCountToAdd), 20);
@@ -567,6 +596,12 @@ interface RosterTableProps {
   }, [editingRowId, editData, rowColor, editingColId, lastUpdatedAt, onUpdateRow, setGlobalEditingRowId]);
 
   useEffect(() => {
+    if (saveTrigger && saveTrigger > 0 && editingRowId) {
+        handleSaveEdit(editingRowId);
+    }
+  }, [saveTrigger, editingRowId, handleSaveEdit]);
+
+  useEffect(() => {
     const handleGlobalClick = (e: MouseEvent) => {
         const target = e.target as HTMLElement;
         if (target.closest('.color-picker-window')) return;
@@ -645,11 +680,14 @@ interface RosterTableProps {
                                     isMatch = !!dbVal;
                                 }
                                 
-                                if (isMatch && !currentCbs.includes(cb.label)) {
-                                    currentCbs.push(cb.label);
+                                const label = cb?.label;
+                                if (!label) return;
+                                
+                                if (isMatch && !currentCbs.includes(label)) {
+                                    currentCbs.push(label);
                                     changed = true;
-                                } else if (!isMatch && currentCbs.includes(cb.label)) {
-                                    const idx = currentCbs.indexOf(cb.label);
+                                } else if (!isMatch && currentCbs.includes(label)) {
+                                    const idx = currentCbs.indexOf(label);
                                     currentCbs.splice(idx, 1);
                                     changed = true;
                                 }
@@ -679,11 +717,14 @@ interface RosterTableProps {
                                     isMatch = !!dbVal;
                                 }
                                 
-                                if (isMatch && !currentTags.includes(tag.label)) {
-                                    currentTags.push(tag.label);
+                                const label = tag?.label;
+                                if (!label) return;
+
+                                if (isMatch && !currentTags.includes(label)) {
+                                    currentTags.push(label);
                                     changed = true;
-                                } else if (!isMatch && currentTags.includes(tag.label)) {
-                                    const idx = currentTags.indexOf(tag.label);
+                                } else if (!isMatch && currentTags.includes(label)) {
+                                    const idx = currentTags.indexOf(label);
                                     currentTags.splice(idx, 1);
                                     changed = true;
                                 }
@@ -701,6 +742,7 @@ interface RosterTableProps {
   };
 
   const toggleCheckbox = (colId: string, cb: string) => {
+    setHasTyped(false);
     const key = `${colId}_cb`;
     const current = editData[key] || [];
     const next = current.includes(cb) ? current.filter((c: string) => c !== cb) : [...current, cb];
@@ -708,6 +750,7 @@ interface RosterTableProps {
   };
 
   const toggleTag = (colId: string, tag: string) => {
+    setHasTyped(false);
     const key = `${colId}_tags`;
     const current = editData[key] || [];
     const next = current.includes(tag) ? current.filter((t: string) => t !== tag) : [...current, tag];
@@ -729,6 +772,7 @@ interface RosterTableProps {
   };
 
   const [focusedColId, setFocusedColId] = useState<string | null>(null);
+  const [hasTyped, setHasTyped] = useState(false);
 
   const inlineCheckboxes = localStorage.getItem('roster-inline-checkboxes') === 'true';
 
@@ -736,7 +780,13 @@ interface RosterTableProps {
 
     const isEditing = editingRowId === row.id;
     const isSaving = savingRows.has(row.id);
-    const value = isEditing ? editData[col.id] : (row.content?.[col.id] || '');
+    let value = isEditing ? editData[col.id] : (row.content?.[col.id] || '');
+    
+    // Fallback: If value is an object but the column type is not linked, it's stale data
+    if (value && typeof value === 'object' && col.type !== 'linked_roster_data') {
+        value = '';
+    }
+
     const checked = isEditing ? (editData[`${col.id}_cb`] || []) : (row.content?.[`${col.id}_cb`] || []);
     const appliedTags = isEditing ? (editData[`${col.id}_tags`] || []) : (row.content?.[`${col.id}_tags`] || []);
 
@@ -959,7 +1009,7 @@ interface RosterTableProps {
                         <div className="flex flex-wrap gap-1 relative z-20">
                             {col.checkboxes.map((cb, cbIdx) => {
                                 if (!cb) return null;
-                                const label = typeof cb === 'string' ? cb : cb.label;
+                                const label = typeof cb === 'string' ? cb : cb?.label;
                                 if (!label) return null;
                                 const color = typeof cb === 'string' ? null : cb.color;
                                 const isChecked = checked.includes(label);
@@ -984,7 +1034,7 @@ interface RosterTableProps {
                 <div className="flex flex-wrap gap-1 relative z-20">
                     {col.checkboxes.map((cb, cbIdx) => {
                     if (!cb) return null;
-                    const label = typeof cb === 'string' ? cb : cb.label;
+                    const label = typeof cb === 'string' ? cb : cb?.label;
                     if (!label) return null;
                     const color = typeof cb === 'string' ? null : cb.color;
                     const isChecked = checked.includes(label);
@@ -1011,7 +1061,7 @@ interface RosterTableProps {
                     <div className="text-[8px] font-black uppercase text-muted mb-2 tracking-widest border-b border-border/50 pb-1">Manage Tags</div>
                     <div className="space-y-1">
                         {col.tags?.map(tagDef => {
-                            const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef.label;
+                            const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef?.label;
                             const color = typeof tagDef === 'string' ? null : tagDef.color;
                             const iconName = typeof tagDef === 'string' ? null : tagDef.icon;
                             const isTagged = appliedTags.includes(tagLabel);
@@ -1056,7 +1106,7 @@ interface RosterTableProps {
       });
 
       const searchTerm = (value || '').toString().toLowerCase();
-      const filteredSuggestions = (focusedColId === col.id && searchTerm.length >= 1) 
+      const filteredSuggestions = (focusedColId === col.id && searchTerm.length >= 1 && hasTyped) 
         ? suggestionPool.filter(opt => 
             (opt.label || '').toString().toLowerCase().includes(searchTerm)
           ).slice(0, 8) 
@@ -1064,7 +1114,8 @@ interface RosterTableProps {
 
       return (
         <div 
-            className={`flex flex-col items-center justify-center h-full w-full gap-0.5 relative overflow-visible rt-cell-content ${hasOrphanedFlag ? 'ring-1 ring-danger ring-inset bg-danger/5' : ''}`}
+            className={`flex flex-col items-center justify-center h-full w-full gap-0.5 relative overflow-visible rt-cell-content cursor-text ${hasOrphanedFlag ? 'ring-1 ring-danger ring-inset bg-danger/5' : ''}`}
+            onClick={() => inputRef.current?.focus()}
             title={hasOrphanedFlag ? 'Linked database record no longer exists' : undefined}
         >
           <CellScaler>
@@ -1074,11 +1125,16 @@ interface RosterTableProps {
                 value={value} 
                 autoComplete="off"
                 onChange={e => {
+                    setHasTyped(true);
                     updateField(col.id, e.target.value);
                 }}
                 onKeyDown={e => e.key === 'Enter' && handleSaveEdit(row.id)}
-                onClick={() => setFocusedColId(col.id)}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setFocusedColId(col.id);
+                }}
                 onFocus={() => {
+                    setHasTyped(false);
                     setFocusedColId(col.id);
                     setEditingColId(col.id);
                 }}
@@ -1092,6 +1148,19 @@ interface RosterTableProps {
                 style={textStyle}
                 placeholder="..."
                 />
+                {value && (
+                    <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            updateField(col.id, '');
+                            inputRef.current?.focus();
+                        }}
+                        className="p-0.5 hover:bg-accent/10 rounded text-muted hover:text-danger transition-colors ml-0.5"
+                        title="Clear Field"
+                    >
+                        <X size={8} />
+                    </button>
+                )}
                 {activeFlags.length > 0 && (
                     <div className="flex items-center gap-0.5 ml-1">
                         {activeFlags.map(f => (
@@ -1122,7 +1191,7 @@ interface RosterTableProps {
                     <div className="flex flex-wrap gap-1 ml-1">
                     {col.checkboxes.map((cb, cbIdx) => {
                         if (!cb) return null;
-                        const label = typeof cb === 'string' ? cb : cb.label;
+                        const label = typeof cb === 'string' ? cb : cb?.label;
                         if (!label) return null;
                         const color = typeof cb === 'string' ? null : cb.color;
                         const isChecked = checked.includes(label);
@@ -1147,7 +1216,7 @@ interface RosterTableProps {
                 <div className="flex flex-wrap gap-1">
                 {col.checkboxes.map((cb, cbIdx) => {
                     if (!cb) return null;
-                    const label = typeof cb === 'string' ? cb : cb.label;
+                    const label = typeof cb === 'string' ? cb : cb?.label;
                     if (!label) return null;
                     const color = typeof cb === 'string' ? null : cb.color;
                     const isChecked = checked.includes(label);
@@ -1199,7 +1268,7 @@ interface RosterTableProps {
                     <div className="text-[8px] font-black uppercase text-muted mb-2 tracking-widest border-b border-border/50 pb-1">Manage Tags</div>
                     <div className="space-y-1">
                         {col.tags?.map(tagDef => {
-                            const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef.label;
+                            const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef?.label;
                             const color = typeof tagDef === 'string' ? null : tagDef.color;
                             const iconName = typeof tagDef === 'string' ? null : tagDef.icon;
                             const isTagged = appliedTags.includes(tagLabel);
@@ -1261,7 +1330,7 @@ interface RosterTableProps {
                 {appliedTags.length > 0 && (
                     <div className="flex items-center gap-0.5">
                         {(col.tags || []).map((tagDef: any) => {
-                            const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef.label;
+                            const tagLabel = typeof tagDef === 'string' ? tagDef : tagDef?.label;
                             if (!appliedTags.includes(tagLabel)) return null;
 
                             const color = (typeof tagDef !== 'string') ? tagDef.color : '#fff';
@@ -1293,7 +1362,7 @@ interface RosterTableProps {
                     <div className="flex gap-0.5">
                         {(col.checkboxes || []).map((cbDef: any, cbIdx: number) => {
                             if (!cbDef) return null;
-                            const cbLabel = typeof cbDef === 'string' ? cbDef : cbDef.label;
+                            const cbLabel = typeof cbDef === 'string' ? cbDef : cbDef?.label;
                             if (!cbLabel || !checked.includes(cbLabel)) return null;
 
                             const color = (typeof cbDef !== 'string') ? cbDef.color : null;
@@ -1315,7 +1384,7 @@ interface RosterTableProps {
               <div className="flex gap-0.5">
                 {(col.checkboxes || []).map((cbDef: any, cbIdx: number) => {
                   if (!cbDef) return null;
-                  const cbLabel = typeof cbDef === 'string' ? cbDef : cbDef.label;
+                  const cbLabel = typeof cbDef === 'string' ? cbDef : cbDef?.label;
                   if (!cbLabel || !checked.includes(cbLabel)) return null;
 
                   const color = (typeof cbDef !== 'string') ? cbDef.color : null;
@@ -1414,7 +1483,6 @@ interface RosterTableProps {
                 value={row}
                 dragListener={editMode && canEditPredefined && !editingRowId}
                 className={`rt-tr group/row ${isEditing ? 'bg-accent/5 z-[5000] relative' : ''} ${selectedRowIds.includes(row.id) ? 'bg-accent/5' : ''} ${editMode && canEditPredefined && !editingRowId ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                onBlur={(e) => handleRowBlur(e, row.id)}
                 style={{ height: syncedHeight ? `${syncedHeight}px` : (maxRowHeight ? `${maxRowHeight}px` : undefined) }}
                 data-row-index={idx}
                 data-has-checkbox={hasCheckbox}
@@ -1510,7 +1578,7 @@ interface RosterTableProps {
                                 zIndex: isEditing && editingColId === col.id ? 5001 : 0,
                                 ...cellStyle
                             }}
-                            onClick={() => !isEditing && isColEditable(col) && handleStartEdit(row, col.id)}
+                            onClick={() => isColEditable(col) && (editingRowId !== row.id || editingColId !== col.id) && handleStartEdit(row, col.id)}
                         >
                             {renderCell(row, col)}
                         </td>
@@ -1578,6 +1646,16 @@ interface RosterTableProps {
                         )}
                         <div className="flex flex-col gap-0.5">
                             <button onClick={() => handleSaveEdit(row.id)} className="p-0.5 text-green-500 hover:bg-green-500/10 rounded transition-colors" title="Save"><Check size={10} /></button>
+                            <button 
+                                onClick={() => {
+                                    setEditData({});
+                                    toast.success('Row cleared (unsaved)');
+                                }} 
+                                className="p-0.5 text-muted hover:text-danger hover:bg-danger/10 rounded transition-colors" 
+                                title="Clear Row"
+                            >
+                                <Trash2 size={10} />
+                            </button>
                             <button onClick={handleCancelEdit} className="p-0.5 text-danger hover:bg-danger/10 rounded transition-colors" title="Cancel"><X size={10} /></button>
                         </div>
                     </div>

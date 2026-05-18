@@ -380,7 +380,7 @@ export const RosterTemplateModal: React.FC<RosterTemplateModalProps> = ({ shortn
                                                                             <label className="block text-[8px] font-black uppercase tracking-widest text-accent mb-2">Checkboxes (Tags)</label>
                                                                             <div className="flex flex-wrap gap-1.5 mb-2">
                                                                                 {col.checkboxes?.map((cb: any, cidx: number) => {
-                                                                                    const label = typeof cb === 'string' ? cb : cb.label;
+                                                                                    const label = typeof cb === 'string' ? cb : cb?.label;
                                                                                     const color = typeof cb === 'string' ? null : cb.color;
                                                                                     const autoField = typeof cb === 'string' ? null : cb.auto_apply_field;
 
@@ -406,7 +406,7 @@ export const RosterTemplateModal: React.FC<RosterTemplateModalProps> = ({ shortn
                                                                             <label className="block text-[8px] font-black uppercase tracking-widest text-accent mb-2">Right-Side Tags</label>
                                                                             <div className="flex flex-wrap gap-1.5 mb-2">
                                                                                 {col.tags?.map((tag: any, tidx: number) => {
-                                                                                    const label = typeof tag === 'string' ? tag : tag.label;
+                                                                                    const label = typeof tag === 'string' ? tag : tag?.label;
                                                                                     const color = typeof tag === 'string' ? null : tag.color;
                                                                                     const autoField = typeof tag === 'string' ? null : tag.auto_apply_field;
 

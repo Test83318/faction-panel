@@ -12,7 +12,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable(['username', 'password', 'is_superadmin', 'avatar_url', 'gtaw_id', 'gtaw_username', 'gtaw_access_token', 'membership_tier_id', 'always_match_row_height'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'gtaw_id', 'gtaw_username', 'gtaw_access_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -23,7 +23,7 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
-    protected $appends = ['max_factions', 'allow_custom_branding'];
+    protected $appends = ['max_factions', 'allow_custom_branding', 'gtaw_linked'];
 
     protected function casts(): array
     {
@@ -33,7 +33,13 @@ class User extends Authenticatable
             'membership_tier_id' => 'integer',
             'allow_custom_branding' => 'boolean',
             'always_match_row_height' => 'boolean',
+            'gtaw_linked' => 'boolean',
         ];
+    }
+
+    public function getGtawLinkedAttribute(): bool
+    {
+        return !empty($this->gtaw_access_token);
     }
 
     public function membershipTier()
@@ -208,9 +214,22 @@ class User extends Authenticatable
             ->max('weight') ?? 0;
     }
 
+    public function isGroupLeaderInFaction(int $factionId): bool
+    {
+        return $this->groups()
+            ->where('faction_id', $factionId)
+            ->wherePivot('is_leader', true)
+            ->exists();
+    }
+
     public static function hasRosterPermission(?User $user, Roster $roster, string $permissionKey): bool
     {
         $faction = $roster->faction;
+
+        // 0. Check for global 'view_faction_roster' if the key is 'view_roster'
+        if ($permissionKey === 'view_roster' && self::hasFactionPermission($user, $faction, 'view_faction_roster')) {
+            return true;
+        }
 
         // 1. Superadmin/Faction Leader/Global Roster Moderator/Creator always have access
         if ($user) {

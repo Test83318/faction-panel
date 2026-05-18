@@ -447,8 +447,8 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                                                 <td className="px-6 py-4">
                                                     <div className="flex flex-col">
                                                         <span className="font-bold">{u.username}</span>
-                                                        {u.gtaw_id ? (
-                                                            <span className="text-[9px] uppercase tracking-widest text-muted">{u.gtaw_username} (ID: {u.gtaw_id})</span>
+                                                        {u.gtaw_linked ? (
+                                                            <span className="text-[9px] uppercase tracking-widest text-muted">{u.gtaw_username} {u.gtaw_id ? `(ID: ${u.gtaw_id})` : '(Linked)'}</span>
                                                         ) : (
                                                             <span className="text-[9px] uppercase tracking-widest text-muted italic">Unlinked</span>
                                                         )}

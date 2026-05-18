@@ -29,6 +29,9 @@ Route::get('/setup/status', [SetupController::class, 'status']);
 Route::post('/setup', [SetupController::class, 'setup']);
 
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/login', function () {
+    return response()->json(['message' => 'Unauthenticated.'], 401);
+})->name('login');
 Route::post('/register', [AuthController::class, 'register']);
 Route::get('/auth/registration-status', [AuthController::class, 'registrationStatus']);
 Route::get('/auth/gtaw/redirect', [AuthController::class, 'gtawRedirect']);
@@ -45,6 +48,7 @@ Route::get('/permissions/config', [RoleController::class, 'getGlobalConfig']);
 Route::get('/factions/{shortname}', [FactionController::class, 'show']);
 Route::get('/factions/{shortname}/permissions', [FactionController::class, 'getPermissions']);
 Route::get('/factions/{shortname}/rosters', [RosterController::class, 'index']);
+Route::post('/rosters/resolve-links', [RosterController::class, 'resolveLinks']);
 Route::get('/factions/{shortname}/datasets', [DatasetController::class, 'index']);
 Route::get('/factions/{shortname}/flags', [RosterFlagController::class, 'index']);
 
@@ -111,7 +115,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Roster Management
     Route::post('/factions/{shortname}/rosters', [RosterController::class, 'store']);
-    Route::post('/rosters/resolve-links', [RosterController::class, 'resolveLinks']);
     Route::put('/rosters/{roster}', [RosterController::class, 'update']);
     Route::delete('/rosters/{roster}', [RosterController::class, 'destroy']);
     Route::put('/factions/{shortname}/rosters/reorder', [RosterController::class, 'reorder']);

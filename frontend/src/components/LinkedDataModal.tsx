@@ -23,10 +23,10 @@ export const LinkedDataModal: React.FC<LinkedDataModalProps> = ({
     const [step, setStep] = useState<'roster' | 'section' | 'row' | 'column'>('roster');
     
     const [selection, setSelection] = useState({
-        roster_id: initialData?.roster_id || null,
-        section_id: initialData?.section_id || null,
-        row_id: initialData?.row_id || null,
-        col_id: initialData?.col_id || null
+        roster_id: (initialData && typeof initialData === 'object') ? initialData.roster_id : null,
+        section_id: (initialData && typeof initialData === 'object') ? initialData.section_id : null,
+        row_id: (initialData && typeof initialData === 'object') ? initialData.row_id : null,
+        col_id: (initialData && typeof initialData === 'object') ? initialData.col_id : null
     });
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -34,12 +34,19 @@ export const LinkedDataModal: React.FC<LinkedDataModalProps> = ({
     useEffect(() => {
         if (isOpen) {
             fetchRosters();
-            if (initialData) {
+            if (initialData && typeof initialData === 'object') {
                 setSelection({
                     roster_id: initialData.roster_id || null,
                     section_id: initialData.section_id || null,
                     row_id: initialData.row_id || null,
                     col_id: initialData.col_id || null
+                });
+            } else {
+                setSelection({
+                    roster_id: null,
+                    section_id: null,
+                    row_id: null,
+                    col_id: null
                 });
             }
         }

@@ -63,7 +63,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
   const [scaling, setScaling] = useState(() => {
     const saved = localStorage.getItem('roster-scaling');
     const val = saved ? parseInt(saved) : 100;
-    return Math.min(130, Math.max(100, val));
+    return Math.min(130, Math.max(80, val));
   });
 
   useEffect(() => {
@@ -85,6 +85,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [globalEditingRowId, setGlobalEditingRowId] = useState<number | null>(null);
+  const [globalSaveTrigger, setGlobalSaveTrigger] = useState(0);
 
   // Real-time polling
   useEffect(() => {
@@ -130,6 +131,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
     name: '',
     shortname: '',
     color: '',
+    image_url: '',
     type: 'section' as 'master' | 'section' | 'subsection',
     parent_id: null as number | null,
     columns: null as any[] | null,
@@ -243,6 +245,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         name: '', 
         shortname: '', 
         color: '', 
+        image_url: '',
         type: 'section', 
         parent_id: null, 
         columns: null, 
@@ -346,6 +349,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         name: '',
         shortname: '',
         color: '',
+        image_url: '',
         type: 'section',
         parent_id: parentId,
         columns: null,
@@ -365,6 +369,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         name: section.name,
         shortname: section.shortname,
         color: section.color || '',
+        image_url: section.image_url || '',
         type: section.type,
         parent_id: section.parent_id,
         columns: section.columns,
@@ -439,7 +444,33 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
                         if (cond.type === 'rows') {
                             if (!cond.settings?.target_col) return true;
-                            const rawVal = content[cond.settings.target_col];
+                            
+                            // 1. Find the column ID in THIS roster that matches the target column name
+                            const targetColName = cond.settings.target_col; // Now storing name as ID
+                            const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
+                            
+                            // Find section-specific columns if the section doesn't use roster columns
+                            let currentCols = rosterCols;
+                            const findSection = (sections: any[]): any => {
+                                for (const s of sections) {
+                                    if (s.id === row.section_id) return s;
+                                    if (s.children) {
+                                        const found = findSection(s.children);
+                                        if (found) return found;
+                                    }
+                                }
+                                return null;
+                            };
+                            const roster = rosters.find((r: any) => r.id === (row.roster_id || activeDivId));
+                            const section = roster ? findSection(roster.root_sections || []) : null;
+                            if (section && !section.use_roster_columns && section.columns) {
+                                currentCols = section.columns;
+                            }
+
+                            const col = currentCols.find((c: any) => c.name === targetColName || c.id === targetColName);
+                            if (!col) return false;
+
+                            const rawVal = content[col.id];
                             
                             const disregardEmpty = cond.settings.disregard_empty !== undefined ? cond.settings.disregard_empty : true;
                             if (rawVal === null || rawVal === undefined || rawVal === '') {
@@ -448,8 +479,6 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
                             // Resolve ID to label if it matches a dataset option
                             let label = rawVal.toString();
-                            const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
-                            const col = rosterCols.find((colItem: any) => colItem.id === cond.settings.target_col);
                             if (col && col.dataset_id) {
                                 const dataset = datasets.find(d => d.id === col.dataset_id);
                                 const option = dataset?.options?.find((o: any) => String(o.id) === String(rawVal));
@@ -491,14 +520,28 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
                         if (cond.type === 'checkboxes') {
                             if (!cond.settings?.target_col || !cond.settings?.checkbox_label) return false;
-                            const rowCheckboxes = row.content?.[`${cond.settings.target_col}_cb`] || [];
-                            const rowTags = row.content?.[`${cond.settings.target_col}_tags`] || [];
+                            
+                            // Find matching column by name
+                            const targetColName = cond.settings.target_col;
+                            const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
+                            const col = rosterCols.find((c: any) => c.name === targetColName || c.id === targetColName);
+                            if (!col) return false;
+
+                            const rowCheckboxes = row.content?.[`${col.id}_cb`] || [];
+                            const rowTags = row.content?.[`${col.id}_tags`] || [];
                             return rowCheckboxes.includes(cond.settings.checkbox_label) || rowTags.includes(cond.settings.checkbox_label);
                         }
 
                         if (cond.type === 'tags') {
                             if (!cond.settings?.target_col || !cond.settings?.checkbox_label) return false;
-                            const rowTags = row.content?.[`${cond.settings.target_col}_tags`] || [];
+                            
+                            // Find matching column by name
+                            const targetColName = cond.settings.target_col;
+                            const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
+                            const col = rosterCols.find((c: any) => c.name === targetColName || c.id === targetColName);
+                            if (!col) return false;
+
+                            const rowTags = row.content?.[`${col.id}_tags`] || [];
                             return rowTags.includes(cond.settings.checkbox_label);
                         }
 
@@ -770,7 +813,22 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                             {canAddSections && (
                                 <button 
                                     onClick={() => {
-                                        setSectionData({ id: null, roster_id: activeDivId, name: '', shortname: '', color: '', type: 'section', parent_id: null, columns: null, use_roster_columns: true, children: [], layout_settings: null, subsections_per_row: 1, content_html: '' });
+                                        setSectionData({ 
+                                            id: null, 
+                                            roster_id: activeDivId, 
+                                            name: '', 
+                                            shortname: '', 
+                                            color: '', 
+                                            image_url: '',
+                                            type: 'section', 
+                                            parent_id: null, 
+                                            columns: null, 
+                                            use_roster_columns: true, 
+                                            children: [], 
+                                            layout_settings: null, 
+                                            subsections_per_row: 1, 
+                                            content_html: '' 
+                                        });
                                         setShowSectionModal(true);
                                     }}
                                     className="px-2 py-1 hover:bg-surface rounded text-muted hover:text-accent transition-colors flex items-center gap-1"
@@ -807,6 +865,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         onReorderRows={handleReorderRows}
                         globalEditingRowId={globalEditingRowId}
                         setGlobalEditingRowId={setGlobalEditingRowId}
+                        globalSaveTrigger={globalSaveTrigger}
                     />
                 ))}
 
@@ -845,6 +904,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                 onUpdateRowLocal={handleUpdateRowLocal}
                                 onReorderRows={handleReorderRows}                                globalEditingRowId={globalEditingRowId}
                                 setGlobalEditingRowId={setGlobalEditingRowId}
+                                globalSaveTrigger={globalSaveTrigger}
                                 syncedHeights={rowSyncedHeights}
                                 onRowHeightSync={rowOnRowHeightSync}
                               />
@@ -855,17 +915,19 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                     </SyncGridRow>
                   ))}
 
-                  <SyncGridRow 
-                    columns={activeDivision.default_sections_per_row || 2}
-                    className="grid gap-4 w-full items-start"
-                  >
-                    {({ syncedHeights: rowSyncedHeights, onRowHeightSync: rowOnRowHeightSync }) => (
-                        <>
-                            {activeDivision.root_sections?.filter((s: any) => {
+                  <div className="unassigned-sections-container">
+                    {activeDivision.layout_settings?.layout_mode === 'columns' ? (
+                      <div 
+                        className="grid gap-4 w-full items-start"
+                        style={{ gridTemplateColumns: `repeat(${activeDivision.default_sections_per_row || 2}, minmax(0, 1fr))` }}
+                      >
+                        {Array.from({ length: activeDivision.default_sections_per_row || 2 }).map((_, colIdx) => (
+                          <div key={colIdx} className="flex flex-col gap-4">
+                            {(activeDivision.root_sections || []).filter((s: any) => {
                                 if (s.type === 'master') return false;
                                 const inCustomRow = activeDivision.layout_settings?.rows?.some((r: any) => r.section_ids?.includes(s.id));
                                 return !inCustomRow;
-                            }).map((section: any) => (
+                            }).filter((_: any, idx: number) => idx % (activeDivision.default_sections_per_row || 2) === colIdx).map((section: any) => (
                                 <SectionCard 
                                     key={section.id} 
                                     section={section} 
@@ -886,15 +948,59 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                     rosterColor={activeDivision.color}
                                     onRefresh={fetchRosters}
                                     onUpdateRowLocal={handleUpdateRowLocal}
-                                    onReorderRows={handleReorderRows}                                    globalEditingRowId={globalEditingRowId}
+                                    onReorderRows={handleReorderRows}
+                                    globalEditingRowId={globalEditingRowId}
                                     setGlobalEditingRowId={setGlobalEditingRowId}
-                                    syncedHeights={rowSyncedHeights}
-                                    onRowHeightSync={rowOnRowHeightSync}
+                                    globalSaveTrigger={globalSaveTrigger}
                                 />
                             ))}
-                        </>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <SyncGridRow 
+                        columns={activeDivision.default_sections_per_row || 2}
+                        className="grid gap-4 w-full items-start"
+                      >
+                        {({ syncedHeights: rowSyncedHeights, onRowHeightSync: rowOnRowHeightSync }) => (
+                            <>
+                                {activeDivision.root_sections?.filter((s: any) => {
+                                    if (s.type === 'master') return false;
+                                    const inCustomRow = activeDivision.layout_settings?.rows?.some((r: any) => r.section_ids?.includes(s.id));
+                                    return !inCustomRow;
+                                }).map((section: any) => (
+                                    <SectionCard 
+                                        key={section.id} 
+                                        section={section} 
+                                        user={user}
+                                        canModerate={isGlobalMod}
+                                        permissions={rosterPerms}
+                                        onAddChild={handleAddChildSection}
+                                        onEdit={handleEditSection}
+                                        onManageCounts={(s) => setShowCountsModal({ target: s, type: 'section' })}
+                                        calculateCount={calculateCount}
+                                        columns={section.use_roster_columns ? (rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns) : (section.columns || rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns)}
+                                        rosterColumns={rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns}
+                                        datasets={datasets}
+                                        recordData={recordData}
+                                        allContents={allContents}
+                                        flags={flags}
+                                        editMode={editMode}
+                                        rosterColor={activeDivision.color}
+                                        onRefresh={fetchRosters}
+                                        onUpdateRowLocal={handleUpdateRowLocal}
+                                        onReorderRows={handleReorderRows}                                    globalEditingRowId={globalEditingRowId}
+                                        setGlobalEditingRowId={setGlobalEditingRowId}
+                                        globalSaveTrigger={globalSaveTrigger}
+                                        syncedHeights={rowSyncedHeights}
+                                        onRowHeightSync={rowOnRowHeightSync}
+                                    />
+                                ))}
+                            </>
+                        )}
+                      </SyncGridRow>
                     )}
-                  </SyncGridRow>
+                  </div>
                 </div>
 
                 {(!activeDivision.root_sections || activeDivision.root_sections.length === 0) && (
@@ -903,7 +1009,22 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         {canModerate && (
                             <button 
                                 onClick={() => {
-                                    setSectionData({ id: null, roster_id: activeDivId, name: '', shortname: '', color: '', type: 'section', parent_id: null, columns: null, children: [], layout_settings: null, subsections_per_row: 1 });
+                                    setSectionData({ 
+                                        id: null, 
+                                        roster_id: activeDivId, 
+                                        name: '', 
+                                        shortname: '', 
+                                        color: '', 
+                                        image_url: '',
+                                        type: 'section', 
+                                        parent_id: null, 
+                                        columns: null, 
+                                        use_roster_columns: true,
+                                        children: [], 
+                                        layout_settings: null, 
+                                        subsections_per_row: 1,
+                                        content_html: ''
+                                    });
                                     setShowSectionModal(true);
                                 }}
                                 className="mt-4 px-4 py-2 bg-accent/10 hover:bg-accent/20 text-accent rounded font-bold text-[10px] uppercase tracking-widest transition-all"
@@ -932,9 +1053,20 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
       {/* Compact Accessibility Controls - OUTSIDE main scaled container */}
       <div className="fixed bottom-12 right-6 z-[300] flex items-center gap-2">
+          {globalEditingRowId !== null && (
+              <button 
+                  onClick={() => setGlobalSaveTrigger(prev => prev + 1)}
+                  className="h-9 px-4 bg-accent text-white rounded-lg shadow-[0_0_20px_rgba(var(--accent-rgb),0.4)] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-accent/90 active:scale-95 transition-all animate-in slide-in-from-right-4 duration-300 relative overflow-hidden group/save"
+              >
+                  <div className="absolute inset-0 bg-white/20 group-hover/save:translate-x-full -translate-x-full transition-transform duration-500 skew-x-12" />
+                  <div className="absolute inset-0 bg-accent animate-pulse opacity-50 blur-xl -z-10" />
+                  <Plus size={14} className="rotate-45" />
+                  Save & Finish Editing
+              </button>
+          )}
           <div className="flex items-center bg-card border border-border rounded-lg shadow-xl overflow-hidden h-9">
               <button 
-                  onClick={() => setScaling(Math.max(100, scaling - 5))}
+                  onClick={() => setScaling(Math.max(80, scaling - 5))}
                   className="w-9 h-full flex items-center justify-center hover:bg-surface text-muted hover:text-accent transition-colors border-r border-border active:scale-95"
                   title="Zoom Out"
               >
@@ -1533,7 +1665,27 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
             target={showCountsModal.target}
             type={showCountsModal.type}
             shortname={shortname!}
-            columns={showCountsModal.type === 'roster' ? showCountsModal.target.columns : (rosters.find((r: any) => r.id === showCountsModal.target.roster_id || activeDivId)?.columns || [])}
+            columns={(() => {
+                const rosterId = showCountsModal.type === 'roster' ? showCountsModal.target.id : (showCountsModal.target.roster_id || activeDivId);
+                const roster = rosters.find(r => r.id === rosterId);
+                if (!roster) return [];
+                
+                // Get roster columns
+                let cols = [...(roster.columns || [])];
+                
+                // Get all section-specific columns
+                const getSectionCols = (sections: any[]) => {
+                    sections.forEach(s => {
+                        if (!s.use_roster_columns && s.columns) {
+                            cols.push(...s.columns);
+                        }
+                        if (s.children) getSectionCols(s.children);
+                    });
+                };
+                getSectionCols(roster.root_sections || []);
+                
+                return cols;
+            })()}
             flags={flags}
             allSections={(() => {
                 const rosterId = showCountsModal.type === 'roster' ? showCountsModal.target.id : (showCountsModal.target.roster_id || activeDivId);

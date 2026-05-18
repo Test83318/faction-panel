@@ -82,8 +82,27 @@ const FactionSnapshots: React.FC = () => {
         }
     };
 
-    const handleDownload = (id: number) => {
-        window.open(`${api.defaults.baseURL}/snapshots/${id}/download`, '_blank');
+    const handleDownload = async (snapshot: any) => {
+        const loadToast = toast.loading('Preparing download...');
+        try {
+            const response = await api.get(`/snapshots/${snapshot.id}/download`, {
+                responseType: 'blob'
+            });
+            
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/json' }));
+            const link = document.createElement('a');
+            link.href = url;
+            const filename = `snapshot_${shortname}_${new Date(snapshot.created_at).toISOString().split('T')[0]}.json`;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            
+            toast.success('Download started', { id: loadToast });
+        } catch (err) {
+            toast.error('Failed to download snapshot', { id: loadToast });
+        }
     };
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -172,7 +191,7 @@ const FactionSnapshots: React.FC = () => {
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <button 
-                                                onClick={() => handleDownload(s.id)}
+                                                onClick={() => handleDownload(s)}
                                                 className="p-2 text-muted hover:text-text hover:bg-surface rounded-lg transition-all"
                                                 title="Download Snapshot"
                                             >

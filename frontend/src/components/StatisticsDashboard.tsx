@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Plus, BarChart3, PieChart, LineChart, Table as TableIcon, RefreshCw, MoreVertical, Settings2, Trash2, Shield, AlertTriangle, Clock, ChevronLeft, Layout } from 'lucide-react';
+import { Plus, BarChart3, PieChart, LineChart, Table as TableIcon, RefreshCw, MoreVertical, Settings2, Trash2, Shield, AlertTriangle, Clock, ChevronLeft, Layout, Hash, Target } from 'lucide-react';
 import api from '../api';
 import { StatisticsModel, StatisticsWidget } from '../types';
 import toast from 'react-hot-toast';
@@ -93,6 +93,151 @@ export const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({ shortn
     }
 
     const total = data.reduce((acc: number, cur: any) => acc + (cur.value || 0), 0);
+
+    if (widget.type === 'stat') {
+        const colors = ['#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
+        return (
+            <div className="grid grid-cols-1 gap-4 py-2">
+                {data.map((item: any, idx: number) => (
+                    <div key={idx} className="relative group overflow-hidden bg-surface/30 border border-border/50 rounded-2xl p-6 hover:border-accent/40 transition-all duration-500 hover:shadow-2xl hover:shadow-accent/5">
+                        <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none">
+                            <Hash size={120} />
+                        </div>
+                        <div className="flex items-center justify-between mb-4 relative z-10">
+                            <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-6 rounded-full" style={{ backgroundColor: item.color || colors[idx % colors.length] }} />
+                                <span className="text-[10px] font-black text-muted uppercase tracking-widest">{item.name}</span>
+                            </div>
+                            <div className="px-2 py-0.5 bg-accent/10 rounded text-accent text-[8px] font-black uppercase tracking-widest">Live Metric</div>
+                        </div>
+                        <div className="flex items-end gap-3 relative z-10">
+                            <motion.span 
+                                initial={{ y: 20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                className="text-5xl font-black text-text tracking-tighter tabular-nums"
+                            >
+                                {typeof item.value === 'number' && item.value % 1 !== 0 ? item.value.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : item.value.toLocaleString()}
+                            </motion.span>
+                            <div className="flex flex-col mb-1.5">
+                                <span className="text-[10px] font-black text-accent uppercase tracking-widest leading-none">Total</span>
+                                <span className="text-[8px] font-bold text-muted uppercase tracking-widest mt-1">Calculated Now</span>
+                            </div>
+                        </div>
+                        <div className="mt-6 pt-4 border-t border-border/50 flex items-center justify-between relative z-10">
+                            <div className="flex items-center gap-1.5 text-success font-black text-[9px] uppercase tracking-widest">
+                                <RefreshCw size={10} className="animate-spin-slow" /> Validated
+                            </div>
+                            <span className="text-[8px] font-bold text-muted uppercase tracking-widest">ID: {widget.id}{idx}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
+    if (widget.type === 'radar') {
+        const colors = ['#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
+        const max = Math.max(...data.map((i: any) => i.value)) || 1;
+        const radius = 80;
+        const centerX = 100;
+        const centerY = 100;
+        const count = data.length;
+
+        const getPoint = (idx: number, val: number) => {
+            const angle = (Math.PI * 2 * idx) / count - Math.PI / 2;
+            const r = (val / max) * radius;
+            return {
+                x: centerX + r * Math.cos(angle),
+                y: centerY + r * Math.sin(angle)
+            };
+        };
+
+        const points = data.map((item: any, idx: number) => {
+            const p = getPoint(idx, item.value);
+            return `${p.x},${p.y}`;
+        }).join(' ');
+
+        const gridLevels = [0.2, 0.4, 0.6, 0.8, 1];
+
+        return (
+            <div className="flex flex-col items-center gap-6 py-4">
+                <div className="relative w-64 h-64 shrink-0">
+                    <svg viewBox="0 0 200 200" className="w-full h-full overflow-visible">
+                        <defs>
+                            <linearGradient id={`radar-grad-${widget.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.4" />
+                                <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.1" />
+                            </linearGradient>
+                        </defs>
+                        
+                        {/* Grid */}
+                        {gridLevels.map(level => (
+                            <polygon
+                                key={level}
+                                points={data.map((_: any, i: number) => {
+                                    const p = getPoint(i, max * level);
+                                    return `${p.x},${p.y}`;
+                                }).join(' ')}
+                                fill="none"
+                                stroke="var(--border)"
+                                strokeWidth="0.5"
+                                strokeDasharray="2 2"
+                            />
+                        ))}
+                        
+                        {/* Axes */}
+                        {data.map((_: any, i: number) => {
+                            const p = getPoint(i, max);
+                            return (
+                                <line
+                                    key={i}
+                                    x1={centerX} y1={centerY} x2={p.x} y2={p.y}
+                                    stroke="var(--border)" strokeWidth="0.5" strokeOpacity="0.3"
+                                />
+                            );
+                        })}
+
+                        {/* Data Polygon */}
+                        <motion.polygon
+                            initial={{ opacity: 0, scale: 0 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 1 }}
+                            points={points}
+                            fill={`url(#radar-grad-${widget.id})`}
+                            stroke="var(--accent)"
+                            strokeWidth="2"
+                            strokeLinejoin="round"
+                        />
+
+                        {/* Labels (placed outside the radar) */}
+                        {data.map((item: any, i: number) => {
+                            const p = getPoint(i, max * 1.15);
+                            return (
+                                <text
+                                    key={i}
+                                    x={p.x}
+                                    y={p.y}
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                    className="text-[6px] font-black uppercase fill-muted tracking-tighter"
+                                >
+                                    {item.name}
+                                </text>
+                            );
+                        })}
+                    </svg>
+                </div>
+                <div className="w-full grid grid-cols-2 gap-2">
+                    {data.map((item: any, idx: number) => (
+                        <div key={idx} className="flex items-center justify-between p-2 bg-surface/30 rounded-xl border border-border/50">
+                            <span className="text-[8px] font-black text-muted uppercase tracking-widest truncate max-w-[80px]">{item.name}</span>
+                            <span className="text-[10px] font-black text-text">{item.value}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
 
     if (widget.type === 'pie') {
       const colors = ['#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];

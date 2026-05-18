@@ -18,6 +18,7 @@ class RosterSectionController extends Controller
 
         $renameMap = [];
         $validMap = [];
+        $clearMap = [];
 
         foreach ($columns as $newCol) {
             $colId = $newCol['id'];
@@ -32,6 +33,11 @@ class RosterSectionController extends Controller
             ];
 
             if ($oldCol) {
+                // If the type changed, we should clear the data for this column
+                if (($oldCol['type'] ?? null) !== ($newCol['type'] ?? null)) {
+                    $clearMap[] = $colId;
+                }
+
                 $oldCbs = $oldCol['checkboxes'] ?? [];
                 $newCbs = $newCol['checkboxes'] ?? [];
                 
@@ -66,6 +72,13 @@ class RosterSectionController extends Controller
             if (!$data || !is_array($data)) continue;
 
             $changed = false;
+            foreach ($clearMap as $colId) {
+                if (isset($data[$colId])) {
+                    unset($data[$colId]);
+                    $changed = true;
+                }
+            }
+
             foreach ($validMap as $colId => $valids) {
                 // Handle Checkboxes
                 $cbKey = "{$colId}_cb";

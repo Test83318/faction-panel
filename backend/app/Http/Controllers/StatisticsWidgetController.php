@@ -30,7 +30,7 @@ class StatisticsWidgetController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'type' => ['required', Rule::in(['pie', 'bar', 'line', 'table'])],
+            'type' => ['required', Rule::in(['pie', 'bar', 'line', 'table', 'stat', 'radar'])],
             'configuration' => 'required|array',
             'width' => 'integer|min:1|max:12',
             'order' => 'integer',
@@ -62,7 +62,7 @@ class StatisticsWidgetController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
-            'type' => ['sometimes', Rule::in(['pie', 'bar', 'line', 'table'])],
+            'type' => ['sometimes', Rule::in(['pie', 'bar', 'line', 'table', 'stat', 'radar'])],
             'configuration' => 'sometimes|array',
             'width' => 'sometimes|integer|min:1|max:12',
             'order' => 'sometimes|integer',
