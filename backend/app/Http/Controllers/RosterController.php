@@ -304,6 +304,7 @@ class RosterController extends Controller
             'layout_settings' => 'nullable|array',
             'default_sections_per_row' => 'nullable|integer|min:1|max:4',
             'section_order' => 'nullable|array',
+            'created_by' => 'nullable|integer|exists:users,id',
         ]);
 
         // Authorization logic for specific fields
@@ -311,8 +312,8 @@ class RosterController extends Controller
 
         // Critical settings (name, color, shortname) -> modify_roster
         if ($canModify) {
-            foreach(['name', 'shortname', 'color', 'roster_options', 'counts'] as $field) {
-                if (isset($validated[$field])) $toUpdate[$field] = $validated[$field];
+            foreach(['name', 'shortname', 'color', 'roster_options', 'counts', 'created_by'] as $field) {
+                if (isset($validated[$field]) || array_key_exists($field, $validated)) $toUpdate[$field] = $validated[$field];
             }
         }
 

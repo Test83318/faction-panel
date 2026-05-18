@@ -109,6 +109,7 @@ class StatisticsController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
+            'created_by' => 'nullable|integer|exists:users,id',
         ]);
 
         $model->update($validated);

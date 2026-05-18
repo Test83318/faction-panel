@@ -109,6 +109,7 @@ export interface Roster {
   layout_settings?: any;
   default_sections_per_row?: number;
   root_sections?: RosterSection[];
+  created_by: number | null;
 }
 
 export interface Group {
@@ -146,7 +147,7 @@ export interface FactionRecordDatabase {
   permissions: any;
   is_api_database: boolean;
   is_published: boolean;
-  created_by: number;
+  created_by: number | null;
   creator?: {
     id: number;
     username: string;
@@ -232,7 +233,7 @@ export interface StatisticsModel {
   faction_id: number;
   name: string;
   description: string | null;
-  created_by: number;
+  created_by: number | null;
   widgets_count?: number;
   widgets?: StatisticsWidget[];
   creator?: {

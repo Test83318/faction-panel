@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Shield, Users, Plus, Trash2, Check, Info, Award } from 'lucide-react';
+import { X, Shield, Users, Plus, Trash2, Check, Info, Award, User, Crown } from 'lucide-react';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { Roster, RosterPermission, Group, Role } from '../types';
@@ -26,20 +26,24 @@ export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ 
     const [permissions, setPermissions] = useState<RosterPermission[]>([]);
     const [groups, setGroups] = useState<Group[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
+    const [factionMembers, setFactionMembers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddTarget, setShowAddTarget] = useState(false);
+    const [currentOwnerId, setCurrentOwnerId] = useState<number | null>(roster.created_by);
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [permRes, groupRes, roleRes] = await Promise.all([
+            const [permRes, groupRes, roleRes, memberRes] = await Promise.all([
                 api.get(`/rosters/${roster.id}/permissions`),
                 api.get(`/factions/${shortname}/groups`),
-                api.get(`/factions/${shortname}/roles`)
+                api.get(`/factions/${shortname}/roles`),
+                api.get(`/factions/${shortname}/users`)
             ]);
             setPermissions(permRes.data);
             setGroups(groupRes.data);
             setRoles(roleRes.data);
+            setFactionMembers(memberRes.data);
         } catch (err) {
             toast.error('Failed to load permissions');
         } finally {
@@ -83,6 +87,44 @@ export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ 
             toast.success('Permission updated', { id: loadToast });
         } catch (err) {
             toast.error('Failed to update permission', { id: loadToast });
+        }
+    };
+
+    const handleSelectAll = async (groupId: number | null, roleId: number | null) => {
+        const allPerms = AVAILABLE_PERMISSIONS.map(p => p.key);
+        const loadToast = toast.loading('Updating permissions...');
+        try {
+            const res = await api.put(`/rosters/${roster.id}/permissions`, {
+                group_id: groupId,
+                role_id: roleId,
+                permissions: allPerms
+            });
+            
+            setPermissions(prev => {
+                const index = prev.findIndex(p => p.group_id === groupId && p.role_id === roleId);
+                if (index > -1) {
+                    const updated = [...prev];
+                    updated[index] = res.data;
+                    return updated;
+                }
+                return [...prev, res.data];
+            });
+            toast.success('All permissions granted', { id: loadToast });
+        } catch (err) {
+            toast.error('Failed to update permissions', { id: loadToast });
+        }
+    };
+
+    const handleUpdateOwner = async (ownerId: number | null) => {
+        const loadToast = toast.loading('Updating owner...');
+        try {
+            await api.put(`/rosters/${roster.id}`, {
+                created_by: ownerId
+            });
+            setCurrentOwnerId(ownerId);
+            toast.success(ownerId === null ? 'Roster is now faction-owned' : 'Owner updated successfully', { id: loadToast });
+        } catch (err) {
+            toast.error('Failed to update owner', { id: loadToast });
         }
     };
 
@@ -143,12 +185,45 @@ export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ 
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 flex gap-4 items-start">
-                        <Info className="text-accent shrink-0" size={20} />
-                        <div className="text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                            <p className="text-accent mb-1">Automatic Access:</p>
-                            <p className="opacity-80">Global Roster Moderators and the Roster Creator always have full administrative access regardless of these settings.</p>
+                <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 flex gap-4 items-start h-fit">
+                            <Info className="text-accent shrink-0" size={20} />
+                            <div className="text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                                <p className="text-accent mb-1">Automatic Access:</p>
+                                <p className="opacity-80">Global Roster Moderators and the Roster Creator always have full administrative access regardless of these settings.</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
+                            <div className="flex items-center gap-2 text-accent">
+                                <Crown size={18} />
+                                <h3 className="text-[11px] font-black uppercase tracking-widest">Ownership & Management</h3>
+                            </div>
+                            <div className="space-y-4">
+                                <div>
+                                    <p className="text-[8px] font-black text-muted uppercase tracking-[0.2em] mb-2 px-1">Current Owner</p>
+                                    <div className="flex gap-2">
+                                        <select 
+                                            value={currentOwnerId || ''} 
+                                            onChange={(e) => handleUpdateOwner(e.target.value ? parseInt(e.target.value) : null)}
+                                            className="flex-1 bg-card border border-border rounded-lg px-3 py-2 text-[10px] font-bold uppercase tracking-widest outline-none focus:border-accent transition-colors"
+                                        >
+                                            <option value="">Faction Owned (No Individual Creator)</option>
+                                            {factionMembers.map(member => (
+                                                <option key={member.id} value={member.id}>{member.username}</option>
+                                            ))}
+                                        </select>
+                                        <button 
+                                            onClick={() => handleUpdateOwner(null)}
+                                            className="px-3 py-2 bg-surface hover:bg-accent/10 border border-border hover:border-accent text-muted hover:text-accent rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"
+                                            title="Set as Faction Owned"
+                                        >
+                                            Factionize
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -250,8 +325,17 @@ export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ 
                                                         <div className="text-[11px] font-black uppercase tracking-tight">
                                                             {entry.group_id === null && entry.role_id === null ? 'Everyone / Public' : (entry.role_id ? entry.role?.name : entry.group?.name)}
                                                         </div>
-                                                        <div className="text-[8px] font-bold text-muted uppercase tracking-widest opacity-60">
-                                                            {entry.group_id === null && entry.role_id === null ? 'All faction members' : (entry.role_id ? 'Specific site role' : 'Specific group members')}
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="text-[8px] font-bold text-muted uppercase tracking-widest opacity-60">
+                                                                {entry.group_id === null && entry.role_id === null ? 'All faction members' : (entry.role_id ? 'Specific site role' : 'Specific group members')}
+                                                            </div>
+                                                            <span className="text-[8px] text-muted">•</span>
+                                                            <button 
+                                                                onClick={() => handleSelectAll(entry.group_id, entry.role_id)}
+                                                                className="text-[8px] font-black text-accent uppercase tracking-widest hover:underline"
+                                                            >
+                                                                Select All
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 </div>

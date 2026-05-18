@@ -81,6 +81,7 @@ class FactionRecordController extends Controller
             'detail_customization' => 'sometimes|nullable|array',
             'permissions' => 'nullable|array',
             'is_published' => 'sometimes|boolean',
+            'created_by' => 'nullable|integer|exists:users,id',
         ]);
 
         if ($database->is_api_database) {

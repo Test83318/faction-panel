@@ -1,3 +1,0 @@
-DOCKER?:
-
-We're gonna modify docker so that it only does frontend, backend on the other hand can be handled by HestiaCP in-of-itself.
