@@ -150,6 +150,10 @@ class DynamicSectionService
             $val = $item['data'][$matchField] ?? null;
             $targetVal = $rule['value'] ?? null;
 
+            // Ensure we are working with strings to prevent TypeErrors in trim/strtolower
+            $val = is_string($val) ? $val : '';
+            $targetVal = is_string($targetVal) ? $targetVal : '';
+
             switch ($type) {
                 case 'equals':
                     return strtolower(trim($val)) === strtolower(trim($targetVal));
@@ -283,7 +287,7 @@ class DynamicSectionService
                 foreach ($sec->contents as $cont) {
                     if ($cont->type === 'spacer') continue;
                     $val = $cont->content[$field] ?? null;
-                    if ($val) $values[] = strtolower(trim($val));
+                    if ($val && is_string($val)) $values[] = strtolower(trim($val));
                 }
             }
         }
@@ -336,6 +340,10 @@ class DynamicSectionService
         $val = $item['data'][$condField] ?? null;
         $targetVal = $rule['condition_value'] ?? null;
         $op = $rule['condition_operator'] ?? 'equals';
+
+        // Ensure we are working with strings to prevent TypeErrors in trim/strtolower
+        $val = is_string($val) ? $val : '';
+        $targetVal = is_string($targetVal) ? $targetVal : '';
 
         switch ($op) {
             case 'equals': return strtolower(trim($val)) === strtolower(trim($targetVal));

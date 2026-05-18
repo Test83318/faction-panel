@@ -12,11 +12,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // PostgreSQL handles enums with CHECK constraints. We need to drop the old one and add the new one.
-        Schema::table('statistics_widgets', function (Blueprint $table) {
+        if (DB::getDriverName() === 'pgsql') {
+            // PostgreSQL handles enums with CHECK constraints.
             DB::statement('ALTER TABLE statistics_widgets DROP CONSTRAINT IF EXISTS statistics_widgets_type_check');
             DB::statement("ALTER TABLE statistics_widgets ADD CONSTRAINT statistics_widgets_type_check CHECK (type::text IN ('pie', 'bar', 'line', 'table', 'stat', 'radar'))");
-        });
+        } else {
+            // For SQLite and others, we use standard change()
+            Schema::table('statistics_widgets', function (Blueprint $table) {
+                $table->string('type')->default('pie')->change();
+            });
+        }
     }
 
     /**
@@ -24,9 +29,13 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('statistics_widgets', function (Blueprint $table) {
+        if (DB::getDriverName() === 'pgsql') {
             DB::statement('ALTER TABLE statistics_widgets DROP CONSTRAINT IF EXISTS statistics_widgets_type_check');
             DB::statement("ALTER TABLE statistics_widgets ADD CONSTRAINT statistics_widgets_type_check CHECK (type::text IN ('pie', 'bar', 'line', 'table'))");
-        });
+        } else {
+            Schema::table('statistics_widgets', function (Blueprint $table) {
+                $table->string('type')->default('pie')->change();
+            });
+        }
     }
 };
