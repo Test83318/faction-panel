@@ -118,6 +118,21 @@ class User extends Authenticatable
         return $this->belongsToMany(Group::class)->withPivot('is_leader')->withTimestamps();
     }
 
+    public function ownedRosters()
+    {
+        return $this->hasMany(Roster::class, 'created_by');
+    }
+
+    public function ownedDatabases()
+    {
+        return $this->hasMany(FactionRecordDatabase::class, 'created_by');
+    }
+
+    public function ownedStatistics()
+    {
+        return $this->hasMany(StatisticsModel::class, 'created_by');
+    }
+
     public static function hasFactionPermission(?User $user, Faction $faction, string $permissionKey): bool
     {
         if ($user && $user->is_superadmin) {

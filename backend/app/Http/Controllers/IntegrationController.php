@@ -55,7 +55,7 @@ class IntegrationController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         
-        if (!Auth::user()->hasPermission('manage_integrations', $faction->id)) {
+        if (!Auth::user()->hasPermission('sync_gtaw', $faction->id)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -90,7 +90,7 @@ class IntegrationController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         
-        if (!Auth::user()->hasPermission('manage_integrations', $faction->id)) {
+        if (!Auth::user()->hasPermission('sync_gtaw', $faction->id)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -451,7 +451,7 @@ class IntegrationController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         
-        if (!Auth::user()->hasPermission('manage_integrations', $faction->id)) {
+        if (!Auth::user()->hasPermission('sync_gtaw', $faction->id)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

@@ -62,6 +62,16 @@ return [
                 ],
             ],
         ],
+        'gtaw_sync' => [
+            'name' => 'GTA:W Sync',
+            'permissions' => [
+                'sync_gtaw' => [
+                    'name' => 'Sync with GTA:W',
+                    'description' => 'Allows the user to manually trigger a synchronization with GTA World.',
+                    'type' => 'MODIFY',
+                ],
+            ],
+        ],
         'administration' => [
             'name' => 'Administration',
             'permissions' => [
@@ -123,11 +133,6 @@ return [
                 'manage_invites' => [
                     'name' => 'Manage Invites',
                     'description' => 'Allows creating and deleting faction invite links.',
-                    'type' => 'MODIFY',
-                ],
-                'manage_integrations' => [
-                    'name' => 'Manage Integrations',
-                    'description' => 'Allows setting up and managing third-party integrations (e.g., GTA:W).',
                     'type' => 'MODIFY',
                 ],
                 'modify_global_quick_search' => [

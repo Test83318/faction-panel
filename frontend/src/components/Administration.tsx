@@ -5,7 +5,7 @@ import api from '../api';
 import Loading from './Loading';
 import QuickSearchSettings from './QuickSearchSettings';
 import { useConfirm } from './ConfirmationProvider';
-import { Shield, Settings, Trash2, Edit2, Check, X, Plus, Save, Info, Key, Users, UserMinus, ShieldAlert, Crown, UserCog, Copy, Link as LinkIcon, Clock, Upload, LayoutGrid, Eye, Moon, Sun, Search } from 'lucide-react';
+import { Shield, Settings, Trash2, Edit2, Check, X, Plus, Save, Info, Key, Users, UserMinus, ShieldAlert, Crown, UserCog, Copy, Link as LinkIcon, Clock, Upload, LayoutGrid, Eye, Moon, Sun, Search, ChevronLeft, ChevronRight, PieChart, Database, Layout, RefreshCw } from 'lucide-react';
 
 const Administration: React.FC<{ faction: any; user: any; permissions: string[] }> = ({ faction, user, permissions }) => {
     const hasPerm = (perm: string) => user?.is_superadmin || permissions.includes(perm);
@@ -21,13 +21,16 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
         { id: 'roles', perm: 'view_permissions' },
         { id: 'users', perm: 'view_users' },
         { id: 'invites', perm: 'manage_invites' },
-        { id: 'integrations', perm: 'manage_integrations' },
+        { id: 'integrations', perm: 'sync_gtaw' },
         { id: 'quick_search', perm: 'modify_global_quick_search' }
     ].filter(tab => hasPerm(tab.perm));
 
     const [activeTab, setActiveTab] = useState(availableTabs.length > 0 ? availableTabs[0].id : '');
     const [roles, setRoles] = useState<any[]>([]);
     const [members, setMembers] = useState<any[]>([]);
+    const [pagination, setPagination] = useState<any>(null);
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(1);
     const [config, setConfig] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [fetchingMembers, setFetchingMembers] = useState(false);
@@ -39,6 +42,9 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
     const [editingMember, setEditingMember] = useState<any>(null);
     const [memberRoleIds, setMemberRoleIds] = useState<number[]>([]);
     const [savingMemberRoles, setSavingMemberRoles] = useState(false);
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [selectedMemberProfile, setSelectedMemberProfile] = useState<any>(null);
+    const [fetchingProfile, setFetchingProfile] = useState(false);
 
     // Invites State
     const [invites, setInvites] = useState<any[]>([]);
@@ -107,15 +113,37 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
         }
     };
 
-    const fetchMembers = async () => {
+    const fetchMembers = async (pageToFetch = 1, searchQuery = '') => {
         setFetchingMembers(true);
         try {
-            const res = await api.get(`/factions/${faction.shortname}/users`);
-            setMembers(res.data);
+            const res = await api.get(`/factions/${faction.shortname}/users`, {
+                params: {
+                    page: pageToFetch,
+                    search: searchQuery
+                }
+            });
+            setMembers(res.data.data);
+            setPagination(res.data);
+            setPage(pageToFetch);
         } catch (err) {
             toast.error('Failed to fetch members');
         } finally {
             setFetchingMembers(false);
+        }
+    };
+
+    const openProfile = async (member: any) => {
+        setFetchingProfile(true);
+        setShowProfileModal(true);
+        setSelectedMemberProfile(null);
+        try {
+            const res = await api.get(`/factions/${faction.shortname}/users/${member.id}`);
+            setSelectedMemberProfile(res.data);
+        } catch (err) {
+            toast.error('Failed to fetch member profile');
+            setShowProfileModal(false);
+        } finally {
+            setFetchingProfile(false);
         }
     };
 
@@ -172,6 +200,14 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
             fetchAvailableFactions();
         }
     }, [activeTab]);
+
+    useEffect(() => {
+        if (activeTab !== 'users') return;
+        const timer = setTimeout(() => {
+            fetchMembers(1, search);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [search]);
 
     const handleRemoveMember = async (targetUser: any) => {
         const confirmed = await confirm({
@@ -444,13 +480,13 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                             {tab.id === 'roles' && <Key size={14} />}
                             {tab.id === 'users' && <Users size={14} />}
                             {tab.id === 'invites' && <LinkIcon size={14} />}
-                            {tab.id === 'integrations' && <ShieldAlert size={14} />}
+                            {tab.id === 'integrations' && <RefreshCw size={14} />}
                             {tab.id === 'quick_search' && <Search size={14} />}
                             {tab.id === 'details' && 'Faction Details'}
                             {tab.id === 'roles' && 'Ranks & Permissions'}
                             {tab.id === 'users' && 'Users'}
                             {tab.id === 'invites' && 'Invites'}
-                            {tab.id === 'integrations' && 'Integrations'}
+                            {tab.id === 'integrations' && 'GTA:W Sync'}
                             {tab.id === 'quick_search' && 'Quick Search'}
                         </div>
                         {activeTab === tab.id && <motion.div layoutId="adminTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
@@ -802,20 +838,34 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
 
                 {activeTab === 'users' && (
                     <motion.div key="users" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="bg-card border border-border rounded-lg overflow-hidden flex flex-col">
-                        <div className="p-4 border-b border-border bg-border/10 flex justify-between items-center">
+                        <div className="p-4 border-b border-border bg-border/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                             <div><h3 className="font-bold text-lg flex items-center gap-2 text-text"><Users size={18} className="text-accent" /> Faction Members</h3></div>
+                            <div className="relative w-full sm:w-64">
+                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                                <input 
+                                    type="text" 
+                                    placeholder="Search members..." 
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    className="w-full bg-surface border border-border pl-9 pr-3 py-1.5 rounded text-sm text-text focus:border-accent outline-none transition"
+                                />
+                            </div>
                         </div>
-                        <div className="p-4 overflow-auto">
+                        <div className="p-4 overflow-auto min-h-[400px]">
                             {fetchingMembers ? <Loading message="Fetching Members..." fullScreen={false} /> : (
                                 <table className="w-full text-left border-collapse">
                                     <thead><tr className="border-b border-border"><th className="py-3 px-4 text-[10px] font-bold text-muted uppercase">User</th><th className="py-3 px-4 text-[10px] font-bold text-muted uppercase text-right">Actions</th></tr></thead>
                                     <tbody>
                                         {members.map((member: any) => (
-                                            <tr key={member.id} className="border-b border-border/50 hover:bg-surface transition-colors group">
+                                            <tr 
+                                                key={member.id} 
+                                                onClick={() => openProfile(member)}
+                                                className="border-b border-border/50 hover:bg-surface transition-colors group cursor-pointer"
+                                            >
                                                 <td className="py-4 px-4">
                                                     <div className="flex flex-col">
                                                         <div className="flex items-center gap-2">
-                                                            <span className="font-bold text-sm text-text">{member.username}</span>
+                                                            <span className="font-bold text-sm text-text group-hover:text-accent transition-colors">{member.username}</span>
                                                             {faction.faction_leader === member.id && (
                                                                 <Crown size={14} className="text-yellow-500" />
                                                             )}
@@ -834,12 +884,15 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                                     </div>
                                                 </td>
                                                 <td className="py-4 px-4 text-right">
-                                                    {faction.faction_leader !== member.id && userHighestWeight > Math.max(0, ...member.roles.map((r: any) => r.weight || 0)) && (
-                                                        <div className="flex justify-end gap-2">
-                                                            {hasPerm('change_ranks') && <button onClick={() => openRankModal(member)} className="p-1.5 hover:text-accent rounded"><UserCog size={16} /></button>}
-                                                            {hasPerm('remove_users') && <button onClick={() => handleRemoveMember(member)} className="p-1.5 hover:text-danger rounded"><UserMinus size={16} /></button>}
-                                                        </div>
-                                                    )}
+                                                    <div className="flex justify-end gap-2" onClick={e => e.stopPropagation()}>
+                                                        {faction.faction_leader !== member.id && userHighestWeight > Math.max(0, ...member.roles.map((r: any) => r.weight || 0)) && (
+                                                            <>
+                                                                {hasPerm('change_ranks') && <button onClick={() => openRankModal(member)} className="p-1.5 hover:text-accent rounded transition-colors"><UserCog size={16} /></button>}
+                                                                {hasPerm('remove_users') && <button onClick={() => handleRemoveMember(member)} className="p-1.5 hover:text-danger rounded transition-colors"><UserMinus size={16} /></button>}
+                                                            </>
+                                                        )}
+                                                        <button onClick={() => openProfile(member)} className="p-1.5 hover:text-accent rounded transition-colors"><Eye size={16} /></button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -847,6 +900,29 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                 </table>
                             )}
                         </div>
+                        {pagination && pagination.last_page > 1 && (
+                            <div className="p-4 border-t border-border bg-border/5 flex justify-between items-center">
+                                <div className="text-[10px] text-muted font-bold uppercase tracking-widest">
+                                    Showing {pagination.from} to {pagination.to} of {pagination.total} users
+                                </div>
+                                <div className="flex gap-2">
+                                    <button 
+                                        disabled={page === 1}
+                                        onClick={() => fetchMembers(page - 1, search)}
+                                        className="p-1.5 bg-surface border border-border rounded hover:border-accent disabled:opacity-50 disabled:hover:border-border transition"
+                                    >
+                                        <ChevronLeft size={16} />
+                                    </button>
+                                    <button 
+                                        disabled={page === pagination.last_page}
+                                        onClick={() => fetchMembers(page + 1, search)}
+                                        className="p-1.5 bg-surface border border-border rounded hover:border-accent disabled:opacity-50 disabled:hover:border-border transition"
+                                    >
+                                        <ChevronRight size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </motion.div>
                 )}
 
@@ -1174,6 +1250,105 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                             >
                                 {savingMemberRoles ? 'Saving...' : 'Update Ranks'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showProfileModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[600]">
+                    <div className="bg-card p-8 rounded-2xl max-w-2xl w-full border border-border shadow-2xl text-text overflow-hidden flex flex-col max-h-[90vh]">
+                        <div className="flex justify-between items-start mb-6">
+                            <div className="flex items-center gap-4">
+                                <div className="w-16 h-16 bg-accent/10 rounded-2xl flex items-center justify-center text-accent">
+                                    <Users size={32} />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-black uppercase tracking-tight italic">User Profile</h2>
+                                    <p className="text-xs text-muted font-bold uppercase tracking-widest">{selectedMemberProfile?.user?.username || 'Loading...'}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowProfileModal(false)} className="p-2 hover:bg-surface rounded-full transition-colors"><X size={20} /></button>
+                        </div>
+
+                        {fetchingProfile ? <Loading message="Fetching User Profile..." fullScreen={false} /> : selectedMemberProfile && (
+                            <div className="flex-1 overflow-y-auto pr-2 space-y-8 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div className="space-y-4">
+                                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/60 px-1 border-b border-accent/20 pb-1">Account Info</div>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-xs font-bold uppercase tracking-widest"><span className="text-muted">Username</span> <span className="text-text">{selectedMemberProfile.user.username}</span></div>
+                                            <div className="flex justify-between text-xs font-bold uppercase tracking-widest"><span className="text-muted">GTA:W Name</span> <span className="text-text">{selectedMemberProfile.user.gtaw_username || 'N/A'}</span></div>
+                                            <div className="flex justify-between text-xs font-bold uppercase tracking-widest"><span className="text-muted">Joined</span> <span className="text-text">{new Date(selectedMemberProfile.user.created_at).toLocaleDateString()}</span></div>
+                                            <div className="flex justify-between text-xs font-bold uppercase tracking-widest"><span className="text-muted">Last Faction Activity</span> <span className="text-text">{selectedMemberProfile.user.pivot?.last_roster_activity ? new Date(selectedMemberProfile.user.pivot.last_roster_activity).toLocaleString() : 'Never'}</span></div>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/60 px-1 border-b border-accent/20 pb-1">Current Ranks</div>
+                                        <div className="flex flex-wrap gap-1">
+                                            {selectedMemberProfile.user.roles?.map((role: any) => (
+                                                <span key={role.id} className="px-2 py-1 bg-surface border border-border rounded text-[8px] font-black uppercase tracking-widest" style={{ borderColor: `${role.color}40`, color: role.color }}>
+                                                    {role.name}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div className="space-y-3">
+                                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/60 px-1 flex items-center gap-2"><Layout size={14} /> Owned Rosters ({selectedMemberProfile.owned_rosters.length})</div>
+                                        {selectedMemberProfile.owned_rosters.length === 0 ? (
+                                            <p className="text-[10px] text-muted font-bold uppercase tracking-widest px-4 py-3 bg-surface border border-border rounded-xl border-dashed text-center">No rosters owned</p>
+                                        ) : (
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {selectedMemberProfile.owned_rosters.map((roster: any) => (
+                                                    <div key={roster.id} className="flex items-center justify-between p-3 bg-surface border border-border rounded-xl">
+                                                        <span className="text-xs font-bold uppercase tracking-widest">{roster.name}</span>
+                                                        <span className="text-[8px] text-muted font-bold uppercase tracking-widest">{new Date(roster.created_at).toLocaleDateString()}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/60 px-1 flex items-center gap-2"><Database size={14} /> Owned Databases ({selectedMemberProfile.owned_databases.length})</div>
+                                        {selectedMemberProfile.owned_databases.length === 0 ? (
+                                            <p className="text-[10px] text-muted font-bold uppercase tracking-widest px-4 py-3 bg-surface border border-border rounded-xl border-dashed text-center">No databases owned</p>
+                                        ) : (
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {selectedMemberProfile.owned_databases.map((db: any) => (
+                                                    <div key={db.id} className="flex items-center justify-between p-3 bg-surface border border-border rounded-xl">
+                                                        <span className="text-xs font-bold uppercase tracking-widest">{db.name}</span>
+                                                        <span className="text-[8px] text-muted font-bold uppercase tracking-widest">{new Date(db.created_at).toLocaleDateString()}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/60 px-1 flex items-center gap-2"><PieChart size={14} /> Owned Statistics ({selectedMemberProfile.owned_statistics.length})</div>
+                                        {selectedMemberProfile.owned_statistics.length === 0 ? (
+                                            <p className="text-[10px] text-muted font-bold uppercase tracking-widest px-4 py-3 bg-surface border border-border rounded-xl border-dashed text-center">No statistics models owned</p>
+                                        ) : (
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {selectedMemberProfile.owned_statistics.map((stat: any) => (
+                                                    <div key={stat.id} className="flex items-center justify-between p-3 bg-surface border border-border rounded-xl">
+                                                        <span className="text-xs font-bold uppercase tracking-widest">{stat.name}</span>
+                                                        <span className="text-[8px] text-muted font-bold uppercase tracking-widest">{new Date(stat.created_at).toLocaleDateString()}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="pt-6 mt-4 border-t border-border flex justify-end">
+                            <button onClick={() => setShowProfileModal(false)} className="px-6 py-2 bg-accent text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition shadow-lg shadow-accent/20 hover:scale-105">Close Profile</button>
                         </div>
                     </div>
                 </div>

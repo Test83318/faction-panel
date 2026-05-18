@@ -365,7 +365,7 @@ class FactionController extends Controller
         return $permissions;
     }
 
-    public function getMembers(string $shortname)
+    public function getMembers(string $shortname, Request $request)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::user();
@@ -376,11 +376,45 @@ class FactionController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $users = $faction->users()->with(['roles' => function($query) use ($faction) {
+        $search = $request->query('search');
+        $query = $faction->users()->with(['roles' => function($query) use ($faction) {
             $query->where('faction_id', $faction->id);
-        }])->get();
+        }]);
 
-        return $users;
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('username', 'like', "%{$search}%")
+                  ->orWhere('gtaw_username', 'like', "%{$search}%");
+            });
+        }
+
+        return $query->paginate($request->query('per_page', 25));
+    }
+
+    public function getMemberProfile(string $shortname, User $member)
+    {
+        $faction = Faction::where('shortname', $shortname)->firstOrFail();
+        $user = Auth::user();
+        
+        if (!User::hasFactionPermission($user, $faction, 'view_users')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $memberWithPivot = $faction->users()->where('users.id', $member->id)->firstOrFail();
+        $memberWithPivot->load(['roles' => function($query) use ($faction) {
+            $query->where('faction_id', $faction->id);
+        }]);
+
+        $ownedRosters = $member->ownedRosters()->where('faction_id', $faction->id)->get();
+        $ownedDatabases = $member->ownedDatabases()->where('faction_id', $faction->id)->get();
+        $ownedStatistics = $member->ownedStatistics()->where('faction_id', $faction->id)->get();
+
+        return response()->json([
+            'user' => $memberWithPivot,
+            'owned_rosters' => $ownedRosters,
+            'owned_databases' => $ownedDatabases,
+            'owned_statistics' => $ownedStatistics,
+        ]);
     }
 
     public function removeMember(Faction $faction, User $user)

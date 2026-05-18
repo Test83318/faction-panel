@@ -162,7 +162,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
   const canViewAuditLogs = user?.is_superadmin || permissions.includes('view_audit_logs');
   const canViewStatistics = user?.is_superadmin || permissions.includes('view_statistics');
   const canViewSnapshots = user?.is_superadmin || permissions.includes('view_snapshots') || permissions.includes('administrator');
-  const canViewGtawSync = (user?.is_superadmin || permissions.includes('manage_integrations')) && factionData?.gtaw_faction_id;
+  const canViewGtawSync = (user?.is_superadmin || permissions.includes('sync_gtaw')) && factionData?.gtaw_faction_id;
 
   if (location.pathname === `/${shortname}`) {
     return <Navigate to={`/${shortname}/roster`} replace />;

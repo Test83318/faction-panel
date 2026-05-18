@@ -103,6 +103,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // User Management within Factions
     Route::get('/factions/{shortname}/users', [FactionController::class, 'getMembers']);
+    Route::get('/factions/{shortname}/users/{member}', [FactionController::class, 'getMemberProfile']);
     Route::delete('/factions/{faction}/users/{user}', [FactionController::class, 'removeMember']);
     Route::put('/factions/{faction}/users/{user}/roles', [FactionController::class, 'updateMemberRoles']);
 
