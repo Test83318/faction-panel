@@ -242,7 +242,8 @@ export const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({ shortn
     if (widget.type === 'pie') {
       const colors = ['#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
       let cumulativePercent = 0;
-      const gap = data.length > 1 ? 2 : 0; // Small gap between segments
+      const isLargeDataset = data.length > 20;
+      const gap = (data.length > 1 && !isLargeDataset) ? 2 : 0; // Small gap between segments, disabled for large datasets
       const totalGap = gap * data.length;
       const availablePercent = 100 - totalGap;
 
@@ -263,30 +264,33 @@ export const StatisticsDashboard: React.FC<StatisticsDashboardProps> = ({ shortn
               {data.map((item: any, idx: number) => {
                 const itemPercent = (item.value / (total || 1)) * 100;
                 const percent = (itemPercent / 100) * availablePercent;
-                const strokeDasharray = `${percent} ${100 - percent}`;
+                
+                // If the slice is too small to be visible but has a value, give it a tiny minimum width
+                const displayPercent = (percent < 0.5 && item.value > 0) ? 0.5 : percent;
+                
                 const strokeDashoffset = -cumulativePercent;
                 
                 // Track cumulative percent for next segment (including gap)
-                cumulativePercent += percent + gap;
+                cumulativePercent += displayPercent + gap;
 
                 return (
                   <motion.circle
                     key={idx}
-                    initial={{ pathLength: 0, opacity: 0 }}
-                    animate={{ pathLength: 1, opacity: 1 }}
-                    transition={{ duration: 1, delay: idx * 0.1, ease: "easeOut" }}
+                    initial={isLargeDataset ? { opacity: 0 } : { pathLength: 0, opacity: 0 }}
+                    animate={isLargeDataset ? { opacity: 1 } : { pathLength: 1, opacity: 1 }}
+                    transition={isLargeDataset ? { duration: 0.3 } : { duration: 1, delay: idx * (1 / data.length), ease: "easeOut" }}
                     r="16"
                     cx="20"
                     cy="20"
                     fill="transparent"
                     stroke={item.color || colors[idx % colors.length]}
                     strokeWidth="5"
-                    strokeDasharray={`${percent} 100`}
+                    strokeDasharray={`${displayPercent} 100`}
                     strokeDashoffset={strokeDashoffset}
-                    strokeLinecap="round"
+                    strokeLinecap={isLargeDataset ? "butt" : "round"}
                     className="cursor-pointer transition-all duration-300 hover:stroke-[7]"
                     style={{
-                        filter: `drop-shadow(0 0 4px ${item.color || colors[idx % colors.length]}44)`
+                        filter: isLargeDataset ? undefined : `drop-shadow(0 0 4px ${item.color || colors[idx % colors.length]}44)`
                     }}
                   />
                 );
