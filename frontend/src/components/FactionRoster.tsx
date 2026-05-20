@@ -692,7 +692,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
             const secondaryValue = getSingleValue(secondaryCount);
             if (count.show_percentage) {
                 const percentage = secondaryValue === 0 ? 0 : (primaryValue / secondaryValue) * 100;
-                return `${formatValue(percentage, count.should_round)}%`;
+                return `${formatValue(primaryValue, count.should_round)} (${formatValue(percentage, count.should_round)}%)`;
             }
             return `${formatValue(primaryValue, count.should_round)} / ${formatValue(secondaryValue, secondaryCount.should_round)}`;
         }

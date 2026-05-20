@@ -312,7 +312,7 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                                             <div className="flex items-center justify-between px-1">
                                                                 <div className="flex flex-col">
                                                                     <span className="text-[9px] font-black text-muted uppercase tracking-widest">Show Percentage</span>
-                                                                    <span className="text-[7px] text-muted/50 font-bold uppercase">Display as (X / Y) %</span>
+                                                                    <span className="text-[7px] text-muted/50 font-bold uppercase">Display as X (Y%)</span>
                                                                 </div>
                                                                 <button 
                                                                     onClick={() => updateCount(idx, { show_percentage: !count.show_percentage })}
