@@ -221,7 +221,7 @@ class StatisticsService
 
         $result = 0;
         $stack = [];
-        $lastOp = '+';
+        $isFirst = true;
 
         $applyOp = function ($base, $next, $op) {
             $base = (float)$base;
@@ -239,9 +239,10 @@ class StatisticsService
             // 1. Handle Opening Brackets
             $openCount = (int)($cond['brackets_open'] ?? 0);
             for ($i = 0; $i < $openCount; $i++) {
-                $stack[] = ['result' => $result, 'operator' => $idx === 0 ? '+' : $lastOp];
+                $op = $isFirst ? '+' : ($cond['operator'] ?? ($cond['arithmetic_operator'] ?? '+'));
+                $stack[] = ['result' => $result, 'operator' => $op];
                 $result = 0;
-                $lastOp = '+';
+                $isFirst = true;
             }
 
             $condMatchedValue = 0;
@@ -292,10 +293,12 @@ class StatisticsService
             }
 
             // 2. Apply arithmetic/logic
-            if ($idx === 0 || $lastOp === null) {
+            if ($isFirst) {
                 $result = $condMatchedValue;
+                $isFirst = false;
             } else {
-                $result = $applyOp($result, $condMatchedValue, $lastOp);
+                $op = $cond['operator'] ?? ($cond['arithmetic_operator'] ?? '+');
+                $result = $applyOp($result, $condMatchedValue, $op);
             }
 
             // 3. Handle Closing Brackets
@@ -304,10 +307,9 @@ class StatisticsService
                 if (!empty($stack)) {
                     $popped = array_pop($stack);
                     $result = $applyOp($popped['result'], $result, $popped['operator']);
+                    $isFirst = false;
                 }
             }
-
-            $lastOp = $cond['operator'] ?? ($cond['arithmetic_operator'] ?? '+');
         }
 
         return (float)max(0, $result);

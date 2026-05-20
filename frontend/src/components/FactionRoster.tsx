@@ -407,7 +407,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         if (c.conditions && Array.isArray(c.conditions)) {
             let result = 0;
             const stack: { result: number; operator: string }[] = [];
-            let lastOp = '+';
+            let isFirst = true;
 
             const applyOp = (base: number, next: number, op: string): number => {
                 if (op === '+') return base + next;
@@ -423,9 +423,9 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                 // 1. Handle Opening Brackets
                 const openCount = parseInt(cond.brackets_open || 0);
                 for (let i = 0; i < openCount; i++) {
-                    stack.push({ result, operator: idx === 0 ? '+' : lastOp });
+                    stack.push({ result, operator: isFirst ? '+' : cond.operator || '+' });
                     result = 0;
-                    lastOp = '+';
+                    isFirst = true;
                 }
 
                 let condMatchedValue = 0;
@@ -577,10 +577,11 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                 }
 
                 // 3. Combine using operator sequentially
-                if (idx === 0 || lastOp === null) {
+                if (isFirst) {
                     result = condMatchedValue;
+                    isFirst = false;
                 } else {
-                    result = applyOp(result, condMatchedValue, lastOp);
+                    result = applyOp(result, condMatchedValue, cond.operator || '+');
                 }
 
                 // 4. Handle Closing Brackets
@@ -589,10 +590,9 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                     if (stack.length > 0) {
                         const { result: prevResult, operator: prevOp } = stack.pop()!;
                         result = applyOp(prevResult, result, prevOp);
+                        isFirst = false;
                     }
                 }
-
-                lastOp = cond.operator || '+';
             });
 
             return Math.max(0, result);
