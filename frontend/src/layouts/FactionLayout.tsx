@@ -18,6 +18,7 @@ interface FactionLayoutProps {
     canViewStatistics?: boolean;
     canViewSnapshots?: boolean;
     canViewGtawSync?: boolean;
+    canViewForms?: boolean;
     siteVersion: string;
     children: React.ReactNode;
 }
@@ -38,6 +39,7 @@ const FactionLayout: React.FC<FactionLayoutProps> = ({
     canViewStatistics,
     canViewSnapshots,
     canViewGtawSync,
+    canViewForms,
     siteVersion,
     children
 }) => {
@@ -77,6 +79,7 @@ const FactionLayout: React.FC<FactionLayoutProps> = ({
                     canViewStatistics={canViewStatistics}
                     canViewSnapshots={canViewSnapshots}
                     canViewGtawSync={canViewGtawSync || false}
+                    canViewForms={canViewForms}
                     user={user} 
                     siteVersion={siteVersion} 
                     customFooterText={factionData.custom_footer_text}

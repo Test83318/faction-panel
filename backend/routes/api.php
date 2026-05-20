@@ -22,6 +22,13 @@ use App\Http\Controllers\FactionSnapshotController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\SetupController;
+use App\Http\Controllers\FormController;
+use App\Http\Controllers\FormStageController;
+use App\Http\Controllers\FormSectionController;
+use App\Http\Controllers\FormFieldController;
+use App\Http\Controllers\FormStatusController;
+use App\Http\Controllers\FormPermissionController;
+use App\Http\Controllers\FormSubmissionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -213,6 +220,56 @@ Route::middleware('auth:sanctum')->group(function () {
     // Quick Search
     Route::put('/factions/{shortname}/quick-search/settings', [\App\Http\Controllers\QuickSearchController::class, 'updateSettings']);
     Route::get('/factions/{shortname}/quick-search', [\App\Http\Controllers\QuickSearchController::class, 'search']);
+
+    // Faction Forms Management
+    Route::get('/factions/{shortname}/forms', [FormController::class, 'index']);
+    Route::post('/factions/{shortname}/forms', [FormController::class, 'store']);
+    Route::get('/factions/{shortname}/forms/{form}', [FormController::class, 'show']);
+    Route::put('/factions/{shortname}/forms/{form}', [FormController::class, 'update']);
+    Route::delete('/factions/{shortname}/forms/{form}', [FormController::class, 'destroy']);
+
+    // Faction Form Permissions
+    Route::get('/factions/{shortname}/forms/{form}/permissions', [FormPermissionController::class, 'index']);
+    Route::put('/factions/{shortname}/forms/{form}/permissions', [FormPermissionController::class, 'update']);
+    Route::delete('/factions/{shortname}/forms/{form}/permissions/{permissionId}', [FormPermissionController::class, 'destroy']);
+
+    // Faction Form Editor Components
+    // Stages
+    Route::post('/factions/{shortname}/forms/{form}/stages', [FormStageController::class, 'store']);
+    Route::put('/factions/{shortname}/forms/{form}/stages/{stage}', [FormStageController::class, 'update']);
+    Route::delete('/factions/{shortname}/forms/{form}/stages/{stage}', [FormStageController::class, 'destroy']);
+    Route::put('/factions/{shortname}/forms/{form}/stages/reorder', [FormStageController::class, 'reorder']);
+
+    // Sections
+    Route::post('/factions/{shortname}/forms/{form}/stages/{stage}/sections', [FormSectionController::class, 'store']);
+    Route::put('/factions/{shortname}/forms/{form}/sections/{section}', [FormSectionController::class, 'update']);
+    Route::delete('/factions/{shortname}/forms/{form}/sections/{section}', [FormSectionController::class, 'destroy']);
+    Route::put('/factions/{shortname}/forms/{form}/stages/{stage}/sections/reorder', [FormSectionController::class, 'reorder']);
+    Route::post('/factions/{shortname}/forms/{form}/sections/{section}/move', [FormSectionController::class, 'move']);
+
+    // Fields
+    Route::post('/factions/{shortname}/forms/{form}/sections/{section}/fields', [FormFieldController::class, 'store']);
+    Route::put('/factions/{shortname}/forms/{form}/fields/{field}', [FormFieldController::class, 'update']);
+    Route::delete('/factions/{shortname}/forms/{form}/fields/{field}', [FormFieldController::class, 'destroy']);
+    Route::put('/factions/{shortname}/forms/{form}/sections/{section}/fields/reorder', [FormFieldController::class, 'reorder']);
+    Route::post('/factions/{shortname}/forms/{form}/fields/{field}/move', [FormFieldController::class, 'move']);
+
+    // Statuses
+    Route::post('/factions/{shortname}/forms/{form}/statuses', [FormStatusController::class, 'store']);
+    Route::put('/factions/{shortname}/forms/{form}/statuses/{status}', [FormStatusController::class, 'update']);
+    Route::delete('/factions/{shortname}/forms/{form}/statuses/{status}', [FormStatusController::class, 'destroy']);
+    Route::put('/factions/{shortname}/forms/{form}/statuses/reorder', [FormStatusController::class, 'reorder']);
+
+    // Form Submissions
+    Route::get('/factions/{shortname}/submissions', [FormSubmissionController::class, 'globalIndex']);
+    Route::get('/factions/{shortname}/my-submissions', [FormSubmissionController::class, 'mySubmissions']);
+    Route::get('/factions/{shortname}/forms/{form}/submissions', [FormSubmissionController::class, 'index']);
+    Route::post('/factions/{shortname}/forms/{form}/submissions/start', [FormSubmissionController::class, 'start']);
+    Route::post('/factions/{shortname}/forms/{form}/submissions/{submission}/submit', [FormSubmissionController::class, 'submit']);
+    Route::get('/factions/{shortname}/forms/submissions/{submission}', [FormSubmissionController::class, 'show']);
+    Route::put('/factions/{shortname}/forms/submissions/{submission}/status', [FormSubmissionController::class, 'updateStatus']);
+    Route::post('/factions/{shortname}/forms/submissions/{submission}/comments', [FormSubmissionController::class, 'addComment']);
+    Route::post('/factions/{shortname}/forms/submissions/{submission}/grade', [FormSubmissionController::class, 'gradeResponses']);
 
     // GTA:W Integration
     Route::get('/factions/{shortname}/integrations/gtaw/available', [IntegrationController::class, 'getAvailableFactions']);
