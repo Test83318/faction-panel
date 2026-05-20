@@ -308,6 +308,34 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                                             </select>
                                                         </div>
 
+                                                        {count.secondary_count_id && (
+                                                            <div className="flex items-center justify-between px-1">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[9px] font-black text-muted uppercase tracking-widest">Show Percentage</span>
+                                                                    <span className="text-[7px] text-muted/50 font-bold uppercase">Display as (X / Y) %</span>
+                                                                </div>
+                                                                <button 
+                                                                    onClick={() => updateCount(idx, { show_percentage: !count.show_percentage })}
+                                                                    className={`w-8 h-4 rounded-full relative transition-colors ${count.show_percentage ? 'bg-accent' : 'bg-muted/30'}`}
+                                                                >
+                                                                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${count.show_percentage ? 'right-0.5' : 'left-0.5'}`} />
+                                                                </button>
+                                                            </div>
+                                                        )}
+
+                                                        <div className="flex items-center justify-between px-1">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[9px] font-black text-muted uppercase tracking-widest">Round Value</span>
+                                                                <span className="text-[7px] text-muted/50 font-bold uppercase">Round to nearest integer</span>
+                                                            </div>
+                                                            <button 
+                                                                onClick={() => updateCount(idx, { should_round: !count.should_round })}
+                                                                className={`w-8 h-4 rounded-full relative transition-colors ${count.should_round ? 'bg-accent' : 'bg-muted/30'}`}
+                                                            >
+                                                                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${count.should_round ? 'right-0.5' : 'left-0.5'}`} />
+                                                            </button>
+                                                        </div>
+
                                                         <div>
                                                             <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Primary Color</label>
                                                             <div className="flex gap-2">
@@ -412,7 +440,7 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                                                                 <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Type</label>
                                                                                 <select 
                                                                                     value={cond.type}
-                                                                                    onChange={e => updateCondition(idx, cIdx, { type: e.target.value, settings: { ...cond.settings, checkbox_label: '' } })}
+                                                                                    onChange={e => updateCondition(idx, cIdx, { type: e.target.value as any })}
                                                                                     className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-[10px] font-bold uppercase"
                                                                                 >
                                                                                     <option value="rows">Column Value</option>
@@ -420,9 +448,10 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                                                                     <option value="checkboxes">Checkboxes</option>
                                                                                     <option value="tags">Right-side Tags</option>
                                                                                     <option value="value">Constant Value</option>
+                                                                                    <option value="count">Existing Counter</option>
                                                                                 </select>
                                                                             </div>
-                                                                            {cond.scope === 'specific_sections' && cond.type !== 'value' && (
+                                                                            {cond.scope === 'specific_sections' && cond.type !== 'value' && cond.type !== 'count' && (
                                                                                 <div>
                                                                                     <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Target Sections</label>
                                                                                     <div className="relative group/sections">
@@ -464,6 +493,22 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                                                                         className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-[10px] outline-none focus:border-accent"
                                                                                         placeholder="Enter a value (e.g. 3 or 0.5)"
                                                                                     />
+                                                                                </div>
+                                                                            )}
+
+                                                                            {cond.type === 'count' && (
+                                                                                <div className="col-span-2">
+                                                                                    <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Target Counter</label>
+                                                                                    <select 
+                                                                                        value={cond.settings.count_id || ''}
+                                                                                        onChange={e => updateCondition(idx, cIdx, { settings: { ...cond.settings, count_id: e.target.value } })}
+                                                                                        className="w-full bg-card border border-border rounded-lg px-2 py-1.5 text-[10px] outline-none focus:border-accent font-bold uppercase"
+                                                                                    >
+                                                                                        <option value="">Select a counter...</option>
+                                                                                        {counts.filter((c, cIndex) => cIndex !== idx).map(c => (
+                                                                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                                                                        ))}
+                                                                                    </select>
                                                                                 </div>
                                                                             )}
 

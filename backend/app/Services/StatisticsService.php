@@ -220,13 +220,28 @@ class StatisticsService
         }
 
         $result = 0;
-        $lastArithmeticOp = '+';
 
-        foreach ($count['conditions'] as $cond) {
+        foreach ($count['conditions'] as $idx => $cond) {
             $condMatchedValue = 0;
 
             if (($cond['type'] ?? '') === 'value') {
                 $condMatchedValue = (float)($cond['settings']['value'] ?? 0);
+            } elseif (($cond['type'] ?? '') === 'count') {
+                $targetCountId = $cond['settings']['count_id'] ?? null;
+                if ($targetCountId) {
+                    $otherCounts = [];
+                    if ($parentType === 'roster') {
+                        $roster = Roster::find($parentId);
+                        $otherCounts = $roster ? ($roster->counts ?? []) : [];
+                    } else {
+                        $section = RosterSection::find($parentId);
+                        $otherCounts = $section ? ($section->counts ?? []) : [];
+                    }
+                    $targetCount = collect($otherCounts)->first(fn($c) => (string)($c['id'] ?? '') === (string)$targetCountId);
+                    if ($targetCount) {
+                        $condMatchedValue = $this->evaluateCount($targetCount, $parentType, $parentId, $totalRowsProcessed);
+                    }
+                }
             } else {
                 // Determine pool for this condition
                 $scope = $cond['scope'] ?? 'default';
@@ -250,17 +265,19 @@ class StatisticsService
                     }
                 }
 
-                $filtered = $this->applyConditions($pool, $cond['filters'] ?? [], 'roster');
+                $filtered = $this->applyConditions($pool, $cond['filters'] ?? [$cond], 'roster');
                 $condMatchedValue = $filtered->count();
             }
 
-            // Apply arithmetic
-            if ($lastArithmeticOp === '+') $result += $condMatchedValue;
-            elseif ($lastArithmeticOp === '-') $result -= $condMatchedValue;
-            elseif ($lastArithmeticOp === '*') $result *= $condMatchedValue;
-            elseif ($lastArithmeticOp === '/' && $condMatchedValue != 0) $result /= $condMatchedValue;
+            // Apply arithmetic/logic sequentially
+            $op = $idx === 0 ? '+' : ($cond['operator'] ?? ($cond['arithmetic_operator'] ?? '+'));
 
-            $lastArithmeticOp = $cond['arithmetic_operator'] ?? '+';
+            if ($op === '+') $result += $condMatchedValue;
+            elseif ($op === '-') $result -= $condMatchedValue;
+            elseif ($op === '*') $result *= $condMatchedValue;
+            elseif ($op === '/' && $condMatchedValue != 0) $result /= $condMatchedValue;
+            elseif ($op === 'AND') $result = min((float)$result, (float)$condMatchedValue);
+            elseif ($op === 'OR') $result = max((float)$result, (float)$condMatchedValue);
         }
 
         return $result;

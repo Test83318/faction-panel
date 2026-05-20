@@ -409,20 +409,20 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
             let currentGroupValue = 0;
             let lastArithmeticOp = '+';
 
-            const commitGroup = (val: number) => {
-                if (lastArithmeticOp === '+') result += val;
-                else if (lastArithmeticOp === '-') result -= val;
-                else if (lastArithmeticOp === '*') result *= val;
-                else if (lastArithmeticOp === '/') result = val === 0 ? 0 : result / val;
-            };
-
             c.conditions.forEach((cond: any, idx: number) => {
                 let condMatchedValue = 0;
 
                 if (cond.type === 'value') {
                     condMatchedValue = parseFloat(cond.settings?.value || 0);
+                } else if (cond.type === 'count') {
+                    // Support referencing other counters by ID
+                    const otherCounts = scope === 'roster' ? (activeDivision.counts || []) : (targetSection?.counts || []);
+                    const targetCount = otherCounts.find((item: any) => String(item.id) === String(cond.settings?.count_id));
+                    if (targetCount) {
+                        condMatchedValue = Number(calculateCount(targetCount, scope, targetSection));
+                    }
                 } else {
-                    // 1. Determine the pool for this condition based on scope
+                    // ... (rest of the pool determination and filtering logic)
                     let condPool: any[] = [];
                     const condScope = cond.scope || 'default';
 
@@ -558,26 +558,20 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                     condMatchedValue = matchedRows.length;
                 }
 
-                // 3. Combine using operator
+                // 3. Combine using operator sequentially
                 if (idx === 0) {
-                    currentGroupValue = condMatchedValue;
+                    result = condMatchedValue;
                 } else {
-                    if (['+', '-', '*', '/'].includes(cond.operator)) {
-                        commitGroup(currentGroupValue);
-                        currentGroupValue = condMatchedValue;
-                        lastArithmeticOp = cond.operator;
-                    } else if (cond.operator === 'AND') {
-                        // AND only makes sense for row pools, for values it's ambiguous
-                        // For simplicity, we treat it as "min" or "0 if any is 0"
-                        currentGroupValue = Math.min(currentGroupValue, condMatchedValue);
-                    } else if (cond.operator === 'OR') {
-                        // For row pools it's union, for values we treat as "max"
-                        currentGroupValue = Math.max(currentGroupValue, condMatchedValue);
-                    }
+                    const op = cond.operator || '+';
+                    if (op === '+') result += condMatchedValue;
+                    else if (op === '-') result -= condMatchedValue;
+                    else if (op === '*') result *= condMatchedValue;
+                    else if (op === '/') result = condMatchedValue === 0 ? 0 : result / condMatchedValue;
+                    else if (op === 'AND') result = Math.min(result, condMatchedValue);
+                    else if (op === 'OR') result = Math.max(result, condMatchedValue);
                 }
             });
 
-            commitGroup(currentGroupValue);
             return Math.max(0, result);
         }
 
@@ -662,7 +656,8 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         }).length;
     };
 
-    const formatValue = (val: number): string => {
+    const formatValue = (val: number, shouldRound?: boolean): string => {
+        if (shouldRound) return String(Math.round(val));
         if (Number.isInteger(val)) return String(val);
         return parseFloat(val.toFixed(2)).toString();
     };
@@ -672,10 +667,14 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         const secondaryCount = (scope === 'roster' ? activeDivision.counts : targetSection?.counts)?.find((item: any) => String(item.id) === String(count.secondary_count_id));
         if (secondaryCount) {
             const secondaryValue = getSingleValue(secondaryCount);
-            return `${formatValue(primaryValue)} / ${formatValue(secondaryValue)}`;
+            if (count.show_percentage) {
+                const percentage = secondaryValue === 0 ? 0 : (primaryValue / secondaryValue) * 100;
+                return `${formatValue(percentage, count.should_round)}%`;
+            }
+            return `${formatValue(primaryValue, count.should_round)} / ${formatValue(secondaryValue, secondaryCount.should_round)}`;
         }
     }
-    return formatValue(primaryValue);
+    return formatValue(primaryValue, count.should_round);
   };
 
   const handleUpdateRowLocal = (rowId: number, data: any) => {
