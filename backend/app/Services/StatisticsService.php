@@ -220,8 +220,30 @@ class StatisticsService
         }
 
         $result = 0;
+        $stack = [];
+        $lastOp = '+';
+
+        $applyOp = function ($base, $next, $op) {
+            $base = (float)$base;
+            $next = (float)$next;
+            if ($op === '+') return $base + $next;
+            if ($op === '-') return $base - $next;
+            if ($op === '*') return $base * $next;
+            if ($op === '/' && $next != 0) return $base / $next;
+            if ($op === 'AND') return min($base, $next);
+            if ($op === 'OR') return max($base, $next);
+            return $next;
+        };
 
         foreach ($count['conditions'] as $idx => $cond) {
+            // 1. Handle Opening Brackets
+            $openCount = (int)($cond['brackets_open'] ?? 0);
+            for ($i = 0; $i < $openCount; $i++) {
+                $stack[] = ['result' => $result, 'operator' => $idx === 0 ? '+' : $lastOp];
+                $result = 0;
+                $lastOp = '+';
+            }
+
             $condMatchedValue = 0;
 
             if (($cond['type'] ?? '') === 'value') {
@@ -269,18 +291,26 @@ class StatisticsService
                 $condMatchedValue = $filtered->count();
             }
 
-            // Apply arithmetic/logic sequentially
-            $op = $idx === 0 ? '+' : ($cond['operator'] ?? ($cond['arithmetic_operator'] ?? '+'));
+            // 2. Apply arithmetic/logic
+            if ($idx === 0 || $lastOp === null) {
+                $result = $condMatchedValue;
+            } else {
+                $result = $applyOp($result, $condMatchedValue, $lastOp);
+            }
 
-            if ($op === '+') $result += $condMatchedValue;
-            elseif ($op === '-') $result -= $condMatchedValue;
-            elseif ($op === '*') $result *= $condMatchedValue;
-            elseif ($op === '/' && $condMatchedValue != 0) $result /= $condMatchedValue;
-            elseif ($op === 'AND') $result = min((float)$result, (float)$condMatchedValue);
-            elseif ($op === 'OR') $result = max((float)$result, (float)$condMatchedValue);
+            // 3. Handle Closing Brackets
+            $closeCount = (int)($cond['brackets_close'] ?? 0);
+            for ($i = 0; $i < $closeCount; $i++) {
+                if (!empty($stack)) {
+                    $popped = array_pop($stack);
+                    $result = $applyOp($popped['result'], $result, $popped['operator']);
+                }
+            }
+
+            $lastOp = $cond['operator'] ?? ($cond['arithmetic_operator'] ?? '+');
         }
 
-        return $result;
+        return (float)max(0, $result);
     }
 
     protected function applyConditions(Collection $pool, array $conditions, string $sourceType, string $operator = 'AND'): Collection
