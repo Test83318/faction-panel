@@ -11,6 +11,7 @@ class FormStatus extends Model
 
     protected $fillable = [
         'form_id',
+        'form_stage_id',
         'name',
         'order',
         'is_hidden',
@@ -29,10 +30,16 @@ class FormStatus extends Model
         'is_passed' => 'boolean',
         'is_archived' => 'boolean',
         'order' => 'integer',
+        'form_stage_id' => 'integer',
     ];
 
     public function form()
     {
         return $this->belongsTo(Form::class);
+    }
+
+    public function stage()
+    {
+        return $this->belongsTo(FormStage::class, 'form_stage_id');
     }
 }

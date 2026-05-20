@@ -17,6 +17,7 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
     const [expandedStages, setExpandedStages] = useState<number[]>(form.stages?.length ? [form.stages[0].id] : []);
     const [editingStage, setEditingStage] = useState<number | null>(null);
     const [stageName, setStageName] = useState('');
+    const [stageSubmitStatusId, setStageSubmitStatusId] = useState<number | null>(null);
     const confirm = useConfirm();
 
     const toggleStage = (id: number) => {
@@ -35,7 +36,10 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
 
     const handleUpdateStage = async (stageId: number) => {
         try {
-            await api.put(`/factions/${shortname}/forms/${form.id}/stages/${stageId}`, { name: stageName });
+            await api.put(`/factions/${shortname}/forms/${form.id}/stages/${stageId}`, { 
+                name: stageName,
+                submit_status_id: stageSubmitStatusId
+            });
             setEditingStage(null);
             onUpdate();
             toast.success('Stage updated');
@@ -117,38 +121,63 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
                             
                             <div className="flex-1 flex items-center justify-between">
                                 {editingStage === stage.id ? (
-                                    <div className="flex items-center gap-2 flex-1 mr-4">
-                                        <input 
-                                            autoFocus
-                                            type="text"
-                                            value={stageName}
-                                            onChange={e => setStageName(e.target.value)}
-                                            onKeyDown={e => e.key === 'Enter' && handleUpdateStage(stage.id)}
-                                            className="bg-bg border border-accent rounded px-3 py-1.5 text-sm text-text outline-none w-full"
-                                        />
-                                        <button 
-                                            onClick={() => handleUpdateStage(stage.id)}
-                                            className="p-1.5 bg-accent text-white rounded hover:bg-accent/90 transition-colors"
-                                        >
-                                            <Edit2 size={14} />
-                                        </button>
-                                        <button 
-                                            onClick={() => setEditingStage(null)}
-                                            className="p-1.5 bg-bg border border-border text-text-muted rounded hover:text-text transition-colors"
-                                        >
-                                            <Plus size={14} className="rotate-45" />
-                                        </button>
+                                    <div className="flex flex-col md:flex-row items-start md:items-center gap-4 flex-1 mr-4">
+                                        <div className="flex-1 w-full">
+                                            <label className="block text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1 ml-1">Stage Name</label>
+                                            <input 
+                                                autoFocus
+                                                type="text"
+                                                value={stageName}
+                                                onChange={e => setStageName(e.target.value)}
+                                                className="bg-bg border border-accent rounded px-3 py-1.5 text-sm text-text outline-none w-full"
+                                            />
+                                        </div>
+                                        <div className="w-full md:w-64">
+                                            <label className="block text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1 ml-1">Status on Submission</label>
+                                            <select
+                                                value={stageSubmitStatusId || ''}
+                                                onChange={e => setStageSubmitStatusId(e.target.value ? parseInt(e.target.value) : null)}
+                                                className="w-full bg-bg border border-border rounded px-3 py-2 text-xs text-text outline-none font-bold uppercase tracking-wider"
+                                            >
+                                                <option value="">Default (Submitted)</option>
+                                                {form.statuses?.map(status => (
+                                                    <option key={status.id} value={status.id}>{status.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="flex items-center gap-2 pt-5">
+                                            <button 
+                                                onClick={() => handleUpdateStage(stage.id)}
+                                                className="p-1.5 bg-accent text-white rounded hover:bg-accent/90 transition-colors"
+                                            >
+                                                <Edit2 size={14} />
+                                            </button>
+                                            <button 
+                                                onClick={() => setEditingStage(null)}
+                                                className="p-1.5 bg-bg border border-border text-text-muted rounded hover:text-text transition-colors"
+                                            >
+                                                <Plus size={14} className="rotate-45" />
+                                            </button>
+                                        </div>
                                     </div>
                                 ) : (
-                                    <h3 
-                                        className="text-lg font-bold text-text cursor-pointer hover:text-accent transition-colors flex items-center gap-2"
-                                        onClick={() => toggleStage(stage.id)}
-                                    >
-                                        {stage.name}
-                                        <span className="text-[10px] font-bold text-text-muted uppercase bg-bg px-1.5 py-0.5 rounded">
-                                            Stage {stage.order + 1}
-                                        </span>
-                                    </h3>
+                                    <div className="flex-1 flex flex-col">
+                                        <h3 
+                                            className="text-lg font-bold text-text cursor-pointer hover:text-accent transition-colors flex items-center gap-2"
+                                            onClick={() => toggleStage(stage.id)}
+                                        >
+                                            {stage.name}
+                                            <span className="text-[10px] font-bold text-text-muted uppercase bg-bg px-1.5 py-0.5 rounded">
+                                                Stage {stage.order + 1}
+                                            </span>
+                                        </h3>
+                                        <p className="text-[9px] text-text-muted font-bold uppercase tracking-widest mt-0.5">
+                                            {stage.submit_status_id 
+                                                ? `Status on Submit: ${form.statuses?.find(s => s.id === stage.submit_status_id)?.name || 'Unknown'}`
+                                                : 'Status on Submit: Default (Submitted)'
+                                            }
+                                        </p>
+                                    </div>
                                 )}
 
                                 <div className="flex items-center gap-2">
@@ -156,6 +185,7 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
                                         onClick={() => {
                                             setEditingStage(stage.id);
                                             setStageName(stage.name);
+                                            setStageSubmitStatusId(stage.submit_status_id);
                                         }}
                                         className="p-2 text-text-muted hover:text-accent hover:bg-bg rounded transition-all"
                                         title="Rename Stage"

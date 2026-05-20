@@ -130,14 +130,30 @@ const StatusManager: React.FC<StatusManagerProps> = ({ form, shortname, onUpdate
                     >
                         {editingStatusId === status.id ? (
                             <div className="p-5 space-y-4">
-                                <div className="flex items-center gap-4">
-                                    <input 
-                                        type="text"
-                                        value={statusForm.name}
-                                        onChange={e => setStatusForm({...statusForm, name: e.target.value})}
-                                        className="flex-1 bg-bg border border-accent rounded px-3 py-2 text-sm text-text outline-none"
-                                        placeholder="Status Name"
-                                    />
+                                <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                                    <div className="flex-1 w-full">
+                                        <label className="block text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1.5 ml-1">Status Name</label>
+                                        <input 
+                                            type="text"
+                                            value={statusForm.name}
+                                            onChange={e => setStatusForm({...statusForm, name: e.target.value})}
+                                            className="w-full bg-bg border border-accent rounded px-3 py-2 text-sm text-text outline-none"
+                                            placeholder="Status Name"
+                                        />
+                                    </div>
+                                    <div className="w-full md:w-64">
+                                        <label className="block text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1.5 ml-1">Stage Binding</label>
+                                        <select
+                                            value={statusForm.form_stage_id || ''}
+                                            onChange={e => setStatusForm({...statusForm, form_stage_id: e.target.value ? parseInt(e.target.value) : null})}
+                                            className="w-full bg-bg border border-border rounded px-3 py-2.5 text-xs text-text outline-none font-bold uppercase tracking-wider"
+                                        >
+                                            <option value="">Global Status</option>
+                                            {form.stages?.map(stage => (
+                                                <option key={stage.id} value={stage.id}>Stage: {stage.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -197,7 +213,16 @@ const StatusManager: React.FC<StatusManagerProps> = ({ form, shortname, onUpdate
                                         </div>
                                     </div>
                                     <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest mt-1">
-                                        {status.name === 'Submitted' ? 'Default Entry Status' : `Custom Status (${status.order})`}
+                                        {status.name === 'Submitted' ? 'Default Entry Status' : (
+                                            <>
+                                                Custom Status ({status.order})
+                                                {status.form_stage_id && (
+                                                    <span className="ml-2 px-1.5 py-0.5 bg-accent/10 text-accent rounded border border-accent/20">
+                                                        Bound to: {form.stages?.find(s => s.id === status.form_stage_id)?.name || 'Unknown Stage'}
+                                                    </span>
+                                                )}
+                                            </>
+                                        )}
                                     </p>
                                 </div>
 

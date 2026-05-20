@@ -282,15 +282,18 @@ const FormSubmissionReview: React.FC<FormSubmissionReviewProps> = ({ submissionI
                                 placeholder="Type your comment..."
                             />
                             <div className="flex items-center justify-between">
-                                <label className="flex items-center gap-2 cursor-pointer group">
-                                    <input 
-                                        type="checkbox"
-                                        checked={isInternal}
-                                        onChange={e => setIsInternal(e.target.checked)}
-                                        className="w-3 h-3 accent-amber-500"
-                                    />
-                                    <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest group-hover:text-amber-500 transition-colors">Internal Only</span>
-                                </label>
+                                {submission.can_moderate && (
+                                   <label className="flex items-center gap-2 cursor-pointer group">
+                                       <input
+                                           type="checkbox"
+                                           checked={isInternal}
+                                           onChange={e => setIsInternal(e.target.checked)}
+                                           className="w-3 h-3 accent-amber-500"
+                                       />
+                                       <span className="text-[10px] font-bold text-text-muted uppercase tracking-widest group-hover:text-amber-500 transition-colors">Internal Only</span>
+                                   </label>
+                                )}
+
                                 <button 
                                     type="submit"
                                     disabled={submittingComment || !comment.trim()}

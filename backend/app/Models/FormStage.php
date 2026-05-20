@@ -12,12 +12,18 @@ class FormStage extends Model
     protected $fillable = [
         'form_id',
         'name',
+        'submit_status_id',
         'order',
     ];
 
     public function form()
     {
         return $this->belongsTo(Form::class);
+    }
+
+    public function submitStatus()
+    {
+        return $this->belongsTo(FormStatus::class, 'submit_status_id');
     }
 
     public function sections()

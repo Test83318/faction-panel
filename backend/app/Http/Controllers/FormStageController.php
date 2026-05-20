@@ -18,12 +18,14 @@ class FormStageController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'submit_status_id' => 'nullable|exists:form_statuses,id',
         ]);
 
         $maxOrder = $form->stages()->max('order') ?? -1;
 
         $stage = $form->stages()->create([
             'name' => $validated['name'],
+            'submit_status_id' => $validated['submit_status_id'] ?? null,
             'order' => $maxOrder + 1,
         ]);
 
@@ -38,6 +40,7 @@ class FormStageController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
+            'submit_status_id' => 'sometimes|nullable|exists:form_statuses,id',
         ]);
 
         $stage->update($validated);

@@ -323,6 +323,7 @@ export interface FormStage {
   id: number;
   form_id: number;
   name: string;
+  submit_status_id: number | null;
   order: number;
   sections?: FormSection[];
 }
@@ -330,6 +331,7 @@ export interface FormStage {
 export interface FormStatus {
   id: number;
   form_id: number;
+  form_stage_id: number | null;
   name: string;
   order: number;
   is_hidden: boolean;

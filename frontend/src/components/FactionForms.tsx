@@ -21,7 +21,11 @@ import {
     BarChart3,
     ArrowLeft,
     Inbox,
-    Search
+    Search,
+    AlertCircle,
+    Info,
+    CheckCircle2,
+    ShieldAlert
 } from 'lucide-react';
 import FormEditor from './forms/FormEditor';
 import FormView from './FormView';
@@ -43,8 +47,13 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isReviewing, setIsReviewing] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [activeTab, setActiveTab] = useState<'available' | 'my_submissions' | 'review'>('available');
-    const [reviewFilter, setReviewFilter] = useState<'pending' | 'archived'>('pending');
+    
+    // New state for redesigned navigation
+    const [viewingFormSubmissionsId, setViewingFormSubmissionsId] = useState<number | null>(null);
+    const [viewingMyFormSubmissionsId, setViewingMyFormSubmissionsId] = useState<number | null>(null);
+    const [reviewFilter, setReviewFilter] = useState<'pending' | 'archived' | 'unsubmitted'>('pending');
+    const [pendingStartForm, setPendingStartForm] = useState<Form | null>(null);
+    
     const [allSubmissions, setAllSubmissions] = useState<any[]>([]);
     const [creating, setCreating] = useState(false);
     const [newForm, setNewForm] = useState({
@@ -175,14 +184,35 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
     return (
         <div className="p-6 space-y-6">
             <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold text-text flex items-center gap-2">
-                        <FileText className="text-accent" />
-                        Faction Forms
-                    </h1>
-                    <p className="text-text-muted text-sm mt-1">Create and manage applications, quizzes, and dynamic forms.</p>
+                <div className="flex items-center gap-4">
+                    {(viewingFormSubmissionsId || viewingMyFormSubmissionsId) && (
+                        <button 
+                            onClick={() => {
+                                setViewingFormSubmissionsId(null);
+                                setViewingMyFormSubmissionsId(null);
+                            }}
+                            className="p-2 hover:bg-bg rounded-full text-text-muted hover:text-text transition-all"
+                        >
+                            <ArrowLeft size={20} />
+                        </button>
+                    )}
+                    <div>
+                        <h1 className="text-2xl font-bold text-text flex items-center gap-2">
+                            <FileText className="text-accent" />
+                            {viewingFormSubmissionsId 
+                                ? `Reviewing: ${forms.find(f => f.id === viewingFormSubmissionsId)?.name}` 
+                                : viewingMyFormSubmissionsId 
+                                    ? `My Submissions: ${forms.find(f => f.id === viewingMyFormSubmissionsId)?.name}`
+                                    : 'Faction Forms'}
+                        </h1>
+                        <p className="text-text-muted text-sm mt-1">
+                            {viewingFormSubmissionsId || viewingMyFormSubmissionsId 
+                                ? 'View and manage form submissions.' 
+                                : 'Create and manage applications, quizzes, and dynamic forms.'}
+                        </p>
+                    </div>
                 </div>
-                {canCreate && (
+                {!viewingFormSubmissionsId && !viewingMyFormSubmissionsId && canCreate && (
                     <button 
                         onClick={() => setShowCreateModal(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-colors shadow-lg shadow-accent/20"
@@ -193,146 +223,134 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                 )}
             </div>
 
-            <div className="flex gap-4 border-b border-border">
-                <button 
-                    onClick={() => setActiveTab('available')}
-                    className={`pb-4 px-2 text-sm font-bold uppercase tracking-widest transition-all relative ${activeTab === 'available' ? 'text-accent' : 'text-text-muted hover:text-text'}`}
-                >
-                    Available Forms
-                    {activeTab === 'available' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-1 bg-accent rounded-t-full" />}
-                </button>
-                <button 
-                    onClick={() => setActiveTab('my_submissions')}
-                    className={`pb-4 px-2 text-sm font-bold uppercase tracking-widest transition-all relative ${activeTab === 'my_submissions' ? 'text-accent' : 'text-text-muted hover:text-text'}`}
-                >
-                    My Submissions
-                    {mySubmissions.length > 0 && <span className="ml-2 px-1.5 py-0.5 bg-accent text-white text-[10px] rounded-full">{mySubmissions.length}</span>}
-                    {activeTab === 'my_submissions' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-1 bg-accent rounded-t-full" />}
-                </button>
-                {canModerate && (
-                    <button 
-                        onClick={() => setActiveTab('review')}
-                        className={`pb-4 px-2 text-sm font-bold uppercase tracking-widest transition-all relative ${activeTab === 'review' ? 'text-accent' : 'text-text-muted hover:text-text'}`}
-                    >
-                        Review Submissions
-                        {allSubmissions.filter(s => !s.current_status?.is_archived).length > 0 && (
-                            <span className="ml-2 px-1.5 py-0.5 bg-amber-500 text-white text-[10px] rounded-full">
-                                {allSubmissions.filter(s => !s.current_status?.is_archived).length}
-                            </span>
-                        )}
-                        {activeTab === 'review' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-1 bg-accent rounded-t-full" />}
-                    </button>
-                )}
-            </div>
-
             <AnimatePresence mode="wait">
-                {activeTab === 'available' ? (
+                {viewingFormSubmissionsId ? (
                     <motion.div 
-                        key="available"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-                    >
-                        {forms.map(form => (
-                            <motion.div 
-                                key={form.id}
-                                layout
-                                className="bg-card border border-border rounded-xl overflow-hidden flex flex-col hover:border-accent/30 transition-all shadow-sm"
-                            >
-                                <div className="p-5 flex-1">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${form.type === 'quiz' ? 'bg-purple-500/20 text-purple-500' : 'bg-blue-500/20 text-blue-500'}`}>
-                                            {form.type}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {form.is_public && <Eye size={14} className="text-green-500" title="Public Form" />}
-                                            {!form.is_enabled && <EyeOff size={14} className="text-red-500" title="Disabled" />}
-                                        </div>
-                                    </div>
-                                    <h3 className="text-lg font-bold text-text mb-2">{form.name}</h3>
-                                    <p className="text-text-muted text-sm line-clamp-2 mb-4">
-                                        {form.description || 'No description provided.'}
-                                    </p>
-                                    
-                                    <div className="flex items-center gap-4 text-[10px] text-text-muted font-bold uppercase tracking-widest">
-                                        <div className="flex items-center gap-1">
-                                            <Clock size={12} />
-                                            {form.cooldown_seconds > 0 ? `${form.cooldown_seconds / 3600}h CD` : 'No Cooldown'}
-                                        </div>
-                                        {form.type === 'quiz' && (
-                                            <div className="flex items-center gap-1">
-                                                <BarChart3 size={12} />
-                                                Quiz
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="p-4 bg-bg/50 border-t border-border flex items-center justify-between">
-                                    <button 
-                                        onClick={() => handleOpenEditor(form)}
-                                        className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-text-muted hover:text-accent transition-colors"
-                                    >
-                                        <Settings size={14} />
-                                        Configure
-                                    </button>
-                                    <div className="flex items-center gap-2">
-                                        <button 
-                                            onClick={() => {
-                                                setActiveForm(form);
-                                                setIsSubmitting(true);
-                                            }}
-                                            className="px-3 py-1.5 bg-accent text-white rounded text-[10px] font-bold uppercase tracking-widest transition-all hover:bg-accent/90"
-                                        >
-                                            Apply
-                                        </button>
-                                        {(canModerate || form.created_by === user?.id) && (
-                                            <button 
-                                                onClick={() => handleDelete(form)}
-                                                className="p-2 text-text-muted hover:text-red-500 transition-colors" 
-                                                title="Delete Form"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            </motion.div>
-                        ))}
-
-                        {forms.length === 0 && (
-                            <div className="col-span-full py-20 flex flex-col items-center justify-center bg-card border border-dashed border-border rounded-xl text-text-muted">
-                                <FileText size={64} className="mb-4 opacity-10" />
-                                <p className="font-bold text-lg">No forms available.</p>
-                                {canCreate && <p className="text-sm">Click "Create Form" to start building.</p>}
-                            </div>
-                        )}
-                    </motion.div>
-                ) : activeTab === 'my_submissions' ? (
-                    <motion.div 
-                        key="submissions"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
+                        key="review"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
                         className="space-y-4"
                     >
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => setReviewFilter('pending')}
+                                className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${reviewFilter === 'pending' ? 'bg-accent text-white' : 'bg-bg border border-border text-text-muted hover:border-accent/50'}`}
+                            >
+                                Review ({allSubmissions.filter(s => s.form_id === viewingFormSubmissionsId && s.submitted_at && !s.current_status?.is_archived).length})
+                            </button>
+                            <button 
+                                onClick={() => setReviewFilter('unsubmitted')}
+                                className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${reviewFilter === 'unsubmitted' ? 'bg-amber-500 text-white' : 'bg-bg border border-border text-text-muted hover:border-amber-500/50'}`}
+                            >
+                                Pending ({allSubmissions.filter(s => s.form_id === viewingFormSubmissionsId && !s.submitted_at).length})
+                            </button>
+                            <button 
+                                onClick={() => setReviewFilter('archived')}
+                                className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${reviewFilter === 'archived' ? 'bg-accent text-white' : 'bg-bg border border-border text-text-muted hover:border-accent/50'}`}
+                            >
+                                Archived ({allSubmissions.filter(s => s.form_id === viewingFormSubmissionsId && s.current_status?.is_archived).length})
+                            </button>
+                        </div>
+
                         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                             <table className="w-full text-left">
                                 <thead>
                                     <tr className="bg-bg/50 border-b border-border">
-                                        <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">Form Name</th>
+                                        <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">User</th>
                                         <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">Status</th>
                                         <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">Submitted Date</th>
                                         <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border">
-                                    {mySubmissions.map(sub => (
+                                    {allSubmissions
+                                        .filter(sub => sub.form_id === viewingFormSubmissionsId)
+                                        .filter(sub => {
+                                            if (reviewFilter === 'unsubmitted') return !sub.submitted_at;
+                                            if (reviewFilter === 'archived') return sub.current_status?.is_archived;
+                                            return sub.submitted_at && !sub.current_status?.is_archived;
+                                        })
+                                        .map(sub => (
                                         <tr key={sub.id} className="hover:bg-bg/30 transition-colors">
                                             <td className="px-6 py-4">
-                                                <span className="text-sm font-bold text-text">{sub.form?.name}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-[10px] font-bold text-accent">
+                                                        {sub.user?.username ? sub.user.username[0].toUpperCase() : 'G'}
+                                                    </div>
+                                                    <span className="text-sm font-bold text-text">{sub.user?.username || 'Guest'}</span>
+                                                </div>
                                             </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                                    !sub.submitted_at ? 'bg-amber-500/10 text-amber-500' :
+                                                    sub.current_status?.is_passed ? 'bg-green-500/10 text-green-500' :
+                                                    sub.current_status?.is_failed ? 'bg-red-500/10 text-red-500' :
+                                                    'bg-blue-500/10 text-blue-500'
+                                                }`}>
+                                                    {!sub.submitted_at ? 'In Progress' : (sub.current_status?.name || 'Submitted')}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-xs text-text-muted">
+                                                    {sub.submitted_at 
+                                                        ? new Date(sub.submitted_at).toLocaleDateString() 
+                                                        : `Started ${new Date(sub.created_at).toLocaleDateString()}`}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <button 
+                                                    onClick={() => {
+                                                        setActiveSubmissionId(sub.id);
+                                                        setIsReviewing(true);
+                                                    }}
+                                                    className="px-3 py-1.5 bg-accent/10 text-accent rounded text-[10px] font-bold uppercase tracking-widest hover:bg-accent hover:text-white transition-all"
+                                                >
+                                                    {reviewFilter === 'unsubmitted' ? 'View Progress' : 'Review'}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {allSubmissions
+                                        .filter(sub => sub.form_id === viewingFormSubmissionsId)
+                                        .filter(sub => {
+                                            if (reviewFilter === 'unsubmitted') return !sub.submitted_at;
+                                            if (reviewFilter === 'archived') return sub.current_status?.is_archived;
+                                            return sub.submitted_at && !sub.current_status?.is_archived;
+                                        }).length === 0 && (
+                                        <tr>
+                                            <td colSpan={4} className="px-6 py-20 text-center">
+                                                <Search size={48} className="mx-auto mb-4 opacity-10 text-text-muted" />
+                                                <p className="font-bold text-text-muted">No {reviewFilter} submissions found for this form.</p>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </motion.div>
+                ) : viewingMyFormSubmissionsId ? (
+                    <motion.div 
+                        key="my_submissions"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="space-y-4"
+                    >
+                        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+                            <table className="w-full text-left">
+                                <thead>
+                                    <tr className="bg-bg/50 border-b border-border">
+                                        <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">Status</th>
+                                        <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">Submitted Date</th>
+                                        <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {mySubmissions
+                                        .filter(sub => sub.form_id === viewingMyFormSubmissionsId && sub.submitted_at)
+                                        .map(sub => (
+                                        <tr key={sub.id} className="hover:bg-bg/30 transition-colors">
                                             <td className="px-6 py-4">
                                                 <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                                                     sub.current_status?.is_passed ? 'bg-green-500/10 text-green-500' :
@@ -359,11 +377,11 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                             </td>
                                         </tr>
                                     ))}
-                                    {mySubmissions.length === 0 && (
+                                    {mySubmissions.filter(sub => sub.form_id === viewingMyFormSubmissionsId).length === 0 && (
                                         <tr>
-                                            <td colSpan={4} className="px-6 py-20 text-center">
+                                            <td colSpan={3} className="px-6 py-20 text-center">
                                                 <Inbox size={48} className="mx-auto mb-4 opacity-10 text-text-muted" />
-                                                <p className="font-bold text-text-muted">You haven't submitted any forms yet.</p>
+                                                <p className="font-bold text-text-muted">You haven't submitted this form yet.</p>
                                             </td>
                                         </tr>
                                     )}
@@ -373,86 +391,150 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                     </motion.div>
                 ) : (
                     <motion.div 
-                        key="review"
+                        key="available"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="space-y-4"
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                     >
-                        <div className="flex gap-2">
-                            <button 
-                                onClick={() => setReviewFilter('pending')}
-                                className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${reviewFilter === 'pending' ? 'bg-accent text-white' : 'bg-bg border border-border text-text-muted hover:border-accent/50'}`}
-                            >
-                                Pending
-                            </button>
-                            <button 
-                                onClick={() => setReviewFilter('archived')}
-                                className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${reviewFilter === 'archived' ? 'bg-accent text-white' : 'bg-bg border border-border text-text-muted hover:border-accent/50'}`}
-                            >
-                                Archived
-                            </button>
-                        </div>
+                        {forms.map(form => {
+                            const submission = mySubmissions.find(s => s.form_id === form.id);
+                            const hasInProgressSubmission = submission && !submission.submitted_at;
+                            const hasUnderReviewSubmission = submission && submission.submitted_at && !submission.current_status?.is_archived && !submission.current_status?.is_passed && !submission.current_status?.is_failed;
+                            
+                            const submissionsCount = allSubmissions.filter(s => s.form_id === form.id && !s.current_status?.is_archived).length;
+                            const mySubmissionsCount = mySubmissions.filter(s => s.form_id === form.id).length;
+                            
+                            // Mock requirements logic based on form name/metadata
+                            const meetsRequirements = true; // Placeholder
+                            
+                            return (
+                                <motion.div 
+                                    key={form.id}
+                                    layout
+                                    className="bg-card border border-border rounded-xl overflow-hidden flex flex-col hover:border-accent/30 transition-all shadow-lg hover:shadow-xl group"
+                                >
+                                    {/* Alert Header */}
+                                    <div className={`p-3 flex items-center gap-3 border-b border-border/50 ${meetsRequirements ? 'bg-green-500/5 text-green-500' : 'bg-amber-500/5 text-amber-500'}`}>
+                                        {meetsRequirements ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">
+                                            {meetsRequirements ? 'You meet the requirements for this form' : 'You do not meet the requirements'}
+                                        </span>
+                                    </div>
 
-                        <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
-                            <table className="w-full text-left">
-                                <thead>
-                                    <tr className="bg-bg/50 border-b border-border">
-                                        <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">User</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">Form</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">Status</th>
-                                        <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                    {allSubmissions
-                                        .filter(sub => reviewFilter === 'archived' ? sub.current_status?.is_archived : !sub.current_status?.is_archived)
-                                        .map(sub => (
-                                        <tr key={sub.id} className="hover:bg-bg/30 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-[10px] font-bold text-accent">
-                                                        {sub.user?.username[0].toUpperCase() || 'G'}
-                                                    </div>
-                                                    <span className="text-sm font-bold text-text">{sub.user?.username || 'Guest'}</span>
+                                    <div className="p-5 flex-1 space-y-4">
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-12 h-12 rounded bg-bg border border-border flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                                {form.metadata?.image ? (
+                                                    <img src={form.metadata.image} className="w-full h-full object-cover" alt="" />
+                                                ) : (
+                                                    <FileText size={24} className="text-accent/40" />
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="text-lg font-bold text-text truncate">{form.name}</h3>
+                                                <p className="text-[10px] text-text-muted font-bold uppercase tracking-widest truncate">
+                                                    {form.metadata?.category || 'General Form'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <p className="text-text-muted text-sm line-clamp-3">
+                                            {form.description || 'No description provided.'}
+                                        </p>
+
+                                        <hr className="border-border/50" />
+
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                                                <div className="flex items-center gap-1.5">
+                                                    <CheckCircle size={14} className="text-green-500" />
+                                                    <span>Rank Required: {form.metadata?.rank || 'None'}</span>
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="text-sm text-text">{sub.form?.name}</span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                                    sub.current_status?.is_passed ? 'bg-green-500/10 text-green-500' :
-                                                    sub.current_status?.is_failed ? 'bg-red-500/10 text-red-500' :
-                                                    'bg-blue-500/10 text-blue-500'
-                                                }`}>
-                                                    {sub.current_status?.name || 'Submitted'}
+                                            </div>
+                                            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                                                <div className="flex items-center gap-1.5">
+                                                    <CheckCircle size={14} className="text-green-500" />
+                                                    <span>Time since last: {form.cooldown_seconds > 0 ? `${form.cooldown_seconds / 3600}h` : 'None'}</span>
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
+                                            </div>
+                                            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                                                <div className="flex items-center gap-1.5">
+                                                    <CheckCircle size={14} className="text-green-500" />
+                                                    <span>Public Form: {form.is_public ? 'Yes' : 'No'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 bg-bg/30 border-t border-border flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-1">
+                                            <button 
+                                                onClick={() => handleOpenEditor(form)}
+                                                className="p-2 text-text-muted hover:text-accent hover:bg-accent/5 rounded transition-all"
+                                                title="Configure"
+                                            >
+                                                <Settings size={16} />
+                                            </button>
+                                            {(canModerate || form.created_by === user?.id) && (
                                                 <button 
-                                                    onClick={() => {
-                                                        setActiveSubmissionId(sub.id);
-                                                        setIsReviewing(true);
-                                                    }}
-                                                    className="px-3 py-1.5 bg-accent/10 text-accent rounded text-[10px] font-bold uppercase tracking-widest hover:bg-accent hover:text-white transition-all"
+                                                    onClick={() => handleDelete(form)}
+                                                    className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/5 rounded transition-all" 
+                                                    title="Delete Form"
                                                 >
-                                                    Review
+                                                    <Trash2 size={16} />
                                                 </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {allSubmissions.length === 0 && (
-                                        <tr>
-                                            <td colSpan={4} className="px-6 py-20 text-center">
-                                                <Search size={48} className="mx-auto mb-4 opacity-10 text-text-muted" />
-                                                <p className="font-bold text-text-muted">No submissions found.</p>
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            {mySubmissionsCount > 0 && (
+                                                <button 
+                                                    onClick={() => setViewingMyFormSubmissionsId(form.id)}
+                                                    className="px-3 py-1.5 border border-border text-text-muted hover:text-text hover:border-text rounded text-[10px] font-bold uppercase tracking-widest transition-all"
+                                                >
+                                                    My Submissions ({mySubmissionsCount})
+                                                </button>
+                                            )}
+                                            {canModerate && (
+                                                <button 
+                                                    onClick={() => setViewingFormSubmissionsId(form.id)}
+                                                    className="px-3 py-1.5 bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white rounded text-[10px] font-bold uppercase tracking-widest transition-all"
+                                                >
+                                                    Review ({allSubmissions.filter(s => s.form_id === form.id && s.submitted_at && !s.current_status?.is_archived).length})
+                                                </button>
+                                            )}
+                                            <button 
+                                                onClick={() => {
+                                                    if (hasInProgressSubmission) {
+                                                        setActiveForm(form);
+                                                        setIsSubmitting(true);
+                                                    } else if (hasUnderReviewSubmission) {
+                                                        setActiveSubmissionId(submission.id);
+                                                        setIsReviewing(true);
+                                                    } else {
+                                                        setPendingStartForm(form);
+                                                    }
+                                                }}
+                                                className="px-5 py-1.5 bg-accent text-white rounded text-[10px] font-bold uppercase tracking-widest transition-all hover:bg-accent/90 shadow-lg shadow-accent/20"
+                                            >
+                                                {hasInProgressSubmission 
+                                                    ? (submission?.current_status?.is_passed ? 'Continue' : 'Resume') 
+                                                    : hasUnderReviewSubmission ? 'Check Status' : 'Submit'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+
+                        {forms.length === 0 && (
+                            <div className="col-span-full py-20 flex flex-col items-center justify-center bg-card border border-dashed border-border rounded-xl text-text-muted">
+                                <FileText size={64} className="mb-4 opacity-10" />
+                                <p className="font-bold text-lg">No forms available.</p>
+                                {canCreate && <p className="text-sm">Click "Create Form" to start building.</p>}
+                            </div>
+                        )}
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -551,6 +633,60 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                     </button>
                                 </div>
                             </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+            {/* Start Application Warning Modal */}
+            <AnimatePresence>
+                {pendingStartForm && (
+                    <div className="fixed inset-0 z-[600] flex items-center justify-center p-4">
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setPendingStartForm(null)}
+                            className="absolute inset-0 bg-black/20 backdrop-blur-md"
+                        />
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm overflow-hidden relative z-10"
+                        >
+                            <div className="p-6">
+                                <h2 className="text-xl font-bold text-text mb-4">Start Application</h2>
+                                <p className="text-text-muted text-sm leading-relaxed mb-6">
+                                    Opening an application will indicate your interest for the role, however withdrawing your application will incur a cooldown. Are you sure you want to start?
+                                </p>
+                                
+                                {pendingStartForm.requires_gtaw_login && !user?.gtaw_linked && (
+                                    <div className="p-3 mb-6 bg-red-500/10 border border-red-500/20 rounded-lg flex gap-2 items-start">
+                                        <AlertCircle size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
+                                        <p className="text-xs text-red-500">This form requires a linked GTA:W account. Please link your account in Settings first.</p>
+                                    </div>
+                                )}
+
+                                <div className="flex gap-3 justify-end">
+                                    <button 
+                                        onClick={() => setPendingStartForm(null)} 
+                                        className="px-4 py-2 text-text-muted hover:text-text font-bold uppercase tracking-widest text-xs transition-colors"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        disabled={pendingStartForm.requires_gtaw_login && !user?.gtaw_linked}
+                                        onClick={() => {
+                                            setActiveForm(pendingStartForm);
+                                            setIsSubmitting(true);
+                                            setPendingStartForm(null);
+                                        }} 
+                                        className="px-6 py-2 bg-accent text-white rounded font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-colors disabled:opacity-50"
+                                    >
+                                        Start
+                                    </button>
+                                </div>
+                            </div>
                         </motion.div>
                     </div>
                 )}

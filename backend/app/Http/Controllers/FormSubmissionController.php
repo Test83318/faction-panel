@@ -134,7 +134,20 @@ class FormSubmissionController extends Controller
             }
         }
 
-        // 5. Create submission record
+        // 5. Check for existing unsubmitted record to resume
+        if ($user) {
+            $existing = FormSubmission::where('form_id', $form->id)
+                ->where('user_id', $user->id)
+                ->whereNull('submitted_at')
+                ->latest()
+                ->first();
+
+            if ($existing) {
+                return response()->json($existing->load(['form', 'currentStage', 'currentStatus', 'responses']));
+            }
+        }
+
+        // 6. Create submission record
         $defaultStatus = $form->statuses()->where('name', 'Submitted')->first() ?? $form->statuses()->first();
         $firstStage = $form->stages()->first();
 
@@ -149,7 +162,7 @@ class FormSubmissionController extends Controller
             ]
         ]);
 
-        // 6. Pre-fill GTA:W data if required
+        // 7. Pre-fill GTA:W data if required
         if ($form->requires_gtaw_login && $user?->gtaw_linked) {
             $factions = $this->gtawService->getFactions($user->gtaw_access_token);
             if ($factions) {
@@ -229,9 +242,15 @@ class FormSubmissionController extends Controller
             return response()->json(['message' => 'This form has already been submitted.'], 422);
         }
 
-        // 2. Validation
+        // 2. Validation - Only validate fields for the CURRENT stage
         $form = $submission->form;
-        $fields = $form->stages()->with('sections.fields')->get()->pluck('sections')->flatten()->pluck('fields')->flatten();
+        $currentStage = $submission->currentStage;
+        
+        if (!$currentStage) {
+            return response()->json(['message' => 'No active stage found for this submission.'], 422);
+        }
+
+        $fields = $currentStage->sections()->with('fields')->get()->pluck('fields')->flatten()->filter();
         
         $rules = [];
         foreach ($fields as $field) {
@@ -253,9 +272,10 @@ class FormSubmissionController extends Controller
         $validated = $request->validate($rules);
 
         // 3. Save Responses & Auto-Grade
-        $totalPoints = 0;
         foreach ($validated['responses'] as $fieldId => $value) {
             $field = $fields->firstWhere('id', $fieldId);
+            if (!$field) continue; // Should not happen with validation
+
             $pointsAwarded = 0;
             $isGraded = false;
 
@@ -296,11 +316,19 @@ class FormSubmissionController extends Controller
             'submitted_at' => now(),
         ];
 
+        // Apply stage-specific submit status if set
+        if ($currentStage->submit_status_id) {
+            $updateData['current_status_id'] = $currentStage->submit_status_id;
+        }
+
+        // Automatic grading for quizzes (overrides if enabled)
         if ($form->type === 'quiz' && $form->is_automatic_grading) {
+            // Note: Quiz grading might need to be global across all stages or per-stage.
+            // For now, we calculate based on the current stage's performance? 
+            // Usually quizzes are one-stage, but if multi-stage, we sum everything so far.
             $totalPointsAwarded = $submission->responses()->sum('points_awarded');
             $statusName = $totalPointsAwarded >= $form->pass_points ? 'Passed' : 'Failed';
             
-            // Try to find by name first, then by flags
             $status = $form->statuses()->where('name', $statusName)->first();
             if (!$status) {
                 if ($statusName === 'Passed') {
@@ -369,8 +397,29 @@ class FormSubmissionController extends Controller
             'current_status_id' => $status->id,
         ];
 
+        // 1. Handle Stage-Specific Logic
+        if ($status->form_stage_id && $status->is_passed) {
+            // This is a "Stage Pass" status. Move to next stage if it exists.
+            $nextStage = FormStage::where('form_id', $form->id)
+                ->where('order', '>', $submission->currentStage->order)
+                ->orderBy('order')
+                ->first();
+
+            if ($nextStage) {
+                $updateData['current_stage_id'] = $nextStage->id;
+                $updateData['submitted_at'] = null; // Re-open for user to continue
+            }
+        }
+
+        // 2. Manual Stage Override
         if (isset($validated['stage_id'])) {
             $stage = FormStage::where('id', $validated['stage_id'])->where('form_id', $form->id)->firstOrFail();
+            
+            // If we are moving to a new stage manually, clear submitted_at so user can resume
+            if ($submission->current_stage_id != $stage->id) {
+                $updateData['submitted_at'] = null;
+            }
+            
             $updateData['current_stage_id'] = $stage->id;
         }
 

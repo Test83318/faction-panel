@@ -12,7 +12,9 @@ import {
     CheckCircle2, 
     AlertCircle,
     Info,
-    FileText
+    FileText,
+    Edit2,
+    ShieldAlert
 } from 'lucide-react';
 import FormFieldRenderer from './forms/submission/FormFieldRenderer';
 
@@ -29,14 +31,63 @@ const FormView: React.FC<FormViewProps> = ({ formId, shortname, onClose, user })
     const [loading, setLoading] = useState(true);
     const [starting, setStarting] = useState(false);
     const [currentStageIdx, setCurrentStageIdx] = useState(0);
+    const [currentSectionIdx, setCurrentSectionIdx] = useState(0);
     const [responses, setResponses] = useState<Record<number, any>>({});
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
+    const [isProgressExpanded, setIsProgressExpanded] = useState(true);
+    const [furthestSectionIdx, setFurthestSectionIdx] = useState(0);
+    const [furthestStageIdx, setFurthestStageIdx] = useState(0);
 
-    const fetchForm = async () => {
+    useEffect(() => {
+        if (currentStageIdx > furthestStageIdx) {
+            setFurthestStageIdx(currentStageIdx);
+            setFurthestSectionIdx(currentSectionIdx);
+        } else if (currentStageIdx === furthestStageIdx && currentSectionIdx > furthestSectionIdx) {
+            setFurthestSectionIdx(currentSectionIdx);
+        }
+    }, [currentStageIdx, currentSectionIdx, furthestStageIdx, furthestSectionIdx]);
+
+    const fetchFormAndStart = async () => {
         try {
+            setLoading(true);
             const res = await api.get(`/factions/${shortname}/forms/${formId}`);
-            setForm(res.data);
+            const fetchedForm = res.data;
+            setForm(fetchedForm);
+            
+            // Auto start logic
+            setStarting(true);
+            try {
+                const startRes = await api.post(`/factions/${shortname}/forms/${formId}/submissions/start`);
+                const sub = startRes.data;
+                setSubmission(sub);
+
+                // Initialize currentStageIdx based on submission's current_stage_id
+                if (sub.current_stage_id && fetchedForm.stages) {
+                    const stageIdx = fetchedForm.stages.findIndex((s: any) => s.id === sub.current_stage_id);
+                    if (stageIdx !== -1) {
+                        setCurrentStageIdx(stageIdx);
+                    }
+                }
+
+                // Handle pre-filled responses
+                if (sub.responses) {
+                    const prefilled: Record<number, any> = {};
+                    sub.responses.forEach((r: any) => {
+                        prefilled[r.form_field_id] = r.value;
+                    });
+                    setResponses(prefilled);
+                }
+            } catch (startErr: any) {
+                if (startErr.response?.status === 429) {
+                    toast.error(`Cooldown: Please wait ${Math.ceil(startErr.response.data.remaining_seconds / 60)} minutes.`);
+                } else {
+                    toast.error(startErr.response?.data?.message || 'Failed to start submission');
+                }
+                onClose();
+            } finally {
+                setStarting(false);
+            }
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Failed to load form');
             onClose();
@@ -46,34 +97,8 @@ const FormView: React.FC<FormViewProps> = ({ formId, shortname, onClose, user })
     };
 
     useEffect(() => {
-        fetchForm();
+        fetchFormAndStart();
     }, [formId]);
-
-    const handleStart = async () => {
-        setStarting(true);
-        try {
-            const res = await api.post(`/factions/${shortname}/forms/${formId}/submissions/start`);
-            const sub = res.data;
-            setSubmission(sub);
-
-            // Handle pre-filled responses
-            if (sub.responses) {
-                const prefilled: Record<number, any> = {};
-                sub.responses.forEach((r: any) => {
-                    prefilled[r.form_field_id] = r.value;
-                });
-                setResponses(prefilled);
-            }
-        } catch (err: any) {
-            if (err.response?.status === 429) {
-                toast.error(`Cooldown: Please wait ${Math.ceil(err.response.data.remaining_seconds / 60)} minutes.`);
-            } else {
-                toast.error(err.response?.data?.message || 'Failed to start submission');
-            }
-        } finally {
-            setStarting(false);
-        }
-    };
 
     const handleResponseChange = (fieldId: number, value: any) => {
         setResponses(prev => ({ ...prev, [fieldId]: value }));
@@ -96,7 +121,11 @@ const FormView: React.FC<FormViewProps> = ({ formId, shortname, onClose, user })
         }
     };
 
-    if (loading) return <Loading message="Loading Form..." />;
+    if (loading || starting || !submission) return (
+        <div className="flex justify-center items-center py-20 min-h-[50vh]">
+            <Loading message="Preparing Application..." />
+        </div>
+    );
     if (!form) return null;
 
     if (submitted) {
@@ -183,7 +212,7 @@ const FormView: React.FC<FormViewProps> = ({ formId, shortname, onClose, user })
                         )}
 
                         <button 
-                            onClick={handleStart}
+                            onClick={fetchFormAndStart}
                             disabled={starting || (form.requires_gtaw_login && !user?.gtaw_linked)}
                             className="w-full py-4 bg-accent text-white rounded-xl font-bold uppercase tracking-widest hover:bg-accent/90 transition-all shadow-lg shadow-accent/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -197,100 +226,231 @@ const FormView: React.FC<FormViewProps> = ({ formId, shortname, onClose, user })
     }
 
     const currentStage = form.stages?.[currentStageIdx];
+    const currentSection = currentStage?.sections?.[currentSectionIdx];
+    const isLastSectionOfStage = currentSectionIdx === (currentStage?.sections?.length || 1) - 1;
     const isLastStage = currentStageIdx === (form.stages?.length || 1) - 1;
+    const isFinalSectionOfForm = isLastStage && isLastSectionOfStage;
+
+    const isSectionComplete = (section: any) => {
+        return section.fields?.every((f: any) => 
+            !f.is_required || (responses[f.id] !== undefined && responses[f.id] !== '' && responses[f.id] !== null)
+        );
+    };
+
+    const isCurrentSectionComplete = currentSection ? isSectionComplete(currentSection) : false;
+    
+    const isStageComplete = () => {
+        return currentStage?.sections?.every(section => isSectionComplete(section));
+    };
 
     return (
-        <div className="max-w-4xl mx-auto p-6 space-y-8 pb-32">
-            {/* Header & Progress */}
-            <div className="flex flex-col gap-6">
-                <div className="flex justify-between items-end">
-                    <div>
-                        <h1 className="text-2xl font-bold text-text">{form.name}</h1>
-                        <p className="text-text-muted text-sm mt-1">{currentStage?.name}</p>
+        <div className="max-w-7xl mx-auto p-6 space-y-6">
+            {/* Application Progress Accordion */}
+            <div className="bg-card border border-border rounded-xl overflow-hidden shadow-lg">
+                <button 
+                    onClick={() => setIsProgressExpanded(!isProgressExpanded)}
+                    className="w-full p-4 flex justify-between items-center hover:bg-bg/50 transition-colors"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="p-1.5 bg-accent/10 text-accent rounded">
+                            <FileText size={18} />
+                        </div>
+                        <h6 className="text-sm font-bold text-text uppercase tracking-widest">Application Progress</h6>
                     </div>
-                    <div className="text-right">
-                        <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1">Progress</p>
-                        <p className="text-sm font-bold text-accent">{currentStageIdx + 1} / {form.stages?.length || 1}</p>
+                    <div className="flex items-center gap-3">
+                        <div className="text-[10px] font-bold text-text-muted uppercase tracking-widest bg-bg px-2 py-1 rounded">
+                            {currentStageIdx + 1} / {form.stages?.length || 1} Stages
+                        </div>
+                        <ChevronRight size={18} className={`text-text-muted transition-transform ${isProgressExpanded ? 'rotate-90' : ''}`} />
                     </div>
-                </div>
+                </button>
 
-                <div className="h-1.5 w-full bg-card rounded-full overflow-hidden border border-border">
-                    <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${((currentStageIdx + 1) / (form.stages?.length || 1)) * 100}%` }}
-                        className="h-full bg-accent"
-                    />
-                </div>
+                <AnimatePresence>
+                    {isProgressExpanded && (
+                        <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden border-t border-border"
+                        >
+                            <div className="p-6">
+                                <div className="flex items-center justify-between relative">
+                                    {/* Stepper Line */}
+                                    <div className="absolute top-5 left-0 right-0 h-0.5 bg-border -z-0" />
+                                    
+                                    {form.stages?.map((stage, idx) => {
+                                        const isCompleted = idx < currentStageIdx;
+                                        const isActive = idx === currentStageIdx;
+                                        
+                                        return (
+                                            <div key={stage.id} className="flex flex-col items-center gap-2 relative z-10 bg-card px-4">
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                                                    isCompleted ? 'bg-green-500 text-white' : 
+                                                    isActive ? 'bg-accent text-white shadow-lg shadow-accent/20' : 
+                                                    'bg-bg border-2 border-border text-text-muted'
+                                                }`}>
+                                                    {isCompleted ? <CheckCircle2 size={20} /> : <Edit2 size={18} />}
+                                                </div>
+                                                <div className="text-center max-w-[120px]">
+                                                    <p className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isActive ? 'text-text' : 'text-text-muted'}`}>
+                                                        {stage.name}
+                                                    </p>
+                                                    {isActive && stage.description && (
+                                                        <p className="text-[8px] text-text-muted mt-0.5 italic line-clamp-1">{stage.description}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
-            {/* Stage Content */}
-            <AnimatePresence mode="wait">
-                <motion.div 
-                    key={currentStage?.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="space-y-12"
-                >
-                    {currentStage?.sections?.map(section => (
-                        <div key={section.id} className="space-y-6">
-                            <div className="border-l-4 border-accent pl-4">
-                                <h2 className="text-xl font-bold text-text">{section.name}</h2>
-                                {section.description && <p className="text-text-muted text-sm mt-1">{section.description}</p>}
-                            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Main Content Area */}
+                <div className="lg:col-span-9 bg-card border border-border rounded-xl shadow-lg overflow-hidden flex flex-col min-h-[500px]">
+                    <div className="p-8 flex-1">
+                        <AnimatePresence mode="wait">
+                            <motion.div 
+                                key={`${currentStageIdx}-${currentSectionIdx}`}
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                className="space-y-8"
+                            >
+                                <div className="space-y-2">
+                                    <h2 className="text-3xl font-bold text-text tracking-tight">{currentSection?.name || 'Section'}</h2>
+                                    {currentSection?.description && (
+                                        <p className="text-text-muted leading-relaxed whitespace-pre-wrap">{currentSection.description}</p>
+                                    )}
+                                </div>
 
-                            <div className="grid grid-cols-1 gap-8">
-                                {section.fields?.map(field => (
-                                    <FormFieldRenderer 
-                                        key={field.id} 
-                                        field={field} 
-                                        value={responses[field.id]} 
-                                        onChange={(val) => handleResponseChange(field.id, val)}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </motion.div>
-            </AnimatePresence>
+                                <div className="space-y-8">
+                                    {currentSection?.fields?.map(field => (
+                                        <div key={field.id} className="p-6 bg-bg/30 rounded-xl border border-border/50 hover:border-accent/30 transition-all">
+                                            <FormFieldRenderer 
+                                                field={field} 
+                                                value={responses[field.id]} 
+                                                onChange={(val) => handleResponseChange(field.id, val)}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        </AnimatePresence>
+                    </div>
 
-            {/* Navigation Footer */}
-            <div className="fixed bottom-0 left-0 right-0 p-6 bg-bg/80 backdrop-blur-md border-t border-border z-50">
-                <div className="max-w-4xl mx-auto flex justify-between gap-4">
-                    <button 
-                        onClick={() => setCurrentStageIdx(prev => Math.max(0, prev - 1))}
-                        disabled={currentStageIdx === 0}
-                        className="flex items-center gap-2 px-6 py-3 bg-card border border-border text-text-muted rounded-xl font-bold uppercase tracking-widest text-xs hover:text-text transition-all disabled:opacity-0"
-                    >
-                        <ChevronLeft size={18} />
-                        Back
-                    </button>
-
-                    {isLastStage ? (
-                        <button 
-                            onClick={handleSubmit}
-                            disabled={submitting}
-                            className="flex items-center gap-2 px-10 py-3 bg-accent text-white rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-all shadow-lg shadow-accent/20"
-                        >
-                            {submitting ? 'Submitting...' : 'Final Submit'}
-                            {!submitting && <Send size={18} />}
-                        </button>
-                    ) : (
+                    <div className="p-6 border-t border-border bg-bg/50 flex justify-between items-center">
                         <button 
                             onClick={() => {
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                                setCurrentStageIdx(prev => prev + 1);
+                                if (currentSectionIdx > 0) {
+                                    setCurrentSectionIdx(prev => prev - 1);
+                                } else if (currentStageIdx > 0) {
+                                    setCurrentStageIdx(prev => prev - 1);
+                                    setCurrentSectionIdx(form.stages[currentStageIdx - 1].sections.length - 1);
+                                }
                             }}
-                            className="flex items-center gap-2 px-10 py-3 bg-accent text-white rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-all shadow-lg shadow-accent/20"
+                            disabled={currentStageIdx === 0 && currentSectionIdx === 0}
+                            className="flex items-center gap-2 px-6 py-2.5 text-text-muted hover:text-text font-bold uppercase tracking-widest text-[10px] transition-all disabled:opacity-0"
                         >
-                            Next Stage
-                            <ChevronRight size={18} />
+                            <ChevronLeft size={16} />
+                            Previous
                         </button>
-                    )}
+                        
+                        {isLastSectionOfStage ? (
+                            <button 
+                                onClick={handleSubmit}
+                                disabled={submitting || !isStageComplete()}
+                                className={`flex items-center gap-2 px-10 py-2.5 rounded font-bold uppercase tracking-widest text-[10px] transition-all ${
+                                    isStageComplete() 
+                                        ? 'bg-accent text-white hover:bg-accent/90 shadow-lg shadow-accent/20' 
+                                        : 'bg-bg border border-border text-text-muted cursor-not-allowed opacity-50'
+                                }`}
+                            >
+                                {submitting ? 'Submitting...' : isLastStage ? 'Final Submit' : 'Submit Stage'}
+                                {!submitting && <Send size={16} />}
+                            </button>
+                        ) : (
+                            <button 
+                                onClick={() => {
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                    setCurrentSectionIdx(prev => prev + 1);
+                                }}
+                                disabled={!isCurrentSectionComplete}
+                                className={`flex items-center gap-2 px-8 py-2.5 rounded font-bold uppercase tracking-widest text-[10px] transition-all ${
+                                    isCurrentSectionComplete 
+                                        ? 'bg-accent text-white hover:bg-accent/90 shadow-lg shadow-accent/20' 
+                                        : 'bg-bg border border-border text-text-muted cursor-not-allowed opacity-50'
+                                }`}
+                            >
+                                Continue
+                                <ChevronRight size={16} />
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Sidebar */}
+                <div className="lg:col-span-3 space-y-6 sticky top-6">
+                    <div className="bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+                        <div className="p-4 border-b border-border bg-bg/50">
+                            <h6 className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Stage Sections</h6>
+                        </div>
+                        <div className="p-2 space-y-1">
+                            {currentStage?.sections?.map((section, idx) => {
+                                const isActive = idx === currentSectionIdx;
+                                const isFilled = isSectionComplete(section);
+                                
+                                // A section is unlocked if it's the current active one, 
+                                // or if it's been reached/filled before (furthestSectionIdx)
+                                const isUnlocked = idx <= furthestSectionIdx || isFilled;
+                                
+                                return (
+                                    <button 
+                                        key={section.id}
+                                        disabled={!isUnlocked}
+                                        onClick={() => setCurrentSectionIdx(idx)}
+                                        className={`w-full text-left p-3 rounded-lg flex items-center justify-between transition-all group ${
+                                            isActive ? 'bg-accent/10 text-accent' : 
+                                            isUnlocked ? 'hover:bg-bg text-text-muted hover:text-text' : 
+                                            'text-text-muted/30 cursor-not-allowed'
+                                        }`}
+                                    >
+                                        <span className="text-xs font-bold truncate pr-2">{section.name}</span>
+                                        {isFilled ? (
+                                            <CheckCircle2 size={14} className="text-green-500 flex-shrink-0" />
+                                        ) : !isUnlocked ? (
+                                            <ShieldAlert size={14} className="text-text-muted/30 flex-shrink-0" />
+                                        ) : (
+                                            <div className={`w-2 h-2 rounded-full flex-shrink-0 transition-colors ${isActive ? 'bg-accent' : 'bg-border group-hover:bg-text-muted'}`} />
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="bg-bg border border-border rounded-xl p-4 flex gap-3 items-start">
+                        <Info size={16} className="text-accent mt-0.5" />
+                        <div className="space-y-1">
+                            <p className="text-[10px] text-text-muted leading-relaxed uppercase tracking-wider">
+                                Your progress is saved automatically.
+                            </p>
+                            {!isCurrentSectionComplete && (
+                                <p className="text-[8px] text-amber-500 font-bold uppercase tracking-widest">
+                                    Fill in all required fields to unlock the next section
+                                </p>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     );
 };
+
 
 export default FormView;

@@ -18,6 +18,7 @@ class FormStatusController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'form_stage_id' => 'nullable|exists:form_stages,id',
             'is_hidden' => 'boolean',
             'is_locked' => 'boolean',
             'is_closed' => 'boolean',
@@ -44,6 +45,7 @@ class FormStatusController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
+            'form_stage_id' => 'sometimes|nullable|exists:form_stages,id',
             'is_hidden' => 'sometimes|boolean',
             'is_locked' => 'sometimes|boolean',
             'is_closed' => 'sometimes|boolean',
