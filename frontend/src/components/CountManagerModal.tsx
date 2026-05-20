@@ -86,7 +86,7 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
         });
     });
     const [isSaving, setIsSaving] = useState(false);
-    const [editingIdx, setEditingIdx] = useState<number | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
 
     const maxColumns = type === 'roster' ? 3 : 1;
 
@@ -133,7 +133,7 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
             ]
         };
         setCounts([...counts, newCount]);
-        setEditingIdx(counts.length);
+        setEditingId(newCount.id);
     };
 
     const updateCount = (idx: number, fields: any) => {
@@ -143,8 +143,9 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
     };
 
     const removeCount = (idx: number) => {
+        const countToRemove = counts[idx];
         setCounts(counts.filter((_, i) => i !== idx));
-        if (editingIdx === idx) setEditingIdx(null);
+        if (editingId === countToRemove.id) setEditingId(null);
     };
 
     const addCondition = (countIdx: number) => {
@@ -231,7 +232,7 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                             <Reorder.Item 
                                 key={count.id} 
                                 value={count}
-                                className={`bg-card border rounded-2xl transition-all ${editingIdx === idx ? 'border-accent ring-1 ring-accent/20 shadow-xl' : 'border-border'}`}
+                                className={`bg-card border rounded-2xl transition-all ${editingId === count.id ? 'border-accent ring-1 ring-accent/20 shadow-xl' : 'border-border'}`}
                             >
                                 <div className="p-5 flex items-center gap-4">
                                     <div className="cursor-grab active:cursor-grabbing text-muted/30 hover:text-accent transition-colors shrink-0">
@@ -260,8 +261,8 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button 
-                                            onClick={() => setEditingIdx(editingIdx === idx ? null : idx)}
-                                            className={`p-2 rounded-xl transition-all ${editingIdx === idx ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-muted hover:bg-surface border border-transparent hover:border-border'}`}
+                                            onClick={() => setEditingId(editingId === count.id ? null : count.id)}
+                                            className={`p-2 rounded-xl transition-all ${editingId === count.id ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'text-muted hover:bg-surface border border-transparent hover:border-border'}`}
                                         >
                                             <Settings2 size={18} />
                                         </button>
@@ -274,7 +275,7 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                     </div>
                                 </div>
 
-                                {editingIdx === idx && (
+                                {editingId === count.id && (
                                     <div className="px-6 pb-8 border-t border-border/50 pt-6 space-y-8 animate-in slide-in-from-top-4 duration-300">
                                         <div className="grid grid-cols-12 gap-8">
                                             <div className="col-span-3 space-y-6">

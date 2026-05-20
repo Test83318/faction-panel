@@ -129,6 +129,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   const [savingRows, setSavingRows] = useState<Map<number, string>>(new Map());
   const [maxRowHeight, setMaxRowHeight] = useState<number | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
+  const lastProcessedSaveTrigger = useRef(0);
   const [editData, setEditData] = useState<any>({});
   const [activeTagMenu, setActiveTagMenu] = useState<{ rowId: number, colId: string } | null>(null);
   const [linkedDataModal, setLinkedDataModal] = useState<{ rowId: number, colId: string, initialData?: any } | null>(null);
@@ -598,8 +599,11 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   }, [editingRowId, editData, rowColor, editingColId, lastUpdatedAt, onUpdateRow, setGlobalEditingRowId]);
 
   useEffect(() => {
-    if (saveTrigger && saveTrigger > 0 && editingRowId) {
-        handleSaveEdit(editingRowId);
+    if (saveTrigger && saveTrigger > lastProcessedSaveTrigger.current) {
+        lastProcessedSaveTrigger.current = saveTrigger;
+        if (editingRowId) {
+            handleSaveEdit(editingRowId);
+        }
     }
   }, [saveTrigger, editingRowId, handleSaveEdit]);
 
@@ -976,13 +980,13 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 <option key={opt.id} value={opt.id} style={{ color: opt.color || 'inherit' }}>{opt.label}</option>
               ))}
             </select>
-            <CellScaler>
+            <CellScaler className="relative z-20 pointer-events-none">
                 <div className="flex items-center gap-1 overflow-visible">
                     <div className="text-[10px] uppercase font-medium transition-colors" style={textStyle}>
                     {selectedOpt?.label || value || <span className="opacity-20 italic">Select...</span>}
                     </div>
                     {activeFlags.length > 0 && (
-                        <div className="flex items-center gap-0.5">
+                        <div className="flex items-center gap-0.5 pointer-events-auto">
                             {activeFlags.map(f => (
                                 <div key={f.id} className="group/flag-icon relative flex items-center justify-center">
                                     {React.createElement((LucideIcons as any)[f.icon] || LucideIcons.HelpCircle, { 
@@ -1002,13 +1006,13 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                                 e.stopPropagation();
                                 setActiveTagMenu(activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? null : { rowId: row.id, colId: col.id });
                             }}
-                            className={`p-1 rounded hover:bg-accent/10 transition-colors relative z-20 ${activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? 'text-accent' : 'text-muted'}`}
+                            className={`p-1 rounded hover:bg-accent/10 transition-colors relative z-20 pointer-events-auto ${activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? 'text-accent' : 'text-muted'}`}
                         >
                             <Pencil size={10} />
                         </button>
                     )}
                     {inlineCheckboxes && col.checkboxes && col.checkboxes.length > 0 && (
-                        <div className="flex flex-wrap gap-1 relative z-20">
+                        <div className="flex flex-wrap gap-1 relative z-20 pointer-events-auto">
                             {col.checkboxes.map((cb, cbIdx) => {
                                 if (!cb) return null;
                                 const label = typeof cb === 'string' ? cb : cb?.label;
@@ -1033,7 +1037,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                     )}
                 </div>
                 {!inlineCheckboxes && col.checkboxes && col.checkboxes.length > 0 && (
-                <div className="flex flex-wrap gap-1 relative z-20">
+                <div className="flex flex-wrap gap-1 relative z-20 pointer-events-auto">
                     {col.checkboxes.map((cb, cbIdx) => {
                     if (!cb) return null;
                     const label = typeof cb === 'string' ? cb : cb?.label;

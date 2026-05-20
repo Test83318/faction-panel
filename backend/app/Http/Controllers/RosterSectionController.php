@@ -191,6 +191,7 @@ class RosterSectionController extends Controller
             'columns' => 'sometimes|nullable|array',
             'use_roster_columns' => 'sometimes|boolean',
             'layout_settings' => 'sometimes|nullable|array',
+            'counts' => 'sometimes|nullable|array',
             'subsections_per_row' => 'sometimes|integer|min:1|max:3',
             'content_html' => 'sometimes|nullable|string',
         ]);
