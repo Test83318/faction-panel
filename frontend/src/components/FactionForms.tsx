@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import toast from 'react-hot-toast';
+import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api';
 import Loading from './Loading';
 import { useConfirm } from './ConfirmationProvider';
 import { Form, Faction } from '../types';
-import { 
-    Plus, 
-    FileText, 
-    Settings, 
-    Trash2, 
-    ChevronRight, 
-    ExternalLink, 
-    Clock, 
-    CheckCircle, 
+import {
+    Plus,
+    FileText,
+    Settings,
+    Trash2,
+    ChevronRight,
+    ExternalLink,
+    Clock,
+    CheckCircle,
     XCircle,
     Eye,
     EyeOff,
@@ -41,19 +42,9 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
     const [forms, setForms] = useState<Form[]>([]);
     const [mySubmissions, setMySubmissions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeForm, setActiveForm] = useState<Form | null>(null);
-    const [activeSubmissionId, setActiveSubmissionId] = useState<number | null>(null);
-    const [isEditing, setIsEditing] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isReviewing, setIsReviewing] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
-    
-    // New state for redesigned navigation
-    const [viewingFormSubmissionsId, setViewingFormSubmissionsId] = useState<number | null>(null);
-    const [viewingMyFormSubmissionsId, setViewingMyFormSubmissionsId] = useState<number | null>(null);
     const [reviewFilter, setReviewFilter] = useState<'pending' | 'archived' | 'unsubmitted'>('pending');
     const [pendingStartForm, setPendingStartForm] = useState<Form | null>(null);
-    
     const [allSubmissions, setAllSubmissions] = useState<any[]>([]);
     const [creating, setCreating] = useState(false);
     const [newForm, setNewForm] = useState({
@@ -62,6 +53,27 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
         description: '',
         is_public: false
     });
+
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // Parse sub-path to derive current view from URL
+    const pathSegments = location.pathname.split('/').filter(Boolean);
+    const formsIdx = pathSegments.indexOf('forms');
+    const subSegments = pathSegments.slice(formsIdx + 1);
+
+    const formIdInPath = subSegments[0] && !isNaN(Number(subSegments[0])) ? Number(subSegments[0]) : null;
+    const viewInPath = subSegments[1] || null;
+    const subViewIdInPath = subSegments[2] && !isNaN(Number(subSegments[2])) ? Number(subSegments[2]) : null;
+
+    const activeForm = formIdInPath !== null ? forms.find(f => f.id === formIdInPath) ?? null : null;
+    const activeSubmissionId = subViewIdInPath;
+
+    const isEditing = viewInPath === 'edit';
+    const isSubmitting = viewInPath === 'submit';
+    const isReviewingSubmission = viewInPath === 'submissions' && subViewIdInPath !== null;
+    const viewingFormSubmissionsId = viewInPath === 'submissions' && subViewIdInPath === null ? formIdInPath : null;
+    const viewingMyFormSubmissionsId = viewInPath === 'my-submissions' ? formIdInPath : null;
 
     const hasPerm = (perm: string) => user?.is_superadmin || permissions.includes(perm);
     const canCreate = hasPerm('create_faction_forms');
@@ -92,6 +104,13 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
         fetchForms();
     }, [shortname]);
 
+    // Redirect to forms list if formId in URL but form not found after load
+    useEffect(() => {
+        if (!loading && formIdInPath !== null && !activeForm && viewInPath !== null) {
+            navigate(`/${shortname}/forms`, { replace: true });
+        }
+    }, [loading, formIdInPath, activeForm, viewInPath]);
+
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         setCreating(true);
@@ -101,7 +120,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
             setShowCreateModal(false);
             setNewForm({ name: '', type: 'standard', description: '', is_public: false });
             toast.success('Form created successfully!');
-            handleOpenEditor(res.data);
+            navigate(`/${shortname}/forms/${res.data.id}/edit`);
         } catch (err) {
             toast.error('Failed to create form');
         } finally {
@@ -128,23 +147,17 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
         }
     };
 
-    const handleOpenEditor = (form: Form) => {
-        setActiveForm(form);
-        setIsEditing(true);
-    };
-
     if (loading) return <Loading message="Loading Forms..." />;
 
     if (isEditing && activeForm) {
         return (
-            <FormEditor 
-                form={activeForm} 
-                shortname={shortname} 
+            <FormEditor
+                form={activeForm}
+                shortname={shortname}
                 onClose={() => {
-                    setIsEditing(false);
-                    setActiveForm(null);
+                    navigate(`/${shortname}/forms`);
                     fetchForms();
-                }} 
+                }}
                 user={user}
                 permissions={permissions}
             />
@@ -153,27 +166,26 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
 
     if (isSubmitting && activeForm) {
         return (
-            <FormView 
-                formId={activeForm.id} 
-                shortname={shortname} 
+            <FormView
+                formId={activeForm.id}
+                shortname={shortname}
                 user={user}
                 onClose={() => {
-                    setIsSubmitting(false);
-                    setActiveForm(null);
+                    navigate(`/${shortname}/forms`);
                     fetchForms();
-                }} 
+                }}
             />
         );
     }
 
-    if (isReviewing && activeSubmissionId) {
+    if (isReviewingSubmission && activeSubmissionId) {
         return (
-            <FormSubmissionReview 
+            <FormSubmissionReview
                 submissionId={activeSubmissionId}
                 shortname={shortname}
                 onClose={() => {
-                    setIsReviewing(false);
-                    setActiveSubmissionId(null);
+                    const backPath = (location.state as any)?.from ?? `/${shortname}/forms`;
+                    navigate(backPath);
                     fetchForms();
                 }}
                 user={user}
@@ -186,11 +198,8 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
             <div className="flex justify-between items-center">
                 <div className="flex items-center gap-4">
                     {(viewingFormSubmissionsId || viewingMyFormSubmissionsId) && (
-                        <button 
-                            onClick={() => {
-                                setViewingFormSubmissionsId(null);
-                                setViewingMyFormSubmissionsId(null);
-                            }}
+                        <button
+                            onClick={() => navigate(`/${shortname}/forms`)}
                             className="p-2 hover:bg-bg rounded-full text-text-muted hover:text-text transition-all"
                         >
                             <ArrowLeft size={20} />
@@ -199,21 +208,21 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                     <div>
                         <h1 className="text-2xl font-bold text-text flex items-center gap-2">
                             <FileText className="text-accent" />
-                            {viewingFormSubmissionsId 
-                                ? `Reviewing: ${forms.find(f => f.id === viewingFormSubmissionsId)?.name}` 
-                                : viewingMyFormSubmissionsId 
+                            {viewingFormSubmissionsId
+                                ? `Reviewing: ${forms.find(f => f.id === viewingFormSubmissionsId)?.name}`
+                                : viewingMyFormSubmissionsId
                                     ? `My Submissions: ${forms.find(f => f.id === viewingMyFormSubmissionsId)?.name}`
                                     : 'Faction Forms'}
                         </h1>
                         <p className="text-text-muted text-sm mt-1">
-                            {viewingFormSubmissionsId || viewingMyFormSubmissionsId 
-                                ? 'View and manage form submissions.' 
+                            {viewingFormSubmissionsId || viewingMyFormSubmissionsId
+                                ? 'View and manage form submissions.'
                                 : 'Create and manage applications, quizzes, and dynamic forms.'}
                         </p>
                     </div>
                 </div>
                 {!viewingFormSubmissionsId && !viewingMyFormSubmissionsId && canCreate && (
-                    <button 
+                    <button
                         onClick={() => setShowCreateModal(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-colors shadow-lg shadow-accent/20"
                     >
@@ -225,7 +234,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
 
             <AnimatePresence mode="wait">
                 {viewingFormSubmissionsId ? (
-                    <motion.div 
+                    <motion.div
                         key="review"
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -233,19 +242,19 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                         className="space-y-4"
                     >
                         <div className="flex gap-2">
-                            <button 
+                            <button
                                 onClick={() => setReviewFilter('pending')}
                                 className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${reviewFilter === 'pending' ? 'bg-accent text-white' : 'bg-bg border border-border text-text-muted hover:border-accent/50'}`}
                             >
                                 Review ({allSubmissions.filter(s => s.form_id === viewingFormSubmissionsId && s.submitted_at && !s.current_status?.is_archived).length})
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setReviewFilter('unsubmitted')}
                                 className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${reviewFilter === 'unsubmitted' ? 'bg-amber-500 text-white' : 'bg-bg border border-border text-text-muted hover:border-amber-500/50'}`}
                             >
                                 Pending ({allSubmissions.filter(s => s.form_id === viewingFormSubmissionsId && !s.submitted_at).length})
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setReviewFilter('archived')}
                                 className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${reviewFilter === 'archived' ? 'bg-accent text-white' : 'bg-bg border border-border text-text-muted hover:border-accent/50'}`}
                             >
@@ -258,6 +267,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                 <thead>
                                     <tr className="bg-bg/50 border-b border-border">
                                         <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">User</th>
+                                        <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">Stage</th>
                                         <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">Status</th>
                                         <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">Submitted Date</th>
                                         <th className="px-6 py-4 text-[10px] font-bold text-text-muted uppercase tracking-widest text-right">Actions</th>
@@ -282,6 +292,11 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
+                                                <span className="text-xs text-text-muted font-bold">
+                                                    {sub.current_stage?.name ?? '—'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
                                                 <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                                                     !sub.submitted_at ? 'bg-amber-500/10 text-amber-500' :
                                                     sub.current_status?.is_passed ? 'bg-green-500/10 text-green-500' :
@@ -293,17 +308,17 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className="text-xs text-text-muted">
-                                                    {sub.submitted_at 
-                                                        ? new Date(sub.submitted_at).toLocaleDateString() 
+                                                    {sub.submitted_at
+                                                        ? new Date(sub.submitted_at).toLocaleDateString()
                                                         : `Started ${new Date(sub.created_at).toLocaleDateString()}`}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <button 
-                                                    onClick={() => {
-                                                        setActiveSubmissionId(sub.id);
-                                                        setIsReviewing(true);
-                                                    }}
+                                                <button
+                                                    onClick={() => navigate(
+                                                        `/${shortname}/forms/${viewingFormSubmissionsId}/submissions/${sub.id}`,
+                                                        { state: { from: `/${shortname}/forms/${viewingFormSubmissionsId}/submissions` } }
+                                                    )}
                                                     className="px-3 py-1.5 bg-accent/10 text-accent rounded text-[10px] font-bold uppercase tracking-widest hover:bg-accent hover:text-white transition-all"
                                                 >
                                                     {reviewFilter === 'unsubmitted' ? 'View Progress' : 'Review'}
@@ -319,7 +334,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                             return sub.submitted_at && !sub.current_status?.is_archived;
                                         }).length === 0 && (
                                         <tr>
-                                            <td colSpan={4} className="px-6 py-20 text-center">
+                                            <td colSpan={5} className="px-6 py-20 text-center">
                                                 <Search size={48} className="mx-auto mb-4 opacity-10 text-text-muted" />
                                                 <p className="font-bold text-text-muted">No {reviewFilter} submissions found for this form.</p>
                                             </td>
@@ -330,7 +345,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                         </div>
                     </motion.div>
                 ) : viewingMyFormSubmissionsId ? (
-                    <motion.div 
+                    <motion.div
                         key="my_submissions"
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -364,11 +379,11 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                                 <span className="text-xs text-text-muted">{new Date(sub.submitted_at || sub.created_at).toLocaleDateString()}</span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <button 
-                                                    onClick={() => {
-                                                        setActiveSubmissionId(sub.id);
-                                                        setIsReviewing(true);
-                                                    }}
+                                                <button
+                                                    onClick={() => navigate(
+                                                        `/${shortname}/forms/${viewingMyFormSubmissionsId}/submissions/${sub.id}`,
+                                                        { state: { from: `/${shortname}/forms/${viewingMyFormSubmissionsId}/my-submissions` } }
+                                                    )}
                                                     className="p-2 text-text-muted hover:text-accent transition-colors"
                                                     title="View My Submission"
                                                 >
@@ -390,7 +405,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                         </div>
                     </motion.div>
                 ) : (
-                    <motion.div 
+                    <motion.div
                         key="available"
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -401,15 +416,14 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                             const submission = mySubmissions.find(s => s.form_id === form.id);
                             const hasInProgressSubmission = submission && !submission.submitted_at;
                             const hasUnderReviewSubmission = submission && submission.submitted_at && !submission.current_status?.is_archived && !submission.current_status?.is_passed && !submission.current_status?.is_failed;
-                            
+
                             const submissionsCount = allSubmissions.filter(s => s.form_id === form.id && !s.current_status?.is_archived).length;
                             const mySubmissionsCount = mySubmissions.filter(s => s.form_id === form.id).length;
-                            
-                            // Mock requirements logic based on form name/metadata
+
                             const meetsRequirements = true; // Placeholder
-                            
+
                             return (
-                                <motion.div 
+                                <motion.div
                                     key={form.id}
                                     layout
                                     className="bg-card border border-border rounded-xl overflow-hidden flex flex-col hover:border-accent/30 transition-all shadow-lg hover:shadow-xl group"
@@ -469,17 +483,17 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
 
                                     <div className="p-4 bg-bg/30 border-t border-border flex items-center justify-between gap-2">
                                         <div className="flex items-center gap-1">
-                                            <button 
-                                                onClick={() => handleOpenEditor(form)}
+                                            <button
+                                                onClick={() => navigate(`/${shortname}/forms/${form.id}/edit`)}
                                                 className="p-2 text-text-muted hover:text-accent hover:bg-accent/5 rounded transition-all"
                                                 title="Configure"
                                             >
                                                 <Settings size={16} />
                                             </button>
                                             {(canModerate || form.created_by === user?.id) && (
-                                                <button 
+                                                <button
                                                     onClick={() => handleDelete(form)}
-                                                    className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/5 rounded transition-all" 
+                                                    className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/5 rounded transition-all"
                                                     title="Delete Form"
                                                 >
                                                     <Trash2 size={16} />
@@ -488,38 +502,42 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                         </div>
 
                                         <div className="flex items-center gap-2">
-                                            {mySubmissionsCount > 0 && (
-                                                <button 
-                                                    onClick={() => setViewingMyFormSubmissionsId(form.id)}
+                                            {submission && submission.submitted_at && (
+                                                <button
+                                                    onClick={() => navigate(
+                                                        `/${shortname}/forms/${form.id}/submissions/${submission.id}`,
+                                                        { state: { from: `/${shortname}/forms` } }
+                                                    )}
                                                     className="px-3 py-1.5 border border-border text-text-muted hover:text-text hover:border-text rounded text-[10px] font-bold uppercase tracking-widest transition-all"
                                                 >
-                                                    My Submissions ({mySubmissionsCount})
+                                                    My Submission
                                                 </button>
                                             )}
                                             {canModerate && (
-                                                <button 
-                                                    onClick={() => setViewingFormSubmissionsId(form.id)}
+                                                <button
+                                                    onClick={() => navigate(`/${shortname}/forms/${form.id}/submissions`)}
                                                     className="px-3 py-1.5 bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white rounded text-[10px] font-bold uppercase tracking-widest transition-all"
                                                 >
                                                     Review ({allSubmissions.filter(s => s.form_id === form.id && s.submitted_at && !s.current_status?.is_archived).length})
                                                 </button>
                                             )}
-                                            <button 
+                                            <button
                                                 onClick={() => {
                                                     if (hasInProgressSubmission) {
-                                                        setActiveForm(form);
-                                                        setIsSubmitting(true);
+                                                        navigate(`/${shortname}/forms/${form.id}/submit`);
                                                     } else if (hasUnderReviewSubmission) {
-                                                        setActiveSubmissionId(submission.id);
-                                                        setIsReviewing(true);
+                                                        navigate(
+                                                            `/${shortname}/forms/${form.id}/submissions/${submission.id}`,
+                                                            { state: { from: `/${shortname}/forms` } }
+                                                        );
                                                     } else {
                                                         setPendingStartForm(form);
                                                     }
                                                 }}
                                                 className="px-5 py-1.5 bg-accent text-white rounded text-[10px] font-bold uppercase tracking-widest transition-all hover:bg-accent/90 shadow-lg shadow-accent/20"
                                             >
-                                                {hasInProgressSubmission 
-                                                    ? (submission?.current_status?.is_passed ? 'Continue' : 'Resume') 
+                                                {hasInProgressSubmission
+                                                    ? (submission?.current_status?.is_passed ? 'Continue' : 'Resume')
                                                     : hasUnderReviewSubmission ? 'Check Status' : 'Submit'}
                                             </button>
                                         </div>
@@ -539,18 +557,18 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                 )}
             </AnimatePresence>
 
-            {/* Create Modal (unchanged) */}
+            {/* Create Modal */}
             <AnimatePresence>
                 {showCreateModal && (
                     <div className="fixed inset-0 z-[600] flex items-center justify-center p-4">
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onClick={() => setShowCreateModal(false)}
                             className="absolute inset-0 bg-black/20 backdrop-blur-md"
                         />
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
@@ -565,7 +583,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                             <form onSubmit={handleCreate} className="p-6 space-y-4">
                                 <div>
                                     <label className="block text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Form Name</label>
-                                    <input 
+                                    <input
                                         type="text"
                                         required
                                         value={newForm.name}
@@ -577,7 +595,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                 <div>
                                     <label className="block text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Form Type</label>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <button 
+                                        <button
                                             type="button"
                                             onClick={() => setNewForm({...newForm, type: 'standard'})}
                                             className={`p-3 rounded border flex flex-col items-center gap-2 transition-all ${newForm.type === 'standard' ? 'bg-accent/10 border-accent text-accent' : 'bg-bg border-border text-text-muted hover:border-accent/50'}`}
@@ -585,7 +603,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                             <FileText size={20} />
                                             <span className="text-xs font-bold uppercase tracking-wider">Standard</span>
                                         </button>
-                                        <button 
+                                        <button
                                             type="button"
                                             onClick={() => setNewForm({...newForm, type: 'quiz'})}
                                             className={`p-3 rounded border flex flex-col items-center gap-2 transition-all ${newForm.type === 'quiz' ? 'bg-purple-500/10 border-purple-500 text-purple-500' : 'bg-bg border-border text-text-muted hover:border-purple-500/50'}`}
@@ -597,7 +615,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Description</label>
-                                    <textarea 
+                                    <textarea
                                         value={newForm.description}
                                         onChange={e => setNewForm({...newForm, description: e.target.value})}
                                         className="w-full bg-bg border border-border rounded p-2.5 text-text focus:border-accent outline-none transition-colors h-24 resize-none"
@@ -605,7 +623,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                     />
                                 </div>
                                 <div className="flex items-center gap-3 p-3 bg-bg/50 rounded border border-border">
-                                    <input 
+                                    <input
                                         type="checkbox"
                                         id="is_public"
                                         checked={newForm.is_public}
@@ -617,14 +635,14 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                     </label>
                                 </div>
                                 <div className="pt-4 flex gap-3">
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={() => setShowCreateModal(false)}
                                         className="flex-1 px-4 py-2.5 border border-border text-text-muted rounded font-bold uppercase tracking-widest text-xs hover:bg-bg transition-colors"
                                     >
                                         Cancel
                                     </button>
-                                    <button 
+                                    <button
                                         type="submit"
                                         disabled={creating}
                                         className="flex-1 px-4 py-2.5 bg-accent text-white rounded font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-colors disabled:opacity-50"
@@ -641,14 +659,14 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
             <AnimatePresence>
                 {pendingStartForm && (
                     <div className="fixed inset-0 z-[600] flex items-center justify-center p-4">
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onClick={() => setPendingStartForm(null)}
                             className="absolute inset-0 bg-black/20 backdrop-blur-md"
                         />
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
@@ -659,7 +677,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                 <p className="text-text-muted text-sm leading-relaxed mb-6">
                                     Opening an application will indicate your interest for the role, however withdrawing your application will incur a cooldown. Are you sure you want to start?
                                 </p>
-                                
+
                                 {pendingStartForm.requires_gtaw_login && !user?.gtaw_linked && (
                                     <div className="p-3 mb-6 bg-red-500/10 border border-red-500/20 rounded-lg flex gap-2 items-start">
                                         <AlertCircle size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
@@ -668,19 +686,18 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                 )}
 
                                 <div className="flex gap-3 justify-end">
-                                    <button 
-                                        onClick={() => setPendingStartForm(null)} 
+                                    <button
+                                        onClick={() => setPendingStartForm(null)}
                                         className="px-4 py-2 text-text-muted hover:text-text font-bold uppercase tracking-widest text-xs transition-colors"
                                     >
                                         Cancel
                                     </button>
-                                    <button 
+                                    <button
                                         disabled={pendingStartForm.requires_gtaw_login && !user?.gtaw_linked}
                                         onClick={() => {
-                                            setActiveForm(pendingStartForm);
-                                            setIsSubmitting(true);
+                                            navigate(`/${shortname}/forms/${pendingStartForm.id}/submit`);
                                             setPendingStartForm(null);
-                                        }} 
+                                        }}
                                         className="px-6 py-2 bg-accent text-white rounded font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-colors disabled:opacity-50"
                                     >
                                         Start

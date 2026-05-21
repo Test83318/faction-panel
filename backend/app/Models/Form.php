@@ -23,6 +23,7 @@ class Form extends Model
         'requires_gtaw_login',
         'cooldown_seconds',
         'cooldown_only_on_fail',
+        'max_submissions',
         'is_enabled',
         'created_by',
     ];
@@ -34,6 +35,7 @@ class Form extends Model
         'is_automatic_grading' => 'boolean',
         'cooldown_seconds' => 'integer',
         'cooldown_only_on_fail' => 'boolean',
+        'max_submissions' => 'integer',
         'is_enabled' => 'boolean',
         'pass_points' => 'integer',
     ];
@@ -66,5 +68,10 @@ class Form extends Model
     public function submissions()
     {
         return $this->hasMany(FormSubmission::class);
+    }
+
+    public function automations()
+    {
+        return $this->hasMany(FormAutomation::class)->orderBy('order');
     }
 }

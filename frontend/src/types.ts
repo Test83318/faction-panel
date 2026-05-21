@@ -353,6 +353,7 @@ export interface Form {
   requires_gtaw_login: boolean;
   cooldown_seconds: number;
   cooldown_only_on_fail: boolean;
+  max_submissions: number | null;
   is_enabled: boolean;
   pass_points: number;
   is_automatic_grading: boolean;
@@ -417,4 +418,33 @@ export interface FormPermission {
   permissions: string[];
   group?: Group;
   role?: Role;
+}
+
+export type AutomationOperator =
+  | 'equals' | 'not_equals' | 'contains'
+  | 'gt' | 'lt' | 'gte' | 'lte'
+  | 'is_empty' | 'is_not_empty';
+
+export interface AutomationCondition {
+  field_id: number;
+  operator: AutomationOperator;
+  value: string;
+}
+
+export interface FormAutomation {
+  id: number;
+  form_id: number;
+  name: string | null;
+  trigger: 'on_submit' | 'on_status_change';
+  trigger_status_id: number | null;
+  condition_logic: 'all' | 'any';
+  conditions: AutomationCondition[] | null;
+  action: 'set_status' | 'add_comment';
+  action_status_id: number | null;
+  action_comment: string | null;
+  action_comment_internal: boolean;
+  is_enabled: boolean;
+  order: number;
+  trigger_status?: FormStatus;
+  action_status?: FormStatus;
 }

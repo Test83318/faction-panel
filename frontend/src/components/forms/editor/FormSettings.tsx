@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Form } from '../../../types';
-import { Save, Info, Clock, Eye, Ban, Trophy, Zap } from 'lucide-react';
+import { Save, Info, Clock, Eye, Ban, Trophy, Zap, Hash } from 'lucide-react';
 
 interface FormSettingsProps {
     form: Form;
@@ -16,6 +16,7 @@ const FormSettings: React.FC<FormSettingsProps> = ({ form, onSave, saving }) => 
         requires_gtaw_login: form.requires_gtaw_login,
         cooldown_seconds: form.cooldown_seconds,
         cooldown_only_on_fail: form.cooldown_only_on_fail,
+        max_submissions: form.max_submissions ?? '',
         is_enabled: form.is_enabled,
         pass_points: form.pass_points || 0,
         is_automatic_grading: form.is_automatic_grading || false
@@ -23,7 +24,10 @@ const FormSettings: React.FC<FormSettingsProps> = ({ form, onSave, saving }) => 
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave(formData);
+        onSave({
+            ...formData,
+            max_submissions: formData.max_submissions === '' ? null : Number(formData.max_submissions),
+        });
     };
 
     return (
@@ -113,7 +117,7 @@ const FormSettings: React.FC<FormSettingsProps> = ({ form, onSave, saving }) => 
                         />
                     </div>
 
-                    <div 
+                    <div
                         className={`p-4 rounded-lg border flex flex-col gap-2 transition-all cursor-pointer ${formData.cooldown_only_on_fail ? 'bg-orange-500/10 border-orange-500/50 text-orange-500' : 'bg-bg border-border text-text-muted hover:border-orange-500/30'}`}
                         onClick={() => setFormData({...formData, cooldown_only_on_fail: !formData.cooldown_only_on_fail})}
                     >
@@ -122,6 +126,35 @@ const FormSettings: React.FC<FormSettingsProps> = ({ form, onSave, saving }) => 
                             <Ban size={16} />
                         </div>
                         <span className="text-[10px] opacity-70 italic">Only apply cooldown if the previous submission was marked as "Failed"</span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                <h3 className="text-lg font-bold text-text mb-6 flex items-center gap-2">
+                    <Hash size={18} className="text-accent" />
+                    Submission Limit
+                </h3>
+
+                <div className="space-y-4">
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 flex gap-3 items-start">
+                        <Info size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
+                        <p className="text-[11px] text-text-muted leading-relaxed">
+                            Limits how many times a user can submit this form in total. Leave blank for unlimited submissions.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Max Submissions Per User</label>
+                        <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={formData.max_submissions}
+                            onChange={e => setFormData({...formData, max_submissions: e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1)})}
+                            placeholder="Unlimited"
+                            className="w-full bg-bg border border-border rounded p-2.5 text-text focus:border-accent outline-none transition-colors"
+                        />
                     </div>
                 </div>
             </div>

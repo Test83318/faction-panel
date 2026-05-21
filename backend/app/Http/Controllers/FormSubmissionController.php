@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Form;
+use App\Models\FormAutomation;
 use App\Models\FormSubmission;
 use App\Models\FormResponse;
 use App\Models\User;
@@ -35,7 +36,7 @@ class FormSubmissionController extends Controller
         $submissions = FormSubmission::whereHas('form', function($query) use ($faction) {
                 $query->where('faction_id', $faction->id);
             })
-            ->with(['user:id,username', 'currentStatus', 'form:id,name'])
+            ->with(['user:id,username', 'currentStatus', 'currentStage:id,name', 'form:id,name'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -57,7 +58,10 @@ class FormSubmissionController extends Controller
             })
             ->with(['currentStatus', 'form:id,name'])
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->get()
+            ->groupBy('form_id')
+            ->map(fn($group) => $group->first())
+            ->values();
 
         return response()->json($submissions);
     }
@@ -147,7 +151,19 @@ class FormSubmissionController extends Controller
             }
         }
 
-        // 6. Create submission record
+        // 6. Max submissions check
+        if ($user && $form->max_submissions !== null) {
+            $submittedCount = FormSubmission::where('form_id', $form->id)
+                ->where('user_id', $user->id)
+                ->whereNotNull('submitted_at')
+                ->count();
+
+            if ($submittedCount >= $form->max_submissions) {
+                return response()->json(['message' => 'You have reached the maximum number of submissions allowed for this form.'], 422);
+            }
+        }
+
+        // 7. Create submission record
         $defaultStatus = $form->statuses()->where('name', 'Submitted')->first() ?? $form->statuses()->first();
         $firstStage = $form->stages()->first();
 
@@ -312,11 +328,14 @@ class FormSubmissionController extends Controller
         }
 
         // 4. Finalize Submission
+        // Always reset to the default "Submitted" status on each stage submission
+        $defaultStatus = $form->statuses()->where('name', 'Submitted')->first() ?? $form->statuses()->first();
         $updateData = [
             'submitted_at' => now(),
+            'current_status_id' => $defaultStatus?->id,
         ];
 
-        // Apply stage-specific submit status if set
+        // Stage-specific submit status overrides the default
         if ($currentStage->submit_status_id) {
             $updateData['current_status_id'] = $currentStage->submit_status_id;
         }
@@ -345,7 +364,9 @@ class FormSubmissionController extends Controller
 
         $submission->update($updateData);
 
-        return response()->json(['message' => 'Form submitted successfully!', 'submission' => $submission->load('currentStatus')]);
+        $this->runAutomations($submission->fresh(), 'on_submit');
+
+        return response()->json(['message' => 'Form submitted successfully!', 'submission' => $submission->fresh()->load('currentStatus')]);
     }
 
     public function show(string $shortname, FormSubmission $submission)
@@ -425,7 +446,9 @@ class FormSubmissionController extends Controller
 
         $submission->update($updateData);
 
-        return response()->json(['message' => 'Status updated successfully', 'submission' => $submission->load('currentStatus', 'currentStage')]);
+        $this->runAutomations($submission->fresh(), 'on_status_change', $status->id);
+
+        return response()->json(['message' => 'Status updated successfully', 'submission' => $submission->fresh()->load('currentStatus', 'currentStage')]);
     }
 
     public function addComment(Request $request, string $shortname, FormSubmission $submission)
@@ -487,5 +510,78 @@ class FormSubmissionController extends Controller
         }
 
         return response()->json(['message' => 'Responses graded successfully']);
+    }
+
+    private function runAutomations(FormSubmission $submission, string $trigger, ?int $triggeredStatusId = null): void
+    {
+        $form = $submission->form;
+
+        $query = $form->automations()->where('is_enabled', true)->where('trigger', $trigger);
+
+        if ($trigger === 'on_status_change' && $triggeredStatusId) {
+            $query->where('trigger_status_id', $triggeredStatusId);
+        }
+
+        foreach ($query->get() as $automation) {
+            if ($this->evaluateConditions($automation, $submission)) {
+                $this->executeAutomationAction($automation, $submission);
+            }
+        }
+    }
+
+    private function evaluateConditions(FormAutomation $automation, FormSubmission $submission): bool
+    {
+        $conditions = $automation->conditions ?? [];
+
+        if (empty($conditions)) {
+            return true;
+        }
+
+        $responses = $submission->responses()->get()->keyBy('form_field_id');
+        $results = [];
+
+        foreach ($conditions as $condition) {
+            $response = $responses->get($condition['field_id']);
+            $fieldValue = $response?->value ?? '';
+            $results[] = $this->evaluateCondition($condition['operator'], $fieldValue, $condition['value'] ?? '');
+        }
+
+        return $automation->condition_logic === 'any'
+            ? in_array(true, $results, true)
+            : !in_array(false, $results, true);
+    }
+
+    private function evaluateCondition(string $operator, mixed $fieldValue, string $conditionValue): bool
+    {
+        $fv = strtolower(trim((string) $fieldValue));
+        $cv = strtolower(trim($conditionValue));
+
+        return match ($operator) {
+            'equals'       => $fv === $cv,
+            'not_equals'   => $fv !== $cv,
+            'contains'     => str_contains($fv, $cv),
+            'gt'           => is_numeric($fv) && is_numeric($cv) && (float) $fv > (float) $cv,
+            'lt'           => is_numeric($fv) && is_numeric($cv) && (float) $fv < (float) $cv,
+            'gte'          => is_numeric($fv) && is_numeric($cv) && (float) $fv >= (float) $cv,
+            'lte'          => is_numeric($fv) && is_numeric($cv) && (float) $fv <= (float) $cv,
+            'is_empty'     => $fv === '',
+            'is_not_empty' => $fv !== '',
+            default        => false,
+        };
+    }
+
+    private function executeAutomationAction(FormAutomation $automation, FormSubmission $submission): void
+    {
+        if ($automation->action === 'set_status' && $automation->action_status_id) {
+            $submission->update(['current_status_id' => $automation->action_status_id]);
+        }
+
+        if ($automation->action === 'add_comment' && $automation->action_comment) {
+            $submission->comments()->create([
+                'user_id'     => null,
+                'comment'     => $automation->action_comment,
+                'is_internal' => $automation->action_comment_internal,
+            ]);
+        }
     }
 }

@@ -29,6 +29,7 @@ use App\Http\Controllers\FormFieldController;
 use App\Http\Controllers\FormStatusController;
 use App\Http\Controllers\FormPermissionController;
 use App\Http\Controllers\FormSubmissionController;
+use App\Http\Controllers\FormAutomationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -259,6 +260,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/factions/{shortname}/forms/{form}/statuses/{status}', [FormStatusController::class, 'update']);
     Route::delete('/factions/{shortname}/forms/{form}/statuses/{status}', [FormStatusController::class, 'destroy']);
     Route::put('/factions/{shortname}/forms/{form}/statuses/reorder', [FormStatusController::class, 'reorder']);
+
+    // Automations
+    Route::get('/factions/{shortname}/forms/{form}/automations', [FormAutomationController::class, 'index']);
+    Route::post('/factions/{shortname}/forms/{form}/automations', [FormAutomationController::class, 'store']);
+    Route::put('/factions/{shortname}/forms/{form}/automations/{automation}', [FormAutomationController::class, 'update']);
+    Route::delete('/factions/{shortname}/forms/{form}/automations/{automation}', [FormAutomationController::class, 'destroy']);
 
     // Form Submissions
     Route::get('/factions/{shortname}/submissions', [FormSubmissionController::class, 'globalIndex']);

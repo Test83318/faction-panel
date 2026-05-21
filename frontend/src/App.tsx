@@ -209,7 +209,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
             onlineUsers={onlineUsers}
           />
         } />
-        <Route path="forms" element={
+        <Route path="forms/*" element={
           canViewForms ? (
             <main className="main flex-1 overflow-auto">
               <FactionForms shortname={shortname!} user={user} permissions={permissions} />

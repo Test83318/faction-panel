@@ -5,15 +5,15 @@ import api from '../../api';
 import Loading from '../Loading';
 import { useConfirm } from '../ConfirmationProvider';
 import { Form, FormStage, FormSection, FormField, FormStatus } from '../../types';
-import { 
-    ArrowLeft, 
-    Save, 
-    Settings, 
-    Layers, 
-    Layout, 
-    CheckSquare, 
-    Shield, 
-    Eye, 
+import {
+    ArrowLeft,
+    Save,
+    Settings,
+    Layers,
+    Layout,
+    CheckSquare,
+    Shield,
+    Eye,
     Play,
     Plus,
     GripVertical,
@@ -22,12 +22,14 @@ import {
     ChevronUp,
     Edit2,
     Copy,
-    Split
+    Split,
+    Zap
 } from 'lucide-react';
 import StageManager from './editor/StageManager';
 import StatusManager from './editor/StatusManager';
 import FormSettings from './editor/FormSettings';
 import FormPermissionsModal from './editor/FormPermissionsModal';
+import FormAutomationEditor from './editor/FormAutomationEditor';
 
 interface FormEditorProps {
     form: Form;
@@ -40,7 +42,7 @@ interface FormEditorProps {
 const FormEditor: React.FC<FormEditorProps> = ({ form: initialForm, shortname, onClose, user, permissions }) => {
     const [form, setForm] = useState<Form>(initialForm);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'builder' | 'statuses' | 'settings'>('builder');
+    const [activeTab, setActiveTab] = useState<'builder' | 'statuses' | 'automation' | 'settings'>('builder');
     const [showPermissions, setShowPermissions] = useState(false);
     const [saving, setSaving] = useState(false);
 
@@ -112,7 +114,14 @@ const FormEditor: React.FC<FormEditorProps> = ({ form: initialForm, shortname, o
                             <CheckSquare size={14} />
                             Statuses
                         </button>
-                        <button 
+                        <button
+                            onClick={() => setActiveTab('automation')}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'automation' ? 'bg-accent text-white shadow-lg' : 'text-text-muted hover:text-text'}`}
+                        >
+                            <Zap size={14} />
+                            Automation
+                        </button>
+                        <button
                             onClick={() => setActiveTab('settings')}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'settings' ? 'bg-accent text-white shadow-lg' : 'text-text-muted hover:text-text'}`}
                         >
@@ -168,6 +177,23 @@ const FormEditor: React.FC<FormEditorProps> = ({ form: initialForm, shortname, o
                                 shortname={shortname} 
                                 onUpdate={fetchFullForm} 
                             />
+                        </motion.div>
+                    )}
+
+                    {activeTab === 'automation' && (
+                        <motion.div
+                            key="automation"
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 20 }}
+                            className="h-full overflow-auto p-6 flex justify-center"
+                        >
+                            <div className="w-full max-w-2xl">
+                                <FormAutomationEditor
+                                    form={form}
+                                    shortname={shortname}
+                                />
+                            </div>
                         </motion.div>
                     )}
 

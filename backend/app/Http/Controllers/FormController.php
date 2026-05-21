@@ -88,6 +88,7 @@ class FormController extends Controller
             'requires_gtaw_login' => 'sometimes|boolean',
             'cooldown_seconds' => 'sometimes|integer',
             'cooldown_only_on_fail' => 'sometimes|boolean',
+            'max_submissions' => 'sometimes|nullable|integer|min:1',
             'is_enabled' => 'sometimes|boolean',
             'metadata' => 'nullable|array',
         ]);
