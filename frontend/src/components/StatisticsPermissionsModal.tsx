@@ -266,8 +266,8 @@ export const StatisticsPermissionsModal: React.FC<StatisticsPermissionsModalProp
                                 <div className="space-y-2">
                                     <div className="text-[8px] font-black uppercase tracking-[0.2em] text-muted px-1">Roles</div>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                        {roles.filter(r => !permissions.some(p => p.role_id === r.id)).map(role => (
-                                            <button 
+                                        {roles.filter(r => r.name.toLowerCase() !== 'public' && !permissions.some(p => p.role_id === r.id)).map(role => (
+                                            <button
                                                 key={role.id}
                                                 onClick={() => handleAddTarget(null, role.id)}
                                                 className="flex items-center gap-2 p-3 bg-card border border-border rounded-lg hover:border-accent transition-all text-left"
@@ -295,37 +295,47 @@ export const StatisticsPermissionsModal: React.FC<StatisticsPermissionsModalProp
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {permissions.map(entry => (
+                                    {permissions.map(entry => {
+                                        const isPublicEntry = entry.group_id === null && entry.role_id === null;
+                                        return (
                                         <tr key={entry.id} className="hover:bg-surface/30">
                                             <td className="py-4 px-6 border-b border-border">
                                                 <div className="text-[11px] font-black uppercase">
-                                                    {entry.group_id === null && entry.role_id === null ? 'Public' : (entry.role_id ? entry.role?.name : entry.group?.name)}
+                                                    {isPublicEntry ? 'Everyone / Public' : (entry.role_id ? entry.role?.name : entry.group?.name)}
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <button 
-                                                        onClick={() => handleSelectAll(entry.group_id, entry.role_id)}
-                                                        className="text-[8px] font-black text-accent uppercase tracking-widest hover:underline"
-                                                    >
-                                                        Select All
-                                                    </button>
-                                                </div>
+                                                {!isPublicEntry && (
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => handleSelectAll(entry.group_id, entry.role_id)}
+                                                            className="text-[8px] font-black text-accent uppercase tracking-widest hover:underline"
+                                                        >
+                                                            Select All
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </td>
-                                            {AVAILABLE_PERMISSIONS.map(p => (
+                                            {AVAILABLE_PERMISSIONS.map(p => {
+                                                const viewOnly = isPublicEntry && p.key !== 'view_statistics';
+                                                return (
                                                 <td key={p.key} className="py-4 px-2 border-b border-border text-center">
-                                                    <button 
-                                                        onClick={() => handleTogglePermission(entry.group_id, entry.role_id, p.key)}
+                                                    <button
+                                                        onClick={() => !viewOnly && handleTogglePermission(entry.group_id, entry.role_id, p.key)}
+                                                        disabled={viewOnly}
                                                         className={`w-7 h-7 rounded-lg transition-all flex items-center justify-center mx-auto border-2 ${
-                                                            entry.permissions.includes(p.key) 
-                                                                ? 'bg-accent border-accent text-white' 
-                                                                : 'bg-transparent border-border text-transparent hover:border-accent'
+                                                            viewOnly
+                                                                ? 'opacity-20 cursor-not-allowed border-border bg-transparent text-transparent'
+                                                                : entry.permissions.includes(p.key)
+                                                                    ? 'bg-accent border-accent text-white'
+                                                                    : 'bg-transparent border-border text-transparent hover:border-accent'
                                                         }`}
                                                     >
                                                         <Check size={16} strokeWidth={3} />
                                                     </button>
                                                 </td>
-                                            ))}
+                                                );
+                                            })}
                                             <td className="py-4 px-6 border-b border-border text-right">
-                                                <button 
+                                                <button
                                                     onClick={() => handleRemoveEntry(entry.id)}
                                                     className="p-2 hover:bg-danger/10 text-muted hover:text-danger rounded-xl transition-colors"
                                                 >
@@ -333,7 +343,8 @@ export const StatisticsPermissionsModal: React.FC<StatisticsPermissionsModalProp
                                                 </button>
                                             </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

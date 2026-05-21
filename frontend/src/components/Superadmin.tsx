@@ -7,6 +7,7 @@ import { Shield, ArrowLeft, Users, Building2, Edit2, Trash2, UserPlus, Check, X,
 import { User, Faction, MembershipTier } from '../types';
 import HelpAdmin from './HelpAdmin';
 import CreditAdmin from './CreditAdmin';
+import ChangelogAdmin from './ChangelogAdmin';
 import { useConfirm } from './ConfirmationProvider';
 
 interface SuperadminProps {
@@ -17,7 +18,7 @@ interface SuperadminProps {
 const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'factions' | 'users' | 'tiers' | 'settings' | 'help' | 'credits'>('factions');
+    const [activeTab, setActiveTab] = useState<'factions' | 'users' | 'tiers' | 'settings' | 'help' | 'credits' | 'changelog'>('factions');
     
     const [factions, setFactions] = useState<Faction[]>([]);
     const [usersList, setUsersList] = useState<User[]>([]);
@@ -256,12 +257,22 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                     <button
                         onClick={() => setActiveTab('credits')}
                         className={`flex items-center gap-2 px-6 py-3 font-bold text-[10px] uppercase tracking-widest transition-all ${
-                            activeTab === 'credits' 
-                                ? 'border-b-2 border-accent text-accent bg-accent/5' 
+                            activeTab === 'credits'
+                                ? 'border-b-2 border-accent text-accent bg-accent/5'
                                 : 'text-muted hover:text-text hover:bg-surface'
                         }`}
                     >
                         <Shield size={14} /> Credits
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('changelog')}
+                        className={`flex items-center gap-2 px-6 py-3 font-bold text-[10px] uppercase tracking-widest transition-all ${
+                            activeTab === 'changelog'
+                                ? 'border-b-2 border-accent text-accent bg-accent/5'
+                                : 'text-muted hover:text-text hover:bg-surface'
+                        }`}
+                    >
+                        <ScrollText size={14} /> Changelog
                     </button>
                 </div>
 
@@ -273,6 +284,11 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                 {/* Credits Tab */}
                 {activeTab === 'credits' && (
                     <CreditAdmin />
+                )}
+
+                {/* Changelog Tab */}
+                {activeTab === 'changelog' && (
+                    <ChangelogAdmin />
                 )}
 
                 {/* Settings Tab */}
@@ -353,18 +369,18 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                         </div>
 
                         <div className="space-y-6">
-                            <div className="bg-card border border-border rounded-xl p-8 shadow-sm min-h-[400px] flex flex-col">
-                                <h3 className="text-xl font-black uppercase tracking-tighter italic mb-6 flex items-center gap-2">
+                            <div className="bg-card border border-border rounded-xl p-8 shadow-sm flex flex-col">
+                                <h3 className="text-xl font-black uppercase tracking-tighter italic mb-4 flex items-center gap-2">
                                     <ScrollText className="text-accent" size={20} />
                                     System Changelog
                                 </h3>
-                                <div className="flex-1 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center text-muted p-8 text-center">
-                                    <ScrollText size={48} className="opacity-10 mb-4" />
-                                    <p className="font-bold uppercase tracking-widest text-xs">Changelog Module Pending</p>
-                                    <p className="text-[10px] mt-2 italic max-w-[200px]">
-                                        A full historical log of system updates and database modifications will be implemented here.
-                                    </p>
-                                </div>
+                                <p className="text-xs text-muted mb-4">Manage public-facing release notes shown on the changelog page.</p>
+                                <button
+                                    onClick={() => setActiveTab('changelog')}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition shadow-lg shadow-accent/20 w-fit"
+                                >
+                                    <ScrollText size={14} /> Open Changelog Editor
+                                </button>
                             </div>
                         </div>
                     </div>

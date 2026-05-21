@@ -194,7 +194,7 @@ const Home: React.FC<HomeProps> = ({ onLogin, isDark, toggleTheme, siteVersion =
                                 Project Contributors & Credits
                             </Link>
                             <p className="text-muted text-[9px] uppercase tracking-[0.2em] font-bold">
-                                &copy; 2025-{new Date().getFullYear() + 1} Faction Panel. Antelope v{siteVersion}
+                                &copy; 2025-{new Date().getFullYear() + 1} Faction Panel. <Link to="/changelog" className="hover:text-accent transition-colors">Antelope v{siteVersion}</Link>
                             </p>
                         </div>
                     </div>

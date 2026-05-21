@@ -22,11 +22,14 @@ use App\Http\Controllers\FactionSnapshotController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\SetupController;
+use App\Http\Controllers\ChangelogController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/setup/status', [SetupController::class, 'status']);
 Route::post('/setup', [SetupController::class, 'setup']);
+
+Route::get('/changelog', [ChangelogController::class, 'index']);
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/login', function () {
@@ -83,6 +86,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/superadmin/credits/{credit}', [\App\Http\Controllers\CreditController::class, 'update']);
     Route::delete('/superadmin/credits/{credit}', [\App\Http\Controllers\CreditController::class, 'destroy']);
     Route::put('/superadmin/credits/reorder', [\App\Http\Controllers\CreditController::class, 'reorder']);
+
+    // Changelog Management
+    Route::post('/superadmin/changelog', [ChangelogController::class, 'store']);
+    Route::put('/superadmin/changelog/{entry}', [ChangelogController::class, 'update']);
+    Route::delete('/superadmin/changelog/{entry}', [ChangelogController::class, 'destroy']);
 
     Route::post('/invites/{code}/join', [InviteController::class, 'join']);
 

@@ -59,6 +59,7 @@ const FactionLayout: React.FC<FactionLayoutProps> = ({
                     header_gradient_color: factionData.header_gradient_color,
                     header_gradient_direction: factionData.header_gradient_direction,
                     shortname: factionData.shortname,
+                    access: factionData.access,
                     quick_search_enabled: factionData.quick_search_enabled,
                     quick_search_settings: factionData.quick_search_settings
                 }}
