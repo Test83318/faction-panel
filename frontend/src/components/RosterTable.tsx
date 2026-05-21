@@ -14,12 +14,15 @@ const CellScaler: React.FC<{ children: React.ReactNode, className?: string }> = 
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
+    const [hovered, setHovered] = useState(false);
+    const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+    const scrollingText = localStorage.getItem('roster-scrolling-text') === 'true';
+    const isOverflowing = scale < 1;
 
     const updateScale = useCallback(() => {
         if (!containerRef.current || !contentRef.current) return;
-        const containerWidth = containerRef.current.offsetWidth - 2; 
+        const containerWidth = containerRef.current.offsetWidth - 2;
         const contentWidth = contentRef.current.scrollWidth;
-
         if (contentWidth > containerWidth && containerWidth > 0) {
             setScale(containerWidth / contentWidth);
         } else {
@@ -38,20 +41,71 @@ const CellScaler: React.FC<{ children: React.ReactNode, className?: string }> = 
         return () => observer.disconnect();
     }, [updateScale]);
 
-    return (
-        <div ref={containerRef} className={`w-full h-full flex items-center justify-center overflow-visible ${className}`}>
-            <div 
-                ref={contentRef} 
-                className="flex flex-col items-center justify-center whitespace-nowrap"
-                style={{ 
-                    transform: scale < 1 ? `scale(${scale})` : undefined,
-                    transformOrigin: 'center',
-                    width: 'max-content'
-                }}
+    const handleMouseEnter = (e: React.MouseEvent) => {
+        if (!isOverflowing) return;
+        setHovered(true);
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        setTooltipPos({ x: rect.left + rect.width / 2, y: rect.top - 6 });
+    };
+
+    const handleMouseLeave = () => setHovered(false);
+
+    if (scrollingText && isOverflowing) {
+        const overflow = (containerRef.current?.offsetWidth ?? 0) - (contentRef.current?.scrollWidth ?? 0);
+        const duration = Math.max(1.5, Math.abs(overflow) / 40);
+        return (
+            <div
+                ref={containerRef}
+                className={`w-full h-full flex items-center justify-center overflow-hidden ${className}`}
+                onMouseEnter={() => setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
             >
-                {children}
+                <div
+                    ref={contentRef}
+                    className="whitespace-nowrap"
+                    style={{
+                        transform: hovered ? `translateX(${overflow}px)` : 'translateX(0)',
+                        transition: hovered ? `transform ${duration}s linear` : 'transform 0.3s ease-in-out',
+                    }}
+                >
+                    {children}
+                </div>
             </div>
-        </div>
+        );
+    }
+
+    const fullText = contentRef.current?.textContent ?? '';
+
+    return (
+        <>
+            <div
+                ref={containerRef}
+                className={`w-full h-full flex items-center justify-center overflow-visible ${className}`}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+            >
+                <div
+                    ref={contentRef}
+                    className="flex flex-col items-center justify-center whitespace-nowrap"
+                    style={{
+                        transform: isOverflowing ? `scale(${scale})` : undefined,
+                        transformOrigin: 'center',
+                        width: 'max-content'
+                    }}
+                >
+                    {children}
+                </div>
+            </div>
+            {hovered && isOverflowing && fullText && createPortal(
+                <div
+                    className="fixed z-[9999] px-2 py-1 bg-card border border-border rounded shadow-lg text-xs font-medium pointer-events-none -translate-x-1/2 -translate-y-full"
+                    style={{ left: tooltipPos.x, top: tooltipPos.y }}
+                >
+                    {fullText}
+                </div>,
+                document.body
+            )}
+        </>
     );
 };
 

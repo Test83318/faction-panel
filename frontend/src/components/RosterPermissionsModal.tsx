@@ -271,8 +271,8 @@ export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ 
                                 <div className="space-y-2">
                                     <div className="text-[8px] font-black uppercase tracking-[0.2em] text-muted px-1">Site Roles</div>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                        {roles.filter(r => !permissions.some(p => p.role_id === r.id)).map(role => (
-                                            <button 
+                                        {roles.filter(r => r.name.toLowerCase() !== 'public' && !permissions.some(p => p.role_id === r.id)).map(role => (
+                                            <button
                                                 key={role.id}
                                                 onClick={() => handleAddTarget(null, role.id)}
                                                 className="flex items-center gap-2 p-3 bg-card border border-border rounded-lg hover:border-accent transition-all text-left"
@@ -304,11 +304,13 @@ export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ 
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {permissions.map(entry => (
+                                    {permissions.map(entry => {
+                                        const isPublicEntry = entry.group_id === null && entry.role_id === null;
+                                        return (
                                         <tr key={entry.id} className="hover:bg-surface/30 transition-colors">
                                             <td className="py-4 px-6 border-b border-border">
                                                 <div className="flex items-center gap-3">
-                                                    {entry.group_id === null && entry.role_id === null ? (
+                                                    {isPublicEntry ? (
                                                         <div className="w-9 h-9 rounded-xl bg-surface border border-border flex items-center justify-center text-muted">
                                                             <Users size={18} />
                                                         </div>
@@ -317,43 +319,53 @@ export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ 
                                                             <Award size={18} />
                                                         </div>
                                                     ) : (
-                                                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-lg" style={{ backgroundColor: entry.group?.color || 'var(--accent)', shadowColor: entry.group?.color }}>
+                                                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm shadow-lg" style={{ backgroundColor: entry.group?.color || 'var(--accent)' }}>
                                                             {entry.group?.name[0].toUpperCase()}
                                                         </div>
                                                     )}
                                                     <div>
                                                         <div className="text-[11px] font-black uppercase tracking-tight">
-                                                            {entry.group_id === null && entry.role_id === null ? 'Everyone / Public' : (entry.role_id ? entry.role?.name : entry.group?.name)}
+                                                            {isPublicEntry ? 'Everyone / Public' : (entry.role_id ? entry.role?.name : entry.group?.name)}
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             <div className="text-[8px] font-bold text-muted uppercase tracking-widest opacity-60">
-                                                                {entry.group_id === null && entry.role_id === null ? 'All faction members' : (entry.role_id ? 'Specific site role' : 'Specific group members')}
+                                                                {isPublicEntry ? 'All faction members' : (entry.role_id ? 'Specific site role' : 'Specific group members')}
                                                             </div>
-                                                            <span className="text-[8px] text-muted">•</span>
-                                                            <button 
-                                                                onClick={() => handleSelectAll(entry.group_id, entry.role_id)}
-                                                                className="text-[8px] font-black text-accent uppercase tracking-widest hover:underline"
-                                                            >
-                                                                Select All
-                                                            </button>
+                                                            {!isPublicEntry && (
+                                                                <>
+                                                                    <span className="text-[8px] text-muted">•</span>
+                                                                    <button
+                                                                        onClick={() => handleSelectAll(entry.group_id, entry.role_id)}
+                                                                        className="text-[8px] font-black text-accent uppercase tracking-widest hover:underline"
+                                                                    >
+                                                                        Select All
+                                                                    </button>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            {AVAILABLE_PERMISSIONS.map(p => (
+                                            {AVAILABLE_PERMISSIONS.map(p => {
+                                                const viewOnly = isPublicEntry && p.key !== 'view_roster';
+                                                return (
                                                 <td key={p.key} className="py-4 px-2 border-b border-border text-center">
-                                                    <button 
-                                                        onClick={() => handleTogglePermission(entry.group_id, entry.role_id, p.key)}
+                                                    <button
+                                                        onClick={() => !viewOnly && handleTogglePermission(entry.group_id, entry.role_id, p.key)}
+                                                        disabled={viewOnly}
                                                         className={`w-7 h-7 rounded-lg transition-all flex items-center justify-center mx-auto border-2 ${
-                                                            entry.permissions.includes(p.key) 
-                                                                ? 'bg-accent border-accent text-white shadow-lg shadow-accent/20' 
-                                                                : 'bg-transparent border-border text-transparent hover:border-accent'
+                                                            viewOnly
+                                                                ? 'opacity-20 cursor-not-allowed border-border bg-transparent text-transparent'
+                                                                : entry.permissions.includes(p.key)
+                                                                    ? 'bg-accent border-accent text-white shadow-lg shadow-accent/20'
+                                                                    : 'bg-transparent border-border text-transparent hover:border-accent'
                                                         }`}
                                                     >
                                                         <Check size={16} strokeWidth={3} />
                                                     </button>
                                                 </td>
-                                            ))}
+                                                );
+                                            })}
                                             <td className="py-4 px-6 border-b border-border text-right">
                                                 <button 
                                                     onClick={() => handleRemoveEntry(entry.id)}
@@ -364,7 +376,8 @@ export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ 
                                                 </button>
                                             </td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                     {permissions.length === 0 && (
                                         <tr>
                                             <td colSpan={AVAILABLE_PERMISSIONS.length + 2} className="py-20 text-center text-[10px] text-muted font-black uppercase tracking-[0.2em] opacity-30">

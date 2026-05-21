@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 import { Users, Settings, Layers, Database, History, RefreshCw, Camera, BarChart3 } from 'lucide-react';
 
 interface SidebarProps {
@@ -113,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="mt-auto p-4 border-t border-border">
         <div className="text-[9px] text-muted font-bold tracking-widest uppercase opacity-40">
-          {customFooterText || `Antelope v${siteVersion}`}
+          {customFooterText || <Link to="/changelog" className="hover:text-accent transition-colors">{`Antelope v${siteVersion}`}</Link>}
         </div>
       </div>
     </aside>

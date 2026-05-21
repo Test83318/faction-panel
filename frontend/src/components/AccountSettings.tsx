@@ -105,24 +105,19 @@ const AccountSettings: React.FC = () => {
     };
 
     const [inlineCheckboxes, setInlineCheckboxes] = useState(() => localStorage.getItem('roster-inline-checkboxes') === 'true');
-
-    const toggleAlwaysMatchRowHeight = async () => {
-        const newValue = !user.always_match_row_height;
-        setUser({ ...user, always_match_row_height: newValue }); // Optimistic update
-        
-        try {
-            await api.put('/user/settings', { always_match_row_height: newValue });
-            toast.success('Preference updated');
-        } catch (err) {
-            toast.error('Failed to update preference');
-            fetchUser(); // Revert on failure
-        }
-    };
+    const [scrollingText, setScrollingText] = useState(() => localStorage.getItem('roster-scrolling-text') === 'true');
 
     const toggleInlineCheckboxes = () => {
         const newValue = !inlineCheckboxes;
         setInlineCheckboxes(newValue);
         localStorage.setItem('roster-inline-checkboxes', newValue.toString());
+        toast.success('Preference updated');
+    };
+
+    const toggleScrollingText = () => {
+        const newValue = !scrollingText;
+        setScrollingText(newValue);
+        localStorage.setItem('roster-scrolling-text', newValue.toString());
         toast.success('Preference updated');
     };
 
@@ -312,27 +307,27 @@ const AccountSettings: React.FC = () => {
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between p-4 bg-surface border border-border rounded-xl group/toggle">
                                     <div className="flex flex-col">
-                                        <span className="text-xs font-bold uppercase tracking-tight">Always Match Row Height</span>
-                                        <span className="text-[8px] text-muted uppercase tracking-widest font-medium">Force all rows in a section to match the height of the largest row</span>
+                                        <span className="text-xs font-bold uppercase tracking-tight">Inline Checkboxes</span>
+                                        <span className="text-[8px] text-muted uppercase tracking-widest font-medium">Show checkboxes next to right-sided tags instead of below the entry</span>
                                     </div>
-                                    <button 
-                                        onClick={toggleAlwaysMatchRowHeight}
-                                        className={`w-10 h-5 rounded-full relative transition-all duration-300 shadow-inner shrink-0 ${user.always_match_row_height ? 'bg-accent' : 'bg-muted/20'}`}
+                                    <button
+                                        onClick={toggleInlineCheckboxes}
+                                        className={`w-10 h-5 rounded-full relative transition-all duration-300 shadow-inner shrink-0 ${inlineCheckboxes ? 'bg-accent' : 'bg-muted/20'}`}
                                     >
-                                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-md ${user.always_match_row_height ? 'right-1' : 'left-1'}`} />
+                                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-md ${inlineCheckboxes ? 'right-1' : 'left-1'}`} />
                                     </button>
                                 </div>
 
                                 <div className="flex items-center justify-between p-4 bg-surface border border-border rounded-xl group/toggle">
                                     <div className="flex flex-col">
-                                        <span className="text-xs font-bold uppercase tracking-tight">Inline Checkboxes</span>
-                                        <span className="text-[8px] text-muted uppercase tracking-widest font-medium">Show checkboxes next to right-sided tags instead of below the entry</span>
+                                        <span className="text-xs font-bold uppercase tracking-tight">Scrolling Text</span>
+                                        <span className="text-[8px] text-muted uppercase tracking-widest font-medium">Scroll long cell text on hover instead of scaling it down</span>
                                     </div>
-                                    <button 
-                                        onClick={toggleInlineCheckboxes}
-                                        className={`w-10 h-5 rounded-full relative transition-all duration-300 shadow-inner shrink-0 ${inlineCheckboxes ? 'bg-accent' : 'bg-muted/20'}`}
+                                    <button
+                                        onClick={toggleScrollingText}
+                                        className={`w-10 h-5 rounded-full relative transition-all duration-300 shadow-inner shrink-0 ${scrollingText ? 'bg-accent' : 'bg-muted/20'}`}
                                     >
-                                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-md ${inlineCheckboxes ? 'right-1' : 'left-1'}`} />
+                                        <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 shadow-md ${scrollingText ? 'right-1' : 'left-1'}`} />
                                     </button>
                                 </div>
                             </div>
