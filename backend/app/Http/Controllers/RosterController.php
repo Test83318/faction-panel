@@ -185,11 +185,12 @@ class RosterController extends Controller
         }
 
         $filteredRosters->each(function ($roster) use ($user) {
-            $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
+            $canModify = User::hasRosterPermission($user, $roster, 'modify_roster');
+            $canViewHidden = $canModify || User::hasRosterPermission($user, $roster, 'view_hidden_data');
 
             $perms = [
                 'view_roster' => User::hasRosterPermission($user, $roster, 'view_roster'),
-                'modify_roster' => User::hasRosterPermission($user, $roster, 'modify_roster'),
+                'modify_roster' => $canModify,
                 'manage_columns' => User::hasRosterPermission($user, $roster, 'manage_columns'),
                 'manage_layout' => User::hasRosterPermission($user, $roster, 'manage_layout'),
                 'add_sections' => User::hasRosterPermission($user, $roster, 'add_sections'),
@@ -203,7 +204,8 @@ class RosterController extends Controller
             // Apply data masking if user cannot view hidden data
             if (! $canViewHidden) {
                 $hiddenColIds = collect($roster->columns ?? [])
-                    ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
+                    ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden') || 
+                                        in_array($col['type'] ?? '', ['database_data', 'linked_roster_data']))
                     ->pluck('id')
                     ->toArray();
 
@@ -221,7 +223,8 @@ class RosterController extends Controller
         $hiddenColIds = $rosterHiddenColIds;
         if ($section->columns && ! $section->use_roster_columns) {
             $hiddenColIds = collect($section->columns)
-                ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
+                ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden') || 
+                                    in_array($col['type'] ?? '', ['database_data', 'linked_roster_data']))
                 ->pluck('id')
                 ->toArray();
         }
