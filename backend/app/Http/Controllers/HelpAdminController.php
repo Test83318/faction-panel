@@ -2,16 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\HelpCategory;
 use App\Models\HelpArticle;
+use App\Models\HelpCategory;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class HelpAdminController extends Controller
 {
     private function checkSuperadmin(Request $request)
     {
-        if (!$request->user() || !$request->user()->is_superadmin) {
+        if (! $request->user() || ! $request->user()->is_superadmin) {
             abort(403, 'Unauthorized access.');
         }
     }
@@ -19,6 +18,7 @@ class HelpAdminController extends Controller
     public function getCategories(Request $request)
     {
         $this->checkSuperadmin($request);
+
         return HelpCategory::withCount('articles')->orderBy('order')->get();
     }
 
@@ -28,7 +28,7 @@ class HelpAdminController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'icon' => 'nullable|string|max:255',
-            'order' => 'integer'
+            'order' => 'integer',
         ]);
 
         return HelpCategory::create($validated);
@@ -40,10 +40,11 @@ class HelpAdminController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'icon' => 'nullable|string|max:255',
-            'order' => 'integer'
+            'order' => 'integer',
         ]);
 
         $category->update($validated);
+
         return $category;
     }
 
@@ -51,12 +52,14 @@ class HelpAdminController extends Controller
     {
         $this->checkSuperadmin($request);
         $category->delete();
+
         return response()->json(['message' => 'Category deleted']);
     }
 
     public function getArticles(Request $request)
     {
         $this->checkSuperadmin($request);
+
         return HelpArticle::with('category')->orderBy('order')->get();
     }
 
@@ -69,7 +72,7 @@ class HelpAdminController extends Controller
             'slug' => 'nullable|string|max:255|unique:help_articles,slug',
             'content' => 'required|string',
             'order' => 'integer',
-            'is_published' => 'boolean'
+            'is_published' => 'boolean',
         ]);
 
         $validated['created_by'] = $request->user()->id;
@@ -83,13 +86,14 @@ class HelpAdminController extends Controller
         $validated = $request->validate([
             'category_id' => 'required|exists:help_categories,id',
             'title' => 'required|string|max:255',
-            'slug' => 'nullable|string|max:255|unique:help_articles,slug,' . $article->id,
+            'slug' => 'nullable|string|max:255|unique:help_articles,slug,'.$article->id,
             'content' => 'required|string',
             'order' => 'integer',
-            'is_published' => 'boolean'
+            'is_published' => 'boolean',
         ]);
 
         $article->update($validated);
+
         return $article;
     }
 
@@ -97,6 +101,7 @@ class HelpAdminController extends Controller
     {
         $this->checkSuperadmin($request);
         $article->delete();
+
         return response()->json(['message' => 'Article deleted']);
     }
 }

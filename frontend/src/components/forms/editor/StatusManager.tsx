@@ -21,15 +21,17 @@ import { useConfirm } from '../../ConfirmationProvider';
 interface StatusManagerProps {
     form: Form;
     shortname: string;
-    onUpdate: () => void;
+    onUpdate: () => void | Promise<void>;
 }
 
 const StatusManager: React.FC<StatusManagerProps> = ({ form, shortname, onUpdate }) => {
     const [editingStatusId, setEditingStatusId] = useState<number | null>(null);
     const [statusForm, setStatusForm] = useState<Partial<FormStatus>>({});
+    const [pending, setPending] = useState(false);
     const confirm = useConfirm();
 
     const handleAddStatus = async () => {
+        setPending(true);
         try {
             await api.post(`/factions/${shortname}/forms/${form.id}/statuses`, {
                 name: 'New Status',
@@ -40,21 +42,26 @@ const StatusManager: React.FC<StatusManagerProps> = ({ form, shortname, onUpdate
                 is_passed: false,
                 is_archived: false
             });
-            onUpdate();
+            await onUpdate();
             toast.success('Status added');
         } catch (err) {
             toast.error('Failed to add status');
+        } finally {
+            setPending(false);
         }
     };
 
     const handleUpdateStatus = async (statusId: number) => {
+        setPending(true);
         try {
             await api.put(`/factions/${shortname}/forms/${form.id}/statuses/${statusId}`, statusForm);
             setEditingStatusId(null);
-            onUpdate();
+            await onUpdate();
             toast.success('Status updated');
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Failed to update status');
+        } finally {
+            setPending(false);
         }
     };
 
@@ -66,25 +73,31 @@ const StatusManager: React.FC<StatusManagerProps> = ({ form, shortname, onUpdate
         });
 
         if (isConfirmed) {
+            setPending(true);
             try {
                 await api.delete(`/factions/${shortname}/forms/${form.id}/statuses/${status.id}`);
-                onUpdate();
+                await onUpdate();
                 toast.success('Status deleted');
             } catch (err: any) {
                 toast.error(err.response?.data?.message || 'Failed to delete status');
+            } finally {
+                setPending(false);
             }
         }
     };
 
     const handleReorder = async (newStatuses: FormStatus[]) => {
+        setPending(true);
         try {
             await api.put(`/factions/${shortname}/forms/${form.id}/statuses/reorder`, {
                 status_ids: newStatuses.map(s => s.id)
             });
-            onUpdate();
+            await onUpdate();
         } catch (err) {
             toast.error('Failed to reorder statuses');
-            onUpdate();
+            await onUpdate();
+        } finally {
+            setPending(false);
         }
     };
 
@@ -97,7 +110,8 @@ const StatusManager: React.FC<StatusManagerProps> = ({ form, shortname, onUpdate
                 </div>
                 <button 
                     onClick={handleAddStatus}
-                    className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-all shadow-lg shadow-accent/20"
+                    disabled={pending}
+                    className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-all shadow-lg shadow-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <Plus size={16} />
                     Add Status
@@ -119,7 +133,7 @@ const StatusManager: React.FC<StatusManagerProps> = ({ form, shortname, onUpdate
             <Reorder.Group 
                 axis="y" 
                 values={form.statuses || []} 
-                onReorder={handleReorder}
+                onReorder={pending ? () => {} : handleReorder}
                 className="space-y-3"
             >
                 {form.statuses?.map((status) => (
@@ -137,7 +151,8 @@ const StatusManager: React.FC<StatusManagerProps> = ({ form, shortname, onUpdate
                                             type="text"
                                             value={statusForm.name}
                                             onChange={e => setStatusForm({...statusForm, name: e.target.value})}
-                                            className="w-full bg-bg border border-accent rounded px-3 py-2 text-sm text-text outline-none"
+                                            disabled={pending}
+                                            className="w-full bg-bg border border-accent rounded px-3 py-2 text-sm text-text outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                             placeholder="Status Name"
                                         />
                                     </div>
@@ -146,7 +161,8 @@ const StatusManager: React.FC<StatusManagerProps> = ({ form, shortname, onUpdate
                                         <select
                                             value={statusForm.form_stage_id || ''}
                                             onChange={e => setStatusForm({...statusForm, form_stage_id: e.target.value ? parseInt(e.target.value) : null})}
-                                            className="w-full bg-bg border border-border rounded px-3 py-2.5 text-xs text-text outline-none font-bold uppercase tracking-wider"
+                                            disabled={pending}
+                                            className="w-full bg-bg border border-border rounded px-3 py-2.5 text-xs text-text outline-none font-bold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             <option value="">Global Status</option>
                                             {form.stages?.map(stage => (
@@ -167,8 +183,8 @@ const StatusManager: React.FC<StatusManagerProps> = ({ form, shortname, onUpdate
                                     ].map(opt => (
                                         <div 
                                             key={opt.id}
-                                            onClick={() => setStatusForm({...statusForm, [opt.id]: !statusForm[opt.id as keyof FormStatus]})}
-                                            className={`flex flex-col gap-1 p-3 rounded border cursor-pointer transition-all ${statusForm[opt.id as keyof FormStatus] ? 'bg-accent/10 border-accent text-accent' : 'bg-bg border-border text-text-muted hover:border-accent/50'}`}
+                                            onClick={() => !pending && setStatusForm({...statusForm, [opt.id]: !statusForm[opt.id as keyof FormStatus]})}
+                                            className={`flex flex-col gap-1 p-3 rounded border cursor-pointer transition-all ${pending ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''} ${statusForm[opt.id as keyof FormStatus] ? 'bg-accent/10 border-accent text-accent' : 'bg-bg border-border text-text-muted hover:border-accent/50'}`}
                                         >
                                             <div className="flex items-center gap-2 font-bold uppercase tracking-widest text-[10px]">
                                                 {opt.icon}
@@ -182,13 +198,15 @@ const StatusManager: React.FC<StatusManagerProps> = ({ form, shortname, onUpdate
                                 <div className="flex gap-2 justify-end pt-2 border-t border-border">
                                     <button 
                                         onClick={() => handleUpdateStatus(status.id)}
-                                        className="px-4 py-2 bg-accent text-white rounded text-xs font-bold uppercase tracking-wider shadow-lg shadow-accent/20"
+                                        disabled={pending}
+                                        className="px-4 py-2 bg-accent text-white rounded text-xs font-bold uppercase tracking-wider shadow-lg shadow-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Save Status
                                     </button>
                                     <button 
                                         onClick={() => setEditingStatusId(null)}
-                                        className="px-4 py-2 bg-bg border border-border text-text-muted rounded text-xs font-bold uppercase tracking-wider hover:text-text transition-colors"
+                                        disabled={pending}
+                                        className="px-4 py-2 bg-bg border border-border text-text-muted rounded text-xs font-bold uppercase tracking-wider hover:text-text transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Cancel
                                     </button>
@@ -232,7 +250,8 @@ const StatusManager: React.FC<StatusManagerProps> = ({ form, shortname, onUpdate
                                             setEditingStatusId(status.id);
                                             setStatusForm(status);
                                         }}
-                                        className="p-2 text-text-muted hover:text-accent hover:bg-bg rounded transition-all"
+                                        disabled={pending}
+                                        className="p-2 text-text-muted hover:text-accent hover:bg-bg rounded transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         title="Edit Status"
                                     >
                                         <Edit2 size={16} />
@@ -240,7 +259,8 @@ const StatusManager: React.FC<StatusManagerProps> = ({ form, shortname, onUpdate
                                     {status.name !== 'Submitted' && (
                                         <button 
                                             onClick={() => handleDeleteStatus(status)}
-                                            className="p-2 text-text-muted hover:text-red-500 hover:bg-bg rounded transition-all"
+                                            disabled={pending}
+                                            className="p-2 text-text-muted hover:text-red-500 hover:bg-bg rounded transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                             title="Delete Status"
                                         >
                                             <Trash2 size={16} />

@@ -1,12 +1,12 @@
 <?php
 
-use App\Models\User;
 use App\Models\Faction;
 use App\Models\Role;
+use App\Models\User;
 
 test('superadmin has all permissions', function () {
     $user = User::factory()->create(['is_superadmin' => true]);
-    
+
     expect($user->hasPermission('any_perm', 1))->toBeTrue();
 });
 
@@ -20,10 +20,10 @@ test('faction leader has all local permissions', function () {
 test('permissions respect YES, NO, and NEVER values', function () {
     $user = User::factory()->create();
     $faction = Faction::factory()->create();
-    
+
     $role1 = Role::create(['faction_id' => $faction->id, 'name' => 'Role 1']);
     $role2 = Role::create(['faction_id' => $faction->id, 'name' => 'Role 2']);
-    
+
     $user->roles()->attach([$role1->id, $role2->id]);
 
     // Scenario 1: YES + NO = YES
@@ -45,13 +45,13 @@ test('non-admin user cannot view roles list', function () {
     $user = User::factory()->create();
     $faction = Faction::factory()->create(['shortname' => 'lssd']);
     $faction->users()->attach($user->id);
-    
+
     // User role created by default has view_permissions = NO
     $userRole = $faction->roles()->create(['name' => 'User']);
     $userRole->permissions()->create(['permission_key' => 'view_permissions', 'value' => 'NO']);
     $user->roles()->attach($userRole->id);
 
-    $response = $this->actingAs($user)->getJson("/api/factions/lssd/roles");
+    $response = $this->actingAs($user)->getJson('/api/factions/lssd/roles');
 
     $response->assertStatus(403);
 });

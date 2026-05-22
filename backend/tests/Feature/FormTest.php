@@ -1,16 +1,14 @@
 <?php
 
-use App\Models\User;
 use App\Models\Faction;
 use App\Models\Form;
-use App\Models\FormStage;
-use App\Models\FormSection;
 use App\Models\FormField;
-use App\Models\FormSubmission;
+use App\Models\FormSection;
+use App\Models\FormStage;
 use App\Models\FormStatus;
-use App\Services\GtawService;
+use App\Models\FormSubmission;
+use App\Models\User;
 use Illuminate\Support\Facades\Http;
-use Mockery\MockInterface;
 
 beforeEach(function () {
     $this->user = User::factory()->create(['is_superadmin' => true]);
@@ -26,7 +24,7 @@ test('can create a form', function () {
             'description' => 'Test Description',
             'is_public' => true,
             'requires_gtaw_login' => false,
-            'cooldown_seconds' => 3600
+            'cooldown_seconds' => 3600,
         ])
         ->assertStatus(201)
         ->assertJsonPath('name', 'Recruitment Form');
@@ -40,7 +38,7 @@ test('can add stages, sections and fields', function () {
     // Add stage
     $this->actingAs($this->user)
         ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/stages", [
-            'name' => 'Stage 1'
+            'name' => 'Stage 1',
         ])
         ->assertStatus(201);
 
@@ -50,7 +48,7 @@ test('can add stages, sections and fields', function () {
     $this->actingAs($this->user)
         ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/stages/{$stage->id}/sections", [
             'name' => 'Personal Info',
-            'description' => 'Section 1 description'
+            'description' => 'Section 1 description',
         ])
         ->assertStatus(201);
 
@@ -63,7 +61,7 @@ test('can add stages, sections and fields', function () {
             'label' => 'Full Name',
             'name' => 'full_name',
             'is_required' => true,
-            'points' => 0
+            'points' => 0,
         ])
         ->assertStatus(201);
 
@@ -79,7 +77,7 @@ test('can start and submit a form', function () {
         'type' => 'text',
         'label' => 'Test Field',
         'name' => 'test_field',
-        'order' => 0
+        'order' => 0,
     ]);
     FormStatus::create(['form_id' => $form->id, 'name' => 'Submitted', 'order' => 0]);
 
@@ -94,15 +92,15 @@ test('can start and submit a form', function () {
     $this->actingAs($this->user)
         ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/{$submissionId}/submit", [
             'responses' => [
-                $field->id => 'Test Response'
-            ]
+                $field->id => 'Test Response',
+            ],
         ])
         ->assertStatus(200);
 
     $this->assertDatabaseHas('form_responses', [
         'form_submission_id' => $submissionId,
         'form_field_id' => $field->id,
-        'value' => 'Test Response'
+        'value' => 'Test Response',
     ]);
 
     $submission = FormSubmission::find($submissionId);
@@ -113,7 +111,7 @@ test('enforces gtaw login if required', function () {
     $form = Form::factory()->create([
         'faction_id' => $this->faction->id,
         'is_enabled' => true,
-        'requires_gtaw_login' => true
+        'requires_gtaw_login' => true,
     ]);
 
     // User not linked
@@ -143,11 +141,11 @@ test('auto-grades quiz forms', function () {
         'type' => 'quiz',
         'is_enabled' => true,
         'pass_points' => 10,
-        'is_automatic_grading' => true
+        'is_automatic_grading' => true,
     ]);
     $stage = FormStage::create(['form_id' => $form->id, 'name' => 'Quiz Stage', 'order' => 0]);
     $section = FormSection::create(['form_stage_id' => $stage->id, 'name' => 'Questions', 'order' => 0]);
-    
+
     $field = FormField::create([
         'form_section_id' => $section->id,
         'type' => 'text',
@@ -156,7 +154,7 @@ test('auto-grades quiz forms', function () {
         'points' => 10,
         'is_automatic_scored' => true,
         'correct_answer' => 'Correct',
-        'order' => 0
+        'order' => 0,
     ]);
 
     $passedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Passed', 'is_passed' => true, 'order' => 1]);
@@ -170,7 +168,7 @@ test('auto-grades quiz forms', function () {
 
     $this->actingAs($this->user)
         ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/{$submissionId}/submit", [
-            'responses' => [$field->id => 'Correct']
+            'responses' => [$field->id => 'Correct'],
         ]);
 
     $submission = FormSubmission::find($submissionId);
@@ -183,7 +181,7 @@ test('auto-grades quiz forms', function () {
 
     $this->actingAs($this->user)
         ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/{$submissionId}/submit", [
-            'responses' => [$field->id => 'Wrong']
+            'responses' => [$field->id => 'Wrong'],
         ]);
 
     $submission = FormSubmission::find($submissionId);

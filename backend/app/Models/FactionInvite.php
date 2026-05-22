@@ -44,6 +44,6 @@ class FactionInvite extends Model
 
     public function isValid()
     {
-        return !$this->isExpired() && !$this->isFull();
+        return ! $this->isExpired() && ! $this->isFull();
     }
 }

@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Faction;
 use App\Models\Form;
 use App\Models\FormAutomation;
-use App\Models\FormSubmission;
 use App\Models\FormResponse;
-use App\Models\User;
-use App\Models\FormStatus;
 use App\Models\FormStage;
-use App\Models\Faction;
+use App\Models\FormStatus;
+use App\Models\FormSubmission;
+use App\Models\User;
 use App\Services\GtawService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
 
 class FormSubmissionController extends Controller
 {
@@ -29,13 +29,13 @@ class FormSubmissionController extends Controller
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::user();
 
-        if (!$user->is_superadmin && !User::hasFactionPermission($user, $faction, 'global_faction_form_moderation')) {
+        if (! $user->is_superadmin && ! User::hasFactionPermission($user, $faction, 'global_faction_form_moderation')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $submissions = FormSubmission::whereHas('form', function($query) use ($faction) {
-                $query->where('faction_id', $faction->id);
-            })
+        $submissions = FormSubmission::whereHas('form', function ($query) use ($faction) {
+            $query->where('faction_id', $faction->id);
+        })
             ->with(['user:id,username', 'currentStatus', 'currentStage:id,name', 'form:id,name'])
             ->orderBy('created_at', 'desc')
             ->get();
@@ -48,19 +48,19 @@ class FormSubmissionController extends Controller
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
         $submissions = FormSubmission::where('user_id', $user->id)
-            ->whereHas('form', function($query) use ($faction) {
+            ->whereHas('form', function ($query) use ($faction) {
                 $query->where('faction_id', $faction->id);
             })
             ->with(['currentStatus', 'form:id,name'])
             ->orderBy('created_at', 'desc')
             ->get()
             ->groupBy('form_id')
-            ->map(fn($group) => $group->first())
+            ->map(fn ($group) => $group->first())
             ->values();
 
         return response()->json($submissions);
@@ -70,13 +70,13 @@ class FormSubmissionController extends Controller
     {
         // Only return the user's own submissions unless they have moderation perms
         $user = Auth::user();
-        
+
         if (User::hasFormPermission($user, $form, 'view_submissions')) {
             $submissions = $form->submissions()
                 ->with(['user:id,username', 'currentStatus'])
                 ->orderBy('created_at', 'desc')
                 ->get();
-        } else if ($user) {
+        } elseif ($user) {
             $submissions = $form->submissions()
                 ->where('user_id', $user->id)
                 ->with(['currentStatus'])
@@ -94,19 +94,19 @@ class FormSubmissionController extends Controller
         $user = Auth::user();
 
         // 1. Permission check
-        if (!User::hasFormPermission($user, $form, 'submit_form')) {
+        if (! User::hasFormPermission($user, $form, 'submit_form')) {
             return response()->json(['message' => 'You do not have permission to submit this form.'], 403);
         }
 
         // 2. GTA:W Login check
         if ($form->requires_gtaw_login) {
-            if (!$user || !$user->gtaw_linked) {
+            if (! $user || ! $user->gtaw_linked) {
                 return response()->json(['message' => 'This form requires you to be logged in with your GTA:W account.'], 401);
             }
         }
 
         // 3. Check if enabled
-        if (!$form->is_enabled) {
+        if (! $form->is_enabled) {
             return response()->json(['message' => 'This form is currently disabled.'], 422);
         }
 
@@ -131,7 +131,7 @@ class FormSubmissionController extends Controller
                         return response()->json([
                             'message' => 'You are on cooldown.',
                             'cooldown_until' => $cooldownUntil->toDateTimeString(),
-                            'remaining_seconds' => now()->diffInSeconds($cooldownUntil)
+                            'remaining_seconds' => now()->diffInSeconds($cooldownUntil),
                         ], 429);
                     }
                 }
@@ -175,7 +175,7 @@ class FormSubmissionController extends Controller
             'metadata' => [
                 'ip_address' => request()->ip(),
                 'user_agent' => request()->userAgent(),
-            ]
+            ],
         ]);
 
         // 7. Pre-fill GTA:W data if required
@@ -184,7 +184,7 @@ class FormSubmissionController extends Controller
             if ($factions) {
                 $matchedFaction = null;
                 $matchedCharId = null;
-                
+
                 foreach ($factions as $charId => $factionData) {
                     if ($factionData['faction'] == $form->faction->gtaw_faction_id) {
                         $matchedFaction = $factionData;
@@ -195,7 +195,7 @@ class FormSubmissionController extends Controller
 
                 if ($matchedFaction) {
                     $fields = $form->stages()->with('sections.fields')->get()->pluck('sections')->flatten()->pluck('fields')->flatten();
-                    
+
                     foreach ($fields as $field) {
                         if ($field->prefill_type) {
                             $value = null;
@@ -228,7 +228,7 @@ class FormSubmissionController extends Controller
                                 FormResponse::updateOrCreate(
                                     [
                                         'form_submission_id' => $submission->id,
-                                        'form_field_id' => $field->id
+                                        'form_field_id' => $field->id,
                                     ],
                                     [
                                         'value' => $value,
@@ -249,7 +249,7 @@ class FormSubmissionController extends Controller
         // 1. Ownership/Permission Check
         $user = Auth::user();
         if ($submission->user_id !== ($user?->id)) {
-            if (!User::hasFormPermission($user, $submission->form, 'modify_submissions')) {
+            if (! User::hasFormPermission($user, $submission->form, 'modify_submissions')) {
                 return response()->json(['message' => 'Forbidden'], 403);
             }
         }
@@ -261,15 +261,39 @@ class FormSubmissionController extends Controller
         // 2. Validation - Only validate fields for the CURRENT stage
         $form = $submission->form;
         $currentStage = $submission->currentStage;
-        
-        if (!$currentStage) {
+
+        if (! $currentStage) {
             return response()->json(['message' => 'No active stage found for this submission.'], 422);
         }
 
         $fields = $currentStage->sections()->with('fields')->get()->pluck('fields')->flatten()->filter();
-        
+
+        // Security check: overwrite/populate disabled fields with their prefilled/default values
+        $input = $request->all();
+        if (! isset($input['responses']) || ! is_array($input['responses'])) {
+            $input['responses'] = [];
+        }
+        foreach ($fields as $field) {
+            if ($field->is_disabled) {
+                $existingResponse = FormResponse::where('form_submission_id', $submission->id)
+                    ->where('form_field_id', $field->id)
+                    ->first();
+                if ($existingResponse) {
+                    $val = $existingResponse->value;
+                    $decoded = json_decode($val, true);
+                    $input['responses'][$field->id] = (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : $val;
+                } else {
+                    $input['responses'][$field->id] = $field->default_value;
+                }
+            }
+        }
+        $request->merge($input);
+
         $rules = [];
         foreach ($fields as $field) {
+            if ($field->type === 'html') {
+                continue;
+            }
             $fieldRules = [];
             if ($field->is_required) {
                 $fieldRules[] = 'required';
@@ -290,24 +314,26 @@ class FormSubmissionController extends Controller
         // 3. Save Responses & Auto-Grade
         foreach ($validated['responses'] as $fieldId => $value) {
             $field = $fields->firstWhere('id', $fieldId);
-            if (!$field) continue; // Should not happen with validation
+            if (! $field) {
+                continue;
+            } // Should not happen with validation
 
             $pointsAwarded = 0;
             $isGraded = false;
 
             if ($form->type === 'quiz' && $field->is_automatic_scored) {
                 $isGraded = true;
-                
+
                 $normalizedValue = $value;
                 if (is_bool($value)) {
                     $normalizedValue = $value ? 'true' : 'false';
                 } elseif (is_array($value)) {
                     $normalizedValue = json_encode($value);
                 } else {
-                    $normalizedValue = strtolower(trim((string)$value));
+                    $normalizedValue = strtolower(trim((string) $value));
                 }
 
-                $normalizedCorrect = strtolower(trim((string)$field->correct_answer));
+                $normalizedCorrect = strtolower(trim((string) $field->correct_answer));
 
                 if ($normalizedValue === $normalizedCorrect) {
                     $pointsAwarded = $field->points;
@@ -317,12 +343,12 @@ class FormSubmissionController extends Controller
             FormResponse::updateOrCreate(
                 [
                     'form_submission_id' => $submission->id,
-                    'form_field_id' => $fieldId
+                    'form_field_id' => $fieldId,
                 ],
                 [
                     'value' => is_array($value) ? json_encode($value) : $value,
                     'is_graded' => $isGraded,
-                    'points_awarded' => $pointsAwarded
+                    'points_awarded' => $pointsAwarded,
                 ]
             );
         }
@@ -343,13 +369,13 @@ class FormSubmissionController extends Controller
         // Automatic grading for quizzes (overrides if enabled)
         if ($form->type === 'quiz' && $form->is_automatic_grading) {
             // Note: Quiz grading might need to be global across all stages or per-stage.
-            // For now, we calculate based on the current stage's performance? 
+            // For now, we calculate based on the current stage's performance?
             // Usually quizzes are one-stage, but if multi-stage, we sum everything so far.
             $totalPointsAwarded = $submission->responses()->sum('points_awarded');
             $statusName = $totalPointsAwarded >= $form->pass_points ? 'Passed' : 'Failed';
-            
+
             $status = $form->statuses()->where('name', $statusName)->first();
-            if (!$status) {
+            if (! $status) {
                 if ($statusName === 'Passed') {
                     $status = $form->statuses()->where('is_passed', true)->first();
                 } else {
@@ -372,25 +398,25 @@ class FormSubmissionController extends Controller
     public function show(string $shortname, FormSubmission $submission)
     {
         $user = Auth::user();
-        
+
         // Permission check
         if ($submission->user_id !== ($user?->id)) {
-            if (!User::hasFormPermission($user, $submission->form, 'view_submissions')) {
+            if (! User::hasFormPermission($user, $submission->form, 'view_submissions')) {
                 return response()->json(['message' => 'Forbidden'], 403);
             }
         }
 
         $submission->load([
-            'form.statuses', 
-            'currentStatus', 
-            'currentStage', 
-            'responses.field', 
+            'form.statuses',
+            'currentStatus',
+            'currentStage',
+            'responses.field',
             'user:id,username',
-            'comments.user:id,username'
+            'comments.user:id,username',
         ]);
 
         // Filter internal comments if the user doesn't have moderation permission
-        if (!User::hasFormPermission($user, $submission->form, 'modify_submission_status')) {
+        if (! User::hasFormPermission($user, $submission->form, 'modify_submission_status')) {
             $submission->setRelation('comments', $submission->comments->where('is_internal', false));
         }
 
@@ -402,7 +428,7 @@ class FormSubmissionController extends Controller
         $user = Auth::user();
         $form = $submission->form;
 
-        if (!User::hasFormPermission($user, $form, 'modify_submission_status')) {
+        if (! User::hasFormPermission($user, $form, 'modify_submission_status')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -435,12 +461,12 @@ class FormSubmissionController extends Controller
         // 2. Manual Stage Override
         if (isset($validated['stage_id'])) {
             $stage = FormStage::where('id', $validated['stage_id'])->where('form_id', $form->id)->firstOrFail();
-            
+
             // If we are moving to a new stage manually, clear submitted_at so user can resume
             if ($submission->current_stage_id != $stage->id) {
                 $updateData['submitted_at'] = null;
             }
-            
+
             $updateData['current_stage_id'] = $stage->id;
         }
 
@@ -459,7 +485,7 @@ class FormSubmissionController extends Controller
         $isReviewer = User::hasFormPermission($user, $form, 'modify_submission_status');
         $isOwner = $submission->user_id === $user->id;
 
-        if (!$isReviewer && !$isOwner) {
+        if (! $isReviewer && ! $isOwner) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -468,7 +494,7 @@ class FormSubmissionController extends Controller
             'is_internal' => 'boolean',
         ]);
 
-        if ($validated['is_internal'] && !$isReviewer) {
+        if ($validated['is_internal'] && ! $isReviewer) {
             return response()->json(['message' => 'You cannot post internal comments.'], 403);
         }
 
@@ -486,7 +512,7 @@ class FormSubmissionController extends Controller
         $user = Auth::user();
         $form = $submission->form;
 
-        if (!User::hasFormPermission($user, $form, 'modify_submission_status')) {
+        if (! User::hasFormPermission($user, $form, 'modify_submission_status')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -548,7 +574,7 @@ class FormSubmissionController extends Controller
 
         return $automation->condition_logic === 'any'
             ? in_array(true, $results, true)
-            : !in_array(false, $results, true);
+            : ! in_array(false, $results, true);
     }
 
     private function evaluateCondition(string $operator, mixed $fieldValue, string $conditionValue): bool
@@ -557,16 +583,16 @@ class FormSubmissionController extends Controller
         $cv = strtolower(trim($conditionValue));
 
         return match ($operator) {
-            'equals'       => $fv === $cv,
-            'not_equals'   => $fv !== $cv,
-            'contains'     => str_contains($fv, $cv),
-            'gt'           => is_numeric($fv) && is_numeric($cv) && (float) $fv > (float) $cv,
-            'lt'           => is_numeric($fv) && is_numeric($cv) && (float) $fv < (float) $cv,
-            'gte'          => is_numeric($fv) && is_numeric($cv) && (float) $fv >= (float) $cv,
-            'lte'          => is_numeric($fv) && is_numeric($cv) && (float) $fv <= (float) $cv,
-            'is_empty'     => $fv === '',
+            'equals' => $fv === $cv,
+            'not_equals' => $fv !== $cv,
+            'contains' => str_contains($fv, $cv),
+            'gt' => is_numeric($fv) && is_numeric($cv) && (float) $fv > (float) $cv,
+            'lt' => is_numeric($fv) && is_numeric($cv) && (float) $fv < (float) $cv,
+            'gte' => is_numeric($fv) && is_numeric($cv) && (float) $fv >= (float) $cv,
+            'lte' => is_numeric($fv) && is_numeric($cv) && (float) $fv <= (float) $cv,
+            'is_empty' => $fv === '',
             'is_not_empty' => $fv !== '',
-            default        => false,
+            default => false,
         };
     }
 
@@ -578,8 +604,8 @@ class FormSubmissionController extends Controller
 
         if ($automation->action === 'add_comment' && $automation->action_comment) {
             $submission->comments()->create([
-                'user_id'     => null,
-                'comment'     => $automation->action_comment,
+                'user_id' => null,
+                'comment' => $automation->action_comment,
                 'is_internal' => $automation->action_comment_internal,
             ]);
         }

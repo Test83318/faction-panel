@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Form;
-use App\Models\FormStage;
 use App\Models\FormSection;
+use App\Models\FormStage;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,7 +13,7 @@ class FormSectionController extends Controller
 {
     public function store(Request $request, string $shortname, Form $form, FormStage $stage)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -35,7 +35,7 @@ class FormSectionController extends Controller
 
     public function update(Request $request, string $shortname, Form $form, FormSection $section)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -51,7 +51,7 @@ class FormSectionController extends Controller
 
     public function destroy(string $shortname, Form $form, FormSection $section)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -62,7 +62,7 @@ class FormSectionController extends Controller
 
     public function reorder(Request $request, string $shortname, Form $form, FormStage $stage)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -82,7 +82,7 @@ class FormSectionController extends Controller
 
     public function move(Request $request, string $shortname, Form $form, FormSection $section)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -96,7 +96,7 @@ class FormSectionController extends Controller
         $maxOrder = $targetStage->sections()->max('order') ?? -1;
         $section->update([
             'form_stage_id' => $targetStage->id,
-            'order' => $maxOrder + 1
+            'order' => $maxOrder + 1,
         ]);
 
         return response()->json($section);

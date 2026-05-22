@@ -14,7 +14,7 @@ class HelpArticle extends Model
         'content',
         'order',
         'is_published',
-        'created_by'
+        'created_by',
     ];
 
     protected $casts = [
@@ -36,13 +36,13 @@ class HelpArticle extends Model
         parent::boot();
 
         static::creating(function ($article) {
-            if (!$article->slug) {
+            if (! $article->slug) {
                 $article->slug = Str::slug($article->title);
             }
         });
 
         static::updating(function ($article) {
-            if ($article->isDirty('title') && !$article->isDirty('slug')) {
+            if ($article->isDirty('title') && ! $article->isDirty('slug')) {
                 $article->slug = Str::slug($article->title);
             }
         });

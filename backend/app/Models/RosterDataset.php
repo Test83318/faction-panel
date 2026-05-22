@@ -4,12 +4,13 @@ namespace App\Models;
 
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RosterDataset extends Model
 {
     use Auditable;
+
     protected $fillable = ['faction_id', 'name', 'record_database_id'];
 
     public function faction(): BelongsTo

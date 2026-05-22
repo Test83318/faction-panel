@@ -13,7 +13,7 @@ class FormController extends Controller
     public function index(string $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        
+
         $forms = Form::where('faction_id', $faction->id)
             ->with('creator:id,username')
             ->get();
@@ -31,7 +31,7 @@ class FormController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'create_faction_forms')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'create_faction_forms')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -69,15 +69,16 @@ class FormController extends Controller
 
     public function show(string $shortname, Form $form)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'view_form')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'view_form')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
         return response()->json($form->load(['creator:id,username', 'statuses', 'stages.sections.fields']));
     }
 
     public function update(Request $request, string $shortname, Form $form)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -100,11 +101,12 @@ class FormController extends Controller
 
     public function destroy(string $shortname, Form $form)
     {
-        if (!User::hasFactionPermission(Auth::user(), $form->faction, 'global_faction_form_moderation') && $form->created_by !== Auth::id()) {
+        if (! User::hasFactionPermission(Auth::user(), $form->faction, 'global_faction_form_moderation') && $form->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         $form->delete();
+
         return response()->json(null, 204);
     }
 }

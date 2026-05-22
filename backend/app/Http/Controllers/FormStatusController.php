@@ -12,7 +12,7 @@ class FormStatusController extends Controller
 {
     public function store(Request $request, string $shortname, Form $form)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -39,7 +39,7 @@ class FormStatusController extends Controller
 
     public function update(Request $request, string $shortname, Form $form, FormStatus $status)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -65,7 +65,7 @@ class FormStatusController extends Controller
 
     public function destroy(string $shortname, Form $form, FormStatus $status)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -80,7 +80,7 @@ class FormStatusController extends Controller
 
     public function reorder(Request $request, string $shortname, Form $form)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

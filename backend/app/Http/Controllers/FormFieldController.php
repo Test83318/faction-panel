@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Form;
-use App\Models\FormSection;
 use App\Models\FormField;
+use App\Models\FormSection;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,7 +13,7 @@ class FormFieldController extends Controller
 {
     public function store(Request $request, string $shortname, Form $form, FormSection $section)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -27,6 +27,12 @@ class FormFieldController extends Controller
             'is_required' => 'boolean',
             'is_automatic_scored' => 'boolean',
             'prefill_type' => 'nullable|string',
+            'description' => 'nullable|string',
+            'default_value' => 'nullable|string',
+            'is_disabled' => 'boolean',
+            'placeholder' => 'nullable|string',
+            'is_multi' => 'boolean',
+            'width' => 'integer|min:1|max:12',
         ]);
 
         $maxOrder = $section->fields()->max('order') ?? -1;
@@ -41,7 +47,7 @@ class FormFieldController extends Controller
 
     public function update(Request $request, string $shortname, Form $form, FormField $field)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -55,6 +61,12 @@ class FormFieldController extends Controller
             'is_required' => 'sometimes|boolean',
             'is_automatic_scored' => 'sometimes|boolean',
             'prefill_type' => 'nullable|string',
+            'description' => 'nullable|string',
+            'default_value' => 'nullable|string',
+            'is_disabled' => 'sometimes|boolean',
+            'placeholder' => 'nullable|string',
+            'is_multi' => 'sometimes|boolean',
+            'width' => 'sometimes|integer|min:1|max:12',
         ]);
 
         $field->update($validated);
@@ -64,7 +76,7 @@ class FormFieldController extends Controller
 
     public function destroy(string $shortname, Form $form, FormField $field)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -75,7 +87,7 @@ class FormFieldController extends Controller
 
     public function reorder(Request $request, string $shortname, Form $form, FormSection $section)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -95,7 +107,7 @@ class FormFieldController extends Controller
 
     public function move(Request $request, string $shortname, Form $form, FormField $field)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -112,7 +124,7 @@ class FormFieldController extends Controller
         $maxOrder = $targetSection->fields()->max('order') ?? -1;
         $field->update([
             'form_section_id' => $targetSection->id,
-            'order' => $maxOrder + 1
+            'order' => $maxOrder + 1,
         ]);
 
         return response()->json($field);

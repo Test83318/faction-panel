@@ -13,13 +13,14 @@ class RosterFlagController extends Controller
     public function index($shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
+
         return response()->json($faction->rosterFlags()->get());
     }
 
     public function store(Request $request, $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'modify_roster_flags')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'modify_roster_flags')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -45,7 +46,7 @@ class RosterFlagController extends Controller
 
     public function update(Request $request, RosterFlag $flag)
     {
-        if (!User::hasFactionPermission(Auth::user(), $flag->faction, 'modify_roster_flags')) {
+        if (! User::hasFactionPermission(Auth::user(), $flag->faction, 'modify_roster_flags')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -64,7 +65,7 @@ class RosterFlagController extends Controller
 
     public function destroy(RosterFlag $flag)
     {
-        if (!User::hasFactionPermission(Auth::user(), $flag->faction, 'modify_roster_flags')) {
+        if (! User::hasFactionPermission(Auth::user(), $flag->faction, 'modify_roster_flags')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

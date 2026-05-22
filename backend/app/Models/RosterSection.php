@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class RosterSection extends Model
 {
-    use SoftDeletes, Auditable;
+    use Auditable, SoftDeletes;
 
     protected $fillable = [
         'roster_id',
@@ -27,7 +27,7 @@ class RosterSection extends Model
         'counts',
         'subsections_per_row',
         'content_html',
-        'created_by'
+        'created_by',
     ];
 
     protected $casts = [

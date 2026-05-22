@@ -12,7 +12,7 @@ class FormStageController extends Controller
 {
     public function store(Request $request, string $shortname, Form $form)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -34,7 +34,7 @@ class FormStageController extends Controller
 
     public function update(Request $request, string $shortname, Form $form, FormStage $stage)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -50,12 +50,12 @@ class FormStageController extends Controller
 
     public function destroy(string $shortname, Form $form, FormStage $stage)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         // Optional: Check if it's the only stage if we want to enforce at least one
-        
+
         $stage->delete();
 
         return response()->json(null, 204);
@@ -63,7 +63,7 @@ class FormStageController extends Controller
 
     public function reorder(Request $request, string $shortname, Form $form)
     {
-        if (!User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
+        if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

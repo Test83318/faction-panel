@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Role extends Model
 {
     use Auditable;
+
     protected $fillable = ['faction_id', 'name', 'weight', 'color', 'type'];
 
     public function faction()

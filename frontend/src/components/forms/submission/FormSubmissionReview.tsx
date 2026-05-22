@@ -24,6 +24,36 @@ interface FormSubmissionReviewProps {
     user: any;
 }
 
+const renderResponseValue = (value: any) => {
+    if (!value) {
+        return <span className="italic text-text-muted">No response provided.</span>;
+    }
+
+    let parsedValue = value;
+    if (typeof value === 'string' && (value.trim().startsWith('[') || value.trim().startsWith('{'))) {
+        try {
+            parsedValue = JSON.parse(value);
+        } catch {
+            // Keep original string
+        }
+    }
+
+    if (Array.isArray(parsedValue)) {
+        if (parsedValue.length === 0) {
+            return <span className="italic text-text-muted">No items selected / provided.</span>;
+        }
+        return (
+            <ul className="list-disc pl-5 space-y-1">
+                {parsedValue.map((item: any, idx: number) => (
+                    <li key={idx} className="text-text text-sm">{String(item)}</li>
+                ))}
+            </ul>
+        );
+    }
+
+    return String(parsedValue);
+};
+
 const FormSubmissionReview: React.FC<FormSubmissionReviewProps> = ({ submissionId, shortname, onClose, user }) => {
     const [submission, setSubmission] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -188,7 +218,7 @@ const FormSubmissionReview: React.FC<FormSubmissionReviewProps> = ({ submissionI
                             </div>
                             
                             <div className="text-text text-sm whitespace-pre-wrap bg-bg/50 p-4 rounded border border-border">
-                                {resp.value || <span className="italic text-text-muted">No response provided.</span>}
+                                {renderResponseValue(resp.value)}
                             </div>
 
                             {submission.form.type === 'quiz' && (

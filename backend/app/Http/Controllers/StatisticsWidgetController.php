@@ -22,7 +22,7 @@ class StatisticsWidgetController extends Controller
     public function store(Request $request, StatisticsModel $model)
     {
         $faction = $model->faction;
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') && 
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') &&
             $model->created_by !== Auth::id()
         ) {
             return response()->json(['message' => 'Forbidden'], 403);
@@ -54,7 +54,7 @@ class StatisticsWidgetController extends Controller
         $model = $widget->statisticsModel;
         $faction = $model->faction;
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') && 
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') &&
             $model->created_by !== Auth::id()
         ) {
             return response()->json(['message' => 'Forbidden'], 403);
@@ -86,7 +86,7 @@ class StatisticsWidgetController extends Controller
         $model = $widget->statisticsModel;
         $faction = $model->faction;
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') && 
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') &&
             $model->created_by !== Auth::id()
         ) {
             return response()->json(['message' => 'Forbidden'], 403);
@@ -103,10 +103,10 @@ class StatisticsWidgetController extends Controller
         $faction = $model->faction;
         $user = Auth::user();
 
-        if (!$user->is_superadmin && 
-            $faction->faction_leader !== $user->id && 
-            !User::hasFactionPermission($user, $faction, 'global_statistics_moderation') &&
-            !User::hasStatisticsPermission($user, $model, 'view_statistics')
+        if (! $user->is_superadmin &&
+            $faction->faction_leader !== $user->id &&
+            ! User::hasFactionPermission($user, $faction, 'global_statistics_moderation') &&
+            ! User::hasStatisticsPermission($user, $model, 'view_statistics')
         ) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
@@ -124,7 +124,7 @@ class StatisticsWidgetController extends Controller
     public function reorder(Request $request, StatisticsModel $model)
     {
         $faction = $model->faction;
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') && 
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') &&
             $model->created_by !== Auth::id()
         ) {
             return response()->json(['message' => 'Forbidden'], 403);
@@ -132,7 +132,7 @@ class StatisticsWidgetController extends Controller
 
         $validated = $request->validate([
             'widget_ids' => 'required|array',
-            'widget_ids.*' => 'exists:statistics_widgets,id'
+            'widget_ids.*' => 'exists:statistics_widgets,id',
         ]);
 
         foreach ($validated['widget_ids'] as $index => $id) {

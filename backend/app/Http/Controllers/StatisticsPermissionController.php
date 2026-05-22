@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\StatisticsModel;
-use App\Models\StatisticsPermission;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,7 +12,7 @@ class StatisticsPermissionController extends Controller
     public function index(StatisticsModel $model)
     {
         $faction = $model->faction;
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') && $model->created_by !== Auth::id()) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') && $model->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -23,7 +22,7 @@ class StatisticsPermissionController extends Controller
     public function update(Request $request, StatisticsModel $model)
     {
         $faction = $model->faction;
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') && $model->created_by !== Auth::id()) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') && $model->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -36,7 +35,7 @@ class StatisticsPermissionController extends Controller
         $permission = $model->statisticsPermissions()->updateOrCreate(
             [
                 'group_id' => $validated['group_id'],
-                'role_id' => $validated['role_id']
+                'role_id' => $validated['role_id'],
             ],
             ['permissions' => $validated['permissions']]
         );
@@ -47,7 +46,7 @@ class StatisticsPermissionController extends Controller
     public function destroy(StatisticsModel $model, $permissionId)
     {
         $faction = $model->faction;
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') && $model->created_by !== Auth::id()) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') && $model->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

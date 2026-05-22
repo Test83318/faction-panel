@@ -35,7 +35,7 @@ return new class extends Migration
                 'header_bg_color',
                 'header_gradient_enabled',
                 'header_gradient_color',
-                'header_gradient_direction'
+                'header_gradient_direction',
             ]);
         });
     }

@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\SiteSetting;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -35,12 +38,12 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
-        $allowRegistration = \App\Models\SiteSetting::where('key', 'allow_registration')->first();
+        $allowRegistration = SiteSetting::where('key', 'allow_registration')->first();
         if ($allowRegistration && $allowRegistration->value === 'false') {
             return response()->json(['message' => 'Registration is currently disabled.'], 403);
         }
 
-        if (!config('features.allow_registration')) {
+        if (! config('features.allow_registration')) {
             return response()->json(['message' => 'Registration is currently disabled.'], 403);
         }
 
@@ -65,7 +68,7 @@ class AuthController extends Controller
 
     public function registrationStatus()
     {
-        $allowRegistrationSetting = \App\Models\SiteSetting::where('key', 'allow_registration')->first();
+        $allowRegistrationSetting = SiteSetting::where('key', 'allow_registration')->first();
         $allowRegistration = $allowRegistrationSetting ? ($allowRegistrationSetting->value === 'true') : (bool) config('features.allow_registration');
 
         return response()->json([
@@ -78,7 +81,7 @@ class AuthController extends Controller
 
     public function gtawRedirect()
     {
-        if (!config('features.gtaw_oauth_enabled')) {
+        if (! config('features.gtaw_oauth_enabled')) {
             return response()->json(['message' => 'GTA:W OAuth is disabled.'], 403);
         }
 
@@ -92,26 +95,26 @@ class AuthController extends Controller
         $baseUrl = rtrim(config('features.gtaw_base_url'), '/');
 
         return response()->json([
-            'url' => "{$baseUrl}/oauth/authorize?" . $query
+            'url' => "{$baseUrl}/oauth/authorize?".$query,
         ]);
     }
 
     public function gtawCallback(Request $request)
     {
-        if (!config('features.gtaw_oauth_enabled')) {
+        if (! config('features.gtaw_oauth_enabled')) {
             return response()->json(['message' => 'GTA:W OAuth is disabled.'], 403);
         }
 
         $code = $request->input('code');
 
-        if (!$code) {
+        if (! $code) {
             return response()->json(['message' => 'Authorization code missing.'], 400);
         }
 
         $baseUrl = rtrim(config('features.gtaw_base_url'), '/');
 
         // Exchange code for token
-        $response = \Illuminate\Support\Facades\Http::asForm()->post("{$baseUrl}/oauth/token", [
+        $response = Http::asForm()->post("{$baseUrl}/oauth/token", [
             'grant_type' => 'authorization_code',
             'client_id' => config('features.gtaw_client_id'),
             'client_secret' => config('features.gtaw_client_secret'),
@@ -120,23 +123,24 @@ class AuthController extends Controller
         ]);
 
         if ($response->failed()) {
-            \Illuminate\Support\Facades\Log::error('GTA:W Token Exchange Failed', [
+            Log::error('GTA:W Token Exchange Failed', [
                 'status' => $response->status(),
                 'body' => $response->json(),
                 'code' => $code,
                 'redirect_uri' => config('features.gtaw_redirect_uri'),
                 'client_id' => config('features.gtaw_client_id'),
             ]);
+
             return response()->json([
                 'message' => 'Failed to exchange code for token.',
-                'debug' => $response->json()
+                'debug' => $response->json(),
             ], 500);
         }
 
         $accessToken = $response->json('access_token');
 
         // Get user info
-        $userResponse = \Illuminate\Support\Facades\Http::withToken($accessToken)->get("{$baseUrl}/api/user");
+        $userResponse = Http::withToken($accessToken)->get("{$baseUrl}/api/user");
 
         if ($userResponse->failed()) {
             return response()->json(['message' => 'Failed to fetch user data from GTA:W.'], 500);
@@ -144,17 +148,17 @@ class AuthController extends Controller
 
         $gtawUser = $userResponse->json();
 
-        if (!isset($gtawUser['id']) || !isset($gtawUser['username'])) {
+        if (! isset($gtawUser['id']) || ! isset($gtawUser['username'])) {
             // Some API responses wrap the data in a 'user' or 'data' key
             $data = $gtawUser['user'] ?? $gtawUser['data'] ?? $gtawUser;
-            
-            if (!isset($data['id']) || !isset($data['username'])) {
+
+            if (! isset($data['id']) || ! isset($data['username'])) {
                 return response()->json([
                     'message' => 'Invalid user data received from GTA:W.',
-                    'debug' => $gtawUser
+                    'debug' => $gtawUser,
                 ], 500);
             }
-            
+
             $gtawUser = $data;
         }
 
@@ -165,26 +169,26 @@ class AuthController extends Controller
         // Find user by GTA:W ID first
         $user = User::where('gtaw_id', $gtawId)->first();
 
-        if (!$user) {
+        if (! $user) {
             // Check if a user with the same GTA:W username or internal username already exists
             $user = User::where('gtaw_username', $gtawUsername)
-                        ->orWhere('username', $gtawUsername)
-                        ->first();
-            
+                ->orWhere('username', $gtawUsername)
+                ->first();
+
             if ($user) {
                 // Link GTA:W account to existing user
                 $user->update([
                     'gtaw_id' => $gtawId,
                     'gtaw_username' => $gtawUsername,
                     'gtaw_access_token' => $accessToken,
-                    'avatar_url' => $avatarUrl
+                    'avatar_url' => $avatarUrl,
                 ]);
             } else {
                 // Check if registration is allowed
-                $allowRegistrationSetting = \App\Models\SiteSetting::where('key', 'allow_registration')->first();
+                $allowRegistrationSetting = SiteSetting::where('key', 'allow_registration')->first();
                 $allowRegistration = $allowRegistrationSetting ? ($allowRegistrationSetting->value === 'true') : (bool) config('features.allow_registration');
 
-                if (!$allowRegistration) {
+                if (! $allowRegistration) {
                     return response()->json(['message' => 'Registration is currently disabled. No account found for this GTA:W user.'], 403);
                 }
 
@@ -203,7 +207,7 @@ class AuthController extends Controller
             $user->update([
                 'gtaw_access_token' => $accessToken,
                 'gtaw_username' => $gtawUsername,
-                'avatar_url' => $avatarUrl
+                'avatar_url' => $avatarUrl,
             ]);
         }
 
@@ -233,8 +237,8 @@ class AuthController extends Controller
     public function unlinkGtaw(Request $request)
     {
         $user = $request->user();
-        
-        if (!$user->password) {
+
+        if (! $user->password) {
             return response()->json(['message' => 'You must set a password before unlinking your GTA:W account.'], 400);
         }
 
@@ -256,7 +260,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         // If the user has a password set, they must provide the current one
-        if ($user->password && !Hash::check($request->current_password, $user->password)) {
+        if ($user->password && ! Hash::check($request->current_password, $user->password)) {
             throw ValidationException::withMessages([
                 'current_password' => ['The provided password does not match our records.'],
             ]);

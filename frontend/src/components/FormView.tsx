@@ -19,13 +19,30 @@ import {
 import FormFieldRenderer from './forms/submission/FormFieldRenderer';
 
 interface FormViewProps {
-    formId: number;
+    formId?: number;
     shortname: string;
     onClose: () => void;
     user: any;
+    preview?: boolean;
+    previewForm?: Form;
 }
 
-const FormView: React.FC<FormViewProps> = ({ formId, shortname, onClose, user }) => {
+const WIDTH_CLASSES: Record<number, string> = {
+    1: 'col-span-12 md:col-span-1',
+    2: 'col-span-12 md:col-span-2',
+    3: 'col-span-12 md:col-span-3',
+    4: 'col-span-12 md:col-span-4',
+    5: 'col-span-12 md:col-span-5',
+    6: 'col-span-12 md:col-span-6',
+    7: 'col-span-12 md:col-span-7',
+    8: 'col-span-12 md:col-span-8',
+    9: 'col-span-12 md:col-span-9',
+    10: 'col-span-12 md:col-span-10',
+    11: 'col-span-12 md:col-span-11',
+    12: 'col-span-12 md:col-span-12',
+};
+
+const FormView: React.FC<FormViewProps> = ({ formId, shortname, onClose, user, preview = false, previewForm }) => {
     const [form, setForm] = useState<Form | null>(null);
     const [submission, setSubmission] = useState<FormSubmission | null>(null);
     const [loading, setLoading] = useState(true);
@@ -49,6 +66,43 @@ const FormView: React.FC<FormViewProps> = ({ formId, shortname, onClose, user })
     }, [currentStageIdx, currentSectionIdx, furthestStageIdx, furthestSectionIdx]);
 
     const fetchFormAndStart = async () => {
+        if (preview && previewForm) {
+            setLoading(true);
+            setStarting(true);
+            setForm(previewForm);
+            
+            const mockSubmission = {
+                id: 9999,
+                form_id: previewForm.id,
+                current_stage_id: previewForm.stages?.[0]?.id,
+                current_status_id: 1,
+                responses: []
+            };
+            setSubmission(mockSubmission as any);
+            
+            // Populate default values
+            const prefilled: Record<number, any> = {};
+            previewForm.stages?.forEach((stage: any) => {
+                stage.sections?.forEach((section: any) => {
+                    section.fields?.forEach((field: any) => {
+                        if (field.default_value !== undefined && field.default_value !== null) {
+                            if (field.type === 'toggle') {
+                                prefilled[field.id] = field.default_value === 'true';
+                            } else {
+                                prefilled[field.id] = field.default_value;
+                            }
+                        }
+                    });
+                });
+            });
+            setResponses(prefilled);
+            setLoading(false);
+            setStarting(false);
+            return;
+        }
+
+        if (!formId) return;
+
         try {
             setLoading(true);
             const res = await api.get(`/factions/${shortname}/forms/${formId}`);
@@ -70,14 +124,36 @@ const FormView: React.FC<FormViewProps> = ({ formId, shortname, onClose, user })
                     }
                 }
 
-                // Handle pre-filled responses
-                if (sub.responses) {
-                    const prefilled: Record<number, any> = {};
-                    sub.responses.forEach((r: any) => {
-                        prefilled[r.form_field_id] = r.value;
+                // Handle pre-filled responses and defaults
+                const prefilled: Record<number, any> = {};
+                fetchedForm.stages?.forEach((stage: any) => {
+                    stage.sections?.forEach((section: any) => {
+                        section.fields?.forEach((field: any) => {
+                            if (field.default_value !== undefined && field.default_value !== null) {
+                                if (field.type === 'toggle') {
+                                    prefilled[field.id] = field.default_value === 'true';
+                                } else {
+                                    prefilled[field.id] = field.default_value;
+                                }
+                            }
+                        });
                     });
-                    setResponses(prefilled);
+                });
+
+                if (sub.responses) {
+                    sub.responses.forEach((r: any) => {
+                        let val = r.value;
+                        if (typeof val === 'string' && (val.startsWith('[') || val.startsWith('{'))) {
+                            try {
+                                val = JSON.parse(val);
+                            } catch {
+                                // Keep original string
+                            }
+                        }
+                        prefilled[r.form_field_id] = val;
+                    });
                 }
+                setResponses(prefilled);
             } catch (startErr: any) {
                 if (startErr.response?.status === 429) {
                     toast.error(`Cooldown: Please wait ${Math.ceil(startErr.response.data.remaining_seconds / 60)} minutes.`);
@@ -98,7 +174,7 @@ const FormView: React.FC<FormViewProps> = ({ formId, shortname, onClose, user })
 
     useEffect(() => {
         fetchFormAndStart();
-    }, [formId]);
+    }, [formId, preview]);
 
     const handleResponseChange = (fieldId: number, value: any) => {
         setResponses(prev => ({ ...prev, [fieldId]: value }));
@@ -108,6 +184,19 @@ const FormView: React.FC<FormViewProps> = ({ formId, shortname, onClose, user })
         if (!submission) return;
         
         setSubmitting(true);
+        if (preview) {
+            try {
+                await new Promise(resolve => setTimeout(resolve, 800));
+                setSubmitted(true);
+                toast.success('Simulation: Form submitted successfully!');
+            } catch (err) {
+                toast.error('Simulation: Failed to submit form');
+            } finally {
+                setSubmitting(false);
+            }
+            return;
+        }
+
         try {
             await api.post(`/factions/${shortname}/forms/${formId}/submissions/${submission.id}/submit`, {
                 responses
@@ -328,9 +417,12 @@ const FormView: React.FC<FormViewProps> = ({ formId, shortname, onClose, user })
                                     )}
                                 </div>
 
-                                <div className="space-y-8">
+                                <div className="grid grid-cols-12 gap-6 animate-in fade-in duration-300">
                                     {currentSection?.fields?.map(field => (
-                                        <div key={field.id} className="p-6 bg-bg/30 rounded-xl border border-border/50 hover:border-accent/30 transition-all">
+                                        <div 
+                                            key={field.id} 
+                                            className={`${WIDTH_CLASSES[field.width || 12] || 'col-span-12'} p-6 bg-bg/30 rounded-xl border border-border/50 hover:border-accent/30 transition-all`}
+                                        >
                                             <FormFieldRenderer 
                                                 field={field} 
                                                 value={responses[field.id]} 

@@ -25,6 +25,7 @@ class ChangelogController extends Controller
         ]);
 
         $entry = ChangelogEntry::create($data);
+
         return response()->json($entry, 201);
     }
 
@@ -39,12 +40,14 @@ class ChangelogController extends Controller
         ]);
 
         $entry->update($data);
+
         return response()->json($entry->fresh());
     }
 
     public function destroy(ChangelogEntry $entry)
     {
         $entry->delete();
+
         return response()->json(null, 204);
     }
 }

@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import api from '../../../api';
 import { Form, FormAutomation, AutomationCondition, AutomationOperator } from '../../../types';
 import { Plus, Trash2, ChevronDown, ChevronUp, Zap, ToggleLeft, ToggleRight } from 'lucide-react';
+import Loading from '../../Loading';
 
 interface Props {
     form: Form;
@@ -117,6 +118,7 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
     };
 
     const handleDelete = async (id: number) => {
+        setSaving(true);
         try {
             await api.delete(`/factions/${shortname}/forms/${form.id}/automations/${id}`);
             setAutomations(prev => prev.filter(a => a.id !== id));
@@ -124,10 +126,13 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
             toast.success('Automation deleted');
         } catch {
             toast.error('Failed to delete automation');
+        } finally {
+            setSaving(false);
         }
     };
 
     const handleToggleEnabled = async (automation: FormAutomation) => {
+        setSaving(true);
         try {
             const res = await api.put(`/factions/${shortname}/forms/${form.id}/automations/${automation.id}`, {
                 is_enabled: !automation.is_enabled,
@@ -135,6 +140,8 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
             setAutomations(prev => prev.map(a => a.id === automation.id ? res.data : a));
         } catch {
             toast.error('Failed to toggle automation');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -171,7 +178,7 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
     };
 
     if (loading) {
-        return <div className="flex items-center justify-center py-20 text-text-muted text-sm">Loading automations...</div>;
+        return <Loading message="Loading automations..." fullScreen={false} />;
     }
 
     return (
@@ -183,8 +190,8 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
                 </div>
                 <button
                     onClick={openNew}
-                    disabled={expandedId === 'new'}
-                    className="flex items-center gap-2 px-3 py-2 bg-accent text-white rounded text-xs font-bold uppercase tracking-widest hover:bg-accent/90 transition-all disabled:opacity-50"
+                    disabled={expandedId === 'new' || saving}
+                    className="flex items-center gap-2 px-3 py-2 bg-accent text-white rounded text-xs font-bold uppercase tracking-widest hover:bg-accent/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <Plus size={14} />
                     New Automation
@@ -214,16 +221,21 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
                                 addCondition={addCondition}
                                 updateCondition={updateCondition}
                                 removeCondition={removeCondition}
+                                disabled={saving}
                             />
                         </div>
                         <div className="px-4 py-3 border-t border-border bg-bg/30 flex justify-end gap-2">
-                            <button onClick={() => setExpandedId(null)} className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-text-muted hover:text-text transition-colors">
+                            <button 
+                                onClick={() => setExpandedId(null)} 
+                                disabled={saving}
+                                className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-text-muted hover:text-text transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="px-4 py-1.5 bg-accent text-white rounded text-xs font-bold uppercase tracking-widest hover:bg-accent/90 transition-all disabled:opacity-50"
+                                className="px-4 py-1.5 bg-accent text-white rounded text-xs font-bold uppercase tracking-widest hover:bg-accent/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {saving ? 'Saving...' : 'Create'}
                             </button>
@@ -252,7 +264,8 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
                         <div className="flex items-center gap-3 px-4 py-3">
                             <button
                                 onClick={() => handleToggleEnabled(automation)}
-                                className={`flex-shrink-0 transition-colors ${automation.is_enabled ? 'text-accent' : 'text-text-muted'}`}
+                                disabled={saving}
+                                className={`flex-shrink-0 transition-colors ${automation.is_enabled ? 'text-accent' : 'text-text-muted'} disabled:opacity-50 disabled:cursor-not-allowed`}
                                 title={automation.is_enabled ? 'Enabled — click to disable' : 'Disabled — click to enable'}
                             >
                                 {automation.is_enabled ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
@@ -277,13 +290,15 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
                             <div className="flex items-center gap-1 flex-shrink-0">
                                 <button
                                     onClick={() => expandedId === automation.id ? setExpandedId(null) : openEdit(automation)}
-                                    className="p-1.5 text-text-muted hover:text-text rounded transition-colors"
+                                    disabled={saving}
+                                    className="p-1.5 text-text-muted hover:text-text rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {expandedId === automation.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                 </button>
                                 <button
                                     onClick={() => handleDelete(automation.id)}
-                                    className="p-1.5 text-text-muted hover:text-red-500 rounded transition-colors"
+                                    disabled={saving}
+                                    className="p-1.5 text-text-muted hover:text-red-500 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <Trash2 size={16} />
                                 </button>
@@ -309,16 +324,21 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
                                             addCondition={addCondition}
                                             updateCondition={updateCondition}
                                             removeCondition={removeCondition}
+                                            disabled={saving}
                                         />
                                     </div>
                                     <div className="px-4 py-3 border-t border-border bg-bg/30 flex justify-end gap-2">
-                                        <button onClick={() => setExpandedId(null)} className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-text-muted hover:text-text transition-colors">
+                                        <button 
+                                            onClick={() => setExpandedId(null)} 
+                                            disabled={saving}
+                                            className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-text-muted hover:text-text transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
                                             Cancel
                                         </button>
                                         <button
                                             onClick={handleSave}
                                             disabled={saving}
-                                            className="px-4 py-1.5 bg-accent text-white rounded text-xs font-bold uppercase tracking-widest hover:bg-accent/90 transition-all disabled:opacity-50"
+                                            className="px-4 py-1.5 bg-accent text-white rounded text-xs font-bold uppercase tracking-widest hover:bg-accent/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {saving ? 'Saving...' : 'Save'}
                                         </button>
@@ -341,10 +361,11 @@ interface AutomationFormProps {
     addCondition: () => void;
     updateCondition: (idx: number, patch: Partial<AutomationCondition>) => void;
     removeCondition: (idx: number) => void;
+    disabled?: boolean;
 }
 
 const AutomationForm: React.FC<AutomationFormProps> = ({
-    draft, setDraft, allFields, statuses, addCondition, updateCondition, removeCondition
+    draft, setDraft, allFields, statuses, addCondition, updateCondition, removeCondition, disabled
 }) => {
     const inputCls = 'bg-bg border border-border rounded px-2.5 py-1.5 text-sm text-text focus:border-accent outline-none transition-colors';
     const labelCls = 'block text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1.5';
@@ -358,8 +379,9 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                     type="text"
                     value={draft.name}
                     onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                    disabled={disabled}
                     placeholder="e.g. Auto-reject low scores"
-                    className={`${inputCls} w-full`}
+                    className={`${inputCls} w-full disabled:opacity-50 disabled:cursor-not-allowed`}
                 />
             </div>
 
@@ -370,7 +392,8 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                     <select
                         value={draft.trigger}
                         onChange={e => setDraft(d => ({ ...d, trigger: e.target.value as any, trigger_status_id: null }))}
-                        className={`${inputCls} w-full`}
+                        disabled={disabled}
+                        className={`${inputCls} w-full disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         <option value="on_submit">On Submit</option>
                         <option value="on_status_change">On Status Change</option>
@@ -382,7 +405,8 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                         <select
                             value={draft.trigger_status_id ?? ''}
                             onChange={e => setDraft(d => ({ ...d, trigger_status_id: e.target.value ? Number(e.target.value) : null }))}
-                            className={`${inputCls} w-full`}
+                            disabled={disabled}
+                            className={`${inputCls} w-full disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
                             <option value="">— any status —</option>
                             {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -399,14 +423,16 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                         <span className="text-[10px] text-text-muted uppercase tracking-widest">Match</span>
                         <div className="flex bg-bg border border-border rounded overflow-hidden">
                             <button
-                                onClick={() => setDraft(d => ({ ...d, condition_logic: 'all' }))}
-                                className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest transition-all ${draft.condition_logic === 'all' ? 'bg-accent text-white' : 'text-text-muted hover:text-text'}`}
+                                onClick={() => !disabled && setDraft(d => ({ ...d, condition_logic: 'all' }))}
+                                disabled={disabled}
+                                className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest transition-all ${draft.condition_logic === 'all' ? 'bg-accent text-white' : 'text-text-muted hover:text-text'} disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
                                 ALL
                             </button>
                             <button
-                                onClick={() => setDraft(d => ({ ...d, condition_logic: 'any' }))}
-                                className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest transition-all ${draft.condition_logic === 'any' ? 'bg-accent text-white' : 'text-text-muted hover:text-text'}`}
+                                onClick={() => !disabled && setDraft(d => ({ ...d, condition_logic: 'any' }))}
+                                disabled={disabled}
+                                className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest transition-all ${draft.condition_logic === 'any' ? 'bg-accent text-white' : 'text-text-muted hover:text-text'} disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
                                 ANY
                             </button>
@@ -420,7 +446,8 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                             <select
                                 value={cond.field_id}
                                 onChange={e => updateCondition(idx, { field_id: Number(e.target.value) })}
-                                className={`${inputCls} flex-1 min-w-0`}
+                                disabled={disabled}
+                                className={`${inputCls} flex-1 min-w-0 disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
                                 {allFields.length === 0 && <option value={0}>No fields</option>}
                                 {allFields.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
@@ -428,7 +455,8 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                             <select
                                 value={cond.operator}
                                 onChange={e => updateCondition(idx, { operator: e.target.value as AutomationOperator })}
-                                className={`${inputCls} w-36 flex-shrink-0`}
+                                disabled={disabled}
+                                className={`${inputCls} w-36 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
                                 {OPERATORS.map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
                             </select>
@@ -437,13 +465,15 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                                     type="text"
                                     value={cond.value}
                                     onChange={e => updateCondition(idx, { value: e.target.value })}
+                                    disabled={disabled}
                                     placeholder="value"
-                                    className={`${inputCls} w-32 flex-shrink-0`}
+                                    className={`${inputCls} w-32 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed`}
                                 />
                             )}
                             <button
                                 onClick={() => removeCondition(idx)}
-                                className="p-1.5 text-text-muted hover:text-red-500 flex-shrink-0 transition-colors"
+                                disabled={disabled}
+                                className="p-1.5 text-text-muted hover:text-red-500 flex-shrink-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <Trash2 size={14} />
                             </button>
@@ -453,8 +483,8 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
 
                 <button
                     onClick={addCondition}
-                    disabled={allFields.length === 0}
-                    className="mt-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-text-muted hover:text-accent transition-colors disabled:opacity-30"
+                    disabled={disabled || allFields.length === 0}
+                    className="mt-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-text-muted hover:text-accent transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                     <Plus size={12} />
                     Add Condition
@@ -471,7 +501,8 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                     <select
                         value={draft.action}
                         onChange={e => setDraft(d => ({ ...d, action: e.target.value as any }))}
-                        className={`${inputCls} w-full`}
+                        disabled={disabled}
+                        className={`${inputCls} w-full disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         <option value="set_status">Set Status</option>
                         <option value="add_comment">Add Comment</option>
@@ -484,7 +515,8 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                         <select
                             value={draft.action_status_id ?? ''}
                             onChange={e => setDraft(d => ({ ...d, action_status_id: e.target.value ? Number(e.target.value) : null }))}
-                            className={`${inputCls} w-full`}
+                            disabled={disabled}
+                            className={`${inputCls} w-full disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
                             <option value="">— select status —</option>
                             {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -499,9 +531,10 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                             <textarea
                                 value={draft.action_comment}
                                 onChange={e => setDraft(d => ({ ...d, action_comment: e.target.value }))}
+                                disabled={disabled}
                                 rows={3}
                                 placeholder="Automated comment content..."
-                                className={`${inputCls} w-full resize-none`}
+                                className={`${inputCls} w-full resize-none disabled:opacity-50 disabled:cursor-not-allowed`}
                             />
                         </div>
                         <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -509,7 +542,8 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                                 type="checkbox"
                                 checked={draft.action_comment_internal}
                                 onChange={e => setDraft(d => ({ ...d, action_comment_internal: e.target.checked }))}
-                                className="accent-accent"
+                                disabled={disabled}
+                                className="accent-accent disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                             <span className="text-xs text-text-muted">Internal comment (hidden from applicant)</span>
                         </label>

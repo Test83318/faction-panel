@@ -14,7 +14,9 @@ class RosterSectionController extends Controller
     private function cleanUpOrphanedData($target, array $columns)
     {
         $oldColumns = $target->getOriginal('columns') ?? [];
-        if (!is_array($oldColumns)) $oldColumns = [];
+        if (! is_array($oldColumns)) {
+            $oldColumns = [];
+        }
 
         $renameMap = [];
         $validMap = [];
@@ -23,13 +25,13 @@ class RosterSectionController extends Controller
         foreach ($columns as $newCol) {
             $colId = $newCol['id'];
             $oldCol = collect($oldColumns)->firstWhere('id', $colId);
-            
-            $newCbLabels = collect($newCol['checkboxes'] ?? [])->map(fn($cb) => is_string($cb) ? $cb : ($cb['label'] ?? null))->filter()->toArray();
-            $newTagLabels = collect($newCol['tags'] ?? [])->map(fn($tag) => is_string($tag) ? $tag : ($tag['label'] ?? null))->filter()->toArray();
-            
+
+            $newCbLabels = collect($newCol['checkboxes'] ?? [])->map(fn ($cb) => is_string($cb) ? $cb : ($cb['label'] ?? null))->filter()->toArray();
+            $newTagLabels = collect($newCol['tags'] ?? [])->map(fn ($tag) => is_string($tag) ? $tag : ($tag['label'] ?? null))->filter()->toArray();
+
             $validMap[$colId] = [
                 'checkboxes' => $newCbLabels,
-                'tags' => $newTagLabels
+                'tags' => $newTagLabels,
             ];
 
             if ($oldCol) {
@@ -40,7 +42,7 @@ class RosterSectionController extends Controller
 
                 $oldCbs = $oldCol['checkboxes'] ?? [];
                 $newCbs = $newCol['checkboxes'] ?? [];
-                
+
                 if (count($oldCbs) === count($newCbs)) {
                     foreach ($oldCbs as $idx => $oldCb) {
                         $oldLabel = is_string($oldCb) ? $oldCb : ($oldCb['label'] ?? null);
@@ -69,7 +71,9 @@ class RosterSectionController extends Controller
 
         foreach ($contents as $content) {
             $data = $content->content;
-            if (!$data || !is_array($data)) continue;
+            if (! $data || ! is_array($data)) {
+                continue;
+            }
 
             $changed = false;
             foreach ($clearMap as $colId) {
@@ -84,32 +88,36 @@ class RosterSectionController extends Controller
                 $cbKey = "{$colId}_cb";
                 if (isset($data[$cbKey]) && is_array($data[$cbKey])) {
                     $original = $data[$cbKey];
-                    
+
                     if (isset($renameMap[$colId]['checkboxes'])) {
-                        $data[$cbKey] = array_map(function($val) use ($renameMap, $colId) {
+                        $data[$cbKey] = array_map(function ($val) use ($renameMap, $colId) {
                             return $renameMap[$colId]['checkboxes'][$val] ?? $val;
                         }, $data[$cbKey]);
                     }
 
                     $data[$cbKey] = array_values(array_intersect($data[$cbKey], $valids['checkboxes']));
-                    
-                    if ($original !== $data[$cbKey]) $changed = true;
+
+                    if ($original !== $data[$cbKey]) {
+                        $changed = true;
+                    }
                 }
 
                 // Handle Tags
                 $tagKey = "{$colId}_tags";
                 if (isset($data[$tagKey]) && is_array($data[$tagKey])) {
                     $original = $data[$tagKey];
-                    
+
                     if (isset($renameMap[$colId]['tags'])) {
-                        $data[$tagKey] = array_map(function($val) use ($renameMap, $colId) {
+                        $data[$tagKey] = array_map(function ($val) use ($renameMap, $colId) {
                             return $renameMap[$colId]['tags'][$val] ?? $val;
                         }, $data[$tagKey]);
                     }
 
                     $data[$tagKey] = array_values(array_intersect($data[$tagKey], $valids['tags']));
-                    
-                    if ($original !== $data[$tagKey]) $changed = true;
+
+                    if ($original !== $data[$tagKey]) {
+                        $changed = true;
+                    }
                 }
             }
 
@@ -122,7 +130,7 @@ class RosterSectionController extends Controller
 
     public function store(Request $request, Roster $roster)
     {
-        if (!User::hasRosterPermission(Auth::user(), $roster, 'add_sections')) {
+        if (! User::hasRosterPermission(Auth::user(), $roster, 'add_sections')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -142,9 +150,9 @@ class RosterSectionController extends Controller
         ]);
 
         $validated['shortname'] = strtoupper($validated['shortname']);
-        
+
         // Validation: master sections cannot have parents
-        if ($validated['type'] === 'master' && !empty($validated['parent_id'])) {
+        if ($validated['type'] === 'master' && ! empty($validated['parent_id'])) {
             return response()->json(['message' => 'Master sections cannot have a parent'], 422);
         }
 
@@ -175,7 +183,7 @@ class RosterSectionController extends Controller
 
     public function update(Request $request, RosterSection $section)
     {
-        if (!User::hasRosterPermission(Auth::user(), $section->roster, 'add_sections')) {
+        if (! User::hasRosterPermission(Auth::user(), $section->roster, 'add_sections')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -211,7 +219,7 @@ class RosterSectionController extends Controller
 
     public function destroy(RosterSection $section)
     {
-        if (!User::hasRosterPermission(Auth::user(), $section->roster, 'remove_sections')) {
+        if (! User::hasRosterPermission(Auth::user(), $section->roster, 'remove_sections')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -226,7 +234,7 @@ class RosterSectionController extends Controller
 
     public function reorder(Request $request, Roster $roster)
     {
-        if (!User::hasRosterPermission(Auth::user(), $roster, 'add_sections')) {
+        if (! User::hasRosterPermission(Auth::user(), $roster, 'add_sections')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -241,7 +249,7 @@ class RosterSectionController extends Controller
                 ->where('roster_id', $roster->id)
                 ->update([
                     'order' => $index,
-                    'parent_id' => $request->parent_id
+                    'parent_id' => $request->parent_id,
                 ]);
         }
 

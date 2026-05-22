@@ -10,7 +10,7 @@ import SectionManager from './SectionManager';
 interface StageManagerProps {
     form: Form;
     shortname: string;
-    onUpdate: () => void;
+    onUpdate: () => void | Promise<void>;
 }
 
 const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }) => {
@@ -19,32 +19,42 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
     const [stageName, setStageName] = useState('');
     const [stageSubmitStatusId, setStageSubmitStatusId] = useState<number | null>(null);
     const confirm = useConfirm();
+    const [pending, setPending] = useState(false);
 
     const toggleStage = (id: number) => {
         setExpandedStages(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
     };
 
     const handleAddStage = async () => {
+        setPending(true);
         try {
-            await api.post(`/factions/${shortname}/forms/${form.id}/stages`, { name: `Stage ${form.stages?.length ? form.stages.length + 1 : 1}` });
-            onUpdate();
+            const res = await api.post(`/factions/${shortname}/forms/${form.id}/stages`, { name: `Stage ${form.stages?.length ? form.stages.length + 1 : 1}` });
+            if (res.data?.id) {
+                setExpandedStages(prev => [...prev, res.data.id]);
+            }
+            await onUpdate();
             toast.success('Stage added');
         } catch (err) {
             toast.error('Failed to add stage');
+        } finally {
+            setPending(false);
         }
     };
 
     const handleUpdateStage = async (stageId: number) => {
+        setPending(true);
         try {
             await api.put(`/factions/${shortname}/forms/${form.id}/stages/${stageId}`, { 
                 name: stageName,
                 submit_status_id: stageSubmitStatusId
             });
             setEditingStage(null);
-            onUpdate();
+            await onUpdate();
             toast.success('Stage updated');
         } catch (err) {
             toast.error('Failed to update stage');
+        } finally {
+            setPending(false);
         }
     };
 
@@ -56,12 +66,15 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
         });
 
         if (isConfirmed) {
+            setPending(true);
             try {
                 await api.delete(`/factions/${shortname}/forms/${form.id}/stages/${stage.id}`);
-                onUpdate();
+                await onUpdate();
                 toast.success('Stage deleted');
             } catch (err) {
                 toast.error('Failed to delete stage');
+            } finally {
+                setPending(false);
             }
         }
     };
@@ -74,10 +87,10 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
             await api.put(`/factions/${shortname}/forms/${form.id}/stages/reorder`, {
                 stage_ids: newStages.map(s => s.id)
             });
-            onUpdate();
+            await onUpdate();
         } catch (err) {
             toast.error('Failed to reorder stages');
-            onUpdate(); // Revert
+            await onUpdate(); // Revert
         }
     };
 
@@ -95,7 +108,8 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
                 </div>
                 <button 
                     onClick={handleAddStage}
-                    className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-all shadow-lg shadow-accent/20"
+                    disabled={pending}
+                    className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded font-bold uppercase tracking-widest text-xs hover:bg-accent/90 transition-all shadow-lg shadow-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <Plus size={16} />
                     Add Stage
@@ -148,13 +162,15 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
                                         <div className="flex items-center gap-2 pt-5">
                                             <button 
                                                 onClick={() => handleUpdateStage(stage.id)}
-                                                className="p-1.5 bg-accent text-white rounded hover:bg-accent/90 transition-colors"
+                                                disabled={pending}
+                                                className="p-1.5 bg-accent text-white rounded hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 <Edit2 size={14} />
                                             </button>
                                             <button 
                                                 onClick={() => setEditingStage(null)}
-                                                className="p-1.5 bg-bg border border-border text-text-muted rounded hover:text-text transition-colors"
+                                                disabled={pending}
+                                                className="p-1.5 bg-bg border border-border text-text-muted rounded hover:text-text transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 <Plus size={14} className="rotate-45" />
                                             </button>
@@ -187,14 +203,16 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
                                             setStageName(stage.name);
                                             setStageSubmitStatusId(stage.submit_status_id);
                                         }}
-                                        className="p-2 text-text-muted hover:text-accent hover:bg-bg rounded transition-all"
+                                        disabled={pending}
+                                        className="p-2 text-text-muted hover:text-accent hover:bg-bg rounded transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         title="Rename Stage"
                                     >
                                         <Edit2 size={16} />
                                     </button>
                                     <button 
                                         onClick={() => handleDeleteStage(stage)}
-                                        className="p-2 text-text-muted hover:text-red-500 hover:bg-bg rounded transition-all"
+                                        disabled={pending}
+                                        className="p-2 text-text-muted hover:text-red-500 hover:bg-bg rounded transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         title="Delete Stage"
                                     >
                                         <Trash2 size={16} />
@@ -238,7 +256,8 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
                         <p className="font-bold">No stages created yet.</p>
                         <button 
                             onClick={handleAddStage}
-                            className="mt-4 text-accent hover:underline font-bold text-sm uppercase tracking-widest"
+                            disabled={pending}
+                            className="mt-4 text-accent hover:underline font-bold text-sm uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Add your first stage
                         </button>

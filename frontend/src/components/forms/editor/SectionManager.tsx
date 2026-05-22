@@ -11,7 +11,7 @@ interface SectionManagerProps {
     stage: FormStage;
     form: Form;
     shortname: string;
-    onUpdate: () => void;
+    onUpdate: () => void | Promise<void>;
 }
 
 const SectionManager: React.FC<SectionManagerProps> = ({ stage, form, shortname, onUpdate }) => {
@@ -19,32 +19,42 @@ const SectionManager: React.FC<SectionManagerProps> = ({ stage, form, shortname,
     const [editingSection, setEditingSection] = useState<number | null>(null);
     const [sectionForm, setSectionForm] = useState({ name: '', description: '' });
     const confirm = useConfirm();
+    const [pending, setPending] = useState(false);
 
     const toggleSection = (id: number) => {
         setExpandedSections(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
     };
 
     const handleAddSection = async () => {
+        setPending(true);
         try {
-            await api.post(`/factions/${shortname}/forms/${form.id}/stages/${stage.id}/sections`, { 
+            const res = await api.post(`/factions/${shortname}/forms/${form.id}/stages/${stage.id}/sections`, { 
                 name: `Section ${stage.sections?.length ? stage.sections.length + 1 : 1}`,
                 description: ''
             });
-            onUpdate();
+            if (res.data?.id) {
+                setExpandedSections(prev => [...prev, res.data.id]);
+            }
+            await onUpdate();
             toast.success('Section added');
         } catch (err) {
             toast.error('Failed to add section');
+        } finally {
+            setPending(false);
         }
     };
 
     const handleUpdateSection = async (sectionId: number) => {
+        setPending(true);
         try {
             await api.put(`/factions/${shortname}/forms/${form.id}/sections/${sectionId}`, sectionForm);
             setEditingSection(null);
-            onUpdate();
+            await onUpdate();
             toast.success('Section updated');
         } catch (err) {
             toast.error('Failed to update section');
+        } finally {
+            setPending(false);
         }
     };
 
@@ -56,12 +66,15 @@ const SectionManager: React.FC<SectionManagerProps> = ({ stage, form, shortname,
         });
 
         if (isConfirmed) {
+            setPending(true);
             try {
                 await api.delete(`/factions/${shortname}/forms/${form.id}/sections/${section.id}`);
-                onUpdate();
+                await onUpdate();
                 toast.success('Section deleted');
             } catch (err) {
                 toast.error('Failed to delete section');
+            } finally {
+                setPending(false);
             }
         }
     };
@@ -71,10 +84,10 @@ const SectionManager: React.FC<SectionManagerProps> = ({ stage, form, shortname,
             await api.put(`/factions/${shortname}/forms/${form.id}/stages/${stage.id}/sections/reorder`, {
                 section_ids: newSections.map(s => s.id)
             });
-            onUpdate();
+            await onUpdate();
         } catch (err) {
             toast.error('Failed to reorder sections');
-            onUpdate();
+            await onUpdate();
         }
     };
 
@@ -87,7 +100,8 @@ const SectionManager: React.FC<SectionManagerProps> = ({ stage, form, shortname,
                 </div>
                 <button 
                     onClick={handleAddSection}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-accent/10 text-accent hover:bg-accent/20 rounded font-bold uppercase tracking-widest text-[10px] transition-all"
+                    disabled={pending}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-accent/10 text-accent hover:bg-accent/20 rounded font-bold uppercase tracking-widest text-[10px] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <Plus size={14} />
                     Add Section
@@ -132,13 +146,15 @@ const SectionManager: React.FC<SectionManagerProps> = ({ stage, form, shortname,
                                         <div className="flex gap-2 mt-1">
                                             <button 
                                                 onClick={() => handleUpdateSection(section.id)}
-                                                className="px-3 py-1 bg-accent text-white rounded text-[10px] font-bold uppercase tracking-wider"
+                                                disabled={pending}
+                                                className="px-3 py-1 bg-accent text-white rounded text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 Save
                                             </button>
                                             <button 
                                                 onClick={() => setEditingSection(null)}
-                                                className="px-3 py-1 bg-bg border border-border text-text-muted rounded text-[10px] font-bold uppercase tracking-wider"
+                                                disabled={pending}
+                                                className="px-3 py-1 bg-bg border border-border text-text-muted rounded text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 Cancel
                                             </button>
@@ -165,14 +181,16 @@ const SectionManager: React.FC<SectionManagerProps> = ({ stage, form, shortname,
                                             setEditingSection(section.id);
                                             setSectionForm({ name: section.name, description: section.description || '' });
                                         }}
-                                        className="p-1.5 text-text-muted hover:text-accent hover:bg-bg rounded transition-all"
+                                        disabled={pending}
+                                        className="p-1.5 text-text-muted hover:text-accent hover:bg-bg rounded transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         title="Edit Section"
                                     >
                                         <Edit2 size={14} />
                                     </button>
                                     <button 
                                         onClick={() => handleDeleteSection(section)}
-                                        className="p-1.5 text-text-muted hover:text-red-500 hover:bg-bg rounded transition-all"
+                                        disabled={pending}
+                                        className="p-1.5 text-text-muted hover:text-red-500 hover:bg-bg rounded transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         title="Delete Section"
                                     >
                                         <Trash2 size={14} />
@@ -216,7 +234,8 @@ const SectionManager: React.FC<SectionManagerProps> = ({ stage, form, shortname,
                         <p className="text-sm font-bold">No sections in this stage.</p>
                         <button 
                             onClick={handleAddSection}
-                            className="mt-2 text-accent hover:underline font-bold text-xs uppercase tracking-widest"
+                            disabled={pending}
+                            className="mt-2 text-accent hover:underline font-bold text-xs uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Add your first section
                         </button>

@@ -19,7 +19,7 @@ test('user can login with username and password', function () {
         ->assertJsonStructure([
             'access_token',
             'token_type',
-            'user' => ['id', 'username']
+            'user' => ['id', 'username'],
         ]);
 });
 

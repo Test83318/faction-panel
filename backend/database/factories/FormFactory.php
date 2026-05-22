@@ -3,11 +3,12 @@
 namespace Database\Factories;
 
 use App\Models\Faction;
+use App\Models\Form;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Form>
+ * @extends Factory<Form>
  */
 class FormFactory extends Factory
 {

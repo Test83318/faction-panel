@@ -6,6 +6,7 @@ use App\Models\RosterContent;
 use App\Models\RosterSection;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 class RosterContentController extends Controller
@@ -15,7 +16,7 @@ class RosterContentController extends Controller
         $roster = $section->roster;
         $user = Auth::user();
 
-        if (!User::hasRosterPermission($user, $roster, 'edit_predefined')) {
+        if (! User::hasRosterPermission($user, $roster, 'edit_predefined')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -27,10 +28,10 @@ class RosterContentController extends Controller
 
         if (isset($validated['content'])) {
             $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
-            
-            if (!$canViewHidden) {
+
+            if (! $canViewHidden) {
                 $hiddenColIds = collect($roster->columns ?? [])
-                    ->filter(fn($col) => str_contains($col['type'] ?? '', 'hidden'))
+                    ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
                     ->pluck('id')
                     ->toArray();
 
@@ -61,7 +62,7 @@ class RosterContentController extends Controller
         $canEditDefined = User::hasRosterPermission($user, $roster, 'edit_defined_fields');
         $canEditPredefined = User::hasRosterPermission($user, $roster, 'edit_predefined');
 
-        if (!$canEditDefined && !$canEditPredefined) {
+        if (! $canEditDefined && ! $canEditPredefined) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -71,35 +72,36 @@ class RosterContentController extends Controller
             'content' => 'sometimes|array',
             'order' => 'sometimes|integer',
             'last_updated_at' => 'sometimes|string',
-            'force' => 'sometimes|boolean'
+            'force' => 'sometimes|boolean',
         ]);
 
         // Conflict detection
-        if (!$request->force && isset($validated['last_updated_at'])) {
-            $lastUpdated = \Illuminate\Support\Carbon::parse($validated['last_updated_at']);
-            
+        if (! $request->force && isset($validated['last_updated_at'])) {
+            $lastUpdated = Carbon::parse($validated['last_updated_at']);
+
             // Get the last user who updated this
             $lastAudit = $content->audits()->where('event', 'updated')->latest()->first();
             $lastUpdatedByMe = $lastAudit && $lastAudit->user_id === $user->id;
 
             // Use timestamp comparison with 1s buffer for precision mismatches
-            if ($content->updated_at->timestamp > ($lastUpdated->timestamp + 1) && !$lastUpdatedByMe) {
+            if ($content->updated_at->timestamp > ($lastUpdated->timestamp + 1) && ! $lastUpdatedByMe) {
                 return response()->json([
                     'message' => 'This row was recently updated by another user.',
                     'conflict' => true,
                     'current_data' => $content->content,
                     'updated_at' => $content->updated_at,
                     'updated_by' => $lastAudit?->user?->username ?? 'Another user',
-                    'updated_by_id' => $lastAudit?->user_id
-                    ], 409);            }
+                    'updated_by_id' => $lastAudit?->user_id,
+                ], 409);
+            }
         }
 
         if (isset($validated['content'])) {
             $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
-            
-            if (!$canViewHidden) {
+
+            if (! $canViewHidden) {
                 $hiddenColIds = collect($roster->columns ?? [])
-                    ->filter(fn($col) => str_contains($col['type'] ?? '', 'hidden'))
+                    ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
                     ->pluck('id')
                     ->toArray();
 
@@ -127,8 +129,8 @@ class RosterContentController extends Controller
         $roster = $content->section->roster;
         $user = Auth::user();
 
-        if (!User::hasRosterPermission($user, $roster, 'edit_defined_fields') && 
-            !User::hasRosterPermission($user, $roster, 'edit_predefined')) {
+        if (! User::hasRosterPermission($user, $roster, 'edit_defined_fields') &&
+            ! User::hasRosterPermission($user, $roster, 'edit_predefined')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -136,7 +138,7 @@ class RosterContentController extends Controller
         $content->update([
             'editing_by' => $user->id,
             'editing_at' => now(),
-            'editing_col' => $request->col_id
+            'editing_col' => $request->col_id,
         ]);
 
         return response()->json(['message' => 'Locked successfully']);
@@ -160,7 +162,7 @@ class RosterContentController extends Controller
     {
         $roster = $content->section->roster;
 
-        if (!User::hasRosterPermission(Auth::user(), $roster, 'edit_predefined')) {
+        if (! User::hasRosterPermission(Auth::user(), $roster, 'edit_predefined')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -172,13 +174,13 @@ class RosterContentController extends Controller
     public function reorder(Request $request, RosterSection $section)
     {
         $roster = $section->roster;
-        if (!User::hasRosterPermission(Auth::user(), $roster, 'edit_predefined')) {
+        if (! User::hasRosterPermission(Auth::user(), $roster, 'edit_predefined')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         $request->validate([
             'content_ids' => 'required|array',
-            'content_ids.*' => 'exists:roster_contents,id'
+            'content_ids.*' => 'exists:roster_contents,id',
         ]);
 
         foreach ($request->content_ids as $index => $id) {
@@ -198,7 +200,7 @@ class RosterContentController extends Controller
         $canEditDefined = User::hasRosterPermission($user, $roster, 'edit_defined_fields');
         $canEditPredefined = User::hasRosterPermission($user, $roster, 'edit_predefined');
 
-        if (!$canEditDefined && !$canEditPredefined) {
+        if (! $canEditDefined && ! $canEditPredefined) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

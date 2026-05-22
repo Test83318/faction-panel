@@ -8,7 +8,6 @@ use App\Models\User;
 use App\Services\StatisticsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 
 class StatisticsController extends Controller
 {
@@ -57,7 +56,7 @@ class StatisticsController extends Controller
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::user();
 
-        if (!User::hasFactionPermission($user, $faction, 'create_statistics_model')) {
+        if (! User::hasFactionPermission($user, $faction, 'create_statistics_model')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -85,7 +84,7 @@ class StatisticsController extends Controller
         $canViewAll = User::hasFactionPermission($user, $faction, 'view_all_statistics_models');
         $isGlobalMod = User::hasFactionPermission($user, $faction, 'global_statistics_moderation');
 
-        if (!$canViewAll && !$isGlobalMod && !User::hasStatisticsPermission($user, $model, 'view_statistics')) {
+        if (! $canViewAll && ! $isGlobalMod && ! User::hasStatisticsPermission($user, $model, 'view_statistics')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -102,7 +101,7 @@ class StatisticsController extends Controller
         $faction = $model->faction;
         $isGlobalMod = User::hasFactionPermission($user, $faction, 'global_statistics_moderation');
 
-        if (!$isGlobalMod && !User::hasStatisticsPermission($user, $model, 'modify_statistics')) {
+        if (! $isGlobalMod && ! User::hasStatisticsPermission($user, $model, 'modify_statistics')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -124,8 +123,8 @@ class StatisticsController extends Controller
         $user = Auth::user();
         $faction = $model->faction;
 
-        if (!User::hasFactionPermission($user, $faction, 'global_statistics_moderation') && 
-            !User::hasStatisticsPermission($user, $model, 'delete_statistics')
+        if (! User::hasFactionPermission($user, $faction, 'global_statistics_moderation') &&
+            ! User::hasStatisticsPermission($user, $model, 'delete_statistics')
         ) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
@@ -141,10 +140,10 @@ class StatisticsController extends Controller
         $faction = $model->faction;
         $isGlobalMod = User::hasFactionPermission($user, $faction, 'global_statistics_moderation');
 
-        if (!$user->is_superadmin && 
-            $faction->faction_leader !== $user->id && 
-            !$isGlobalMod &&
-            !User::hasStatisticsPermission($user, $model, 'view_statistics')
+        if (! $user->is_superadmin &&
+            $faction->faction_leader !== $user->id &&
+            ! $isGlobalMod &&
+            ! User::hasStatisticsPermission($user, $model, 'view_statistics')
         ) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
