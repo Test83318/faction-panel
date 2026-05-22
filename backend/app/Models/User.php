@@ -241,11 +241,6 @@ class User extends Authenticatable
     {
         $faction = $roster->faction;
 
-        // 0. Check for global 'view_faction_roster' if the key is 'view_roster'
-        if ($permissionKey === 'view_roster' && self::hasFactionPermission($user, $faction, 'view_faction_roster')) {
-            return true;
-        }
-
         // 1. Superadmin/Faction Leader/Global Roster Moderator/Creator always have access
         if ($user) {
             if ($user->is_superadmin || 
