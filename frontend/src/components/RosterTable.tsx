@@ -969,10 +969,16 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                     }
                 }
             }
+            if (!canEditAny && row.content?.[col.id]) return String(row.content[col.id]);
             return '-';
         }
         if (col.type?.includes('linked_roster_data')) {
-            return resolvedLinks.get(`${row.id}_${col.id}`) || '-';
+            const resolvedValue = resolvedLinks.get(`${row.id}_${col.id}`);
+            if (resolvedValue) return resolvedValue;
+            if (!canEditAny && row.content?.[col.id] && typeof row.content[col.id] !== 'object') {
+                return String(row.content[col.id]);
+            }
+            return '-';
         }
         return selectedOpt?.label || String(value) || '-';
     };
@@ -1126,6 +1132,18 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             }
         }
 
+        if (!canEditAny && row.content?.[col.id]) {
+            return (
+                <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-60 italic relative group/cell rt-cell-content">
+                    <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} disabled={isEditing}>
+                        <span className="text-[10px] uppercase font-bold text-accent">
+                            {String(row.content[col.id])}
+                        </span>
+                    </CellScaler>
+                </div>
+            );
+        }
+
         return (
             <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-20 rt-cell-content">
                 <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} disabled={isEditing}>
@@ -1136,7 +1154,12 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     }
 
     if (col.type?.includes('linked_roster_data')) {
-        const resolvedValue = resolvedLinks.get(`${row.id}_${col.id}`) || '-';
+        let resolvedValue = resolvedLinks.get(`${row.id}_${col.id}`);
+        if (!resolvedValue && !canEditAny && row.content?.[col.id] && typeof row.content[col.id] !== 'object') {
+            resolvedValue = String(row.content[col.id]);
+        }
+        if (!resolvedValue) resolvedValue = '-';
+
         if (isEditing) {
             return (
                 <div className="flex flex-col items-center justify-center h-full w-full gap-1 rt-cell-content">
