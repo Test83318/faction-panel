@@ -273,7 +273,7 @@ class FactionController extends Controller
                 }
 
                 $roster = $content->section->roster;
-                if (! $filteredRosters->contains('id', $roster->id)) {
+                if (! User::canViewRoster($user, $roster)) {
                     continue;
                 }
 
@@ -283,9 +283,12 @@ class FactionController extends Controller
                 }
 
                 foreach ($content->content as $colId => $value) {
-                    $col = $rosterColsCache[$rosterId]->firstWhere('id', $colId);
-                    if (! $col) {
+                    $col = null;
+                    if (! ($content->section->use_roster_columns ?? true)) {
                         $col = collect($content->section->columns ?? [])->firstWhere('id', $colId);
+                    }
+                    if (! $col) {
+                        $col = $rosterColsCache[$rosterId]->firstWhere('id', $colId);
                     }
 
                     if ($col && str_contains($col['type'] ?? '', 'hidden')) {
@@ -341,7 +344,7 @@ class FactionController extends Controller
                 isset($config['source_id']);
             $dynamicDbId = $isDynamicDb ? $config['source_id'] : null;
 
-            $columns = $section->columns ?: ($roster->columns ?? []);
+            $columns = $section->use_roster_columns ? ($roster->columns ?? []) : ($section->columns ?: ($roster->columns ?? []));
             $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
 
             // Map column IDs to their linked database IDs and fields
@@ -436,6 +439,22 @@ class FactionController extends Controller
             $hiddenFieldsByDb[$dbId] = array_unique($fields);
         }
 
+        $isRosterEditor = false;
+        if ($user) {
+            foreach ($filteredRosters as $roster) {
+                if (User::hasRosterPermission($user, $roster, 'modify_roster') ||
+                    User::hasRosterPermission($user, $roster, 'edit_predefined') ||
+                    User::hasRosterPermission($user, $roster, 'edit_defined_fields') ||
+                    User::hasRosterPermission($user, $roster, 'manage_columns') ||
+                    User::hasRosterPermission($user, $roster, 'manage_layout') ||
+                    User::hasRosterPermission($user, $roster, 'add_sections') ||
+                    User::hasRosterPermission($user, $roster, 'remove_sections')) {
+                    $isRosterEditor = true;
+                    break;
+                }
+            }
+        }
+
         foreach ($publishedDatabases as $db) {
             $isEditor = false;
             if ($user) {
@@ -445,7 +464,8 @@ class FactionController extends Controller
                     $db->created_by === $user->id ||
                     User::hasRecordPermission($user, $db, 'add_entries') ||
                     User::hasRecordPermission($user, $db, 'modify_entries') ||
-                    User::hasRecordPermission($user, $db, 'delete_entries');
+                    User::hasRecordPermission($user, $db, 'delete_entries') ||
+                    $isRosterEditor;
             }
 
             if (! $isEditor) {
@@ -817,7 +837,7 @@ class FactionController extends Controller
     private function maskSection($section, array $rosterHiddenColIds, $roster = null)
     {
         $hiddenColIds = $rosterHiddenColIds;
-        if ($section->columns) {
+        if ($section->columns && ! $section->use_roster_columns) {
             $hiddenColIds = collect($section->columns)
                 ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
                 ->pluck('id')

@@ -30,7 +30,7 @@ class RosterContentController extends Controller
             $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
 
             if (! $canViewHidden) {
-                $sectionCols = $section->columns ?: ($roster->columns ?? []);
+                $sectionCols = $section->use_roster_columns ? ($roster->columns ?? []) : ($section->columns ?: ($roster->columns ?? []));
                 $hiddenColIds = collect($sectionCols)
                     ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
                     ->pluck('id')
@@ -101,7 +101,7 @@ class RosterContentController extends Controller
             $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
 
             if (! $canViewHidden) {
-                $sectionCols = $content->section->columns ?: ($roster->columns ?? []);
+                $sectionCols = $content->section->use_roster_columns ? ($roster->columns ?? []) : ($content->section->columns ?: ($roster->columns ?? []));
                 $hiddenColIds = collect($sectionCols)
                     ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
                     ->pluck('id')
@@ -226,7 +226,7 @@ class RosterContentController extends Controller
         $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
         $hiddenColIds = [];
         if (! $canViewHidden) {
-            $sectionCols = $section->columns ?: ($roster->columns ?? []);
+            $sectionCols = $section->use_roster_columns ? ($roster->columns ?? []) : ($section->columns ?: ($roster->columns ?? []));
             $hiddenColIds = collect($sectionCols)
                 ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
                 ->pluck('id')

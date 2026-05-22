@@ -219,7 +219,7 @@ class RosterController extends Controller
     private function maskSection($section, array $rosterHiddenColIds, $roster = null)
     {
         $hiddenColIds = $rosterHiddenColIds;
-        if ($section->columns) {
+        if ($section->columns && ! $section->use_roster_columns) {
             $hiddenColIds = collect($section->columns)
                 ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
                 ->pluck('id')
@@ -419,7 +419,7 @@ class RosterController extends Controller
             }
 
             // Check if user can view this roster
-            if (! User::hasRosterPermission($user, $content->section->roster, 'view_roster')) {
+            if (! User::canViewRoster($user, $content->section->roster)) {
                 $results[] = '-';
 
                 continue;
@@ -433,9 +433,12 @@ class RosterController extends Controller
             }
             $roster = $rosterCache[$rosterId];
 
-            $col = collect($roster->columns ?? [])->firstWhere('id', $colId);
-            if (! $col) {
+            $col = null;
+            if (! ($content->section->use_roster_columns ?? true)) {
                 $col = collect($content->section->columns ?? [])->firstWhere('id', $colId);
+            }
+            if (! $col) {
+                $col = collect($roster->columns ?? [])->firstWhere('id', $colId);
             }
 
             // Mask if it's a hidden column and user doesn't have permission

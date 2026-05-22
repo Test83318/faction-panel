@@ -241,6 +241,7 @@ test('FactionController show masks hidden columns based on section-specific over
     ]);
 
     $this->section->update([
+        'use_roster_columns' => false,
         'columns' => [
             ['id' => 'name', 'name' => 'Name', 'type' => 'text'],
             ['id' => 'secret_info', 'name' => 'Secret Info', 'type' => 'text'], // NOT hidden in section!
@@ -569,4 +570,137 @@ test('FactionController show resolves linked_roster_data values to fetch referen
     expect(count($entries))->toBe(1);
     expect($entries[0]['entry_id'])->toBe(1);
     expect($entries[0]['data']['name_field'])->toBe('John Doe');
+});
+
+test('FactionController show respects use_roster_columns and resolves linked columns for global view-only users', function () {
+    // 1. Create a second roster ("Roster B")
+    $rosterB = Roster::create([
+        'faction_id' => $this->faction->id,
+        'name' => 'Secondary Roster',
+        'shortname' => 'SEC',
+        'color' => '#654321',
+        'order' => 1,
+        'columns' => [
+            [
+                'id' => 'linked_name',
+                'name' => 'Linked Name',
+                'type' => 'linked_roster_data',
+                'linked_database_id' => $this->recordDb->id,
+                'database_field_id' => 'name_field',
+            ],
+            [
+                'id' => 'database_data_col',
+                'name' => 'DB Col',
+                'type' => 'database_data',
+                'source_column_id' => 'linked_name',
+                'data_field_id' => 'name_field',
+            ],
+        ],
+        'created_by' => $this->leader->id,
+    ]);
+
+    // Roster A (from beforeEach) has content row 1 with 'name' => 'John Doe' (ID: $this->content->id).
+    // Create a section on Roster B that has use_roster_columns => true
+    // but we save columns in it that defines 'linked_name' as type 'text' to test if it gets ignored.
+    $sectionB = $rosterB->sections()->create([
+        'name' => 'Secondary Section',
+        'shortname' => 'SEC_MAIN',
+        'type' => 'master',
+        'order' => 0,
+        'use_roster_columns' => true,
+        'columns' => [
+            [
+                'id' => 'linked_name',
+                'name' => 'Linked Name Override',
+                'type' => 'text',
+            ],
+        ],
+        'created_by' => $this->leader->id,
+    ]);
+
+    // Create content that has a link in it
+    $contentB = $sectionB->contents()->create([
+        'type' => 'predefined',
+        'content' => [
+            'linked_name' => [
+                'roster_id' => $this->roster->id,
+                'section_id' => $this->section->id,
+                'row_id' => $this->content->id,
+                'col_id' => 'name',
+            ],
+        ],
+        'created_by' => $this->leader->id,
+    ]);
+
+    // Give user global view_faction_roster permission only (no explicit roster permission)
+    $this->userRole->permissions()->delete();
+    $this->userRole->permissions()->create(['permission_key' => 'view_faction_roster', 'value' => 'YES']);
+
+    Auth::guard('sanctum')->forgetUser();
+    $response = $this->actingAs($this->user)->getJson('/api/factions/lssd');
+    $response->assertStatus(200);
+    $data = $response->json();
+
+    // Verify that the entry was resolved successfully
+    $dbData = collect($data['record_data'])->firstWhere('id', $this->recordDb->id);
+    expect($dbData)->not->toBeNull();
+    $entries = $dbData['entries'];
+
+    expect(count($entries))->toBe(1);
+    expect($entries[0]['entry_id'])->toBe(1);
+    expect($entries[0]['data']['name_field'])->toBe('John Doe');
+});
+
+test('FactionController show sends all database entries to users with roster edit permissions', function () {
+    // 1. Create a second database entry that is NOT referenced
+    $secondEntry = $this->recordDb->entries()->create([
+        'database_id' => $this->recordDb->id,
+        'entry_id' => 2,
+        'data' => [
+            'name_field' => 'Jane Doe',
+        ],
+        'is_active' => true,
+        'created_by' => $this->leader->id,
+    ]);
+
+    // Link the roster's name column to the database field
+    $cols = $this->roster->columns;
+    $cols[0]['linked_database_id'] = $this->recordDb->id;
+    $cols[0]['database_field_id'] = 'name_field';
+    $this->roster->update(['columns' => $cols]);
+
+    // Roster content row 1 has name = John Doe, which references entry 1.
+    // entry 2 (Jane Doe) is NOT referenced.
+
+    // 2. Scenario A: User with ONLY view permissions on roster & database (view-only user)
+    $this->userRole->permissions()->delete();
+    $this->userRole->permissions()->create(['permission_key' => 'view_faction_roster', 'value' => 'YES']);
+
+    Auth::guard('sanctum')->forgetUser();
+    $response = $this->actingAs($this->user)->getJson('/api/factions/lssd');
+    $response->assertStatus(200);
+    $data = $response->json();
+
+    $dbData = collect($data['record_data'])->firstWhere('id', $this->recordDb->id);
+    expect($dbData)->not->toBeNull();
+    // They should only see the referenced entry (1 entry)
+    expect(count($dbData['entries']))->toBe(1);
+    expect($dbData['entries'][0]['entry_id'])->toBe(1);
+
+    // 3. Scenario B: User has edit permissions on the roster (but still view-only on database)
+    // Add modify_roster permission explicitly to the roster
+    $this->roster->rosterPermissions()->create([
+        'role_id' => $this->userRole->id,
+        'permissions' => ['view_roster', 'modify_roster'],
+    ]);
+
+    Auth::guard('sanctum')->forgetUser();
+    $response = $this->actingAs($this->user)->getJson('/api/factions/lssd');
+    $response->assertStatus(200);
+    $data = $response->json();
+
+    $dbData = collect($data['record_data'])->firstWhere('id', $this->recordDb->id);
+    expect($dbData)->not->toBeNull();
+    // They should see all entries (2 entries) since they are not a view-only user
+    expect(count($dbData['entries']))->toBe(2);
 });

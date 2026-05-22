@@ -300,6 +300,35 @@ class User extends Authenticatable
         return false;
     }
 
+    public static function canViewRoster(?User $user, Roster $roster): bool
+    {
+        if ($user && $user->is_superadmin) {
+            return true;
+        }
+
+        $faction = $roster->faction;
+        if ($user && $faction->faction_leader === $user->id) {
+            return true;
+        }
+
+        if ($user && self::hasFactionPermission($user, $faction, 'global_roster_moderation')) {
+            return true;
+        }
+
+        if ($user && $roster->created_by === $user->id) {
+            return true;
+        }
+
+        $hasExplicitPerms = $roster->rosterPermissions()->exists();
+        if ($hasExplicitPerms) {
+            return self::hasRosterPermission($user, $roster, 'view_roster');
+        }
+
+        $canViewGlobal = $user && self::hasFactionPermission($user, $faction, 'view_faction_roster');
+
+        return $canViewGlobal || self::hasRosterPermission($user, $roster, 'view_roster');
+    }
+
     public static function hasRecordPermission(?User $user, FactionRecordDatabase $database, string $permissionKey): bool
     {
         $faction = $database->faction;

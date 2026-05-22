@@ -139,7 +139,7 @@ class FactionRecordEntryController extends Controller
                     $sections = $roster->sections()->get();
                     foreach ($sections as $section) {
                         // Determine which columns to use (section-specific or roster-default)
-                        $colsToScan = collect($section->columns ?: $roster->columns);
+                        $colsToScan = collect($section->use_roster_columns ? ($roster->columns ?? []) : ($section->columns ?: ($roster->columns ?? [])));
 
                         $linkedCols = $colsToScan->filter(function ($col) use ($database, $linkedDatasetIds) {
                             return (($col['linked_database_id'] ?? null) == $database->id) ||
@@ -191,7 +191,7 @@ class FactionRecordEntryController extends Controller
                         $canViewHidden = User::hasRosterPermission(Auth::user(), $roster, 'view_hidden_data');
                         if (! $canViewHidden) {
                             foreach ($uniqueContents as $content) {
-                                $sectionCols = $content->section->columns ?: ($roster->columns ?? []);
+                                $sectionCols = $content->section->use_roster_columns ? ($roster->columns ?? []) : ($content->section->columns ?: ($roster->columns ?? []));
                                 $hiddenColIds = collect($sectionCols)
                                     ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
                                     ->pluck('id')
