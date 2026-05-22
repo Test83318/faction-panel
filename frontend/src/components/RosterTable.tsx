@@ -407,6 +407,10 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   ];
 
   const evaluateFlag = React.useCallback((row: RosterContent, col: RosterColumn, flag: any) => {
+    // If the user does not have edit access to the roster, do not evaluate flags at all.
+    const hasEditAccess = canModerate || permissions?.edit_defined_fields || permissions?.edit_predefined;
+    if (!hasEditAccess) return false;
+
     if (!flag.rules || flag.rules.length === 0) return false;
 
     // If this is a hidden column and the user cannot view hidden data, do not evaluate flags on it.
