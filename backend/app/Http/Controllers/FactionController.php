@@ -176,6 +176,211 @@ class FactionController extends Controller
             $resolveDynamic($roster->rootSections);
         }
 
+        // Include Datasets
+        $datasets = $faction->rosterDatasets()
+            ->with('options')
+            ->get();
+
+        // Include Flags
+        $flags = $faction->rosterFlags()->get();
+
+        // Include Published Record Databases & Entries — only those the current user can view
+        $publishedDatabases = $faction->recordDatabases()
+            ->where('is_published', true)
+            ->with(['entries' => function ($query) {
+                $query->where('is_active', true);
+            }])
+            ->get()
+            ->filter(fn ($db) => User::hasRecordPermission($user, $db, 'view_database'))
+            ->values();
+
+        // Filter and mask record database entries for view-only users
+        $publishedDbsById = $publishedDatabases->keyBy('id');
+        $referencedEntriesByDb = [];
+        $hiddenFieldsByDb = [];
+
+        foreach ($publishedDatabases as $db) {
+            $referencedEntriesByDb[$db->id] = [
+                'ids' => [],
+                'values' => [],
+                'fields' => [],
+            ];
+            $hiddenFieldsByDb[$db->id] = [];
+        }
+
+        $datasetsById = $datasets->keyBy('id');
+
+        $getLinkedDatabaseId = function ($col) use ($datasetsById) {
+            if (isset($col['linked_database_id']) && $col['linked_database_id']) {
+                return $col['linked_database_id'];
+            }
+            if (isset($col['dataset_id']) && $col['dataset_id']) {
+                $ds = $datasetsById->get($col['dataset_id']);
+                if ($ds && $ds->record_database_id) {
+                    return $ds->record_database_id;
+                }
+            }
+
+            return null;
+        };
+
+        $scanSection = function ($section, $roster) use (&$scanSection, &$referencedEntriesByDb, &$hiddenFieldsByDb, $getLinkedDatabaseId, $publishedDbsById, $user) {
+            $config = $section->section_options['dynamic_config'] ?? null;
+            $isDynamicDb = ($section->data_source === 'dynamic') &&
+                $config &&
+                (($config['source_type'] ?? null) === 'database') &&
+                isset($config['source_id']);
+            $dynamicDbId = $isDynamicDb ? $config['source_id'] : null;
+
+            $columns = $section->columns ?: ($roster->columns ?? []);
+            $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
+
+            // Map column IDs to their linked database IDs and fields
+            $colDbIds = [];
+            foreach ($columns as $col) {
+                if (isset($col['id'])) {
+                    $dbId = $getLinkedDatabaseId($col);
+                    if ($dbId && isset($referencedEntriesByDb[$dbId])) {
+                        $colDbIds[$col['id']] = [
+                            'db_id' => $dbId,
+                            'col' => $col,
+                        ];
+
+                        $db = $publishedDbsById->get($dbId);
+                        $fieldId = $col['database_field_id'] ?? null;
+                        if (! $fieldId && $db) {
+                            $fieldId = $db->database_structure[0]['id'] ?? null;
+                        }
+                        if ($fieldId) {
+                            $referencedEntriesByDb[$dbId]['fields'][] = $fieldId;
+
+                            // If this column type is hidden and user lacks view_hidden_data, mark the field as hidden
+                            if (! $canViewHidden && str_contains($col['type'] ?? '', 'hidden')) {
+                                $hiddenFieldsByDb[$dbId][] = $fieldId;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Also check dynamic section mapping for hidden columns
+            if ($dynamicDbId && isset($referencedEntriesByDb[$dynamicDbId])) {
+                $mappings = $config['mappings'] ?? [];
+                foreach ($columns as $col) {
+                    if (isset($col['id']) && isset($mappings[$col['id']])) {
+                        $sourceKey = $mappings[$col['id']];
+                        $referencedEntriesByDb[$dynamicDbId]['fields'][] = $sourceKey;
+
+                        if (! $canViewHidden && str_contains($col['type'] ?? '', 'hidden')) {
+                            $hiddenFieldsByDb[$dynamicDbId][] = $sourceKey;
+                        }
+                    }
+                }
+            }
+
+            if ($section->contents) {
+                foreach ($section->contents as $content) {
+                    if ($dynamicDbId && isset($referencedEntriesByDb[$dynamicDbId])) {
+                        $referencedEntriesByDb[$dynamicDbId]['ids'][] = $content->id;
+                    }
+
+                    $data = $content->content;
+                    if (is_array($data)) {
+                        foreach ($colDbIds as $colId => $colInfo) {
+                            $dbId = $colInfo['db_id'];
+                            $val = $data[$colId] ?? null;
+                            if ($val !== null && $val !== '') {
+                                $referencedEntriesByDb[$dbId]['values'][] = (string) $val;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if ($section->children) {
+                foreach ($section->children as $child) {
+                    $scanSection($child, $roster);
+                }
+            }
+        };
+
+        foreach ($filteredRosters as $roster) {
+            foreach ($roster->rootSections as $section) {
+                $scanSection($section, $roster);
+            }
+        }
+
+        foreach ($referencedEntriesByDb as $dbId => $refs) {
+            $referencedEntriesByDb[$dbId]['ids'] = array_unique($refs['ids']);
+            $referencedEntriesByDb[$dbId]['values'] = array_unique($refs['values']);
+            $referencedEntriesByDb[$dbId]['fields'] = array_unique($refs['fields']);
+        }
+        foreach ($hiddenFieldsByDb as $dbId => $fields) {
+            $hiddenFieldsByDb[$dbId] = array_unique($fields);
+        }
+
+        foreach ($publishedDatabases as $db) {
+            $isEditor = false;
+            if ($user) {
+                $isEditor = $user->is_superadmin ||
+                    $faction->faction_leader === $user->id ||
+                    User::hasFactionPermission($user, $faction, 'global_faction_record_moderation') ||
+                    $db->created_by === $user->id ||
+                    User::hasRecordPermission($user, $db, 'add_entries') ||
+                    User::hasRecordPermission($user, $db, 'modify_entries') ||
+                    User::hasRecordPermission($user, $db, 'delete_entries');
+            }
+
+            if (! $isEditor) {
+                $dbRefs = $referencedEntriesByDb[$db->id] ?? ['ids' => [], 'values' => [], 'fields' => []];
+                $dbRefsIds = $dbRefs['ids'];
+                $dbRefsValues = $dbRefs['values'];
+                $dbRefsFields = $dbRefs['fields'];
+
+                // Filter the entries collection
+                $filteredEntries = $db->entries->filter(function ($entry) use ($dbRefsIds, $dbRefsValues, $dbRefsFields) {
+                    if (in_array($entry->id, $dbRefsIds)) {
+                        return true;
+                    }
+                    if (in_array((string) $entry->entry_id, $dbRefsValues)) {
+                        return true;
+                    }
+                    foreach ($dbRefsFields as $fieldId) {
+                        if ($fieldId === 'id') {
+                            if (in_array((string) $entry->entry_id, $dbRefsValues)) {
+                                return true;
+                            }
+                        } else {
+                            $val = $entry->data[$fieldId] ?? null;
+                            if ($val !== null && in_array((string) $val, $dbRefsValues)) {
+                                return true;
+                            }
+                        }
+                    }
+
+                    return false;
+                });
+
+                // Mask hidden fields inside filtered entries
+                $hiddenFields = $hiddenFieldsByDb[$db->id] ?? [];
+                if (! empty($hiddenFields)) {
+                    foreach ($filteredEntries as $entry) {
+                        $data = $entry->data;
+                        if (is_array($data)) {
+                            foreach ($hiddenFields as $fieldId) {
+                                if (isset($data[$fieldId]) && $data[$fieldId] !== '') {
+                                    $data[$fieldId] = '????';
+                                }
+                            }
+                            $entry->data = $data;
+                        }
+                    }
+                }
+
+                $db->setRelation('entries', $filteredEntries->values());
+            }
+        }
+
         $filteredRosters->each(function ($roster) use ($user) {
             $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
 
@@ -207,24 +412,6 @@ class FactionController extends Controller
 
         // Ensure rosters relation is NOT loaded or serialized on faction model to prevent unmasked data leakage
         $faction->unsetRelation('rosters');
-
-        // Include Datasets
-        $datasets = $faction->rosterDatasets()
-            ->with('options')
-            ->get();
-
-        // Include Flags
-        $flags = $faction->rosterFlags()->get();
-
-        // Include Published Record Databases & Entries — only those the current user can view
-        $publishedDatabases = $faction->recordDatabases()
-            ->where('is_published', true)
-            ->with(['entries' => function ($query) {
-                $query->where('is_active', true);
-            }])
-            ->get()
-            ->filter(fn ($db) => User::hasRecordPermission($user, $db, 'view_database'))
-            ->values();
 
         return response()->json([
             'faction' => $faction,

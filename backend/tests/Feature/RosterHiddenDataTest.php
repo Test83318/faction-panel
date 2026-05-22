@@ -277,3 +277,229 @@ test('FactionController show masks hidden columns based on section-specific over
     expect($c['secret_info'])->toBe('Not a secret anymore');
     expect($c['another_secret'])->toBe('????');
 });
+
+test('FactionController show restricts record_data entries for view-only users', function () {
+    // 1. Create a second entry that is NOT referenced
+    $secondEntry = $this->recordDb->entries()->create([
+        'database_id' => $this->recordDb->id,
+        'entry_id' => 2,
+        'data' => [
+            'name_field' => 'Jane Doe',
+        ],
+        'is_active' => true,
+        'created_by' => $this->leader->id,
+    ]);
+
+    // 2. Link the name column of the roster to the database field 'name_field'
+    $cols = $this->roster->columns;
+    $cols[0]['linked_database_id'] = $this->recordDb->id;
+    $cols[0]['database_field_id'] = 'name_field';
+    $this->roster->update(['columns' => $cols]);
+
+    // The roster has a content row with 'name' => 'John Doe' (matches entry 1's name_field).
+    // So entry 1 is referenced, but entry 2 ('Jane Doe') is NOT referenced.
+
+    // 3. User (view-only) fetches faction details.
+    // They should only see entry 1 in record_data.
+    Auth::guard('sanctum')->forgetUser();
+    $response = $this->actingAs($this->user)->getJson('/api/factions/lssd');
+    $response->assertStatus(200);
+    $data = $response->json();
+
+    // Check record_data entries
+    $dbData = collect($data['record_data'])->firstWhere('id', $this->recordDb->id);
+    expect($dbData)->not->toBeNull();
+    $entries = $dbData['entries'];
+
+    // Should only have 1 entry (entry_id = 1)
+    expect(count($entries))->toBe(1);
+    expect($entries[0]['entry_id'])->toBe(1);
+    expect($entries[0]['data']['name_field'])->toBe('John Doe');
+
+    // 4. Leader (editor) fetches faction details.
+    // They should see both entries.
+    Auth::guard('sanctum')->forgetUser();
+    $response = $this->actingAs($this->leader)->getJson('/api/factions/lssd');
+    $response->assertStatus(200);
+    $data = $response->json();
+
+    $dbData = collect($data['record_data'])->firstWhere('id', $this->recordDb->id);
+    expect($dbData)->not->toBeNull();
+    $entries = $dbData['entries'];
+
+    expect(count($entries))->toBe(2);
+});
+
+test('FactionController show masks sensitive database fields for view-only users', function () {
+    // 1. Link a column of type 'hidden_text' to the database field 'name_field'
+    // Let's change the secret_info column to link to the database
+    $cols = $this->roster->columns;
+    $cols[1]['linked_database_id'] = $this->recordDb->id;
+    $cols[1]['database_field_id'] = 'name_field';
+    $this->roster->update(['columns' => $cols]);
+
+    // The roster content row has: 'secret_info' => 'John Doe'
+    // So the cell value 'John Doe' references entry 1.
+    // But secret_info is of type hidden_text, and the user lacks view_hidden_data permission.
+    // Therefore, the field 'name_field' is hidden, and its value in the database entry must be masked to '????'.
+
+    $this->content->update([
+        'content' => [
+            'name' => 'Test',
+            'secret_info' => 'John Doe',
+        ],
+    ]);
+
+    // 2. User (view-only) fetches faction details.
+    // They should see the entry, but its 'name_field' should be masked to '????'.
+    // The entry_id and id should remain unmasked.
+    Auth::guard('sanctum')->forgetUser();
+    $response = $this->actingAs($this->user)->getJson('/api/factions/lssd');
+    $response->assertStatus(200);
+    $data = $response->json();
+
+    $dbData = collect($data['record_data'])->firstWhere('id', $this->recordDb->id);
+    expect($dbData)->not->toBeNull();
+    $entries = $dbData['entries'];
+
+    expect(count($entries))->toBe(1);
+    expect($entries[0]['entry_id'])->toBe(1);
+    expect($entries[0]['data']['name_field'])->toBe('????');
+
+    // 3. Leader (editor) fetches faction details.
+    // They should see the entry with unmasked name_field.
+    Auth::guard('sanctum')->forgetUser();
+    $response = $this->actingAs($this->leader)->getJson('/api/factions/lssd');
+    $response->assertStatus(200);
+    $data = $response->json();
+
+    $dbData = collect($data['record_data'])->firstWhere('id', $this->recordDb->id);
+    $entries = $dbData['entries'];
+    expect($entries[0]['data']['name_field'])->toBe('John Doe');
+});
+
+test('FactionController show sends all entries unmasked to users with database edit permissions', function () {
+    // 1. Create a second entry that is NOT referenced
+    $secondEntry = $this->recordDb->entries()->create([
+        'database_id' => $this->recordDb->id,
+        'entry_id' => 2,
+        'data' => [
+            'name_field' => 'Jane Doe',
+        ],
+        'is_active' => true,
+        'created_by' => $this->leader->id,
+    ]);
+
+    // 2. Link a hidden column to name_field
+    $cols = $this->roster->columns;
+    $cols[1]['linked_database_id'] = $this->recordDb->id;
+    $cols[1]['database_field_id'] = 'name_field';
+    $this->roster->update(['columns' => $cols]);
+
+    $this->content->update([
+        'content' => [
+            'name' => 'Test',
+            'secret_info' => 'John Doe',
+        ],
+    ]);
+
+    // 3. Give $this->user a database permission to add_entries
+    $this->recordDb->databasePermissions()->create([
+        'role_id' => $this->userRole->id,
+        'permissions' => ['view_database', 'add_entries'],
+    ]);
+
+    // 4. User (now an editor) fetches faction details.
+    // They should see both entries, and they should be unmasked.
+    Auth::guard('sanctum')->forgetUser();
+    $response = $this->actingAs($this->user)->getJson('/api/factions/lssd');
+    $response->assertStatus(200);
+    $data = $response->json();
+
+    $dbData = collect($data['record_data'])->firstWhere('id', $this->recordDb->id);
+    expect($dbData)->not->toBeNull();
+    $entries = $dbData['entries'];
+
+    expect(count($entries))->toBe(2);
+    // Verify entry 1 is unmasked
+    $e1 = collect($entries)->firstWhere('entry_id', 1);
+    expect($e1['data']['name_field'])->toBe('John Doe');
+
+    // Verify entry 2 is unmasked
+    $e2 = collect($entries)->firstWhere('entry_id', 2);
+    expect($e2['data']['name_field'])->toBe('Jane Doe');
+});
+
+test('FactionController show fetches database entries referenced via dynamic sections for view-only users', function () {
+    // 1. Create a dynamic section pointing to the database
+    $dynamicSection = $this->roster->sections()->create([
+        'name' => 'Dynamic Section',
+        'shortname' => 'DYN',
+        'type' => 'master',
+        'order' => 1,
+        'data_source' => 'dynamic',
+        'section_options' => [
+            'dynamic_config' => [
+                'source_type' => 'database',
+                'source_id' => $this->recordDb->id,
+                'rules' => [],
+                'mappings' => [
+                    'name' => 'name_field',
+                ],
+            ],
+        ],
+        'created_by' => $this->leader->id,
+    ]);
+
+    // 2. Create another database with an entry that is NOT referenced
+    $otherDb = FactionRecordDatabase::create([
+        'faction_id' => $this->faction->id,
+        'name' => 'Other DB',
+        'description' => 'Other database',
+        'record_shortcode' => 'OTH',
+        'data_overview_display' => 'table',
+        'data_entry_display' => 'detailed',
+        'is_published' => true,
+        'database_structure' => [
+            ['id' => 'other_field', 'name' => 'Other Field', 'type' => 'text', 'required' => true],
+        ],
+        'created_by' => $this->leader->id,
+    ]);
+
+    $otherDb->databasePermissions()->create([
+        'permissions' => ['view_database'],
+    ]);
+
+    $otherEntry = $otherDb->entries()->create([
+        'database_id' => $otherDb->id,
+        'entry_id' => 1,
+        'data' => [
+            'other_field' => 'Not Referenced',
+        ],
+        'is_active' => true,
+        'created_by' => $this->leader->id,
+    ]);
+
+    // 3. User fetches faction details.
+    // They should see the dynamic section resolved, and they should receive the entry from recordDb (since it's referenced in the dynamic section).
+    // But they should NOT receive the entry from otherDb (since it's not referenced).
+    Auth::guard('sanctum')->forgetUser();
+    $response = $this->actingAs($this->user)->getJson('/api/factions/lssd');
+    $response->assertStatus(200);
+    $data = $response->json();
+
+    // Check dynamic section resolved content
+    $rosters = $data['rosters'];
+    $dynSec = collect($rosters[0]['root_sections'])->firstWhere('id', $dynamicSection->id);
+    expect($dynSec)->not->toBeNull();
+    expect(count($dynSec['contents']))->toBe(1);
+    expect($dynSec['contents'][0]['content']['name'])->toBe('John Doe');
+
+    // Check record_data
+    $dbData = collect($data['record_data'])->firstWhere('id', $this->recordDb->id);
+    expect(count($dbData['entries']))->toBe(1);
+    expect($dbData['entries'][0]['entry_id'])->toBe(1);
+
+    $otherDbData = collect($data['record_data'])->firstWhere('id', $otherDb->id);
+    expect(count($otherDbData['entries']))->toBe(0);
+});
