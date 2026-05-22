@@ -120,9 +120,9 @@ test('view-only users should see masked resolved data in faction show (fixed emp
     $roster = collect($data['rosters'])->firstWhere('id', $this->roster->id);
     $content = $roster['root_sections'][0]['contents'][0]['content'];
 
-    // Key 'abas' should exist and be masked
+    // Key 'abas' should exist and be resolved (no longer masked unless it's a hidden type)
     expect($content)->toHaveKey('abas');
-    expect($content['abas'])->toBe('????');
+    expect($content['abas'])->toBe('Top Secret ABAS');
 
     // The database should be included in record_data because it's referenced
     $recordData = collect($data['record_data']);
@@ -131,6 +131,33 @@ test('view-only users should see masked resolved data in faction show (fixed emp
     
     // BUT it should ONLY have the referenced entries (in this case 1)
     expect(count($recordData->first()['entries']))->toBe(1);
+});
+
+test('view-only users should see masked resolved data for hidden_database_data type', function () {
+    // Add a hidden_database_data column
+    $columns = $this->roster->columns;
+    $columns[] = [
+        'id' => 'secret_abas',
+        'name' => 'Secret ABAS',
+        'type' => 'hidden_database_data',
+        'source_column_id' => 'name',
+        'data_field_id' => 'abas_field',
+    ];
+    $this->roster->update(['columns' => $columns]);
+
+    Auth::guard('sanctum')->forgetUser();
+    $response = $this->actingAs($this->user)->getJson('/api/factions/lssd');
+    $response->assertStatus(200);
+    $data = $response->json();
+
+    $roster = collect($data['rosters'])->firstWhere('id', $this->roster->id);
+    $content = $roster['root_sections'][0]['contents'][0]['content'];
+
+    // 'abas' (database_data) should be visible
+    expect($content['abas'])->toBe('Top Secret ABAS');
+    
+    // 'secret_abas' (hidden_database_data) should be masked
+    expect($content['secret_abas'])->toBe('????');
 });
 
 test('editors should see unmasked resolved data', function () {
