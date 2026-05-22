@@ -406,18 +406,18 @@ class FactionController extends Controller
                                 continue;
                             }
 
-                            if (str_contains($col['type'] ?? '', 'linked_roster_data')) {
+                            if (($col['type'] ?? '') === 'linked_roster_data') {
                                 $val = $data[$colId] ?? null;
                                 if (is_array($val) && isset($val['row_id']) && isset($val['col_id'])) {
                                     $linkKey = "{$val['row_id']}_{$val['col_id']}";
                                     $data[$colId] = $resolvedLinksMap[$linkKey] ?? '-';
                                 }
-                            } elseif (str_contains($col['type'] ?? '', 'database_data') && isset($col['source_column_id'])) {
+                            } elseif (($col['type'] ?? '') === 'database_data' && isset($col['source_column_id'])) {
                                 $sourceColId = $col['source_column_id'];
                                 $sourceCol = collect($columns)->firstWhere('id', $sourceColId);
                                 $sourceValue = $data[$sourceColId] ?? null;
 
-                                if ($sourceCol && str_contains($sourceCol['type'] ?? '', 'linked_roster_data') && is_array($sourceValue)) {
+                                if ($sourceCol && ($sourceCol['type'] ?? '') === 'linked_roster_data' && is_array($sourceValue)) {
                                     $linkKey = "{$sourceValue['row_id']}_{$sourceValue['col_id']}";
                                     $sourceValue = $resolvedLinksMap[$linkKey] ?? null;
                                 }
@@ -600,7 +600,8 @@ class FactionController extends Controller
             // Apply data masking if user cannot view hidden data
             if (! $canViewHidden) {
                 $hiddenColIds = collect($roster->columns ?? [])
-                    ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
+                    ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden') || 
+                                        in_array($col['type'] ?? '', ['database_data', 'linked_roster_data']))
                     ->pluck('id')
                     ->toArray();
 
@@ -902,7 +903,8 @@ class FactionController extends Controller
         $hiddenColIds = $rosterHiddenColIds;
         if ($section->columns && ! $section->use_roster_columns) {
             $hiddenColIds = collect($section->columns)
-                ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
+                ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden') || 
+                                    in_array($col['type'] ?? '', ['database_data', 'linked_roster_data']))
                 ->pluck('id')
                 ->toArray();
         }
