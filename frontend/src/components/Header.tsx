@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Shield, Moon, Sun, LogOut, User, LogIn, ChevronDown, Settings, LayoutGrid, ShieldAlert, HelpCircle, Contrast } from 'lucide-react';
+import { Shield, Moon, Sun, LogOut, User, LogIn, ChevronDown, Settings, LayoutGrid, ShieldAlert, HelpCircle, Contrast, UserPlus } from 'lucide-react';
 import QuickSearch from './QuickSearch';
+import api from '../api';
+import toast from 'react-hot-toast';
 
 interface HeaderProps {
   isDark: boolean;
@@ -19,6 +21,7 @@ interface HeaderProps {
     header_gradient_color: string | null;
     header_gradient_direction: string;
     shortname: string;
+    access?: string;
     quick_search_enabled?: boolean;
     quick_search_settings?: {
         database_id: number | null;
@@ -48,11 +51,24 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [joining, setJoining] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isSuperAdmin = user?.is_superadmin;
   const roleColor = userRole?.color || 'var(--muted)';
   const isFactionPage = !!branding?.shortname;
   const activeBanner = isDark ? bannerLogoDark : (bannerLogoLight || bannerLogoDark);
+  const canJoin = isFactionPage && user && !userRole && branding?.access === 'joinable';
+
+  const handleJoin = async () => {
+    setJoining(true);
+    try {
+      await api.post('/factions/join', { shortname: branding!.shortname });
+      window.location.reload();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to join faction');
+      setJoining(false);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -132,8 +148,19 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       )}
 
+      {canJoin && (
+        <button
+          onClick={handleJoin}
+          disabled={joining}
+          className="flex items-center gap-1.5 text-[9px] font-black tracking-widest uppercase px-3 py-1.5 bg-accent hover:bg-accent/90 text-white rounded-lg transition-all shadow-lg shadow-accent/20 disabled:opacity-50 mr-2"
+        >
+          <UserPlus size={12} />
+          {joining ? '...' : 'Join Faction'}
+        </button>
+      )}
+
       {user && (
-        <button 
+        <button
             onClick={() => navigate('/help')}
             className="p-1.5 text-muted hover:text-accent transition-colors flex items-center gap-2 mr-2"
             title="Help Center"

@@ -29,6 +29,7 @@ import StatisticsDashboard from './components/StatisticsDashboard';
 import FactionForms from './components/FactionForms';
 import Welcome from './components/Welcome';
 import Credits from './components/Credits';
+import Changelog from './components/Changelog';
 import GlobalLayout from './layouts/GlobalLayout';
 import FactionLayout from './layouts/FactionLayout';
 import { ConfirmationProvider } from './components/ConfirmationProvider';
@@ -451,6 +452,7 @@ export default function App() {
              <Route path="/help/article/:slug" element={<HelpArticleView />} />
              <Route path="/welcome" element={<Welcome />} />
              <Route path="/credits" element={<Credits />} />
+             <Route path="/changelog" element={<Changelog siteVersion={siteVersion} />} />
           </Route>
 
           <Route path="/:shortname/*" element={
