@@ -187,17 +187,18 @@ class FactionController extends Controller
         // Include Flags
         $flags = $faction->rosterFlags()->get();
 
-        // Include Published Record Databases & Entries — only those the current user can view
-        $publishedDatabases = $faction->recordDatabases()
+        // Include Published Record Databases & Entries — all for resolution, filter for response later
+        $allPublishedDatabases = $faction->recordDatabases()
             ->where('is_published', true)
             ->with(['entries' => function ($query) {
                 $query->where('is_active', true);
             }])
-            ->get()
-            ->filter(fn ($db) => User::hasRecordPermission($user, $db, 'view_database'))
-            ->values();
+            ->get();
+
+        $publishedDatabases = $allPublishedDatabases->filter(fn ($db) => User::hasRecordPermission($user, $db, 'view_database'))->values();
 
         // Filter and mask record database entries for view-only users
+        $resolutionDbsById = $allPublishedDatabases->keyBy('id');
         $publishedDbsById = $publishedDatabases->keyBy('id');
         $referencedEntriesByDb = [];
         $hiddenFieldsByDb = [];
@@ -336,7 +337,7 @@ class FactionController extends Controller
             }
         }
 
-        $scanSection = function ($section, $roster) use (&$scanSection, &$referencedEntriesByDb, &$hiddenFieldsByDb, $getLinkedDatabaseId, $publishedDbsById, $user, $resolvedLinksMap) {
+        $scanSection = function ($section, $roster) use (&$scanSection, &$referencedEntriesByDb, &$hiddenFieldsByDb, $getLinkedDatabaseId, $publishedDbsById, $user, $resolvedLinksMap, $datasetsById, $resolutionDbsById) {
             $config = $section->section_options['dynamic_config'] ?? null;
             $isDynamicDb = ($section->data_source === 'dynamic') &&
                 $config &&
@@ -398,6 +399,53 @@ class FactionController extends Controller
 
                     $data = $content->content;
                     if (is_array($data)) {
+                        // Resolve database_data and linked_roster_data into the content object
+                        foreach ($columns as $col) {
+                            $colId = $col['id'] ?? null;
+                            if (! $colId) {
+                                continue;
+                            }
+
+                            if (($col['type'] ?? '') === 'linked_roster_data') {
+                                $val = $data[$colId] ?? null;
+                                if (is_array($val) && isset($val['row_id']) && isset($val['col_id'])) {
+                                    $linkKey = "{$val['row_id']}_{$val['col_id']}";
+                                    $data[$colId] = $resolvedLinksMap[$linkKey] ?? '-';
+                                }
+                            } elseif (($col['type'] ?? '') === 'database_data' && isset($col['source_column_id'])) {
+                                $sourceColId = $col['source_column_id'];
+                                $sourceCol = collect($columns)->firstWhere('id', $sourceColId);
+                                $sourceValue = $data[$sourceColId] ?? null;
+
+                                if ($sourceCol && ($sourceCol['type'] ?? '') === 'linked_roster_data' && is_array($sourceValue)) {
+                                    $linkKey = "{$sourceValue['row_id']}_{$sourceValue['col_id']}";
+                                    $sourceValue = $resolvedLinksMap[$linkKey] ?? null;
+                                }
+
+                                if ($sourceValue) {
+                                    $sourceDatasetId = $sourceCol['dataset_id'] ?? null;
+                                    $sourceDataset = $sourceDatasetId ? $datasetsById->get($sourceDatasetId) : null;
+                                    $dbId = $sourceDataset?->record_database_id;
+                                    $db = $dbId ? $resolutionDbsById->get($dbId) : null;
+
+                                    if ($db && $db->relationLoaded('entries')) {
+                                        $entry = $db->entries->first(function ($e) use ($sourceCol, $sourceValue, $db) {
+                                            $fieldId = $sourceCol['database_field_id'] ?? $db->database_structure[0]['id'] ?? 'id';
+                                            $label = ($fieldId === 'id') ? String($e->entry_id) : $e->data[$fieldId] ?? null;
+
+                                            return $label == $sourceValue;
+                                        });
+
+                                        if ($entry) {
+                                            $fieldId = $col['data_field_id'] ?? null;
+                                            $data[$colId] = ($fieldId === 'id') ? $entry->entry_id : $entry->data[$fieldId] ?? '-';
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        $content->content = $data;
+
                         foreach ($colDbIds as $colId => $colInfo) {
                             $dbId = $colInfo['db_id'];
                             $val = $data[$colId] ?? null;
