@@ -409,6 +409,11 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   const evaluateFlag = React.useCallback((row: RosterContent, col: RosterColumn, flag: any) => {
     if (!flag.rules || flag.rules.length === 0) return false;
 
+    // If this is a hidden column and the user cannot view hidden data, do not evaluate flags on it.
+    const isHidden = col.type && col.type.includes('hidden');
+    const canViewHidden = canModerate || permissions?.view_hidden_data;
+    if (isHidden && !canViewHidden) return false;
+
     // Determine current value, accounting for unsaved edits
     const isThisRowEditing = editingRowId === row.id;
     const currentRowContent = isThisRowEditing ? { ...(row.content || {}), ...editData } : (row.content || {});
@@ -517,7 +522,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 return false;
         }
     });
-  }, [datasets, contents, allContents, editingRowId, editData, recordData]);
+  }, [datasets, contents, allContents, editingRowId, editData, recordData, canModerate, permissions]);
 
   const handleBulkAdd = () => {
     const count = Math.min(Math.max(1, rowCountToAdd), 20);
