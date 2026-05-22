@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Faction;
+use App\Models\FactionRecordDatabase;
+use App\Models\RosterContent;
+use App\Models\RosterDataset;
 use App\Models\User;
 use App\Services\DynamicSectionService;
 use Illuminate\Http\Request;
@@ -224,7 +227,113 @@ class FactionController extends Controller
             return null;
         };
 
-        $scanSection = function ($section, $roster) use (&$scanSection, &$referencedEntriesByDb, &$hiddenFieldsByDb, $getLinkedDatabaseId, $publishedDbsById, $user) {
+        // Collect all target row IDs referenced in linked roster columns to resolve them in bulk
+        $linkRowIds = [];
+        $collectLinks = function ($section) use (&$collectLinks, &$linkRowIds) {
+            if ($section->contents) {
+                foreach ($section->contents as $content) {
+                    $data = $content->content;
+                    if (is_array($data)) {
+                        foreach ($data as $colId => $val) {
+                            if (is_array($val) && isset($val['row_id']) && isset($val['col_id'])) {
+                                $linkRowIds[] = $val['row_id'];
+                            }
+                        }
+                    }
+                }
+            }
+            if ($section->children) {
+                foreach ($section->children as $child) {
+                    $collectLinks($child);
+                }
+            }
+        };
+
+        foreach ($filteredRosters as $roster) {
+            foreach ($roster->rootSections as $section) {
+                $collectLinks($section);
+            }
+        }
+        $linkRowIds = array_unique($linkRowIds);
+
+        $resolvedLinksMap = [];
+        if (! empty($linkRowIds)) {
+            $contents = RosterContent::whereIn('id', $linkRowIds)
+                ->with('section.roster.faction')
+                ->get()
+                ->keyBy('id');
+
+            $datasetCache = [];
+            $rosterColsCache = [];
+
+            foreach ($linkRowIds as $rowId) {
+                $content = $contents->get($rowId);
+                if (! $content) {
+                    continue;
+                }
+
+                $roster = $content->section->roster;
+                if (! $filteredRosters->contains('id', $roster->id)) {
+                    continue;
+                }
+
+                $rosterId = $roster->id;
+                if (! isset($rosterColsCache[$rosterId])) {
+                    $rosterColsCache[$rosterId] = collect($roster->columns ?? []);
+                }
+
+                foreach ($content->content as $colId => $value) {
+                    $col = $rosterColsCache[$rosterId]->firstWhere('id', $colId);
+                    if (! $col) {
+                        $col = collect($content->section->columns ?? [])->firstWhere('id', $colId);
+                    }
+
+                    if ($col && str_contains($col['type'] ?? '', 'hidden')) {
+                        if (! User::hasRosterPermission($user, $roster, 'view_hidden_data')) {
+                            $resolvedLinksMap["{$rowId}_{$colId}"] = '????';
+
+                            continue;
+                        }
+                    }
+
+                    if ($col && isset($col['dataset_id'])) {
+                        $datasetId = $col['dataset_id'];
+                        if (! isset($datasetCache[$datasetId])) {
+                            $datasetCache[$datasetId] = RosterDataset::find($datasetId);
+                        }
+                        $dataset = $datasetCache[$datasetId];
+
+                        if ($dataset) {
+                            if ($dataset->record_database_id) {
+                                $db = FactionRecordDatabase::find($dataset->record_database_id);
+                                if ($db && is_numeric($value)) {
+                                    $entry = $db->entries()->where('entry_id', $value)->first();
+                                    if ($entry) {
+                                        $fieldId = $col['database_field_id'] ?? $db->database_structure[0]['id'] ?? 'id';
+                                        if ($fieldId === 'id') {
+                                            $value = $entry->entry_id;
+                                        } else {
+                                            $value = $entry->data[$fieldId] ?? $value;
+                                        }
+                                    }
+                                }
+                            } else {
+                                if (is_numeric($value)) {
+                                    $option = $dataset->options()->where('id', $value)->first();
+                                    if ($option) {
+                                        $value = $option->value;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    $resolvedLinksMap["{$rowId}_{$colId}"] = (is_array($value) || is_object($value)) ? '-' : (string) $value;
+                }
+            }
+        }
+
+        $scanSection = function ($section, $roster) use (&$scanSection, &$referencedEntriesByDb, &$hiddenFieldsByDb, $getLinkedDatabaseId, $publishedDbsById, $user, $resolvedLinksMap) {
             $config = $section->section_options['dynamic_config'] ?? null;
             $isDynamicDb = ($section->data_source === 'dynamic') &&
                 $config &&
@@ -290,7 +399,15 @@ class FactionController extends Controller
                             $dbId = $colInfo['db_id'];
                             $val = $data[$colId] ?? null;
                             if ($val !== null && $val !== '') {
-                                $referencedEntriesByDb[$dbId]['values'][] = (string) $val;
+                                if (is_array($val) && isset($val['row_id']) && isset($val['col_id'])) {
+                                    $linkKey = "{$val['row_id']}_{$val['col_id']}";
+                                    $resolvedVal = $resolvedLinksMap[$linkKey] ?? null;
+                                    if ($resolvedVal !== null && $resolvedVal !== '') {
+                                        $referencedEntriesByDb[$dbId]['values'][] = (string) $resolvedVal;
+                                    }
+                                } else {
+                                    $referencedEntriesByDb[$dbId]['values'][] = (string) $val;
+                                }
                             }
                         }
                     }

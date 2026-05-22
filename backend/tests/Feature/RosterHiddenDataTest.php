@@ -503,3 +503,70 @@ test('FactionController show fetches database entries referenced via dynamic sec
     $otherDbData = collect($data['record_data'])->firstWhere('id', $otherDb->id);
     expect(count($otherDbData['entries']))->toBe(0);
 });
+
+test('FactionController show resolves linked_roster_data values to fetch referenced database entries for view-only users', function () {
+    // 1. Create a second roster ("Roster B")
+    $rosterB = Roster::create([
+        'faction_id' => $this->faction->id,
+        'name' => 'Secondary Roster',
+        'shortname' => 'SEC',
+        'color' => '#654321',
+        'order' => 1,
+        'columns' => [
+            [
+                'id' => 'linked_name',
+                'name' => 'Linked Name',
+                'type' => 'linked_roster_data',
+                'linked_database_id' => $this->recordDb->id,
+                'database_field_id' => 'name_field',
+            ],
+            [
+                'id' => 'database_data_col',
+                'name' => 'DB Col',
+                'type' => 'database_data',
+                'source_column_id' => 'linked_name',
+                'data_field_id' => 'name_field',
+            ],
+        ],
+        'created_by' => $this->leader->id,
+    ]);
+
+    $sectionB = $rosterB->sections()->create([
+        'name' => 'Secondary Section',
+        'shortname' => 'SEC_MAIN',
+        'type' => 'master',
+        'order' => 0,
+        'created_by' => $this->leader->id,
+    ]);
+
+    // Roster A (from beforeEach) has content row 1 with 'name' => 'John Doe' (ID: $this->content->id).
+    // Create a content row on Roster B that has 'linked_name' pointing to Roster A's content row's 'name' field.
+    $contentB = $sectionB->contents()->create([
+        'type' => 'predefined',
+        'content' => [
+            'linked_name' => [
+                'roster_id' => $this->roster->id,
+                'section_id' => $this->section->id,
+                'row_id' => $this->content->id,
+                'col_id' => 'name',
+            ],
+        ],
+        'created_by' => $this->leader->id,
+    ]);
+
+    // Clear user permissions cache and act as the view-only user
+    Auth::guard('sanctum')->forgetUser();
+    $response = $this->actingAs($this->user)->getJson('/api/factions/lssd');
+    $response->assertStatus(200);
+    $data = $response->json();
+
+    // The view-only user should receive the entry with name_field = 'John Doe' (entry_id = 1)
+    // because Roster B's content linked_name resolves to 'John Doe' (matching database name_field).
+    $dbData = collect($data['record_data'])->firstWhere('id', $this->recordDb->id);
+    expect($dbData)->not->toBeNull();
+    $entries = $dbData['entries'];
+
+    expect(count($entries))->toBe(1);
+    expect($entries[0]['entry_id'])->toBe(1);
+    expect($entries[0]['data']['name_field'])->toBe('John Doe');
+});

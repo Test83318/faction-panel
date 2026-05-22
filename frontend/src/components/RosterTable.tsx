@@ -943,7 +943,10 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
         if (col.type === 'database_data' && col.source_column_id) {
             const sourceCol = activeCols.find(c => c.id === col.source_column_id);
-            const sourceValue = isEditing ? editData[sourceCol?.id || ''] : (row.content?.[sourceCol?.id || ''] || '');
+            let sourceValue = isEditing ? editData[sourceCol?.id || ''] : (row.content?.[sourceCol?.id || ''] || '');
+            if (sourceCol?.type === 'linked_roster_data') {
+                sourceValue = resolvedLinks.get(`${row.id}_${sourceCol.id}`) || '';
+            }
             if (sourceValue) {
                 const sourceDataset = datasets.find(d => d.id === sourceCol?.dataset_id);
                 const db = recordData.find(d => d.id === sourceDataset?.record_database_id);
@@ -1071,7 +1074,10 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     // Handle Database Data Column Type
     if (col.type === 'database_data' && col.source_column_id) {
         const sourceCol = activeCols.find(c => c.id === col.source_column_id);
-        const sourceValue = isEditing ? editData[sourceCol?.id || ''] : (row.content?.[sourceCol?.id || ''] || '');
+        let sourceValue = isEditing ? editData[sourceCol?.id || ''] : (row.content?.[sourceCol?.id || ''] || '');
+        if (sourceCol?.type === 'linked_roster_data') {
+            sourceValue = resolvedLinks.get(`${row.id}_${sourceCol.id}`) || '';
+        }
         
         if (sourceValue) {
             // Find the database linked to the source column's dataset
