@@ -217,7 +217,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     const collectLinks = (rows: RosterContent[]) => {
         rows.forEach(row => {
             activeCols.forEach(col => {
-                if (col.type === 'linked_roster_data') {
+                if (col.type?.includes('linked_roster_data')) {
                     const val = (editingRowId === row.id && editingColId === col.id) ? editData[col.id] : row.content?.[col.id];
                     if (val && typeof val === 'object' && val.roster_id && val.row_id && val.col_id) {
                         linksToResolve.push({ rowId: row.id, colId: col.id, config: val });
@@ -941,10 +941,10 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         // Always return redacted placeholder for hidden columns when user lacks permission
         if (!showValue) return '??????';
 
-        if (col.type === 'database_data' && col.source_column_id) {
+        if (col.type?.includes('database_data') && col.source_column_id) {
             const sourceCol = activeCols.find(c => c.id === col.source_column_id);
             let sourceValue = isEditing ? editData[sourceCol?.id || ''] : (row.content?.[sourceCol?.id || ''] || '');
-            if (sourceCol?.type === 'linked_roster_data') {
+            if (sourceCol?.type?.includes('linked_roster_data')) {
                 sourceValue = resolvedLinks.get(`${row.id}_${sourceCol.id}`) || '';
             }
             if (sourceValue) {
@@ -971,7 +971,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             }
             return '-';
         }
-        if (col.type === 'linked_roster_data') {
+        if (col.type?.includes('linked_roster_data')) {
             return resolvedLinks.get(`${row.id}_${col.id}`) || '-';
         }
         return selectedOpt?.label || String(value) || '-';
@@ -1072,7 +1072,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
 
     // Handle Database Data Column Type
-    if (col.type === 'database_data' && col.source_column_id) {
+    if (col.type?.includes('database_data') && col.source_column_id) {
         const sourceCol = activeCols.find(c => c.id === col.source_column_id);
         let sourceValue = isEditing ? editData[sourceCol?.id || ''] : (row.content?.[sourceCol?.id || ''] || '');
         if (sourceCol?.type === 'linked_roster_data') {
@@ -1135,7 +1135,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         );
     }
 
-    if (col.type === 'linked_roster_data') {
+    if (col.type?.includes('linked_roster_data')) {
         const resolvedValue = resolvedLinks.get(`${row.id}_${col.id}`) || '-';
         if (isEditing) {
             return (

@@ -235,6 +235,9 @@ export const RosterTemplateModal: React.FC<RosterTemplateModalProps> = ({ shortn
                                                                 <option value="hidden_text">Hidden Text</option>
                                                                 <option value="hidden_dropdown">Hidden Dropdown</option>
                                                                 <option value="database_data">Database Data Column</option>
+                                                                <option value="hidden_database_data">Hidden Database Data Column</option>
+                                                                <option value="linked_roster_data">Linked Roster Column</option>
+                                                                <option value="hidden_linked_roster_data">Hidden Linked Roster Column</option>
                                                             </select>
                                                             <button 
                                                                 onClick={() => setEditingColumnIndex(editingColumnIndex === idx ? null : idx)}
@@ -264,7 +267,7 @@ export const RosterTemplateModal: React.FC<RosterTemplateModalProps> = ({ shortn
                                                                         />
                                                                     </div>
 
-                                                                    {(col.type.includes('dropdown') || col.type.includes('text')) && col.type !== 'database_data' && (
+                                                                    {(col.type.includes('dropdown') || col.type.includes('text')) && !col.type?.includes('database_data') && (
                                                                         <div>
                                                                             <label className="block text-[8px] font-black uppercase tracking-widest text-accent mb-1.5">Data Source</label>
                                                                             <div className="flex gap-2">
@@ -313,7 +316,7 @@ export const RosterTemplateModal: React.FC<RosterTemplateModalProps> = ({ shortn
                                                                         </div>
                                                                     )}
 
-                                                                    {col.type === 'database_data' && (
+                                                                    {col.type?.includes('database_data') && (
                                                                         <div className="space-y-4 p-3 bg-accent/5 border border-accent/20 rounded-lg">
                                                                             <div>
                                                                                 <label className="block text-[8px] font-black uppercase tracking-widest text-accent mb-1">Source Column</label>
