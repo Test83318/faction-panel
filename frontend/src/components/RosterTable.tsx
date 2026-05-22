@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 import { hexToRgb } from '../utils';
 import { LinkedDataModal } from './LinkedDataModal';
 
-const CellScaler: React.FC<{ children: React.ReactNode, className?: string, tooltipContent?: React.ReactNode, forceShowTooltip?: boolean }> = ({ children, className, tooltipContent, forceShowTooltip }) => {
+const CellScaler: React.FC<{ children: React.ReactNode, className?: string, tooltipContent?: React.ReactNode, forceShowTooltip?: boolean, disabled?: boolean }> = ({ children, className, tooltipContent, forceShowTooltip, disabled }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
@@ -42,6 +42,7 @@ const CellScaler: React.FC<{ children: React.ReactNode, className?: string, tool
     }, [updateScale]);
 
     const handleMouseEnter = (e: React.MouseEvent) => {
+        if (disabled) return;
         if (!isOverflowing && !forceShowTooltip) return;
         setHovered(true);
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -52,7 +53,7 @@ const CellScaler: React.FC<{ children: React.ReactNode, className?: string, tool
 
     const fullText = contentRef.current?.textContent ?? '';
     const renderTooltip = () => {
-        if (!hovered || (!isOverflowing && !forceShowTooltip)) return null;
+        if (disabled || !hovered || (!isOverflowing && !forceShowTooltip)) return null;
         if (tooltipContent) {
             return createPortal(
                 <div
@@ -1083,7 +1084,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
                     return (
                         <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-60 italic relative group/cell rt-cell-content">
-                            <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0}>
+                            <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} disabled={isEditing}>
                                 <span className="text-[10px] uppercase font-bold text-accent">
                                     {displayValue}
                                 </span>
@@ -1091,7 +1092,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                             <Link 
                                 to={`/${shortname}/records?database=${db.record_shortcode || db.id}&record=${entry.entry_id}`}
                                 onClick={(e) => e.stopPropagation()}
-                                className="absolute -top-1 -right-1 p-1 bg-card border border-border rounded text-muted hover:text-accent opacity-0 group-hover/cell:opacity-100 transition-all z-10 shadow-sm"
+                                className="absolute -bottom-1 -right-1 p-1 bg-card border border-border rounded text-muted hover:text-accent opacity-0 group-hover/cell:opacity-100 transition-all z-10 shadow-sm"
                             >
                                 <ExternalLink size={8} />
                             </Link>
@@ -1103,7 +1104,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
         return (
             <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-20 rt-cell-content">
-                <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0}>
+                <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} disabled={isEditing}>
                     <span className="text-[10px] uppercase font-bold">-</span>
                 </CellScaler>
             </div>
@@ -1130,7 +1131,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         }
         return (
             <div className="flex flex-col items-center justify-center h-full w-full rt-cell-content">
-                <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0}>
+                <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} disabled={isEditing}>
                     <span className="text-[10px] uppercase font-medium">{resolvedValue}</span>
                 </CellScaler>
             </div>
@@ -1161,7 +1162,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 <option key={opt.id} value={opt.id} style={{ color: opt.color || 'inherit' }}>{opt.label}</option>
               ))}
             </select>
-            <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} className="relative z-20 pointer-events-none">
+            <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} className="relative z-20 pointer-events-none" disabled={isEditing}>
                 <div className="flex items-center gap-1 overflow-visible">
                     <div className="text-[10px] uppercase font-medium transition-colors" style={textStyle}>
                     {selectedOpt?.label || value || <span className="opacity-20 italic">Select...</span>}
@@ -1305,7 +1306,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             onClick={() => inputRef.current?.focus()}
             title={hasOrphanedFlag ? 'Linked database record no longer exists' : undefined}
         >
-          <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0}>
+          <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} disabled={isEditing}>
             <div className="relative w-full flex flex-row items-center justify-center px-1 overflow-visible">
                 <input 
                 ref={col.id === editingColId ? inputRef : null}
@@ -1491,7 +1492,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         title={hasOrphanedFlag ? 'Linked database record no longer exists' : undefined}
         onClick={() => canEditAny && handleStartEdit(row, col.id)}
       >
-        <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0}>
+        <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} disabled={isEditing}>
             <div className="flex items-center gap-1.5 px-1 overflow-visible">
                 <span 
                     className={`text-[10px] uppercase font-medium transition-all ${!showValue ? 'blur-[3px] select-none opacity-50 font-black tracking-widest' : ''}`} 
@@ -1593,7 +1594,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             <Link 
                 to={`/${shortname}/records?database=${selectedOpt.dbShortcode}&record=${selectedOpt.entryId}`}
                 onClick={(e) => e.stopPropagation()}
-                className="absolute -top-1 -right-1 p-1 bg-card border border-border rounded text-muted hover:text-accent opacity-0 group-hover/cell:opacity-100 transition-all z-10 shadow-sm"
+                className="absolute -bottom-1 -right-1 p-1 bg-card border border-border rounded text-muted hover:text-accent opacity-0 group-hover/cell:opacity-100 transition-all z-10 shadow-sm"
             >
                 <ExternalLink size={8} />
             </Link>
