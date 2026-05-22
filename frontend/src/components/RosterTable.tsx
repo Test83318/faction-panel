@@ -929,6 +929,9 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     );
 
     const getCellDisplayValue = () => {
+        // Always return redacted placeholder for hidden columns when user lacks permission
+        if (!showValue) return '??????';
+
         if (col.type === 'database_data' && col.source_column_id) {
             const sourceCol = activeCols.find(c => c.id === col.source_column_id);
             const sourceValue = isEditing ? editData[sourceCol?.id || ''] : (row.content?.[sourceCol?.id || ''] || '');
@@ -959,48 +962,53 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         if (col.type === 'linked_roster_data') {
             return resolvedLinks.get(`${row.id}_${col.id}`) || '-';
         }
-        return showValue ? (selectedOpt?.label || String(value) || '-') : '??????';
+        return selectedOpt?.label || String(value) || '-';
     };
     const cellDisplayValue = getCellDisplayValue();
 
     const legendItems: { icon: React.ReactNode, label: string }[] = [];
 
-    activeFlags.forEach(f => {
-        const IconComponent = (LucideIcons as any)[f.icon] || LucideIcons.HelpCircle;
-        legendItems.push({
-            icon: <IconComponent size={10} style={{ color: f.color }} />,
-            label: f.name
+    // Only populate legend items when the user is allowed to see the cell value.
+    // Flags/tags/checkboxes on hidden columns must not be exposed via the tooltip.
+    if (showValue) {
+        activeFlags.forEach(f => {
+            const IconComponent = (LucideIcons as any)[f.icon] || LucideIcons.HelpCircle;
+            legendItems.push({
+                icon: <IconComponent size={10} style={{ color: f.color }} />,
+                label: f.name
+            });
         });
-    });
 
-    appliedTags.forEach((tagLabel: string) => {
-        const tagDef = col.tags?.find(t => (typeof t === 'string' ? t : t?.label) === tagLabel);
-        const tagColor = (tagDef && typeof tagDef !== 'string') ? tagDef.color : '#fff';
-        const tagIconName = (tagDef && typeof tagDef !== 'string') ? tagDef.icon : null;
-        
-        let icon;
-        if (tagIconName && (LucideIcons as any)[tagIconName]) {
-            const IconComponent = (LucideIcons as any)[tagIconName];
-            icon = <IconComponent size={10} style={{ color: tagColor || 'inherit' }} />;
-        } else {
-            icon = <span className="w-1.5 h-1.5 rounded-[1px]" style={{ backgroundColor: tagColor || '#fff' }} />;
-        }
-        legendItems.push({
-            icon,
-            label: tagLabel
+        appliedTags.forEach((tagLabel: string) => {
+            const tagDef = col.tags?.find(t => (typeof t === 'string' ? t : t?.label) === tagLabel);
+            const tagColor = (tagDef && typeof tagDef !== 'string') ? tagDef.color : '#fff';
+            const tagIconName = (tagDef && typeof tagDef !== 'string') ? tagDef.icon : null;
+            
+            let icon;
+            if (tagIconName && (LucideIcons as any)[tagIconName]) {
+                const IconComponent = (LucideIcons as any)[tagIconName];
+                icon = <IconComponent size={10} style={{ color: tagColor || 'inherit' }} />;
+            } else {
+                icon = <span className="w-1.5 h-1.5 rounded-[1px]" style={{ backgroundColor: tagColor || '#fff' }} />;
+            }
+            legendItems.push({
+                icon,
+                label: tagLabel
+            });
         });
-    });
 
-    checked.forEach((cbLabel: string) => {
-        const cbDef = col.checkboxes?.find(cb => (typeof cb === 'string' ? cb : cb?.label) === cbLabel);
-        const cbColor = (cbDef && typeof cbDef !== 'string') ? cbDef.color : null;
-        legendItems.push({
-            icon: <LucideIcons.Check size={10} style={{ color: cbColor || 'var(--accent)' }} />,
-            label: cbLabel
+        checked.forEach((cbLabel: string) => {
+            const cbDef = col.checkboxes?.find(cb => (typeof cb === 'string' ? cb : cb?.label) === cbLabel);
+            const cbColor = (cbDef && typeof cbDef !== 'string') ? cbDef.color : null;
+            legendItems.push({
+                icon: <LucideIcons.Check size={10} style={{ color: cbColor || 'var(--accent)' }} />,
+                label: cbLabel
+            });
         });
-    });
+    }
 
-    const tooltipContent = (
+    // Suppress the tooltip entirely for hidden cells — never expose any value via hover
+    const tooltipContent = showValue ? (
         <div className="p-3 bg-card border border-border rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex flex-col gap-2 min-w-[150px] text-left">
             <div className="text-[11px] font-black uppercase tracking-wider text-text">
                 {rowName.toUpperCase() || 'MEMBER'}
@@ -1023,7 +1031,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 </div>
             )}
         </div>
-    );
+    ) : null;
 
     if (isSaving && col.id === savingRows.get(row.id)) {
         return (
@@ -1493,10 +1501,10 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         title={hasOrphanedFlag ? 'Linked database record no longer exists' : undefined}
         onClick={() => canEditAny && handleStartEdit(row, col.id)}
       >
-        <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} disabled={isEditing}>
+        <CellScaler tooltipContent={tooltipContent} forceShowTooltip={showValue && legendItems.length > 0} disabled={isEditing}>
             <div className="flex items-center gap-1.5 px-1 overflow-visible">
                 <span 
-                    className={`text-[10px] uppercase font-medium transition-all ${!showValue ? 'blur-[3px] select-none opacity-50 font-black tracking-widest' : ''}`} 
+                    className={`text-[10px] uppercase font-medium transition-all ${!showValue ? 'blur-[3px] select-none opacity-50 font-black tracking-widest rt-cell-hidden-value' : ''}`} 
                     style={textStyle}
                 >
                     {showValue ? (selectedOpt?.label || value || '-') : '??????'}

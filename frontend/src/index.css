@@ -83,6 +83,13 @@ html[data-contrast="high"] [style*="color"] {
   filter: brightness(1.6) contrast(1.3) !important;
 }
 
+/* Preserve blur on hidden/private roster cell values in high contrast mode.
+   The global filter override above would otherwise replace the blur filter. */
+html[data-contrast="high"] .rt-cell-hidden-value {
+  filter: blur(3px) brightness(1.6) contrast(1.3) !important;
+  opacity: 0.6 !important;
+}
+
 html[data-contrast="high"] .text-muted {
   color: #cbd5e0 !important;
 }

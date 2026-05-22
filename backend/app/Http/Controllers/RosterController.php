@@ -158,6 +158,13 @@ class RosterController extends Controller
             ->get();
         
         $filteredRosters = $rosters->filter(function ($roster) use ($user, $isGlobalViewer) {
+            // If this roster has explicit permission entries, always enforce them —
+            // even global viewers (view_faction_roster) are subject to per-roster access control.
+            $hasExplicitPerms = $roster->rosterPermissions()->exists();
+            if ($hasExplicitPerms) {
+                return User::hasRosterPermission($user, $roster, 'view_roster');
+            }
+            // No explicit permissions: fall back to global permission
             return $isGlobalViewer || User::hasRosterPermission($user, $roster, 'view_roster');
         });
 

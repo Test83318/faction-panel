@@ -117,6 +117,20 @@ class FactionController extends Controller
             if (!$canViewAnyRoster) {
                 return response()->json(['message' => 'Forbidden'], 403);
             }
+        } else {
+            // Global viewer: still check if they can see at least one roster
+            // (accounts for factions where ALL rosters have explicit permission entries)
+            $canViewAnyRoster = false;
+            foreach ($faction->rosters as $roster) {
+                $hasExplicitPerms = $roster->rosterPermissions()->exists();
+                if (!$hasExplicitPerms || User::hasRosterPermission($user, $roster, 'view_roster')) {
+                    $canViewAnyRoster = true;
+                    break;
+                }
+            }
+            if (!$canViewAnyRoster) {
+                return response()->json(['message' => 'Forbidden'], 403);
+            }
         }
 
         if ($user) {
@@ -176,6 +190,13 @@ class FactionController extends Controller
         }
         
         $filteredRosters = $rosters->filter(function ($roster) use ($user, $canViewGlobal) {
+            // If this roster has explicit permission entries, always enforce them —
+            // even global viewers (view_faction_roster) are subject to per-roster access control.
+            $hasExplicitPerms = $roster->rosterPermissions()->exists();
+            if ($hasExplicitPerms) {
+                return User::hasRosterPermission($user, $roster, 'view_roster');
+            }
+            // No explicit permissions: fall back to global permission
             return $canViewGlobal || User::hasRosterPermission($user, $roster, 'view_roster');
         })->values();
 
@@ -204,13 +225,15 @@ class FactionController extends Controller
         // Include Flags
         $flags = $faction->rosterFlags()->get();
 
-        // Include Published Record Databases & Entries
+        // Include Published Record Databases & Entries — only those the current user can view
         $publishedDatabases = $faction->recordDatabases()
             ->where('is_published', true)
             ->with(['entries' => function ($query) {
                 $query->where('is_active', true);
             }])
-            ->get();
+            ->get()
+            ->filter(fn($db) => User::hasRecordPermission($user, $db, 'view_database'))
+            ->values();
 
         return response()->json([
             'faction' => $faction,
