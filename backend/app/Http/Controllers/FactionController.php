@@ -568,7 +568,7 @@ class FactionController extends Controller
                         if (is_array($data)) {
                             foreach ($hiddenFields as $fieldId) {
                                 if (isset($data[$fieldId]) && $data[$fieldId] !== '') {
-                                    $data[$fieldId] = '????';
+                                    unset($data[$fieldId]);
                                 }
                             }
                             $entry->data = $data;
@@ -600,13 +600,12 @@ class FactionController extends Controller
             // Apply data masking if user cannot view hidden data
             if (! $canViewHidden) {
                 $hiddenColIds = collect($roster->columns ?? [])
-                    ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden') || 
-                                        in_array($col['type'] ?? '', ['database_data', 'linked_roster_data']))
+                    ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
                     ->pluck('id')
                     ->toArray();
 
                 foreach ($roster->rootSections as $section) {
-                    $this->maskSection($section, $hiddenColIds, $roster);
+                    $this->maskSection($section, $hiddenColIds, $roster, true);
                 }
             }
         });
@@ -898,13 +897,12 @@ class FactionController extends Controller
         return response()->json(['message' => 'User roles updated.']);
     }
 
-    private function maskSection($section, array $rosterHiddenColIds, $roster = null)
+    private function maskSection($section, array $rosterHiddenColIds, $roster = null, $omit = false)
     {
         $hiddenColIds = $rosterHiddenColIds;
         if ($section->columns && ! $section->use_roster_columns) {
             $hiddenColIds = collect($section->columns)
-                ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden') || 
-                                    in_array($col['type'] ?? '', ['database_data', 'linked_roster_data']))
+                ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
                 ->pluck('id')
                 ->toArray();
         }
@@ -916,7 +914,11 @@ class FactionController extends Controller
                 if (is_array($data)) {
                     foreach ($hiddenColIds as $colId) {
                         if (isset($data[$colId]) && $data[$colId] !== '') {
-                            $data[$colId] = '????';
+                            if ($omit) {
+                                unset($data[$colId]);
+                            } else {
+                                $data[$colId] = '????';
+                            }
                         }
                     }
                     $content->content = $data;
@@ -927,7 +929,7 @@ class FactionController extends Controller
         // Recursively mask children
         if ($section->children) {
             foreach ($section->children as $child) {
-                $this->maskSection($child, $rosterHiddenColIds, $roster);
+                $this->maskSection($child, $rosterHiddenColIds, $roster, $omit);
             }
         }
     }

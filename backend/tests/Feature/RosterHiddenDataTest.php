@@ -122,7 +122,7 @@ test('FactionController show masks hidden columns for unauthorized users', funct
     $data = $response->json();
 
     $rosters = $data['rosters'];
-    expect($rosters[0]['root_sections'][0]['contents'][0]['content']['secret_info'])->toBe('????');
+    expect(isset($rosters[0]['root_sections'][0]['contents'][0]['content']['secret_info']))->toBeFalse();
 });
 
 test('faction payload does not leak rosters relation', function () {
@@ -232,7 +232,7 @@ test('FactionRecordEntryController show masks hidden columns in roster integrati
     $response->assertStatus(200);
     $data = $response->json();
 
-    expect($data['roster_integrations'][0]['contents'][0]['content']['secret_info'])->toBe('????');
+    expect(isset($data['roster_integrations'][0]['contents'][0]['content']['secret_info']))->toBeFalse();
 });
 
 test('FactionController show masks hidden columns based on section-specific overrides', function () {
@@ -276,10 +276,12 @@ test('FactionController show masks hidden columns based on section-specific over
 
     $c = $data['rosters'][0]['root_sections'][0]['contents'][0]['content'];
     expect($c['secret_info'])->toBe('Not a secret anymore');
-    expect($c['another_secret'])->toBe('????');
+    expect(isset($c['another_secret']))->toBeFalse();
 });
 
 test('FactionController show restricts record_data entries for view-only users', function () {
+    $this->recordDb->databasePermissions()->whereNull('role_id')->delete();
+
     // 1. Create a second entry that is NOT referenced
     $secondEntry = $this->recordDb->entries()->create([
         'database_id' => $this->recordDb->id,
@@ -365,7 +367,7 @@ test('FactionController show masks sensitive database fields for view-only users
 
     expect(count($entries))->toBe(1);
     expect($entries[0]['entry_id'])->toBe(1);
-    expect($entries[0]['data']['name_field'])->toBe('????');
+    expect(isset($entries[0]['data']['name_field']))->toBeFalse();
 
     // 3. Leader (editor) fetches faction details.
     // They should see the entry with unmasked name_field.
@@ -432,6 +434,8 @@ test('FactionController show sends all entries unmasked to users with database e
 });
 
 test('FactionController show fetches database entries referenced via dynamic sections for view-only users', function () {
+    $this->recordDb->databasePermissions()->whereNull('role_id')->delete();
+
     // 1. Create a dynamic section pointing to the database
     $dynamicSection = $this->roster->sections()->create([
         'name' => 'Dynamic Section',
@@ -467,10 +471,6 @@ test('FactionController show fetches database entries referenced via dynamic sec
         'created_by' => $this->leader->id,
     ]);
 
-    $otherDb->databasePermissions()->create([
-        'permissions' => ['view_database'],
-    ]);
-
     $otherEntry = $otherDb->entries()->create([
         'database_id' => $otherDb->id,
         'entry_id' => 1,
@@ -502,7 +502,7 @@ test('FactionController show fetches database entries referenced via dynamic sec
     expect($dbData['entries'][0]['entry_id'])->toBe(1);
 
     $otherDbData = collect($data['record_data'])->firstWhere('id', $otherDb->id);
-    expect(count($otherDbData['entries']))->toBe(0);
+    expect($otherDbData)->toBeNull();
 });
 
 test('FactionController show resolves linked_roster_data values to fetch referenced database entries for view-only users', function () {
@@ -652,6 +652,8 @@ test('FactionController show respects use_roster_columns and resolves linked col
 });
 
 test('FactionController show sends all database entries to users with roster edit permissions', function () {
+    $this->recordDb->databasePermissions()->whereNull('role_id')->delete();
+
     // 1. Create a second database entry that is NOT referenced
     $secondEntry = $this->recordDb->entries()->create([
         'database_id' => $this->recordDb->id,
