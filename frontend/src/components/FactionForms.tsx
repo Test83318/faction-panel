@@ -133,7 +133,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
             title: 'Delete Form',
             message: `Are you sure you want to delete "${form.name}"? This action cannot be undone and all submissions will be lost.`,
             confirmText: 'Delete Form',
-            type: 'danger'
+            variant: 'danger'
         });
 
         if (isConfirmed) {
@@ -415,7 +415,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                         {forms.map(form => {
                             const submission = mySubmissions.find(s => s.form_id === form.id);
                             const hasInProgressSubmission = submission && !submission.submitted_at;
-                            const hasUnderReviewSubmission = submission && submission.submitted_at && !submission.current_status?.is_archived && !submission.current_status?.is_passed && !submission.current_status?.is_failed;
+                            const hasUnderReviewSubmission = submission && submission.submitted_at && !submission.current_status?.is_closed;
 
                             const submissionsCount = allSubmissions.filter(s => s.form_id === form.id && !s.current_status?.is_archived).length;
                             const mySubmissionsCount = mySubmissions.filter(s => s.form_id === form.id).length;

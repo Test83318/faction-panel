@@ -31,7 +31,11 @@ export const ConfirmationProvider: React.FC<{ children: ReactNode }> = ({ childr
     const [resolveCallback, setResolveCallback] = useState<((value: boolean) => void) | null>(null);
 
     const confirm = (options: ConfirmationOptions): Promise<boolean> => {
-        setConfig(options);
+        const normalized = {
+            ...options,
+            variant: options.variant || 'warning'
+        };
+        setConfig(normalized);
         setInputValue('');
         return new Promise((resolve) => {
             setResolveCallback(() => resolve);

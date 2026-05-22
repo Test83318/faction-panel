@@ -178,16 +178,7 @@ const FormSettings: React.FC<FormSettingsProps> = ({ form, onSave, saving }) => 
                             />
                         </div>
 
-                        <div 
-                            className={`p-4 rounded-lg border flex flex-col gap-2 transition-all cursor-pointer ${formData.is_automatic_grading ? 'bg-purple-500/10 border-purple-500/50 text-purple-500' : 'bg-bg border-border text-text-muted hover:border-purple-500/30'}`}
-                            onClick={() => setFormData({...formData, is_automatic_grading: !formData.is_automatic_grading})}
-                        >
-                            <div className="flex justify-between items-center">
-                                <span className="text-xs font-bold uppercase tracking-widest">Automatic Status Update</span>
-                                <Zap size={16} />
-                            </div>
-                            <span className="text-[10px] opacity-70 italic">Automatically mark as Passed/Failed based on points after all questions are graded</span>
-                        </div>
+
                     </div>
                 </div>
             )}

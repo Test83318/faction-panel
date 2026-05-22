@@ -95,7 +95,7 @@ const FieldManager: React.FC<FieldManagerProps> = ({ section, form, shortname, o
         const isConfirmed = await confirm({
             title: 'Delete Field',
             message: `Are you sure you want to delete "${field.label}"?`,
-            type: 'danger'
+            variant: 'danger'
         });
 
         if (isConfirmed) {

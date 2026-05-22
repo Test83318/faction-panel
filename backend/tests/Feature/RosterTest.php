@@ -2,8 +2,8 @@
 
 use App\Models\Faction;
 use App\Models\Roster;
-use App\Models\RosterSection;
 use App\Models\RosterContent;
+use App\Models\RosterSection;
 use App\Models\User;
 
 beforeEach(function () {

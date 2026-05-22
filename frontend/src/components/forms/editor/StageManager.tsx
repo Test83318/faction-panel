@@ -62,7 +62,7 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
         const isConfirmed = await confirm({
             title: 'Delete Stage',
             message: `Are you sure you want to delete "${stage.name}" and all its sections?`,
-            type: 'danger'
+            variant: 'danger'
         });
 
         if (isConfirmed) {

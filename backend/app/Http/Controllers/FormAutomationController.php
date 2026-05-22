@@ -18,7 +18,7 @@ class FormAutomationController extends Controller
         }
 
         return response()->json(
-            $form->automations()->orderBy('order')->with(['triggerStatus', 'actionStatus'])->get()
+            $form->automations()->orderBy('order')->with(['triggerStatus', 'actionStatus', 'actionGroup'])->get()
         );
     }
 
@@ -35,13 +35,15 @@ class FormAutomationController extends Controller
             'trigger_status_id' => 'nullable|exists:form_statuses,id',
             'condition_logic' => 'in:all,any',
             'conditions' => 'nullable|array',
-            'conditions.*.field_id' => 'required|integer',
+            'conditions.*.type' => 'nullable|string|in:field,points,status',
+            'conditions.*.field_id' => 'nullable|integer',
             'conditions.*.operator' => 'required|in:equals,not_equals,contains,gt,lt,gte,lte,is_empty,is_not_empty',
             'conditions.*.value' => 'nullable|string',
-            'action' => 'required|in:set_status,add_comment',
+            'action' => 'required|in:set_status,add_comment,give_group',
             'action_status_id' => 'nullable|exists:form_statuses,id',
             'action_comment' => 'nullable|string',
             'action_comment_internal' => 'boolean',
+            'action_group_id' => 'nullable|exists:groups,id',
             'is_enabled' => 'boolean',
         ]);
 
@@ -50,7 +52,7 @@ class FormAutomationController extends Controller
             'order' => $form->automations()->count(),
         ]);
 
-        return response()->json($automation->load(['triggerStatus', 'actionStatus']), 201);
+        return response()->json($automation->load(['triggerStatus', 'actionStatus', 'actionGroup']), 201);
     }
 
     public function update(Request $request, string $shortname, Form $form, FormAutomation $automation)
@@ -66,19 +68,21 @@ class FormAutomationController extends Controller
             'trigger_status_id' => 'nullable|exists:form_statuses,id',
             'condition_logic' => 'in:all,any',
             'conditions' => 'nullable|array',
-            'conditions.*.field_id' => 'required|integer',
+            'conditions.*.type' => 'nullable|string|in:field,points,status',
+            'conditions.*.field_id' => 'nullable|integer',
             'conditions.*.operator' => 'required|in:equals,not_equals,contains,gt,lt,gte,lte,is_empty,is_not_empty',
             'conditions.*.value' => 'nullable|string',
-            'action' => 'in:set_status,add_comment',
+            'action' => 'in:set_status,add_comment,give_group',
             'action_status_id' => 'nullable|exists:form_statuses,id',
             'action_comment' => 'nullable|string',
             'action_comment_internal' => 'boolean',
+            'action_group_id' => 'nullable|exists:groups,id',
             'is_enabled' => 'boolean',
         ]);
 
         $automation->update($validated);
 
-        return response()->json($automation->load(['triggerStatus', 'actionStatus']));
+        return response()->json($automation->load(['triggerStatus', 'actionStatus', 'actionGroup']));
     }
 
     public function destroy(string $shortname, Form $form, FormAutomation $automation)

@@ -17,10 +17,11 @@ interface AutomationDraft {
     trigger_status_id: number | null;
     condition_logic: 'all' | 'any';
     conditions: AutomationCondition[];
-    action: 'set_status' | 'add_comment';
+    action: 'set_status' | 'add_comment' | 'give_group';
     action_status_id: number | null;
     action_comment: string;
     action_comment_internal: boolean;
+    action_group_id: number | null;
     is_enabled: boolean;
 }
 
@@ -48,11 +49,13 @@ const emptyDraft = (): AutomationDraft => ({
     action_status_id: null,
     action_comment: '',
     action_comment_internal: false,
+    action_group_id: null,
     is_enabled: true,
 });
 
 const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
     const [automations, setAutomations] = useState<FormAutomation[]>([]);
+    const [groups, setGroups] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState<number | 'new' | null>(null);
     const [draft, setDraft] = useState<AutomationDraft>(emptyDraft());
@@ -69,12 +72,26 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
             setAutomations(res.data);
         } catch {
             toast.error('Failed to load automations');
-        } finally {
-            setLoading(false);
         }
     };
 
-    useEffect(() => { fetchAutomations(); }, [form.id]);
+    const fetchGroups = async () => {
+        try {
+            const res = await api.get(`/factions/${shortname}/groups`);
+            setGroups(res.data);
+        } catch {
+            toast.error('Failed to load faction groups');
+        }
+    };
+
+    useEffect(() => {
+        const loadData = async () => {
+            setLoading(true);
+            await Promise.all([fetchAutomations(), fetchGroups()]);
+            setLoading(false);
+        };
+        loadData();
+    }, [form.id]);
 
     const openNew = () => {
         setDraft(emptyDraft());
@@ -92,6 +109,7 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
             action_status_id: automation.action_status_id,
             action_comment: automation.action_comment ?? '',
             action_comment_internal: automation.action_comment_internal,
+            action_group_id: automation.action_group_id ?? null,
             is_enabled: automation.is_enabled,
         });
         setExpandedId(automation.id);
@@ -148,7 +166,7 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
     const addCondition = () => {
         setDraft(d => ({
             ...d,
-            conditions: [...d.conditions, { field_id: allFields[0]?.id ?? 0, operator: 'equals', value: '' }],
+            conditions: [...d.conditions, { type: 'field', field_id: allFields[0]?.id ?? 0, operator: 'equals', value: '' }],
         }));
     };
 
@@ -173,6 +191,9 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
         if (automation.action === 'set_status') {
             const status = statuses.find(s => s.id === automation.action_status_id);
             return `Set Status: ${status?.name ?? '?'}`;
+        } else if (automation.action === 'give_group') {
+            const grp = groups.find(g => g.id === automation.action_group_id);
+            return `Give Group: ${grp?.name ?? '?'}`;
         }
         return 'Add Comment';
     };
@@ -218,6 +239,7 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
                                 setDraft={setDraft}
                                 allFields={allFields}
                                 statuses={statuses}
+                                groups={groups}
                                 addCondition={addCondition}
                                 updateCondition={updateCondition}
                                 removeCondition={removeCondition}
@@ -321,6 +343,7 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
                                             setDraft={setDraft}
                                             allFields={allFields}
                                             statuses={statuses}
+                                            groups={groups}
                                             addCondition={addCondition}
                                             updateCondition={updateCondition}
                                             removeCondition={removeCondition}
@@ -358,6 +381,7 @@ interface AutomationFormProps {
     setDraft: React.Dispatch<React.SetStateAction<AutomationDraft>>;
     allFields: any[];
     statuses: any[];
+    groups: any[];
     addCondition: () => void;
     updateCondition: (idx: number, patch: Partial<AutomationCondition>) => void;
     removeCondition: (idx: number) => void;
@@ -365,7 +389,7 @@ interface AutomationFormProps {
 }
 
 const AutomationForm: React.FC<AutomationFormProps> = ({
-    draft, setDraft, allFields, statuses, addCondition, updateCondition, removeCondition, disabled
+    draft, setDraft, allFields, statuses, groups, addCondition, updateCondition, removeCondition, disabled
 }) => {
     const inputCls = 'bg-bg border border-border rounded px-2.5 py-1.5 text-sm text-text focus:border-accent outline-none transition-colors';
     const labelCls = 'block text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1.5';
@@ -444,32 +468,77 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                     {draft.conditions.map((cond, idx) => (
                         <div key={idx} className="flex items-center gap-2">
                             <select
-                                value={cond.field_id}
-                                onChange={e => updateCondition(idx, { field_id: Number(e.target.value) })}
+                                value={cond.type ?? 'field'}
+                                onChange={e => {
+                                    const nextType = e.target.value as 'field' | 'points' | 'status';
+                                    const patch: Partial<AutomationCondition> = { type: nextType };
+                                    if (nextType === 'field') {
+                                        patch.field_id = allFields[0]?.id ?? 0;
+                                        patch.value = '';
+                                    } else if (nextType === 'points') {
+                                        patch.field_id = undefined;
+                                        patch.value = '0';
+                                    } else if (nextType === 'status') {
+                                        patch.field_id = undefined;
+                                        patch.value = statuses[0]?.id?.toString() ?? '';
+                                    }
+                                    updateCondition(idx, patch);
+                                }}
                                 disabled={disabled}
-                                className={`${inputCls} flex-1 min-w-0 disabled:opacity-50 disabled:cursor-not-allowed`}
+                                className={`${inputCls} w-36 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
-                                {allFields.length === 0 && <option value={0}>No fields</option>}
-                                {allFields.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                                <option value="field">Field Response</option>
+                                <option value="points">Total Points</option>
+                                <option value="status">Current Status</option>
                             </select>
+
+                            {(cond.type ?? 'field') === 'field' ? (
+                                <select
+                                    value={cond.field_id ?? ''}
+                                    onChange={e => updateCondition(idx, { field_id: Number(e.target.value) })}
+                                    disabled={disabled}
+                                    className={`${inputCls} flex-1 min-w-0 disabled:opacity-50 disabled:cursor-not-allowed`}
+                                >
+                                    {allFields.length === 0 && <option value="">No fields</option>}
+                                    {allFields.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                                </select>
+                            ) : (
+                                <div className="flex-1 text-xs text-text-muted font-bold px-2 py-1.5 bg-bg/50 border border-border/50 rounded flex items-center">
+                                    {(cond.type ?? 'field') === 'points' ? 'Quiz Score (Total Points)' : 'Current Form Status'}
+                                </div>
+                            )}
+
                             <select
                                 value={cond.operator}
                                 onChange={e => updateCondition(idx, { operator: e.target.value as AutomationOperator })}
                                 disabled={disabled}
-                                className={`${inputCls} w-36 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed`}
+                                className={`${inputCls} w-32 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
                                 {OPERATORS.map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
                             </select>
+
                             {!VALUELESS_OPS.includes(cond.operator) && (
-                                <input
-                                    type="text"
-                                    value={cond.value}
-                                    onChange={e => updateCondition(idx, { value: e.target.value })}
-                                    disabled={disabled}
-                                    placeholder="value"
-                                    className={`${inputCls} w-32 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed`}
-                                />
+                                (cond.type ?? 'field') === 'status' ? (
+                                    <select
+                                        value={cond.value}
+                                        onChange={e => updateCondition(idx, { value: e.target.value })}
+                                        disabled={disabled}
+                                        className={`${inputCls} w-32 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed`}
+                                    >
+                                        {statuses.map(s => <option key={s.id} value={s.id.toString()}>{s.name}</option>)}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type={(cond.type ?? 'field') === 'points' ? 'number' : 'text'}
+                                        value={cond.value}
+                                        onChange={e => updateCondition(idx, { value: e.target.value })}
+                                        disabled={disabled}
+                                        placeholder="value"
+                                        className={`${inputCls} w-32 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed`}
+                                    />
+                                )
                             )}
+
                             <button
                                 onClick={() => removeCondition(idx)}
                                 disabled={disabled}
@@ -500,12 +569,13 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                     <label className={labelCls}>Action</label>
                     <select
                         value={draft.action}
-                        onChange={e => setDraft(d => ({ ...d, action: e.target.value as any }))}
+                        onChange={e => setDraft(d => ({ ...d, action: e.target.value as any, action_group_id: null }))}
                         disabled={disabled}
                         className={`${inputCls} w-full disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         <option value="set_status">Set Status</option>
                         <option value="add_comment">Add Comment</option>
+                        <option value="give_group">Give Faction Group</option>
                     </select>
                 </div>
 
@@ -520,6 +590,21 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                         >
                             <option value="">— select status —</option>
                             {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                    </div>
+                )}
+
+                {draft.action === 'give_group' && (
+                    <div>
+                        <label className={labelCls}>Target Group</label>
+                        <select
+                            value={draft.action_group_id ?? ''}
+                            onChange={e => setDraft(d => ({ ...d, action_group_id: e.target.value ? Number(e.target.value) : null }))}
+                            disabled={disabled}
+                            className={`${inputCls} w-full disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                            <option value="">— select group —</option>
+                            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                         </select>
                     </div>
                 )}

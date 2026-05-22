@@ -287,6 +287,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/factions/{shortname}/forms/{form}/submissions/{submission}/submit', [FormSubmissionController::class, 'submit']);
     Route::get('/factions/{shortname}/forms/submissions/{submission}', [FormSubmissionController::class, 'show']);
     Route::put('/factions/{shortname}/forms/submissions/{submission}/status', [FormSubmissionController::class, 'updateStatus']);
+    Route::post('/factions/{shortname}/forms/submissions/{submission}/advance', [FormSubmissionController::class, 'advance']);
+    Route::post('/factions/{shortname}/forms/submissions/{submission}/conclude', [FormSubmissionController::class, 'conclude']);
+    Route::post('/factions/{shortname}/forms/submissions/{submission}/retake', [FormSubmissionController::class, 'retake']);
     Route::post('/factions/{shortname}/forms/submissions/{submission}/comments', [FormSubmissionController::class, 'addComment']);
     Route::post('/factions/{shortname}/forms/submissions/{submission}/grade', [FormSubmissionController::class, 'gradeResponses']);
 

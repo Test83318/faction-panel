@@ -331,7 +331,7 @@ export interface FormStage {
 export interface FormStatus {
   id: number;
   form_id: number;
-  form_stage_id: number | null;
+  stage_ids: number[];
   name: string;
   order: number;
   is_hidden: boolean;
@@ -340,6 +340,8 @@ export interface FormStatus {
   is_failed: boolean;
   is_passed: boolean;
   is_archived: boolean;
+  system_key?: string | null;
+  stages?: FormStage[];
 }
 
 export interface Form {
@@ -426,7 +428,8 @@ export type AutomationOperator =
   | 'is_empty' | 'is_not_empty';
 
 export interface AutomationCondition {
-  field_id: number;
+  type?: 'field' | 'points' | 'status';
+  field_id?: number;
   operator: AutomationOperator;
   value: string;
 }
@@ -439,12 +442,14 @@ export interface FormAutomation {
   trigger_status_id: number | null;
   condition_logic: 'all' | 'any';
   conditions: AutomationCondition[] | null;
-  action: 'set_status' | 'add_comment';
+  action: 'set_status' | 'add_comment' | 'give_group';
   action_status_id: number | null;
   action_comment: string | null;
   action_comment_internal: boolean;
+  action_group_id: number | null;
   is_enabled: boolean;
   order: number;
   trigger_status?: FormStatus;
   action_status?: FormStatus;
+  action_group?: Group;
 }

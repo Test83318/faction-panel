@@ -2,6 +2,7 @@
 
 use App\Models\Faction;
 use App\Models\Form;
+use App\Models\FormAutomation;
 use App\Models\FormField;
 use App\Models\FormSection;
 use App\Models\FormStage;
@@ -141,7 +142,6 @@ test('auto-grades quiz forms', function () {
         'type' => 'quiz',
         'is_enabled' => true,
         'pass_points' => 10,
-        'is_automatic_grading' => true,
     ]);
     $stage = FormStage::create(['form_id' => $form->id, 'name' => 'Quiz Stage', 'order' => 0]);
     $section = FormSection::create(['form_stage_id' => $stage->id, 'name' => 'Questions', 'order' => 0]);
@@ -157,11 +157,48 @@ test('auto-grades quiz forms', function () {
         'order' => 0,
     ]);
 
-    $passedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Passed', 'is_passed' => true, 'order' => 1]);
-    $failedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Failed', 'is_failed' => true, 'order' => 2]);
+    $passedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Passed', 'is_passed' => true, 'is_closed' => true, 'order' => 1]);
+    $failedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Failed', 'is_failed' => true, 'is_closed' => true, 'order' => 2]);
     FormStatus::create(['form_id' => $form->id, 'name' => 'Submitted', 'order' => 0]);
 
-    // 1. Correct answer
+    // Create point-based automations
+    FormAutomation::create([
+        'form_id' => $form->id,
+        'name' => 'Auto Pass',
+        'trigger' => 'on_submit',
+        'condition_logic' => 'all',
+        'conditions' => [
+            [
+                'type' => 'points',
+                'operator' => 'gte',
+                'value' => '10',
+            ],
+        ],
+        'action' => 'set_status',
+        'action_status_id' => $passedStatus->id,
+        'is_enabled' => true,
+        'order' => 0,
+    ]);
+
+    FormAutomation::create([
+        'form_id' => $form->id,
+        'name' => 'Auto Fail',
+        'trigger' => 'on_submit',
+        'condition_logic' => 'all',
+        'conditions' => [
+            [
+                'type' => 'points',
+                'operator' => 'lt',
+                'value' => '10',
+            ],
+        ],
+        'action' => 'set_status',
+        'action_status_id' => $failedStatus->id,
+        'is_enabled' => true,
+        'order' => 1,
+    ]);
+
+    // 1. Correct answer (score is 10, so passes)
     $res = $this->actingAs($this->user)
         ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/start");
     $submissionId = $res->json('id');
@@ -174,7 +211,7 @@ test('auto-grades quiz forms', function () {
     $submission = FormSubmission::find($submissionId);
     expect($submission->current_status_id)->toBe($passedStatus->id);
 
-    // 2. Wrong answer
+    // 2. Wrong answer (score is 0, so fails)
     $res = $this->actingAs($this->user)
         ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/start");
     $submissionId = $res->json('id');
@@ -187,3 +224,381 @@ test('auto-grades quiz forms', function () {
     $submission = FormSubmission::find($submissionId);
     expect($submission->current_status_id)->toBe($failedStatus->id);
 });
+
+test('multi-stage pass and active submission blocking constraints', function () {
+    $form = Form::factory()->create(['faction_id' => $this->faction->id, 'is_enabled' => true]);
+    $stage1 = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 1', 'order' => 0]);
+    $stage2 = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 2', 'order' => 1]);
+
+    $section1 = FormSection::create(['form_stage_id' => $stage1->id, 'name' => 'Section 1', 'order' => 0]);
+    $field1 = FormField::create([
+        'form_section_id' => $section1->id,
+        'type' => 'text',
+        'label' => 'Field 1',
+        'name' => 'field_1',
+        'order' => 0,
+        'points' => 0,
+    ]);
+
+    $section2 = FormSection::create(['form_stage_id' => $stage2->id, 'name' => 'Section 2', 'order' => 0]);
+    $field2 = FormField::create([
+        'form_section_id' => $section2->id,
+        'type' => 'text',
+        'label' => 'Field 2',
+        'name' => 'field_2',
+        'order' => 0,
+        'points' => 0,
+    ]);
+
+    $submittedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Submitted', 'system_key' => 'submitted', 'is_closed' => false, 'order' => 0]);
+    $pendingStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Pending', 'system_key' => 'pending', 'is_closed' => false, 'order' => 1]);
+    $passedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Passed', 'is_passed' => true, 'is_closed' => false, 'order' => 2]);
+    $closedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Closed Approved', 'is_closed' => true, 'order' => 3]);
+
+    // Test: Start submission
+    $res = $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/start")
+        ->assertStatus(200);
+    $submissionId = $res->json('id');
+
+    // Test: Block duplicate active submission starting
+    // Since the first submission is not yet submitted (submitted_at is null), it will resume the existing one.
+    $resResume = $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/start")
+        ->assertStatus(200);
+    expect($resResume->json('id'))->toBe($submissionId);
+
+    // Submit Stage 1
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/{$submissionId}/submit", [
+            'responses' => [
+                $field1->id => 'Response 1',
+            ],
+        ])
+        ->assertStatus(200);
+
+    // Verify submission is now submitted (submitted_at is not null, status is Submitted)
+    $submission = FormSubmission::find($submissionId);
+    expect($submission->submitted_at)->not->toBeNull();
+    expect($submission->current_stage_id)->toBe($stage1->id);
+    expect($submission->current_status_id)->toBe($submittedStatus->id);
+
+    // Test: Block new submission because the current one is submitted but NOT closed
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/start")
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'You already have an active submission for this form that is still under review or open.');
+
+    // Reviewer marks Stage 1 as "Passed"
+    $this->actingAs($this->user)
+        ->putJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submissionId}/status", [
+            'status_id' => $passedStatus->id,
+        ])
+        ->assertStatus(200);
+
+    // Assert that the submission stays in Stage 1 and stays submitted (auto-advance removed)
+    $submission->refresh();
+    expect($submission->current_stage_id)->toBe($stage1->id);
+    expect($submission->submitted_at)->not->toBeNull();
+    expect($submission->current_status_id)->toBe($passedStatus->id);
+
+    // Advance manually to the next stage
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submissionId}/advance")
+        ->assertStatus(200);
+
+    // Assert that the submission transitioned to Stage 2 and is re-opened (submitted_at = null, status is Pending)
+    $submission->refresh();
+    expect($submission->current_stage_id)->toBe($stage2->id);
+    expect($submission->submitted_at)->toBeNull();
+    expect($submission->current_status_id)->toBe($pendingStatus->id);
+
+    // Resume submission for Stage 2
+    $resResumeStage2 = $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/start")
+        ->assertStatus(200);
+    expect($resResumeStage2->json('id'))->toBe($submissionId);
+    expect($resResumeStage2->json('current_stage_id'))->toBe($stage2->id);
+
+    // Submit Stage 2
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/{$submissionId}/submit", [
+            'responses' => [
+                $field2->id => 'Response 2',
+            ],
+        ])
+        ->assertStatus(200);
+
+    // Verify submitted for Stage 2 (submitted_at is not null)
+    $submission->refresh();
+    expect($submission->submitted_at)->not->toBeNull();
+    expect($submission->current_stage_id)->toBe($stage2->id);
+
+    // Reviewer marks Stage 2 (final stage) as "Passed"
+    $this->actingAs($this->user)
+        ->putJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submissionId}/status", [
+            'status_id' => $passedStatus->id,
+        ])
+        ->assertStatus(200);
+
+    // Assert that the submission stays in Stage 2, stays submitted, and gets Passed status
+    $submission->refresh();
+    expect($submission->current_stage_id)->toBe($stage2->id);
+    expect($submission->submitted_at)->not->toBeNull();
+    expect($submission->current_status_id)->toBe($passedStatus->id);
+
+    // Test: Still blocked from starting a new submission because "Passed" has is_closed = false
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/start")
+        ->assertStatus(422);
+
+    // Reviewer marks submission as "Closed Approved" (is_closed = true)
+    $this->actingAs($this->user)
+        ->putJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submissionId}/status", [
+            'status_id' => $closedStatus->id,
+        ])
+        ->assertStatus(200);
+
+    // Test: Now the user CAN start a new submission
+    $resNew = $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/start")
+        ->assertStatus(200);
+    expect($resNew->json('id'))->not->toBe($submissionId);
+});
+
+test('manual stage advancement constraints', function () {
+    $form = Form::factory()->create(['faction_id' => $this->faction->id, 'is_enabled' => true]);
+    $stage1 = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 1', 'order' => 0]);
+    $stage2 = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 2', 'order' => 1]);
+
+    $submittedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Submitted', 'system_key' => 'submitted', 'is_closed' => false, 'order' => 0]);
+    $pendingStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Pending', 'system_key' => 'pending', 'is_closed' => false, 'order' => 1]);
+    $passedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Passed', 'is_passed' => true, 'is_closed' => false, 'order' => 2]);
+    $closedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Closed', 'is_closed' => true, 'is_passed' => true, 'order' => 3]);
+
+    $submission = FormSubmission::create([
+        'form_id' => $form->id,
+        'user_id' => $this->user->id,
+        'current_stage_id' => $stage1->id,
+        'current_status_id' => $submittedStatus->id,
+        'submitted_at' => now(),
+    ]);
+
+    // Should fail to advance when status is not Passed
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/advance")
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'Submission status is not Passed.');
+
+    // Update status to Passed
+    $submission->update(['current_status_id' => $passedStatus->id]);
+
+    // Advance successfully
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/advance")
+        ->assertStatus(200);
+
+    $submission->refresh();
+    expect($submission->current_stage_id)->toBe($stage2->id);
+    expect($submission->submitted_at)->toBeNull();
+    expect($submission->current_status_id)->toBe($pendingStatus->id);
+
+    // Try to advance when no next stage exists
+    $submission->update(['current_status_id' => $passedStatus->id, 'submitted_at' => now()]);
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/advance")
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'No next stage exists for this application.');
+
+    // Try to advance when status is closed
+    $submission->update(['current_stage_id' => $stage1->id, 'current_status_id' => $closedStatus->id, 'submitted_at' => now()]);
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/advance")
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'Submission is already closed.');
+});
+
+test('concluding a submission', function () {
+    $form = Form::factory()->create(['faction_id' => $this->faction->id, 'is_enabled' => true]);
+    $stage1 = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 1', 'order' => 0]);
+
+    $submittedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Submitted', 'system_key' => 'submitted', 'is_closed' => false, 'order' => 0]);
+    $closedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Closed Approved', 'is_closed' => true, 'order' => 1]);
+
+    $submission = FormSubmission::create([
+        'form_id' => $form->id,
+        'user_id' => $this->user->id,
+        'current_stage_id' => $stage1->id,
+        'current_status_id' => $submittedStatus->id,
+        'submitted_at' => now(),
+    ]);
+
+    // Conclude the application
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/conclude")
+        ->assertStatus(200);
+
+    $submission->refresh();
+    expect($submission->current_status_id)->toBe($closedStatus->id);
+
+    // If no closed status is defined, expect error
+    $closedStatus->delete();
+    $submission->update(['current_status_id' => $submittedStatus->id]);
+
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/conclude")
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'No closed status is defined for this form.');
+});
+
+test('retaking a stage', function () {
+    $form = Form::factory()->create(['faction_id' => $this->faction->id, 'is_enabled' => true]);
+    $stage1 = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 1', 'order' => 0]);
+
+    $pendingStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Pending', 'system_key' => 'pending', 'is_closed' => false, 'order' => 0]);
+    $failedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Failed', 'is_failed' => true, 'is_closed' => false, 'order' => 1]);
+    $closedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Closed', 'is_closed' => true, 'is_failed' => true, 'order' => 2]);
+
+    $submission = FormSubmission::create([
+        'form_id' => $form->id,
+        'user_id' => $this->user->id,
+        'current_stage_id' => $stage1->id,
+        'current_status_id' => $failedStatus->id,
+        'submitted_at' => now(),
+    ]);
+
+    // User can retake stage
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/retake")
+        ->assertStatus(200);
+
+    $submission->refresh();
+    expect($submission->submitted_at)->toBeNull();
+    expect($submission->current_status_id)->toBe($pendingStatus->id);
+
+    // Fail if status is not failed
+    $submission->update(['current_status_id' => $pendingStatus->id, 'submitted_at' => now()]);
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/retake")
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'Submission status is not Failed.');
+
+    // Fail if status is closed
+    $submission->update(['current_status_id' => $closedStatus->id, 'submitted_at' => now()]);
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/retake")
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'Submission is closed and cannot be retaken.');
+});
+
+test('system status constraints validation rules', function () {
+    $form = Form::factory()->create(['faction_id' => $this->faction->id]);
+    $stage1 = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 1', 'order' => 0]);
+
+    $submittedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Submitted', 'system_key' => 'submitted', 'is_closed' => false, 'order' => 0]);
+    $pendingStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Pending', 'system_key' => 'pending', 'is_closed' => false, 'order' => 1]);
+
+    // Check that we can edit Submitted status flags/bindings
+    $this->actingAs($this->user)
+        ->putJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/statuses/{$submittedStatus->id}", [
+            'name' => 'New Submitted Name',
+            'is_locked' => true,
+            'stage_ids' => [$stage1->id],
+        ])
+        ->assertStatus(200);
+
+    $submittedStatus->refresh();
+    expect($submittedStatus->name)->toBe('New Submitted Name');
+    expect($submittedStatus->is_locked)->toBeTrue();
+    expect($submittedStatus->stage_ids)->toBe([$stage1->id]);
+
+    // Check that we can edit Pending status name, but NOT flags
+    $this->actingAs($this->user)
+        ->putJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/statuses/{$pendingStatus->id}", [
+            'name' => 'New Pending Name',
+        ])
+        ->assertStatus(200);
+
+    $pendingStatus->refresh();
+    expect($pendingStatus->name)->toBe('New Pending Name');
+
+    // Attempting to edit Pending status flags must return 422
+    $this->actingAs($this->user)
+        ->putJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/statuses/{$pendingStatus->id}", [
+            'is_locked' => true,
+        ])
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'System status flags and bindings cannot be modified.');
+
+    // Attempting to edit Pending status bindings must return 422
+    $this->actingAs($this->user)
+        ->putJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/statuses/{$pendingStatus->id}", [
+            'stage_ids' => [$stage1->id],
+        ])
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'System status flags and bindings cannot be modified.');
+
+    // Cannot delete system statuses
+    $this->actingAs($this->user)
+        ->deleteJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/statuses/{$submittedStatus->id}")
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'System statuses cannot be deleted.');
+
+    $this->actingAs($this->user)
+        ->deleteJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/statuses/{$pendingStatus->id}")
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'System statuses cannot be deleted.');
+});
+
+test('prevent manual pending status application', function () {
+    $form = Form::factory()->create(['faction_id' => $this->faction->id, 'is_enabled' => true]);
+    $stage1 = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 1', 'order' => 0]);
+
+    $submittedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Submitted', 'system_key' => 'submitted', 'is_closed' => false, 'order' => 0]);
+    $pendingStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Pending', 'system_key' => 'pending', 'is_closed' => false, 'order' => 1]);
+
+    $submission = FormSubmission::create([
+        'form_id' => $form->id,
+        'user_id' => $this->user->id,
+        'current_stage_id' => $stage1->id,
+        'current_status_id' => $submittedStatus->id,
+        'submitted_at' => now(),
+    ]);
+
+    // Attempt to manually apply Pending status via update status API
+    $this->actingAs($this->user)
+        ->putJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/status", [
+            'status_id' => $pendingStatus->id,
+        ])
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'The Pending status cannot be applied manually.');
+});
+
+test('status stage bindings store and update API', function () {
+    $form = Form::factory()->create(['faction_id' => $this->faction->id]);
+    $stage1 = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 1', 'order' => 0]);
+    $stage2 = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 2', 'order' => 1]);
+
+    // Create status with stage bindings
+    $resStore = $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/statuses", [
+            'name' => 'Stage 1 Status',
+            'stage_ids' => [$stage1->id],
+        ])
+        ->assertStatus(201);
+
+    $statusId = $resStore->json('id');
+    $status = FormStatus::find($statusId);
+    expect($status->stage_ids)->toBe([$stage1->id]);
+
+    // Update status stage bindings
+    $this->actingAs($this->user)
+        ->putJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/statuses/{$statusId}", [
+            'stage_ids' => [$stage1->id, $stage2->id],
+        ])
+        ->assertStatus(200);
+
+    $status->refresh();
+    expect($status->stage_ids)->toBe([$stage1->id, $stage2->id]);
+});
+

@@ -55,6 +55,7 @@ class FormController extends Controller
         // Create default status "Submitted"
         $form->statuses()->create([
             'name' => 'Submitted',
+            'system_key' => 'submitted',
             'order' => 0,
             'is_hidden' => false,
             'is_locked' => false,
@@ -64,7 +65,20 @@ class FormController extends Controller
             'is_archived' => false,
         ]);
 
-        return response()->json($form->load('statuses'), 201);
+        // Create default status "Pending"
+        $form->statuses()->create([
+            'name' => 'Pending',
+            'system_key' => 'pending',
+            'order' => 1,
+            'is_hidden' => false,
+            'is_locked' => false,
+            'is_closed' => false,
+            'is_failed' => false,
+            'is_passed' => false,
+            'is_archived' => false,
+        ]);
+
+        return response()->json($form->load('statuses.stages'), 201);
     }
 
     public function show(string $shortname, Form $form)
@@ -73,7 +87,7 @@ class FormController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        return response()->json($form->load(['creator:id,username', 'statuses', 'stages.sections.fields']));
+        return response()->json($form->load(['creator:id,username', 'statuses.stages', 'stages.sections.fields']));
     }
 
     public function update(Request $request, string $shortname, Form $form)

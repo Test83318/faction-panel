@@ -11,7 +11,7 @@ class FormStatus extends Model
 
     protected $fillable = [
         'form_id',
-        'form_stage_id',
+        'system_key',
         'name',
         'order',
         'is_hidden',
@@ -30,16 +30,25 @@ class FormStatus extends Model
         'is_passed' => 'boolean',
         'is_archived' => 'boolean',
         'order' => 'integer',
-        'form_stage_id' => 'integer',
     ];
+
+    protected $appends = ['stage_ids'];
+
+    public function getStageIdsAttribute()
+    {
+        if ($this->relationLoaded('stages')) {
+            return $this->stages->pluck('id')->toArray();
+        }
+        return $this->stages()->pluck('form_stages.id')->toArray();
+    }
 
     public function form()
     {
         return $this->belongsTo(Form::class);
     }
 
-    public function stage()
+    public function stages()
     {
-        return $this->belongsTo(FormStage::class, 'form_stage_id');
+        return $this->belongsToMany(FormStage::class, 'form_status_stage');
     }
 }

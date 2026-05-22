@@ -10,7 +10,7 @@ class FormAutomation extends Model
         'form_id', 'name', 'trigger', 'trigger_status_id',
         'condition_logic', 'conditions', 'action',
         'action_status_id', 'action_comment', 'action_comment_internal',
-        'is_enabled', 'order',
+        'action_group_id', 'is_enabled', 'order',
     ];
 
     protected $casts = [
@@ -32,5 +32,10 @@ class FormAutomation extends Model
     public function actionStatus()
     {
         return $this->belongsTo(FormStatus::class, 'action_status_id');
+    }
+
+    public function actionGroup()
+    {
+        return $this->belongsTo(Group::class, 'action_group_id');
     }
 }

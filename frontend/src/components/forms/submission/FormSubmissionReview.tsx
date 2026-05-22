@@ -134,6 +134,111 @@ const FormSubmissionReview: React.FC<FormSubmissionReviewProps> = ({ submissionI
         }
     };
 
+    const handleAdvance = async () => {
+        setUpdatingStatus(true);
+        try {
+            const res = await api.post(`/factions/${shortname}/forms/submissions/${submissionId}/advance`);
+            setSubmission({
+                ...submission,
+                current_stage_id: res.data.submission.current_stage_id,
+                current_stage: res.data.submission.current_stage,
+                current_status: res.data.submission.current_status,
+                current_status_id: res.data.submission.current_status_id,
+                submitted_at: res.data.submission.submitted_at
+            });
+            toast.success('Advanced to next stage');
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to advance stage');
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
+
+    const handleConclude = async () => {
+        setUpdatingStatus(true);
+        try {
+            const res = await api.post(`/factions/${shortname}/forms/submissions/${submissionId}/conclude`);
+            setSubmission({
+                ...submission,
+                current_status: res.data.submission.current_status,
+                current_status_id: res.data.submission.current_status_id
+            });
+            toast.success('Application concluded');
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to conclude application');
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
+
+    const handleRetake = async () => {
+        setUpdatingStatus(true);
+        try {
+            const res = await api.post(`/factions/${shortname}/forms/submissions/${submissionId}/retake`);
+            setSubmission({
+                ...submission,
+                current_status: res.data.submission.current_status,
+                current_status_id: res.data.submission.current_status_id,
+                submitted_at: res.data.submission.submitted_at
+            });
+            toast.success('Retake initiated');
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to initiate retake');
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
+
+    const renderStageActions = () => {
+        if (!submission || !submission.current_status) return null;
+
+        const currentStatus = submission.current_status;
+        const stages = [...(submission.form.stages || [])].sort((a, b) => a.order - b.order);
+        const currentStageIndex = stages.findIndex((s: any) => s.id === submission.current_stage_id);
+        const hasNextStage = currentStageIndex !== -1 && currentStageIndex < stages.length - 1;
+
+        const showAdvance = currentStatus.is_passed && !currentStatus.is_closed && hasNextStage;
+        const showConclude = (currentStatus.is_passed && !currentStatus.is_closed && !hasNextStage) || currentStatus.is_closed;
+        const showRetake = currentStatus.is_failed && !currentStatus.is_closed;
+
+        if (!showAdvance && !showConclude && !showRetake) return null;
+
+        return (
+            <div className="mt-4 pt-4 border-t border-border flex flex-col gap-2">
+                <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1">
+                    Stage Actions
+                </h4>
+                {showAdvance && (
+                    <button
+                        onClick={handleAdvance}
+                        disabled={updatingStatus}
+                        className="w-full text-center px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50"
+                    >
+                        Continue to Next Stage
+                    </button>
+                )}
+                {showConclude && (
+                    <button
+                        onClick={handleConclude}
+                        disabled={updatingStatus || currentStatus.is_closed}
+                        className="w-full text-center px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50"
+                    >
+                        {currentStatus.is_closed ? 'Application Concluded' : 'Conclude Application'}
+                    </button>
+                )}
+                {showRetake && (
+                    <button
+                        onClick={handleRetake}
+                        disabled={updatingStatus}
+                        className="w-full text-center px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50"
+                    >
+                        Retake Stage
+                    </button>
+                )}
+            </div>
+        );
+    };
+
     const handleGradeResponses = async () => {
         setGrading(true);
         try {
@@ -257,21 +362,27 @@ const FormSubmissionReview: React.FC<FormSubmissionReviewProps> = ({ submissionI
                             Manage Status
                         </h3>
                         <div className="grid grid-cols-1 gap-2">
-                            {submission.form.statuses?.map((status: any) => (
-                                <button 
-                                    key={status.id}
-                                    onClick={() => handleUpdateStatus(status.id)}
-                                    disabled={updatingStatus || submission.current_status_id === status.id}
-                                    className={`w-full text-left px-4 py-2.5 rounded border text-xs font-bold uppercase tracking-widest transition-all ${
-                                        submission.current_status_id === status.id 
-                                        ? 'bg-accent/10 border-accent text-accent' 
-                                        : 'bg-bg border-border text-text-muted hover:border-accent/50'
-                                    } disabled:opacity-80`}
-                                >
-                                    {status.name}
-                                </button>
-                            ))}
+                            {submission.form.statuses
+                                ?.filter((status: any) => {
+                                    if (status.system_key === 'pending') return false;
+                                    return !status.stage_ids || status.stage_ids.length === 0 || status.stage_ids.includes(submission.current_stage_id);
+                                })
+                                .map((status: any) => (
+                                    <button 
+                                        key={status.id}
+                                        onClick={() => handleUpdateStatus(status.id)}
+                                        disabled={updatingStatus || submission.current_status_id === status.id}
+                                        className={`w-full text-left px-4 py-2.5 rounded border text-xs font-bold uppercase tracking-widest transition-all ${
+                                            submission.current_status_id === status.id 
+                                            ? 'bg-accent/10 border-accent text-accent' 
+                                            : 'bg-bg border-border text-text-muted hover:border-accent/50'
+                                        } disabled:opacity-80`}
+                                    >
+                                        {status.name}
+                                    </button>
+                                ))}
                         </div>
+                        {renderStageActions()}
                     </div>
 
                     {/* Comments */}

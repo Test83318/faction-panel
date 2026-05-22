@@ -62,7 +62,7 @@ const SectionManager: React.FC<SectionManagerProps> = ({ stage, form, shortname,
         const isConfirmed = await confirm({
             title: 'Delete Section',
             message: `Are you sure you want to delete "${section.name}" and all its fields?`,
-            type: 'danger'
+            variant: 'danger'
         });
 
         if (isConfirmed) {
