@@ -318,9 +318,12 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
     };
 
     const handlePermissionChange = (key: string, value: string) => {
-        const updatedPermissions = selectedRole.permissions.map((p: any) => 
-            p.permission_key === key ? { ...p, value } : p
-        );
+        const exists = selectedRole.permissions?.some((p: any) => p.permission_key === key);
+        const updatedPermissions = exists
+            ? selectedRole.permissions.map((p: any) =>
+                p.permission_key === key ? { ...p, value } : p
+              )
+            : [...(selectedRole.permissions || []), { permission_key: key, value }];
         setSelectedRole({ ...selectedRole, permissions: updatedPermissions });
     };
 
