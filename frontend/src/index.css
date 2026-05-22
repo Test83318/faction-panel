@@ -139,6 +139,10 @@ input, select, textarea {
 }
 
 /* Roster Table Styles */
+.rt-wrap {
+  overflow-y: hidden;
+}
+
 .rt-table {
   @apply w-full border-collapse border-spacing-0 table-fixed;
 }
