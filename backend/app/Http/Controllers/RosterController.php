@@ -204,7 +204,7 @@ class RosterController extends Controller
         $referencedEntriesByDb = [];
         $hiddenFieldsByDb = [];
 
-        foreach ($publishedDatabases as $db) {
+        foreach ($allPublishedDatabases as $db) {
             $referencedEntriesByDb[$db->id] = [
                 'ids' => [],
                 'values' => [],
@@ -404,15 +404,13 @@ class RosterController extends Controller
                                 }
 
                                 if ($sourceValue) {
-                                    $sourceDatasetId = $sourceCol['dataset_id'] ?? null;
-                                    $sourceDataset = $sourceDatasetId ? $datasetsById->get($sourceDatasetId) : null;
-                                    $dbId = $sourceDataset?->record_database_id;
+                                    $dbId = $getLinkedDatabaseId($sourceCol);
                                     $db = $dbId ? $resolutionDbsById->get($dbId) : null;
 
                                     if ($db && $db->relationLoaded('entries')) {
                                         $entry = $db->entries->first(function ($e) use ($sourceCol, $sourceValue, $db) {
                                             $fieldId = $sourceCol['database_field_id'] ?? $db->database_structure[0]['id'] ?? 'id';
-                                            $label = ($fieldId === 'id') ? String($e->entry_id) : $e->data[$fieldId] ?? null;
+                                            $label = ($fieldId === 'id') ? (string) $e->entry_id : $e->data[$fieldId] ?? null;
 
                                             return $label == $sourceValue;
                                         });

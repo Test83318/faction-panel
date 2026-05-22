@@ -203,7 +203,7 @@ class FactionController extends Controller
         $referencedEntriesByDb = [];
         $hiddenFieldsByDb = [];
 
-        foreach ($publishedDatabases as $db) {
+        foreach ($allPublishedDatabases as $db) {
             $referencedEntriesByDb[$db->id] = [
                 'ids' => [],
                 'values' => [],
@@ -359,7 +359,7 @@ class FactionController extends Controller
                             'col' => $col,
                         ];
 
-                        $db = $publishedDbsById->get($dbId);
+                        $db = $resolutionDbsById->get($dbId);
                         $fieldId = $col['database_field_id'] ?? null;
                         if (! $fieldId && $db) {
                             $fieldId = $db->database_structure[0]['id'] ?? null;
@@ -423,15 +423,13 @@ class FactionController extends Controller
                                 }
 
                                 if ($sourceValue) {
-                                    $sourceDatasetId = $sourceCol['dataset_id'] ?? null;
-                                    $sourceDataset = $sourceDatasetId ? $datasetsById->get($sourceDatasetId) : null;
-                                    $dbId = $sourceDataset?->record_database_id;
+                                    $dbId = $getLinkedDatabaseId($sourceCol);
                                     $db = $dbId ? $resolutionDbsById->get($dbId) : null;
 
                                     if ($db && $db->relationLoaded('entries')) {
                                         $entry = $db->entries->first(function ($e) use ($sourceCol, $sourceValue, $db) {
                                             $fieldId = $sourceCol['database_field_id'] ?? $db->database_structure[0]['id'] ?? 'id';
-                                            $label = ($fieldId === 'id') ? String($e->entry_id) : $e->data[$fieldId] ?? null;
+                                            $label = ($fieldId === 'id') ? (string) $e->entry_id : $e->data[$fieldId] ?? null;
 
                                             return $label == $sourceValue;
                                         });
@@ -503,7 +501,17 @@ class FactionController extends Controller
             }
         }
 
-        foreach ($publishedDatabases as $db) {
+        // Include databases if user can view them OR they have referenced entries
+        $recordDataResponse = $allPublishedDatabases->filter(function ($db) use ($user, $referencedEntriesByDb) {
+            if (User::hasRecordPermission($user, $db, 'view_database')) {
+                return true;
+            }
+            // If they have any referenced entries, we must include the database (filtered)
+            return ! empty($referencedEntriesByDb[$db->id]['ids'] ?? []) ||
+                   ! empty($referencedEntriesByDb[$db->id]['values'] ?? []);
+        })->values();
+
+        foreach ($recordDataResponse as $db) {
             $isEditor = false;
             if ($user) {
                 $isEditor = $user->is_superadmin ||
@@ -523,7 +531,13 @@ class FactionController extends Controller
                 $dbRefsFields = $dbRefs['fields'];
 
                 // Filter the entries collection
-                $filteredEntries = $db->entries->filter(function ($entry) use ($dbRefsIds, $dbRefsValues, $dbRefsFields) {
+                $filteredEntries = $db->entries->filter(function ($entry) use ($dbRefsIds, $dbRefsValues, $dbRefsFields, $user, $db) {
+                    // If they have view_database, they see everything (unless it's further restricted by hidden fields, handled later)
+                    if (User::hasRecordPermission($user, $db, 'view_database')) {
+                        return true;
+                    }
+
+                    // No view_database permission: ONLY see referenced entries
                     if (in_array($entry->id, $dbRefsIds)) {
                         return true;
                     }
@@ -606,7 +620,7 @@ class FactionController extends Controller
             'rosters' => $filteredRosters,
             'datasets' => $datasets,
             'flags' => $flags,
-            'record_data' => $publishedDatabases,
+            'record_data' => $recordDataResponse,
             'online_users' => $onlineUsers,
         ]);
     }
