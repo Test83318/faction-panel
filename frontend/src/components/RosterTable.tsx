@@ -975,7 +975,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         if (col.type?.includes('linked_roster_data')) {
             const resolvedValue = resolvedLinks.get(`${row.id}_${col.id}`);
             if (resolvedValue) return resolvedValue;
-            if (!canEditAny && row.content?.[col.id] && typeof row.content[col.id] !== 'object') {
+            if (row.content?.[col.id] && typeof row.content[col.id] !== 'object') {
                 return String(row.content[col.id]);
             }
             return '-';

@@ -346,6 +346,9 @@ class RosterController extends Controller
 
             $columns = $section->use_roster_columns ? ($roster->columns ?? []) : ($section->columns ?: ($roster->columns ?? []));
             $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
+            $isEditor = User::hasRosterPermission($user, $roster, 'edit_defined_fields') || 
+                        User::hasRosterPermission($user, $roster, 'edit_predefined') || 
+                        User::hasRosterPermission($user, $roster, 'modify_roster');
 
             // Map column IDs to their linked database IDs and fields
             $colDbIds = [];
@@ -380,6 +383,7 @@ class RosterController extends Controller
 
                     $data = $content->content;
                     if (is_array($data)) {
+                        $changed = false;
                         // Resolve database_data and linked_roster_data into the content object
                         foreach ($columns as $col) {
                             $colId = $col['id'] ?? null;
@@ -388,10 +392,13 @@ class RosterController extends Controller
                             }
 
                             if (($col['type'] ?? '') === 'linked_roster_data') {
-                                $val = $data[$colId] ?? null;
-                                if (is_array($val) && isset($val['row_id']) && isset($val['col_id'])) {
-                                    $linkKey = "{$val['row_id']}_{$val['col_id']}";
-                                    $data[$colId] = $resolvedLinksMap[$linkKey] ?? '-';
+                                if (! $isEditor) {
+                                    $val = $data[$colId] ?? null;
+                                    if (is_array($val) && isset($val['row_id']) && isset($val['col_id'])) {
+                                        $linkKey = "{$val['row_id']}_{$val['col_id']}";
+                                        $data[$colId] = $resolvedLinksMap[$linkKey] ?? '-';
+                                        $changed = true;
+                                    }
                                 }
                             } elseif (($col['type'] ?? '') === 'database_data' && isset($col['source_column_id'])) {
                                 $sourceColId = $col['source_column_id'];
@@ -418,12 +425,16 @@ class RosterController extends Controller
                                         if ($entry) {
                                             $fieldId = $col['data_field_id'] ?? null;
                                             $data[$colId] = ($fieldId === 'id') ? $entry->entry_id : $entry->data[$fieldId] ?? '-';
+                                            $changed = true;
                                         }
                                     }
                                 }
                             }
                         }
-                        $content->content = $data;
+
+                        if ($changed) {
+                            $content->content = $data;
+                        }
 
                         foreach ($colDbIds as $colId => $colInfo) {
                             $dbId = $colInfo['db_id'];
