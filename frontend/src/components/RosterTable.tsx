@@ -886,6 +886,33 @@ export const RosterTable: React.FC<RosterTableProps> = ({
       ? datasetOptions.map((o: any) => ({ id: o.id, label: o.value || '', color: o.color, bold: o.is_bold })) 
       : (col.options || []).map((o: any, idx: number) => ({ ...o, id: o.id || `manual_${idx}` }));
 
+    // If dynamic dataset, pull from recordData
+    if (boundDataset?.record_database_id) {
+        const db = recordData.find(d => d.id === boundDataset.record_database_id);
+        if (db && db.entries) {
+            effectiveOptions = db.entries.map((entry: any) => {
+                let fieldId = col.database_field_id;
+                // Fallback to first field if no specific field is set or if it's pointing to a template name
+                if (!fieldId || ['table', 'compact', 'cards', 'detailed', 'rows'].includes(fieldId)) {
+                    fieldId = db.database_structure?.[0]?.id;
+                }
+
+                const field = db.database_structure?.find((f: any) => f.id === fieldId);
+                
+                let label = '';
+                if (fieldId === 'id') label = String(entry.entry_id);
+                else if (fieldId === 'created_at') label = new Date(entry.created_at).toLocaleDateString();
+                else {
+                    // Try ID first, then fallback to Name (for legacy data)
+                    const rawLabel = entry.data?.[fieldId || ''] || entry.data?.[field?.name || ''] || `Entry #${entry.entry_id}`;
+                    label = String(rawLabel);
+                }
+                
+                return { id: entry.entry_id, label, color: null, bold: false, entryId: entry.entry_id, dbShortcode: db.record_shortcode || db.id };
+            });
+        }
+    }
+
     const activeFlags = flags.filter(f => (col.flags || []).some(flagId => Number(flagId) === Number(f.id)) && evaluateFlag(row, col, f));
 
     const getRowName = () => {
@@ -1023,32 +1050,6 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         );
     }
 
-    // If dynamic dataset, pull from recordData
-    if (boundDataset?.record_database_id) {
-        const db = recordData.find(d => d.id === boundDataset.record_database_id);
-        if (db && db.entries) {
-            effectiveOptions = db.entries.map((entry: any) => {
-                let fieldId = col.database_field_id;
-                // Fallback to first field if no specific field is set or if it's pointing to a template name
-                if (!fieldId || ['table', 'compact', 'cards', 'detailed', 'rows'].includes(fieldId)) {
-                    fieldId = db.database_structure?.[0]?.id;
-                }
-
-                const field = db.database_structure?.find((f: any) => f.id === fieldId);
-                
-                let label = '';
-                if (fieldId === 'id') label = String(entry.entry_id);
-                else if (fieldId === 'created_at') label = new Date(entry.created_at).toLocaleDateString();
-                else {
-                    // Try ID first, then fallback to Name (for legacy data)
-                    const rawLabel = entry.data?.[fieldId || ''] || entry.data?.[field?.name || ''] || `Entry #${entry.entry_id}`;
-                    label = String(rawLabel);
-                }
-                
-                return { id: entry.entry_id, label, color: null, bold: false, entryId: entry.entry_id, dbShortcode: db.record_shortcode || db.id };
-            });
-        }
-    }
 
     // Handle Database Data Column Type
     if (col.type === 'database_data' && col.source_column_id) {
