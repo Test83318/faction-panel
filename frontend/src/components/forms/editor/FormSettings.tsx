@@ -19,7 +19,7 @@ const FormSettings: React.FC<FormSettingsProps> = ({ form, onSave, saving }) => 
         max_submissions: form.max_submissions ?? '',
         is_enabled: form.is_enabled,
         pass_points: form.pass_points || 0,
-        is_automatic_grading: form.is_automatic_grading || false
+        is_automatic_grading: form.is_automatic_grading || false,
     });
 
     const handleSubmit = (e: React.FormEvent) => {

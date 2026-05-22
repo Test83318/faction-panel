@@ -342,8 +342,9 @@ class FormSubmissionController extends Controller
 
             $pointsAwarded = 0;
             $isGraded = false;
+            $correctness = null;
 
-            if ($form->type === 'quiz' && $field->is_automatic_scored) {
+            if ($form->type === 'quiz' && $field->has_grading && $field->is_automatic_scored) {
                 $isGraded = true;
 
                 $normalizedValue = $value;
@@ -359,6 +360,10 @@ class FormSubmissionController extends Controller
 
                 if ($normalizedValue === $normalizedCorrect) {
                     $pointsAwarded = $field->points;
+                    $correctness = 'correct';
+                } else {
+                    $pointsAwarded = 0;
+                    $correctness = 'incorrect';
                 }
             }
 
@@ -371,6 +376,7 @@ class FormSubmissionController extends Controller
                     'value' => is_array($value) ? json_encode($value) : $value,
                     'is_graded' => $isGraded,
                     'points_awarded' => $pointsAwarded,
+                    'correctness' => $correctness,
                 ]
             );
         }
@@ -409,13 +415,14 @@ class FormSubmissionController extends Controller
         }
 
         $submission->load([
-            'form.stages',
+            'form.stages.sections.fields',
             'form.statuses.stages',
             'currentStatus',
             'currentStage',
             'responses.field',
             'user:id,username',
             'comments.user:id,username',
+            'comments.section',
         ]);
 
         // Filter internal comments if the user doesn't have moderation permission
@@ -597,28 +604,30 @@ class FormSubmissionController extends Controller
         $form = $submission->form;
 
         $isReviewer = User::hasFormPermission($user, $form, 'modify_submission_status');
-        $isOwner = $submission->user_id === $user->id;
 
-        if (! $isReviewer && ! $isOwner) {
+        if (! $isReviewer) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         $validated = $request->validate([
             'comment' => 'required|string',
             'is_internal' => 'boolean',
+            'form_section_id' => 'nullable|exists:form_sections,id',
         ]);
 
-        if ($validated['is_internal'] && ! $isReviewer) {
-            return response()->json(['message' => 'You cannot post internal comments.'], 403);
+        $isInternal = $validated['is_internal'] ?? false;
+        if (!$isInternal && empty($validated['form_section_id'])) {
+            return response()->json(['message' => 'Public reviewer-to-user comments must be bound to a section.'], 422);
         }
 
         $comment = $submission->comments()->create([
             'user_id' => $user->id,
             'comment' => $validated['comment'],
-            'is_internal' => $validated['is_internal'] ?? false,
+            'is_internal' => $isInternal,
+            'form_section_id' => $isInternal ? null : $validated['form_section_id'],
         ]);
 
-        return response()->json($comment->load('user:id,username'));
+        return response()->json($comment->load('user:id,username', 'section'));
     }
 
     public function gradeResponses(Request $request, string $shortname, FormSubmission $submission)
@@ -633,7 +642,8 @@ class FormSubmissionController extends Controller
         $validated = $request->validate([
             'grades' => 'required|array',
             'grades.*.response_id' => 'required|exists:form_responses,id',
-            'grades.*.points' => 'required|integer|min:0',
+            'grades.*.points' => 'nullable|integer|min:0',
+            'grades.*.correctness' => 'nullable|string|in:correct,partially_correct,incorrect',
             'grades.*.comment' => 'nullable|string',
         ]);
 
@@ -642,9 +652,27 @@ class FormSubmissionController extends Controller
                 ->where('form_submission_id', $submission->id)
                 ->firstOrFail();
 
+            if (!$response->field || !$response->field->has_grading) {
+                continue;
+            }
+
+            $points = $grade['points'] ?? ($response->points_awarded ?? 0);
+            $correctness = $grade['correctness'] ?? null;
+
+            if ($form->type === 'quiz') {
+                if ($correctness === 'correct') {
+                    $points = $response->field->points;
+                } elseif ($correctness === 'incorrect') {
+                    $points = 0;
+                } else {
+                    $points = $grade['points'] ?? ($response->points_awarded ?? 0);
+                }
+            }
+
             $response->update([
-                'points_awarded' => $grade['points'],
-                'reviewer_comment' => $grade['comment'],
+                'points_awarded' => $points,
+                'correctness' => $correctness,
+                'reviewer_comment' => $grade['comment'] ?? null,
                 'is_graded' => true,
             ]);
         }

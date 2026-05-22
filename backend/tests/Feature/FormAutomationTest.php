@@ -81,6 +81,7 @@ test('evaluates points condition on submit', function () {
         'is_automatic_scored' => true,
         'correct_answer' => 'A',
         'order' => 0,
+        'has_grading' => true,
     ]);
 
     $field2 = FormField::create([
@@ -92,6 +93,7 @@ test('evaluates points condition on submit', function () {
         'is_automatic_scored' => true,
         'correct_answer' => 'B',
         'order' => 1,
+        'has_grading' => true,
     ]);
 
     $passedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Passed', 'is_passed' => true, 'order' => 1]);

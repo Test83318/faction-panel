@@ -305,6 +305,7 @@ export interface FormField {
   order: number;
   points: number;
   is_required: boolean;
+  has_grading: boolean;
   is_automatic_scored: boolean;
   correct_answer?: string;
   prefill_type?: string | null;
@@ -376,6 +377,7 @@ export interface FormResponse {
   points_awarded: number;
   reviewer_comment: string | null;
   is_graded: boolean;
+  correctness?: 'correct' | 'partially_correct' | 'incorrect' | null;
   field?: FormField;
 }
 

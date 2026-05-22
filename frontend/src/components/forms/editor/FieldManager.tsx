@@ -80,7 +80,13 @@ const FieldManager: React.FC<FieldManagerProps> = ({ section, form, shortname, o
     const handleUpdateField = async (fieldId: number) => {
         setPending(true);
         try {
-            await api.put(`/factions/${shortname}/forms/${form.id}/fields/${fieldId}`, fieldForm);
+            const finalOptions = Array.isArray(fieldForm.options)
+                ? fieldForm.options.map(o => o.trim()).filter(o => o !== '')
+                : fieldForm.options;
+            await api.put(`/factions/${shortname}/forms/${form.id}/fields/${fieldId}`, {
+                ...fieldForm,
+                options: finalOptions
+            });
             setEditingFieldId(null);
             await onUpdate();
             toast.success('Field updated');
@@ -325,6 +331,17 @@ const FieldManager: React.FC<FieldManagerProps> = ({ section, form, shortname, o
                                             <label htmlFor={`multi_${field.id}`} className="text-xs font-bold text-text cursor-pointer">Multi (Add multiple items)</label>
                                         </div>
 
+                                        <div className="flex items-center gap-2">
+                                            <input 
+                                                type="checkbox"
+                                                id={`grading_${field.id}`}
+                                                checked={fieldForm.has_grading || false}
+                                                onChange={e => setFieldForm({...fieldForm, has_grading: e.target.checked})}
+                                                className="w-4 h-4 accent-accent"
+                                            />
+                                            <label htmlFor={`grading_${field.id}`} className="text-xs font-bold text-text cursor-pointer">Grading</label>
+                                        </div>
+
                                         {form.requires_gtaw_login && (
                                             <div className="flex items-center gap-2">
                                                 <Zap size={14} className="text-orange-500" />
@@ -343,7 +360,7 @@ const FieldManager: React.FC<FieldManagerProps> = ({ section, form, shortname, o
                                         )}
                                     </div>
 
-                                    {form.type === 'quiz' && (
+                                    {form.type === 'quiz' && fieldForm.has_grading && (
                                         <div className="flex flex-wrap items-center gap-6 p-3 bg-surface/50 border border-border/50 rounded-lg">
                                             <div className="flex items-center gap-2">
                                                 <Trophy size={14} className="text-yellow-500" />
@@ -398,7 +415,7 @@ const FieldManager: React.FC<FieldManagerProps> = ({ section, form, shortname, o
                                             <label className="block text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2">Options (One per line)</label>
                                             <textarea 
                                                 value={Array.isArray(fieldForm.options) ? fieldForm.options.join('\n') : ''}
-                                                onChange={e => setFieldForm({...fieldForm, options: e.target.value.split('\n').filter(o => o.trim())})}
+                                                onChange={e => setFieldForm({...fieldForm, options: e.target.value.split('\n')})}
                                                 className="w-full bg-bg border border-border rounded p-2 text-xs text-text outline-none focus:border-accent h-24 resize-none"
                                                 placeholder="Option 1&#10;Option 2&#10;Option 3"
                                             />

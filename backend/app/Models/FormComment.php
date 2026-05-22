@@ -14,6 +14,7 @@ class FormComment extends Model
         'user_id',
         'comment',
         'is_internal',
+        'form_section_id',
     ];
 
     protected $casts = [
@@ -28,5 +29,10 @@ class FormComment extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function section()
+    {
+        return $this->belongsTo(FormSection::class, 'form_section_id');
     }
 }

@@ -16,6 +16,7 @@ class FormResponse extends Model
         'points_awarded',
         'is_graded',
         'reviewer_comment',
+        'correctness',
     ];
 
     protected $casts = [

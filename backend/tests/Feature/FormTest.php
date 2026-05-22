@@ -155,6 +155,7 @@ test('auto-grades quiz forms', function () {
         'is_automatic_scored' => true,
         'correct_answer' => 'Correct',
         'order' => 0,
+        'has_grading' => true,
     ]);
 
     $passedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Passed', 'is_passed' => true, 'is_closed' => true, 'order' => 1]);
@@ -601,4 +602,181 @@ test('status stage bindings store and update API', function () {
     $status->refresh();
     expect($status->stage_ids)->toBe([$stage1->id, $stage2->id]);
 });
+
+test('commenting permissions on form submission', function () {
+    $form = Form::factory()->create(['faction_id' => $this->faction->id]);
+    $stage = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 1', 'order' => 0]);
+    $section = FormSection::create(['form_stage_id' => $stage->id, 'name' => 'Section 1', 'order' => 0]);
+    
+    // Create an applicant user
+    $applicant = User::factory()->create();
+    $applicant->factions()->attach($this->faction->id);
+
+    // Create a submission for the applicant
+    $submission = FormSubmission::create([
+        'form_id' => $form->id,
+        'user_id' => $applicant->id,
+        'current_stage_id' => $stage->id,
+    ]);
+
+    // Test: Submitter (applicant) tries to post a comment -> should fail with 403
+    $this->actingAs($applicant)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/comments", [
+            'comment' => 'This is my comment',
+            'is_internal' => false,
+            'form_section_id' => $section->id,
+        ])
+        ->assertStatus(403);
+
+    // Test: Reviewer (superadmin) posts a comment -> should succeed
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/comments", [
+            'comment' => 'Reviewer feedback',
+            'is_internal' => false,
+            'form_section_id' => $section->id,
+        ])
+        ->assertStatus(200);
+
+    // Assert comment database presence
+    $this->assertDatabaseHas('form_comments', [
+        'form_submission_id' => $submission->id,
+        'comment' => 'Reviewer feedback',
+        'is_internal' => false,
+        'form_section_id' => $section->id,
+    ]);
+});
+
+test('grading updates correctness and points based on rules', function () {
+    $form = Form::factory()->create([
+        'faction_id' => $this->faction->id,
+        'type' => 'quiz',
+        'is_enabled' => true,
+    ]);
+    $stage = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 1', 'order' => 0]);
+    $section = FormSection::create(['form_stage_id' => $stage->id, 'name' => 'Section 1', 'order' => 0]);
+    $field = FormField::create([
+        'form_section_id' => $section->id,
+        'type' => 'text',
+        'label' => 'Question',
+        'name' => 'question',
+        'points' => 10,
+        'order' => 0,
+        'has_grading' => true,
+    ]);
+
+    $submission = FormSubmission::create([
+        'form_id' => $form->id,
+        'user_id' => $this->user->id,
+        'current_stage_id' => $stage->id,
+    ]);
+
+    $response = $submission->responses()->create([
+        'form_field_id' => $field->id,
+        'value' => 'Answer text',
+        'points_awarded' => 0,
+        'is_graded' => false,
+    ]);
+
+    // Grade correctness as correct -> should auto-fill to max points (10)
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/grade", [
+            'grades' => [
+                [
+                    'response_id' => $response->id,
+                    'correctness' => 'correct',
+                    'comment' => 'Great answer',
+                ]
+            ]
+        ])
+        ->assertStatus(200);
+
+    $response->refresh();
+    expect($response->correctness)->toBe('correct');
+    expect($response->points_awarded)->toBe(10);
+    expect($response->reviewer_comment)->toBe('Great answer');
+
+    // Grade correctness as incorrect -> should auto-fill to 0 points
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/grade", [
+            'grades' => [
+                [
+                    'response_id' => $response->id,
+                    'correctness' => 'incorrect',
+                    'comment' => 'Wrong answer',
+                ]
+            ]
+        ])
+        ->assertStatus(200);
+
+    $response->refresh();
+    expect($response->correctness)->toBe('incorrect');
+    expect($response->points_awarded)->toBe(0);
+
+    // Grade correctness as partially_correct -> should allow manual points
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/grade", [
+            'grades' => [
+                [
+                    'response_id' => $response->id,
+                    'correctness' => 'partially_correct',
+                    'points' => 5,
+                    'comment' => 'Half correct',
+                ]
+            ]
+        ])
+        ->assertStatus(200);
+
+    $response->refresh();
+    expect($response->correctness)->toBe('partially_correct');
+    expect($response->points_awarded)->toBe(5);
+});
+
+test('standard graded form updates correctness without points', function () {
+    $form = Form::factory()->create([
+        'faction_id' => $this->faction->id,
+        'type' => 'standard',
+        'is_enabled' => true,
+    ]);
+    $stage = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 1', 'order' => 0]);
+    $section = FormSection::create(['form_stage_id' => $stage->id, 'name' => 'Section 1', 'order' => 0]);
+    $field = FormField::create([
+        'form_section_id' => $section->id,
+        'type' => 'text',
+        'label' => 'Question',
+        'name' => 'question',
+        'order' => 0,
+        'has_grading' => true,
+    ]);
+
+    $submission = FormSubmission::create([
+        'form_id' => $form->id,
+        'user_id' => $this->user->id,
+        'current_stage_id' => $stage->id,
+    ]);
+
+    $response = $submission->responses()->create([
+        'form_field_id' => $field->id,
+        'value' => 'Answer text',
+        'is_graded' => false,
+    ]);
+
+    // Grade correctness as correct
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/submissions/{$submission->id}/grade", [
+            'grades' => [
+                [
+                    'response_id' => $response->id,
+                    'correctness' => 'correct',
+                    'comment' => 'Fine',
+                ]
+            ]
+        ])
+        ->assertStatus(200);
+
+    $response->refresh();
+    expect($response->correctness)->toBe('correct');
+    expect($response->points_awarded)->toBe(0); // Standard form has 0 points
+    expect($response->reviewer_comment)->toBe('Fine');
+});
+
 

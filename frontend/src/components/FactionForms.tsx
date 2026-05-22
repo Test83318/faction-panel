@@ -31,6 +31,7 @@ import {
 import FormEditor from './forms/FormEditor';
 import FormView from './FormView';
 import FormSubmissionReview from './forms/submission/FormSubmissionReview';
+import FormSubmissionStatus from './forms/submission/FormSubmissionStatus';
 
 interface FactionFormsProps {
     shortname: string;
@@ -51,7 +52,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
         name: '',
         type: 'standard' as 'standard' | 'quiz',
         description: '',
-        is_public: false
+        is_public: false,
     });
 
     const navigate = useNavigate();
@@ -72,6 +73,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
     const isEditing = viewInPath === 'edit';
     const isSubmitting = viewInPath === 'submit';
     const isReviewingSubmission = viewInPath === 'submissions' && subViewIdInPath !== null;
+    const isCheckingStatus = viewInPath === 'status' && subViewIdInPath !== null;
     const viewingFormSubmissionsId = viewInPath === 'submissions' && subViewIdInPath === null ? formIdInPath : null;
     const viewingMyFormSubmissionsId = viewInPath === 'my-submissions' ? formIdInPath : null;
 
@@ -181,6 +183,21 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
     if (isReviewingSubmission && activeSubmissionId) {
         return (
             <FormSubmissionReview
+                submissionId={activeSubmissionId}
+                shortname={shortname}
+                onClose={() => {
+                    const backPath = (location.state as any)?.from ?? `/${shortname}/forms`;
+                    navigate(backPath);
+                    fetchForms();
+                }}
+                user={user}
+            />
+        );
+    }
+
+    if (isCheckingStatus && activeSubmissionId) {
+        return (
+            <FormSubmissionStatus
                 submissionId={activeSubmissionId}
                 shortname={shortname}
                 onClose={() => {
@@ -381,7 +398,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                             <td className="px-6 py-4 text-right">
                                                 <button
                                                     onClick={() => navigate(
-                                                        `/${shortname}/forms/${viewingMyFormSubmissionsId}/submissions/${sub.id}`,
+                                                        `/${shortname}/forms/${viewingMyFormSubmissionsId}/status/${sub.id}`,
                                                         { state: { from: `/${shortname}/forms/${viewingMyFormSubmissionsId}/my-submissions` } }
                                                     )}
                                                     className="p-2 text-text-muted hover:text-accent transition-colors"
@@ -505,7 +522,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                             {submission && submission.submitted_at && (
                                                 <button
                                                     onClick={() => navigate(
-                                                        `/${shortname}/forms/${form.id}/submissions/${submission.id}`,
+                                                        `/${shortname}/forms/${form.id}/status/${submission.id}`,
                                                         { state: { from: `/${shortname}/forms` } }
                                                     )}
                                                     className="px-3 py-1.5 border border-border text-text-muted hover:text-text hover:border-text rounded text-[10px] font-bold uppercase tracking-widest transition-all"
@@ -527,7 +544,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                                         navigate(`/${shortname}/forms/${form.id}/submit`);
                                                     } else if (hasUnderReviewSubmission) {
                                                         navigate(
-                                                            `/${shortname}/forms/${form.id}/submissions/${submission.id}`,
+                                                            `/${shortname}/forms/${form.id}/status/${submission.id}`,
                                                             { state: { from: `/${shortname}/forms` } }
                                                         );
                                                     } else {
@@ -634,6 +651,7 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                         Allow non-logged in users to submit
                                     </label>
                                 </div>
+
                                 <div className="pt-4 flex gap-3">
                                     <button
                                         type="button"

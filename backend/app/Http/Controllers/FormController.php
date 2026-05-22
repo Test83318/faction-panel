@@ -106,6 +106,8 @@ class FormController extends Controller
             'max_submissions' => 'sometimes|nullable|integer|min:1',
             'is_enabled' => 'sometimes|boolean',
             'metadata' => 'nullable|array',
+            'pass_points' => 'sometimes|integer|min:0',
+            'is_automatic_grading' => 'sometimes|boolean',
         ]);
 
         $form->update($validated);
