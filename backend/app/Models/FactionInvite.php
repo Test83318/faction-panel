@@ -15,6 +15,7 @@ class FactionInvite extends Model
         'expires_at',
         'max_uses',
         'uses',
+        'role_id',
         'created_by',
     ];
 
@@ -30,6 +31,11 @@ class FactionInvite extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
     }
 
     public function isExpired()

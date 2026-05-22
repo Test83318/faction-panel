@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Faction;
 use App\Models\FactionInvite;
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
@@ -20,7 +21,30 @@ class InviteController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $invites = $faction->invites()->with('creator:id,username')->latest()->get();
+        $status = $request->query('status', 'active');
+        $query = $faction->invites()->with(['creator:id,username', 'role'])->latest();
+
+        if ($status === 'active') {
+            $query->where(function($q) {
+                $q->whereNull('expires_at')
+                  ->orWhere('expires_at', '>', Carbon::now());
+            })->where(function($q) {
+                $q->whereNull('max_uses')
+                  ->orWhereRaw('uses < max_uses');
+            });
+        } else if ($status === 'inactive') {
+            $query->where(function($q) {
+                $q->where(function($sub) {
+                    $sub->whereNotNull('expires_at')
+                        ->where('expires_at', '<=', Carbon::now());
+                })->orWhere(function($sub) {
+                    $sub->whereNotNull('max_uses')
+                        ->whereRaw('uses >= max_uses');
+                });
+            });
+        }
+
+        $invites = $query->get();
 
         return response()->json($invites);
     }
@@ -36,7 +60,21 @@ class InviteController extends Controller
         $request->validate([
             'duration' => 'required|in:1h,3h,6h,12h,24h,48h,7d,30d,never',
             'max_uses' => 'nullable|integer|min:0',
+            'role_id' => 'nullable|integer|exists:roles,id',
         ]);
+
+        $roleId = $request->input('role_id') ? (int) $request->input('role_id') : null;
+        if ($roleId) {
+            $role = Role::where('faction_id', $faction->id)->findOrFail($roleId);
+            $user = $request->user();
+            $userHighestWeight = $user->is_superadmin || $faction->faction_leader === $user->id
+                ? PHP_INT_MAX
+                : $user->getHighestRoleWeight($faction->id);
+
+            if ($role->weight >= $userHighestWeight) {
+                return response()->json(['message' => 'Cannot assign a role with weight equal to or higher than yours.'], 403);
+            }
+        }
 
         $expiresAt = null;
         if ($request->duration !== 'never') {
@@ -56,10 +94,11 @@ class InviteController extends Controller
             'code' => Str::random(8),
             'expires_at' => $expiresAt,
             'max_uses' => $request->max_uses == 0 ? null : $request->max_uses,
+            'role_id' => $roleId,
             'created_by' => $request->user()->id,
         ]);
 
-        return response()->json($invite->load('creator:id,username'), 201);
+        return response()->json($invite->load(['creator:id,username', 'role']), 201);
     }
 
     public function destroy($id)
@@ -129,10 +168,14 @@ class InviteController extends Controller
         $faction->users()->attach($user->id);
         $invite->increment('uses');
 
-        // Assign default User role
-        $userRole = $faction->roles()->where('name', 'User')->first();
-        if ($userRole) {
-            $user->roles()->attach($userRole->id);
+        // Assign role attached to the invite, or fall back to default User role
+        if ($invite->role_id) {
+            $user->roles()->attach($invite->role_id);
+        } else {
+            $userRole = $faction->roles()->where('name', 'User')->first();
+            if ($userRole) {
+                $user->roles()->attach($userRole->id);
+            }
         }
 
         return response()->json([

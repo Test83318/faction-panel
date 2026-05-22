@@ -5,7 +5,7 @@ import api from '../api';
 import Loading from './Loading';
 import QuickSearchSettings from './QuickSearchSettings';
 import { useConfirm } from './ConfirmationProvider';
-import { Shield, Settings, Trash2, Edit2, Check, X, Plus, Save, Info, Key, Users, UserMinus, ShieldAlert, Crown, UserCog, Copy, Link as LinkIcon, Clock, Upload, LayoutGrid, Eye, Moon, Sun, Search, ChevronLeft, ChevronRight, PieChart, Database, Layout, RefreshCw } from 'lucide-react';
+import { Shield, Settings, Trash2, Edit2, Check, X, Plus, Save, Info, Key, Users, UserMinus, ShieldAlert, Crown, UserCog, Copy, Link as LinkIcon, Clock, Upload, LayoutGrid, Eye, Moon, Sun, Search, ChevronLeft, ChevronRight, ChevronDown, PieChart, Database, Layout, RefreshCw } from 'lucide-react';
 
 const Administration: React.FC<{ faction: any; user: any; permissions: string[] }> = ({ faction, user, permissions }) => {
     const hasPerm = (perm: string) => user?.is_superadmin || permissions.includes(perm);
@@ -47,11 +47,14 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
     const [fetchingProfile, setFetchingProfile] = useState(false);
 
     // Invites State
-    const [invites, setInvites] = useState<any[]>([]);
-    const [fetchingInvites, setFetchingInvites] = useState(false);
+    const [activeInvites, setActiveInvites] = useState<any[]>([]);
+    const [inactiveInvites, setInactiveInvites] = useState<any[]>([]);
+    const [fetchingActiveInvites, setFetchingActiveInvites] = useState(false);
+    const [fetchingInactiveInvites, setFetchingInactiveInvites] = useState(false);
+    const [showInactive, setShowInactive] = useState(false);
     const [creatingInvite, setCreatingInvite] = useState(false);
     const [deleting, setDeleting] = useState(false);
-    const [inviteForm, setInviteForm] = useState({ duration: '24h', max_uses: 0 });
+    const [inviteForm, setInviteForm] = useState<{ duration: string; max_uses: number; role_id: string }>({ duration: '24h', max_uses: 0, role_id: '' });
 
     // Integrations State
     const [availableFactions, setAvailableFactions] = useState<any[]>([]);
@@ -147,15 +150,35 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
         }
     };
 
-    const fetchInvites = async () => {
-        setFetchingInvites(true);
+    const fetchActiveInvites = async () => {
+        setFetchingActiveInvites(true);
         try {
-            const res = await api.get(`/factions/${faction.shortname}/invites`);
-            setInvites(res.data);
+            const res = await api.get(`/factions/${faction.shortname}/invites`, { params: { status: 'active' } });
+            setActiveInvites(res.data);
         } catch (err) {
-            toast.error('Failed to fetch invites');
+            toast.error('Failed to fetch active invites');
         } finally {
-            setFetchingInvites(false);
+            setFetchingActiveInvites(false);
+        }
+    };
+
+    const fetchInactiveInvites = async () => {
+        setFetchingInactiveInvites(true);
+        try {
+            const res = await api.get(`/factions/${faction.shortname}/invites`, { params: { status: 'inactive' } });
+            setInactiveInvites(res.data);
+        } catch (err) {
+            toast.error('Failed to fetch inactive invites');
+        } finally {
+            setFetchingInactiveInvites(false);
+        }
+    };
+
+    const toggleInactiveSection = () => {
+        const nextShow = !showInactive;
+        setShowInactive(nextShow);
+        if (nextShow && inactiveInvites.length === 0) {
+            fetchInactiveInvites();
         }
     };
 
@@ -195,7 +218,7 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
 
     useEffect(() => {
         if (activeTab === 'users' && members.length === 0) fetchMembers();
-        if (activeTab === 'invites' && invites.length === 0) fetchInvites();
+        if (activeTab === 'invites' && activeInvites.length === 0) fetchActiveInvites();
         if (activeTab === 'integrations' && availableFactions.length === 0 && !faction.gtaw_faction_id) {
             fetchAvailableFactions();
         }
@@ -256,9 +279,13 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
         e.preventDefault();
         setCreatingInvite(true);
         try {
-            await api.post(`/factions/${faction.shortname}/invites`, inviteForm);
+            await api.post(`/factions/${faction.shortname}/invites`, {
+                ...inviteForm,
+                role_id: inviteForm.role_id || null
+            });
             toast.success('Invite code generated!');
-            fetchInvites();
+            fetchActiveInvites();
+            setInviteForm(prev => ({ ...prev, role_id: '', max_uses: 0 }));
         } catch (err) {
             toast.error('Failed to create invite');
         } finally {
@@ -280,7 +307,8 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
         const loadToast = toast.loading('Deleting invite...');
         try {
             await api.delete(`/invites/${id}`);
-            setInvites(invites.filter(i => i.id !== id));
+            setActiveInvites(activeInvites.filter(i => i.id !== id));
+            setInactiveInvites(inactiveInvites.filter(i => i.id !== id));
             toast.success('Invite deleted', { id: loadToast });
         } catch (err) {
             toast.error('Failed to delete invite', { id: loadToast });
@@ -960,6 +988,25 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                             min="0"
                                         />
                                     </div>
+                                    <div>
+                                        <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Assign Rank on Join</label>
+                                        <select 
+                                            value={inviteForm.role_id || ''} 
+                                            onChange={e => setInviteForm({ ...inviteForm, role_id: e.target.value })}
+                                            className="w-full bg-surface border border-border p-3 rounded text-sm text-text focus:border-accent outline-none transition text-text"
+                                        >
+                                            <option value="">Default (User)</option>
+                                            {roles
+                                                .filter((r: any) => r.name !== 'Public' && r.weight < userHighestWeight)
+                                                .sort((a: any, b: any) => b.weight - a.weight)
+                                                .map((role: any) => (
+                                                    <option key={role.id} value={role.id}>
+                                                        {role.name}
+                                                    </option>
+                                                ))
+                                            }
+                                        </select>
+                                    </div>
                                     <button type="submit" disabled={creatingInvite} className="w-full py-3 bg-accent hover:bg-accent/90 text-white rounded font-bold text-[10px] uppercase tracking-widest transition flex items-center justify-center gap-2 shadow-lg shadow-accent/20">
                                         <LinkIcon size={14} /> {creatingInvite ? 'Generating...' : 'Generate Invite Link'}
                                     </button>
@@ -967,23 +1014,24 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                             </div>
                         </div>
 
-                        <div className="lg:col-span-2 space-y-4">
+                        <div className="lg:col-span-2 space-y-6">
+                            {/* Active Invites Card */}
                             <div className="bg-card border border-border rounded-lg overflow-hidden">
                                 <div className="p-4 border-b border-border bg-border/10 flex justify-between items-center">
                                     <h3 className="font-bold text-lg flex items-center gap-2 text-text"><LinkIcon size={18} className="text-accent" /> Active Invites</h3>
-                                    <button onClick={fetchInvites} disabled={fetchingInvites} className="text-[10px] font-bold uppercase tracking-widest text-muted hover:text-accent transition">Refresh</button>
+                                    <button onClick={fetchActiveInvites} disabled={fetchingActiveInvites} className="text-[10px] font-bold uppercase tracking-widest text-muted hover:text-accent transition">Refresh</button>
                                 </div>
                                 <div className="p-4">
-                                    {fetchingInvites ? (
+                                    {fetchingActiveInvites ? (
                                         <Loading message="Fetching Invites..." fullScreen={false} />
-                                    ) : invites.length === 0 ? (
+                                    ) : activeInvites.length === 0 ? (
                                         <div className="py-12 text-center space-y-2">
                                             <div className="text-muted opacity-20 flex justify-center"><LinkIcon size={48} /></div>
                                             <p className="text-muted text-[10px] font-bold uppercase tracking-widest">No active invite links found.</p>
                                         </div>
                                     ) : (
                                         <div className="space-y-3">
-                                            {invites.map((invite: any) => (
+                                            {activeInvites.map((invite: any) => (
                                                 <div key={invite.id} className="bg-surface border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-accent/30 transition-colors">
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center text-accent">
@@ -993,6 +1041,11 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                                             <div className="flex items-center gap-2 mb-1">
                                                                 <span className="font-mono font-bold text-text text-sm">{invite.code}</span>
                                                                 <button onClick={() => copyInviteLink(invite.code)} className="p-1 text-muted hover:text-accent transition-colors"><Copy size={12} /></button>
+                                                                {invite.role && (
+                                                                    <span className="px-1.5 py-0.5 rounded-[4px] border font-black text-[7px] uppercase tracking-widest" style={{ borderColor: `${invite.role.color}40`, color: invite.role.color }}>
+                                                                        Assigns: {invite.role.name}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             <div className="flex items-center gap-3 text-[9px] font-bold uppercase tracking-tight text-muted">
                                                                 <span className="flex items-center gap-1"><Users size={10} /> {invite.uses} / {invite.max_uses || '∞'} Uses</span>
@@ -1014,6 +1067,84 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                         </div>
                                     )}
                                 </div>
+                            </div>
+
+                            {/* Inactive Invites Collapsible Card */}
+                            <div className="bg-card border border-border rounded-lg overflow-hidden">
+                                <button 
+                                    onClick={() => toggleInactiveSection()}
+                                    className="w-full p-4 border-b border-border bg-border/5 flex justify-between items-center hover:bg-border/10 transition-colors"
+                                    type="button"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        {showInactive ? <ChevronDown size={18} className="text-muted" /> : <ChevronRight size={18} className="text-muted" />}
+                                        <h3 className="font-bold text-sm uppercase tracking-wider text-muted flex items-center gap-2">
+                                            Inactive Invites
+                                        </h3>
+                                    </div>
+                                    <span className="text-[9px] font-bold uppercase px-2 py-0.5 bg-surface border border-border rounded text-muted">
+                                        Expired / Used
+                                    </span>
+                                </button>
+
+                                <AnimatePresence>
+                                    {showInactive && (
+                                        <motion.div 
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="p-4 border-t border-border bg-card">
+                                                {fetchingInactiveInvites ? (
+                                                    <Loading message="Fetching Inactive Invites..." fullScreen={false} />
+                                                ) : inactiveInvites.length === 0 ? (
+                                                    <div className="py-8 text-center text-muted text-[10px] font-bold uppercase tracking-widest">
+                                                        No inactive invite links found.
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-3">
+                                                        {inactiveInvites.map((invite: any) => (
+                                                            <div key={invite.id} className="bg-surface/50 border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group opacity-75 hover:opacity-100 hover:border-border transition-all">
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className="w-10 h-10 bg-border/20 rounded-lg flex items-center justify-center text-muted">
+                                                                        <LinkIcon size={20} />
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                            <span className="font-mono font-bold text-muted line-through text-sm">{invite.code}</span>
+                                                                            {invite.role && (
+                                                                                <span className="px-1.5 py-0.5 rounded-[4px] border font-black text-[7px] uppercase tracking-widest opacity-60" style={{ borderColor: `${invite.role.color}40`, color: invite.role.color }}>
+                                                                                    Assigns: {invite.role.name}
+                                                                                </span>
+                                                                            )}
+                                                                            <span className="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-danger/10 text-danger rounded border border-danger/20">
+                                                                                {invite.max_uses && invite.uses >= invite.max_uses ? 'Full' : 'Expired'}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-3 text-[9px] font-bold uppercase tracking-tight text-muted">
+                                                                            <span className="flex items-center gap-1"><Users size={10} /> {invite.uses} / {invite.max_uses || '∞'} Uses</span>
+                                                                            <span className="flex items-center gap-1"><Clock size={10} /> {invite.expires_at ? `Expired ${new Date(invite.expires_at).toLocaleDateString()}` : 'Expired'}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex items-center gap-2 justify-end">
+                                                                    <button 
+                                                                        onClick={() => handleDeleteInvite(invite.id)}
+                                                                        className="p-2 bg-danger/10 text-danger border border-danger/20 rounded-lg hover:bg-danger/20 transition-colors opacity-0 group-hover:opacity-100"
+                                                                        title="Delete Invite"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         </div>
                     </motion.div>

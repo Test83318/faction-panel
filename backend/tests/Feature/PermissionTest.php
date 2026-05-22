@@ -6,8 +6,9 @@ use App\Models\Role;
 
 test('superadmin has all permissions', function () {
     $user = User::factory()->create(['is_superadmin' => true]);
+    $faction = Faction::factory()->create();
     
-    expect($user->hasPermission('any_perm', 1))->toBeTrue();
+    expect($user->hasPermission('any_perm', $faction->id))->toBeTrue();
 });
 
 test('faction leader has all local permissions', function () {

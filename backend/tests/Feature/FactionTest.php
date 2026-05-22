@@ -10,6 +10,8 @@ test('authenticated user can create a faction', function () {
         'name' => 'Test Faction',
         'shortname' => 'test-fac',
         'color' => '#FF0000',
+        'visibility' => 'public',
+        'access' => 'invite-only',
     ]);
 
     $response->assertStatus(201)
@@ -32,6 +34,8 @@ test('faction shortname must be unique', function () {
         'name' => 'New Name',
         'shortname' => 'existing',
         'color' => '#00FF00',
+        'visibility' => 'public',
+        'access' => 'invite-only',
     ]);
 
     $response->assertStatus(422);
@@ -40,7 +44,12 @@ test('faction shortname must be unique', function () {
 test('user can join a faction', function () {
     $user = User::factory()->create();
     $creator = User::factory()->create();
-    $faction = Faction::factory()->create(['shortname' => 'join-me', 'faction_leader' => $creator->id, 'created_by' => $creator->id]);
+    $faction = Faction::factory()->create([
+        'shortname' => 'join-me',
+        'faction_leader' => $creator->id,
+        'created_by' => $creator->id,
+        'access' => 'joinable',
+    ]);
 
     $response = $this->actingAs($user)->postJson('/api/factions/join', [
         'shortname' => 'join-me',
