@@ -1,9 +1,9 @@
 <?php
 
-use App\Models\User;
 use App\Models\Faction;
 use App\Models\FactionInvite;
 use App\Models\Role;
+use App\Models\User;
 use Carbon\Carbon;
 
 test('list active invites vs inactive invites', function () {

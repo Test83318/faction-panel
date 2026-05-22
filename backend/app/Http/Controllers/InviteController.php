@@ -4,20 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Models\Faction;
 use App\Models\FactionInvite;
-use App\Models\User;
 use App\Models\Role;
-use Illuminate\Http\Request;
-use Illuminate\Support\Str;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class InviteController extends Controller
 {
     public function index(Request $request, $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'manage_invites')) {
+
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'manage_invites')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -25,19 +25,19 @@ class InviteController extends Controller
         $query = $faction->invites()->with(['creator:id,username', 'role'])->latest();
 
         if ($status === 'active') {
-            $query->where(function($q) {
+            $query->where(function ($q) {
                 $q->whereNull('expires_at')
-                  ->orWhere('expires_at', '>', Carbon::now());
-            })->where(function($q) {
+                    ->orWhere('expires_at', '>', Carbon::now());
+            })->where(function ($q) {
                 $q->whereNull('max_uses')
-                  ->orWhereRaw('uses < max_uses');
+                    ->orWhereRaw('uses < max_uses');
             });
-        } else if ($status === 'inactive') {
-            $query->where(function($q) {
-                $q->where(function($sub) {
+        } elseif ($status === 'inactive') {
+            $query->where(function ($q) {
+                $q->where(function ($sub) {
                     $sub->whereNotNull('expires_at')
                         ->where('expires_at', '<=', Carbon::now());
-                })->orWhere(function($sub) {
+                })->orWhere(function ($sub) {
                     $sub->whereNotNull('max_uses')
                         ->whereRaw('uses >= max_uses');
                 });
@@ -52,8 +52,8 @@ class InviteController extends Controller
     public function store(Request $request, $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'manage_invites')) {
+
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'manage_invites')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -78,7 +78,7 @@ class InviteController extends Controller
 
         $expiresAt = null;
         if ($request->duration !== 'never') {
-            $expiresAt = match($request->duration) {
+            $expiresAt = match ($request->duration) {
                 '1h' => Carbon::now()->addHour(),
                 '3h' => Carbon::now()->addHours(3),
                 '6h' => Carbon::now()->addHours(6),
@@ -106,7 +106,7 @@ class InviteController extends Controller
         $invite = FactionInvite::findOrFail($id);
         $faction = $invite->faction;
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'manage_invites')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'manage_invites')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -120,7 +120,7 @@ class InviteController extends Controller
         $invite = FactionInvite::where('code', $code)->firstOrFail();
         $faction = $invite->faction;
 
-        if (!$invite->isValid()) {
+        if (! $invite->isValid()) {
             return response()->json(['message' => 'This invite has expired or reached its usage limit.'], 410);
         }
 
@@ -142,7 +142,7 @@ class InviteController extends Controller
                 'expires_at' => $invite->expires_at,
                 'max_uses' => $invite->max_uses,
                 'uses' => $invite->uses,
-            ]
+            ],
         ]);
     }
 
@@ -151,7 +151,7 @@ class InviteController extends Controller
         $invite = FactionInvite::where('code', $code)->firstOrFail();
         $faction = $invite->faction;
 
-        if (!$invite->isValid()) {
+        if (! $invite->isValid()) {
             return response()->json(['message' => 'This invite has expired or reached its usage limit.'], 410);
         }
 
@@ -179,7 +179,7 @@ class InviteController extends Controller
         }
 
         return response()->json([
-            'message' => 'Successfully joined ' . $faction->name,
+            'message' => 'Successfully joined '.$faction->name,
             'shortname' => $faction->shortname,
         ]);
     }

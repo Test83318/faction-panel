@@ -3,17 +3,16 @@
 namespace App\Models;
 
 use App\Traits\Auditable;
+use Database\Factories\FactionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Support\Facades\Storage;
 
 class Faction extends Model
 {
-    /** @use HasFactory<\Database\Factories\FactionFactory> */
-    use HasFactory, SoftDeletes, Auditable;
+    /** @use HasFactory<FactionFactory> */
+    use Auditable, HasFactory, SoftDeletes;
 
     protected $appends = ['allow_branding'];
 
@@ -64,26 +63,32 @@ class Faction extends Model
 
     private function resolveBrandingUrl($value)
     {
-        if (!$value) return null;
-        if (str_starts_with($value, 'http')) return $value;
-        
-        $baseUrl = env('STORAGE_URL');
-        if (!$baseUrl) {
-            $baseUrl = rtrim(config('app.url'), '/') . '/storage';
+        if (! $value) {
+            return null;
         }
-        
-        return rtrim($baseUrl, '/') . '/' . ltrim($value, '/');
+        if (str_starts_with($value, 'http')) {
+            return $value;
+        }
+
+        $baseUrl = env('STORAGE_URL');
+        if (! $baseUrl) {
+            $baseUrl = rtrim(config('app.url'), '/').'/storage';
+        }
+
+        return rtrim($baseUrl, '/').'/'.ltrim($value, '/');
     }
 
     private function stripStorageUrl($value)
     {
-        if (!$value) return null;
-        
+        if (! $value) {
+            return null;
+        }
+
         // Try both possible bases
         $bases = array_filter([
             env('STORAGE_URL'),
-            rtrim(config('app.url'), '/') . '/storage',
-            rtrim(Storage::disk('public')->url(''), '/')
+            rtrim(config('app.url'), '/').'/storage',
+            rtrim(Storage::disk('public')->url(''), '/'),
         ]);
 
         foreach ($bases as $base) {
@@ -92,7 +97,7 @@ class Faction extends Model
                 return ltrim(str_replace($base, '', $value), '/');
             }
         }
-        
+
         return $value;
     }
 
@@ -135,9 +140,9 @@ class Faction extends Model
         static::deleting(function ($faction) {
             // When soft deleting, we want to "free up" the unique constraints
             // so a user can create a new faction with the same name or link the same GTAW ID.
-            if (!$faction->isForceDeleting()) {
+            if (! $faction->isForceDeleting()) {
                 $now = now()->timestamp;
-                $faction->shortname = $faction->shortname . '::deleted_' . $now;
+                $faction->shortname = $faction->shortname.'::deleted_'.$now;
                 $faction->gtaw_faction_id = null; // Setting to null frees up the unique integer constraint
                 $faction->save();
             }

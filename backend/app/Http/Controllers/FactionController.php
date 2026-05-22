@@ -4,8 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Faction;
 use App\Models\User;
-use App\Models\AuditLog;
-use App\Http\Controllers\FactionSnapshotController;
+use App\Services\DynamicSectionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -24,7 +23,7 @@ class FactionController extends Controller
 
         if ($createdFactionsCount >= $user->max_factions) {
             return response()->json([
-                'message' => "You have reached your limit of {$user->max_factions} created factions."
+                'message' => "You have reached your limit of {$user->max_factions} created factions.",
             ], 403);
         }
 
@@ -57,12 +56,12 @@ class FactionController extends Controller
 
         // Assign permissions
         $allPermissions = config('permissions.categories');
-        
+
         foreach ($allPermissions as $category) {
             foreach ($category['permissions'] as $key => $details) {
                 // Admin gets YES for everything
                 $adminRole->permissions()->create(['permission_key' => $key, 'value' => 'YES']);
-                
+
                 // User gets basic
                 $userValue = ($key === 'view_faction_roster') ? 'YES' : 'NO';
                 $userRole->permissions()->create(['permission_key' => $key, 'value' => $userValue]);
@@ -104,33 +103,28 @@ class FactionController extends Controller
         }
 
         $canViewGlobal = in_array('view_faction_roster', $permissions);
-        
-        // Faction Detail View Check
-        if (!$canViewGlobal) {
-            $canViewAnyRoster = false;
-            foreach ($faction->rosters as $roster) {
-                if (User::hasRosterPermission($user, $roster, 'view_roster')) {
-                    $canViewAnyRoster = true;
-                    break;
-                }
+
+        // Include Roster Data
+        $rosters = $faction->rosters()
+            ->with(['rootSections.children', 'rootSections.contents.editor'])
+            ->orderBy('order')
+            ->orderBy('id')
+            ->get();
+
+        $filteredRosters = $rosters->filter(function ($roster) use ($user, $canViewGlobal) {
+            // If this roster has explicit permission entries, always enforce them —
+            // even global viewers (view_faction_roster) are subject to per-roster access control.
+            $hasExplicitPerms = $roster->rosterPermissions()->exists();
+            if ($hasExplicitPerms) {
+                return User::hasRosterPermission($user, $roster, 'view_roster');
             }
-            if (!$canViewAnyRoster) {
-                return response()->json(['message' => 'Forbidden'], 403);
-            }
-        } else {
-            // Global viewer: still check if they can see at least one roster
-            // (accounts for factions where ALL rosters have explicit permission entries)
-            $canViewAnyRoster = false;
-            foreach ($faction->rosters as $roster) {
-                $hasExplicitPerms = $roster->rosterPermissions()->exists();
-                if (!$hasExplicitPerms || User::hasRosterPermission($user, $roster, 'view_roster')) {
-                    $canViewAnyRoster = true;
-                    break;
-                }
-            }
-            if (!$canViewAnyRoster) {
-                return response()->json(['message' => 'Forbidden'], 403);
-            }
+
+            // No explicit permissions: fall back to global permission
+            return $canViewGlobal || User::hasRosterPermission($user, $roster, 'view_roster');
+        })->values();
+
+        if ($filteredRosters->isEmpty()) {
+            return response()->json(['message' => 'Forbidden'], 403);
         }
 
         if ($user) {
@@ -143,7 +137,7 @@ class FactionController extends Controller
                 ->where('faction_id', $faction->id)
                 ->orderByDesc('weight')
                 ->first();
-                
+
             $faction->user_highest_role = $highestRole;
             $faction->user_primary_role = $primaryRole ?? $highestRole;
         }
@@ -151,30 +145,23 @@ class FactionController extends Controller
         // Active Users Tracking (Online in last 60 seconds)
         $onlineUsers = $faction->users()
             ->where('last_roster_activity', '>=', now()->subSeconds(60))
-            ->with(['roles' => function($query) use ($faction) {
+            ->with(['roles' => function ($query) use ($faction) {
                 $query->where('faction_id', $faction->id)->where('type', 'primary');
             }])
             ->get()
-            ->map(function($u) {
+            ->map(function ($u) {
                 return [
                     'id' => $u->id,
                     'username' => $u->username,
-                    'avatar_url' => $u->avatar_url, // Assuming there is one, if not we'll handle it
+                    'avatar_url' => $u->avatar_url,
                     'current_roster_id' => $u->pivot->current_roster_id,
-                    'primary_role' => $u->roles->first()
+                    'primary_role' => $u->roles->first(),
                 ];
             });
 
-        // Include Roster Data
-        $rosters = $faction->rosters()
-            ->with(['rootSections.children', 'rootSections.contents.editor'])
-            ->orderBy('order')
-            ->orderBy('id')
-            ->get();
-        
-        // Resolve dynamic sections
-        $dynamicService = new \App\Services\DynamicSectionService();
-        $resolveDynamic = function($sections) use (&$resolveDynamic, $dynamicService, $faction) {
+        // Resolve dynamic sections ONLY for the filtered rosters
+        $dynamicService = new DynamicSectionService;
+        $resolveDynamic = function ($sections) use (&$resolveDynamic, $dynamicService, $faction) {
             foreach ($sections as $section) {
                 if ($section->data_source === 'dynamic') {
                     $dynamicService->resolve($section, $faction);
@@ -185,24 +172,13 @@ class FactionController extends Controller
             }
         };
 
-        foreach ($rosters as $roster) {
+        foreach ($filteredRosters as $roster) {
             $resolveDynamic($roster->rootSections);
         }
-        
-        $filteredRosters = $rosters->filter(function ($roster) use ($user, $canViewGlobal) {
-            // If this roster has explicit permission entries, always enforce them —
-            // even global viewers (view_faction_roster) are subject to per-roster access control.
-            $hasExplicitPerms = $roster->rosterPermissions()->exists();
-            if ($hasExplicitPerms) {
-                return User::hasRosterPermission($user, $roster, 'view_roster');
-            }
-            // No explicit permissions: fall back to global permission
-            return $canViewGlobal || User::hasRosterPermission($user, $roster, 'view_roster');
-        })->values();
 
         $filteredRosters->each(function ($roster) use ($user) {
             $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
-            
+
             $perms = [
                 'view_roster' => User::hasRosterPermission($user, $roster, 'view_roster'),
                 'modify_roster' => User::hasRosterPermission($user, $roster, 'modify_roster'),
@@ -215,7 +191,22 @@ class FactionController extends Controller
                 'view_hidden_data' => $canViewHidden,
             ];
             $roster->user_roster_permissions = $perms;
+
+            // Apply data masking if user cannot view hidden data
+            if (! $canViewHidden) {
+                $hiddenColIds = collect($roster->columns ?? [])
+                    ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
+                    ->pluck('id')
+                    ->toArray();
+
+                foreach ($roster->rootSections as $section) {
+                    $this->maskSection($section, $hiddenColIds, $roster);
+                }
+            }
         });
+
+        // Ensure rosters relation is NOT loaded or serialized on faction model to prevent unmasked data leakage
+        $faction->unsetRelation('rosters');
 
         // Include Datasets
         $datasets = $faction->rosterDatasets()
@@ -232,7 +223,7 @@ class FactionController extends Controller
                 $query->where('is_active', true);
             }])
             ->get()
-            ->filter(fn($db) => User::hasRecordPermission($user, $db, 'view_database'))
+            ->filter(fn ($db) => User::hasRecordPermission($user, $db, 'view_database'))
             ->values();
 
         return response()->json([
@@ -242,27 +233,28 @@ class FactionController extends Controller
             'datasets' => $datasets,
             'flags' => $flags,
             'record_data' => $publishedDatabases,
-            'online_users' => $onlineUsers
+            'online_users' => $onlineUsers,
         ]);
     }
+
     public function update(Request $request, Faction $faction)
     {
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'modify_faction_details')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'modify_faction_details')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         $user = Auth::user();
         $premiumFields = [
-            'header_image_dark', 
+            'header_image_dark',
             'header_image_light',
-            'favicon', 
-            'header_link_to_faction', 
-            'hide_panel_header', 
-            'custom_footer_text', 
-            'header_bg_color', 
-            'header_gradient_enabled', 
-            'header_gradient_color', 
-            'header_gradient_direction'
+            'favicon',
+            'header_link_to_faction',
+            'hide_panel_header',
+            'custom_footer_text',
+            'header_bg_color',
+            'header_gradient_enabled',
+            'header_gradient_color',
+            'header_gradient_direction',
         ];
 
         $attemptingPremium = false;
@@ -273,9 +265,9 @@ class FactionController extends Controller
             }
         }
 
-        if ($attemptingPremium && !$user->allow_custom_branding) {
-             return response()->json([
-                'message' => 'Advanced branding is a restricted feature.'
+        if ($attemptingPremium && ! $user->allow_custom_branding) {
+            return response()->json([
+                'message' => 'Advanced branding is a restricted feature.',
             ], 403);
         }
 
@@ -302,7 +294,7 @@ class FactionController extends Controller
             'roster_template' => 'sometimes|nullable|array',
         ]);
 
-        if (isset($validated['faction_leader']) && $faction->faction_leader !== Auth::id() && !Auth::user()->is_superadmin) {
+        if (isset($validated['faction_leader']) && $faction->faction_leader !== Auth::id() && ! Auth::user()->is_superadmin) {
             return response()->json(['message' => 'Only the faction leader can transfer leadership.'], 403);
         }
 
@@ -313,7 +305,7 @@ class FactionController extends Controller
 
     public function destroy(Faction $faction)
     {
-        if ($faction->faction_leader !== Auth::id() && !Auth::user()->is_superadmin) {
+        if ($faction->faction_leader !== Auth::id() && ! Auth::user()->is_superadmin) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -329,7 +321,7 @@ class FactionController extends Controller
         ]);
 
         $faction = Faction::where('shortname', $request->shortname)->firstOrFail();
-        
+
         // Only allow joining if access is 'joinable'
         if ($faction->access !== 'joinable') {
             return response()->json(['message' => 'This faction is not currently open for joining.'], 403);
@@ -392,22 +384,22 @@ class FactionController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::user();
-        
-        if (!User::hasFactionPermission($user, $faction, 'view_users') && 
-            !User::hasFactionPermission($user, $faction, 'manage_group_members') &&
-            !$user->isGroupLeaderInFaction($faction->id)) {
+
+        if (! User::hasFactionPermission($user, $faction, 'view_users') &&
+            ! User::hasFactionPermission($user, $faction, 'manage_group_members') &&
+            ! $user->isGroupLeaderInFaction($faction->id)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         $search = $request->query('search');
-        $query = $faction->users()->with(['roles' => function($query) use ($faction) {
+        $query = $faction->users()->with(['roles' => function ($query) use ($faction) {
             $query->where('faction_id', $faction->id);
         }]);
 
         if ($search) {
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('username', 'like', "%{$search}%")
-                  ->orWhere('gtaw_username', 'like', "%{$search}%");
+                    ->orWhere('gtaw_username', 'like', "%{$search}%");
             });
         }
 
@@ -422,13 +414,13 @@ class FactionController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::user();
-        
-        if (!User::hasFactionPermission($user, $faction, 'view_users')) {
+
+        if (! User::hasFactionPermission($user, $faction, 'view_users')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         $memberWithPivot = $faction->users()->where('users.id', $member->id)->firstOrFail();
-        $memberWithPivot->load(['roles' => function($query) use ($faction) {
+        $memberWithPivot->load(['roles' => function ($query) use ($faction) {
             $query->where('faction_id', $faction->id);
         }]);
 
@@ -446,7 +438,7 @@ class FactionController extends Controller
 
     public function removeMember(Faction $faction, User $user)
     {
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'remove_users')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'remove_users')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -462,7 +454,7 @@ class FactionController extends Controller
         }
 
         $faction->users()->detach($user->id);
-        
+
         // Also remove faction roles
         $roles = $faction->roles()->pluck('roles.id');
         $user->roles()->detach($roles);
@@ -472,7 +464,7 @@ class FactionController extends Controller
 
     public function updateMemberRoles(Faction $faction, User $user, Request $request)
     {
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'change_ranks')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'change_ranks')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -483,7 +475,7 @@ class FactionController extends Controller
         $myWeight = Auth::user()->getHighestRoleWeight($faction->id);
         $targetWeight = $user->getHighestRoleWeight($faction->id);
 
-        if ($targetWeight >= $myWeight && !Auth::user()->is_superadmin && $faction->faction_leader !== Auth::id()) {
+        if ($targetWeight >= $myWeight && ! Auth::user()->is_superadmin && $faction->faction_leader !== Auth::id()) {
             return response()->json(['message' => 'Cannot change roles of a user with equal or higher weight than your own.'], 403);
         }
 
@@ -516,5 +508,38 @@ class FactionController extends Controller
         $user->roles()->sync(array_merge($otherRoles, $request->role_ids));
 
         return response()->json(['message' => 'User roles updated.']);
+    }
+
+    private function maskSection($section, array $rosterHiddenColIds, $roster = null)
+    {
+        $hiddenColIds = $rosterHiddenColIds;
+        if ($section->columns) {
+            $hiddenColIds = collect($section->columns)
+                ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
+                ->pluck('id')
+                ->toArray();
+        }
+
+        // Mask contents of this section
+        if ($section->contents) {
+            foreach ($section->contents as $content) {
+                $data = $content->content;
+                if (is_array($data)) {
+                    foreach ($hiddenColIds as $colId) {
+                        if (isset($data[$colId]) && $data[$colId] !== '') {
+                            $data[$colId] = '????';
+                        }
+                    }
+                    $content->content = $data;
+                }
+            }
+        }
+
+        // Recursively mask children
+        if ($section->children) {
+            foreach ($section->children as $child) {
+                $this->maskSection($child, $rosterHiddenColIds, $roster);
+            }
+        }
     }
 }

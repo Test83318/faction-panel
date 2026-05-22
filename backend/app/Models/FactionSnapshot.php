@@ -12,7 +12,7 @@ class FactionSnapshot extends Model
         'description',
         'data',
         'type',
-        'created_by'
+        'created_by',
     ];
 
     protected $casts = [

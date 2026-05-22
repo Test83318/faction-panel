@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Faction;
+use App\Models\FactionRecordDatabase;
 use App\Models\Roster;
 use App\Models\RosterContent;
+use App\Models\RosterDataset;
 use App\Models\RosterSection;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -15,13 +17,15 @@ class RosterController extends Controller
     private function cleanUpOrphanedData($target, array $columns)
     {
         $oldColumns = $target->getOriginal('columns') ?? [];
-        if (!is_array($oldColumns)) $oldColumns = [];
+        if (! is_array($oldColumns)) {
+            $oldColumns = [];
+        }
 
         // Map of oldLabel => newLabel for renames, per column
         // Also tracks if we need a full sweep for color/icon (though those are usually handled by rendering if we don't store them in content)
-        // Actually, content ONLY stores the labels (strings). 
+        // Actually, content ONLY stores the labels (strings).
         // So if a label changes, we MUST update the strings in the content JSON.
-        
+
         $renameMap = [];
         $validMap = [];
         $clearMap = [];
@@ -29,13 +33,13 @@ class RosterController extends Controller
         foreach ($columns as $newCol) {
             $colId = $newCol['id'];
             $oldCol = collect($oldColumns)->firstWhere('id', $colId);
-            
-            $newCbLabels = collect($newCol['checkboxes'] ?? [])->map(fn($cb) => is_string($cb) ? $cb : ($cb['label'] ?? null))->filter()->toArray();
-            $newTagLabels = collect($newCol['tags'] ?? [])->map(fn($tag) => is_string($tag) ? $tag : ($tag['label'] ?? null))->filter()->toArray();
-            
+
+            $newCbLabels = collect($newCol['checkboxes'] ?? [])->map(fn ($cb) => is_string($cb) ? $cb : ($cb['label'] ?? null))->filter()->toArray();
+            $newTagLabels = collect($newCol['tags'] ?? [])->map(fn ($tag) => is_string($tag) ? $tag : ($tag['label'] ?? null))->filter()->toArray();
+
             $validMap[$colId] = [
                 'checkboxes' => $newCbLabels,
-                'tags' => $newTagLabels
+                'tags' => $newTagLabels,
             ];
 
             if ($oldCol) {
@@ -46,7 +50,7 @@ class RosterController extends Controller
 
                 $oldCbs = $oldCol['checkboxes'] ?? [];
                 $newCbs = $newCol['checkboxes'] ?? [];
-                
+
                 // If the count is the same, we check for index-based renames
                 if (count($oldCbs) === count($newCbs)) {
                     foreach ($oldCbs as $idx => $oldCb) {
@@ -87,7 +91,9 @@ class RosterController extends Controller
 
         foreach ($contents as $content) {
             $data = $content->content;
-            if (!$data || !is_array($data)) continue;
+            if (! $data || ! is_array($data)) {
+                continue;
+            }
 
             $changed = false;
             foreach ($clearMap as $colId) {
@@ -102,36 +108,40 @@ class RosterController extends Controller
                 $cbKey = "{$colId}_cb";
                 if (isset($data[$cbKey]) && is_array($data[$cbKey])) {
                     $original = $data[$cbKey];
-                    
+
                     // 1. Apply renames
                     if (isset($renameMap[$colId]['checkboxes'])) {
-                        $data[$cbKey] = array_map(function($val) use ($renameMap, $colId) {
+                        $data[$cbKey] = array_map(function ($val) use ($renameMap, $colId) {
                             return $renameMap[$colId]['checkboxes'][$val] ?? $val;
                         }, $data[$cbKey]);
                     }
 
                     // 2. Filter out orphans
                     $data[$cbKey] = array_values(array_intersect($data[$cbKey], $valids['checkboxes']));
-                    
-                    if ($original !== $data[$cbKey]) $changed = true;
+
+                    if ($original !== $data[$cbKey]) {
+                        $changed = true;
+                    }
                 }
 
                 // Handle Tags
                 $tagKey = "{$colId}_tags";
                 if (isset($data[$tagKey]) && is_array($data[$tagKey])) {
                     $original = $data[$tagKey];
-                    
+
                     // 1. Apply renames
                     if (isset($renameMap[$colId]['tags'])) {
-                        $data[$tagKey] = array_map(function($val) use ($renameMap, $colId) {
+                        $data[$tagKey] = array_map(function ($val) use ($renameMap, $colId) {
                             return $renameMap[$colId]['tags'][$val] ?? $val;
                         }, $data[$tagKey]);
                     }
 
                     // 2. Filter out orphans
                     $data[$tagKey] = array_values(array_intersect($data[$tagKey], $valids['tags']));
-                    
-                    if ($original !== $data[$tagKey]) $changed = true;
+
+                    if ($original !== $data[$tagKey]) {
+                        $changed = true;
+                    }
                 }
             }
 
@@ -150,13 +160,13 @@ class RosterController extends Controller
         // If user has view_faction_roster, they see everything by default.
         // If not, they might still see specific rosters if they have permission.
         $isGlobalViewer = User::hasFactionPermission($user, $faction, 'view_faction_roster');
-        
+
         $rosters = $faction->rosters()
             ->with(['rootSections.children', 'rootSections.contents.editor'])
             ->orderBy('order')
             ->orderBy('id')
             ->get();
-        
+
         $filteredRosters = $rosters->filter(function ($roster) use ($user, $isGlobalViewer) {
             // If this roster has explicit permission entries, always enforce them —
             // even global viewers (view_faction_roster) are subject to per-roster access control.
@@ -164,18 +174,19 @@ class RosterController extends Controller
             if ($hasExplicitPerms) {
                 return User::hasRosterPermission($user, $roster, 'view_roster');
             }
+
             // No explicit permissions: fall back to global permission
             return $isGlobalViewer || User::hasRosterPermission($user, $roster, 'view_roster');
         });
 
-        if ($filteredRosters->isEmpty() && !$isGlobalViewer) {
-             // If they have no global permission and no specific roster permissions, they get Forbidden
-             return response()->json(['message' => 'Forbidden'], 403);
+        if ($filteredRosters->isEmpty() && ! $isGlobalViewer) {
+            // If they have no global permission and no specific roster permissions, they get Forbidden
+            return response()->json(['message' => 'Forbidden'], 403);
         }
 
         $filteredRosters->each(function ($roster) use ($user) {
             $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
-            
+
             $perms = [
                 'view_roster' => User::hasRosterPermission($user, $roster, 'view_roster'),
                 'modify_roster' => User::hasRosterPermission($user, $roster, 'modify_roster'),
@@ -190,16 +201,14 @@ class RosterController extends Controller
             $roster->user_roster_permissions = $perms;
 
             // Apply data masking if user cannot view hidden data
-            if (!$canViewHidden) {
+            if (! $canViewHidden) {
                 $hiddenColIds = collect($roster->columns ?? [])
-                    ->filter(fn($col) => str_contains($col['type'] ?? '', 'hidden'))
+                    ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
                     ->pluck('id')
                     ->toArray();
 
-                if (!empty($hiddenColIds)) {
-                    foreach ($roster->rootSections as $section) {
-                        $this->maskSection($section, $hiddenColIds);
-                    }
+                foreach ($roster->rootSections as $section) {
+                    $this->maskSection($section, $hiddenColIds, $roster);
                 }
             }
         });
@@ -207,8 +216,16 @@ class RosterController extends Controller
         return response()->json($filteredRosters->values());
     }
 
-    private function maskSection($section, array $hiddenColIds)
+    private function maskSection($section, array $rosterHiddenColIds, $roster = null)
     {
+        $hiddenColIds = $rosterHiddenColIds;
+        if ($section->columns) {
+            $hiddenColIds = collect($section->columns)
+                ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
+                ->pluck('id')
+                ->toArray();
+        }
+
         // Mask contents of this section
         if ($section->contents) {
             foreach ($section->contents as $content) {
@@ -227,7 +244,7 @@ class RosterController extends Controller
         // Recursively mask children
         if ($section->children) {
             foreach ($section->children as $child) {
-                $this->maskSection($child, $hiddenColIds);
+                $this->maskSection($child, $rosterHiddenColIds, $roster);
             }
         }
     }
@@ -236,7 +253,7 @@ class RosterController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'create_roster')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'create_roster')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -251,7 +268,7 @@ class RosterController extends Controller
         ]);
 
         $validated['shortname'] = strtoupper($validated['shortname']);
-        
+
         // Get next order
         $maxOrder = $faction->rosters()->max('order') ?? -1;
 
@@ -259,7 +276,7 @@ class RosterController extends Controller
             ['id' => 'rank', 'name' => 'Rank', 'type' => 'dropdown', 'options' => [], 'checkboxes' => ['Acting']],
             ['id' => 'name', 'name' => 'Name', 'type' => 'text', 'checkboxes' => ['LOA']],
             ['id' => 'position', 'name' => 'Position', 'type' => 'text', 'checkboxes' => []],
-            ['id' => 'callsign', 'name' => 'Callsign', 'type' => 'text', 'checkboxes' => []]
+            ['id' => 'callsign', 'name' => 'Callsign', 'type' => 'text', 'checkboxes' => []],
         ];
 
         $template = $faction->roster_template ?? [];
@@ -297,7 +314,7 @@ class RosterController extends Controller
         $canManageLayout = User::hasRosterPermission($user, $roster, 'manage_layout');
         $canManageColumns = User::hasRosterPermission($user, $roster, 'manage_columns');
 
-        if (!$canModify && !$canManageLayout && !$canManageColumns) {
+        if (! $canModify && ! $canManageLayout && ! $canManageColumns) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -319,15 +336,19 @@ class RosterController extends Controller
 
         // Critical settings (name, color, shortname) -> modify_roster
         if ($canModify) {
-            foreach(['name', 'shortname', 'color', 'roster_options', 'counts', 'created_by'] as $field) {
-                if (isset($validated[$field]) || array_key_exists($field, $validated)) $toUpdate[$field] = $validated[$field];
+            foreach (['name', 'shortname', 'color', 'roster_options', 'counts', 'created_by'] as $field) {
+                if (isset($validated[$field]) || array_key_exists($field, $validated)) {
+                    $toUpdate[$field] = $validated[$field];
+                }
             }
         }
 
         // Layout settings -> manage_layout
         if ($canManageLayout) {
-            foreach(['layout_settings', 'default_sections_per_row', 'section_order'] as $field) {
-                if (isset($validated[$field])) $toUpdate[$field] = $validated[$field];
+            foreach (['layout_settings', 'default_sections_per_row', 'section_order'] as $field) {
+                if (isset($validated[$field])) {
+                    $toUpdate[$field] = $validated[$field];
+                }
             }
         }
 
@@ -339,8 +360,8 @@ class RosterController extends Controller
             }
         }
 
-        if (empty($toUpdate) && !isset($validated['section_order'])) {
-             return response()->json(['message' => 'No authorized changes provided'], 403);
+        if (empty($toUpdate) && ! isset($validated['section_order'])) {
+            return response()->json(['message' => 'No authorized changes provided'], 403);
         }
 
         $roster->update(collect($toUpdate)->except('section_order')->toArray());
@@ -356,7 +377,7 @@ class RosterController extends Controller
 
     public function destroy(Roster $roster)
     {
-        if (!User::hasRosterPermission(Auth::user(), $roster, 'modify_roster')) {
+        if (! User::hasRosterPermission(Auth::user(), $roster, 'modify_roster')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -384,72 +405,81 @@ class RosterController extends Controller
             $rowId = $link['row_id'] ?? null;
             $colId = $link['col_id'] ?? null;
 
-            if (!$rosterId || !$rowId || !$colId) {
+            if (! $rosterId || ! $rowId || ! $colId) {
                 $results[] = '-';
+
                 continue;
             }
 
             $content = $contents->get($rowId);
-            if (!$content || $content->section->roster_id != $rosterId) {
+            if (! $content || $content->section->roster_id != $rosterId) {
                 $results[] = '-';
+
                 continue;
             }
 
             // Check if user can view this roster
-            if (!User::hasRosterPermission($user, $content->section->roster, 'view_roster')) {
+            if (! User::hasRosterPermission($user, $content->section->roster, 'view_roster')) {
                 $results[] = '-';
+
                 continue;
             }
 
             $value = $content->content[$colId] ?? '-';
-            
+
             // Resolve label if it's a dataset/predefined type
-            if (!isset($rosterCache[$rosterId])) {
+            if (! isset($rosterCache[$rosterId])) {
                 $rosterCache[$rosterId] = $content->section->roster;
             }
             $roster = $rosterCache[$rosterId];
-            
+
             $col = collect($roster->columns ?? [])->firstWhere('id', $colId);
-            if (!$col) {
+            if (! $col) {
                 $col = collect($content->section->columns ?? [])->firstWhere('id', $colId);
             }
 
             // Mask if it's a hidden column and user doesn't have permission
             if ($col && str_contains($col['type'] ?? '', 'hidden')) {
-                if (!User::hasRosterPermission($user, $roster, 'view_hidden_data')) {
+                if (! User::hasRosterPermission($user, $roster, 'view_hidden_data')) {
                     $results[] = '????';
+
                     continue;
                 }
             }
 
             if ($col && isset($col['dataset_id'])) {
                 $datasetId = $col['dataset_id'];
-                if (!isset($datasetCache[$datasetId])) {
-                    $datasetCache[$datasetId] = \App\Models\RosterDataset::find($datasetId);
+                if (! isset($datasetCache[$datasetId])) {
+                    $datasetCache[$datasetId] = RosterDataset::find($datasetId);
                 }
                 $dataset = $datasetCache[$datasetId];
 
                 if ($dataset) {
                     if ($dataset->record_database_id) {
-                        $db = \App\Models\FactionRecordDatabase::find($dataset->record_database_id);
+                        $db = FactionRecordDatabase::find($dataset->record_database_id);
                         if ($db && is_numeric($value)) {
                             $entry = $db->entries()->where('entry_id', $value)->first();
                             if ($entry) {
                                 $fieldId = $col['database_field_id'] ?? $db->database_structure[0]['id'] ?? 'id';
-                                if ($fieldId === 'id') $value = $entry->entry_id;
-                                else $value = $entry->data[$fieldId] ?? $value;
+                                if ($fieldId === 'id') {
+                                    $value = $entry->entry_id;
+                                } else {
+                                    $value = $entry->data[$fieldId] ?? $value;
+                                }
                             }
                         }
                     } else {
                         if (is_numeric($value)) {
                             $option = $dataset->options()->where('id', $value)->first();
-                            if ($option) $value = $option->value;
+                            if ($option) {
+                                $value = $option->value;
+                            }
                         }
                     }
                 }
             }
 
-            $results[] = (string)$value;
+            $results[] = (string) $value;
         }
 
         return response()->json(['results' => $results]);
@@ -459,7 +489,7 @@ class RosterController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

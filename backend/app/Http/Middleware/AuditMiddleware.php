@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\AuditLog;
+use App\Models\Faction;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,7 +14,7 @@ class AuditMiddleware
     /**
      * Handle an incoming request.
      *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     * @param  Closure(Request): (Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
@@ -36,11 +37,11 @@ class AuditMiddleware
         $route = $request->route();
         $factionParam = $route?->parameter('faction') ?? $route?->parameter('shortname');
         $factionId = null;
-        
+
         if ($factionParam) {
-            $factionId = $factionParam instanceof \App\Models\Faction ? $factionParam->id : $factionParam;
-            if (!is_numeric($factionId)) {
-                $factionId = \App\Models\Faction::where('shortname', $factionId)->first()?->id;
+            $factionId = $factionParam instanceof Faction ? $factionParam->id : $factionParam;
+            if (! is_numeric($factionId)) {
+                $factionId = Faction::where('shortname', $factionId)->first()?->id;
             }
         }
 
@@ -52,7 +53,7 @@ class AuditMiddleware
         AuditLog::create([
             'faction_id' => $factionId,
             'user_id' => Auth::id(),
-            'event' => strtolower($request->method()) . '_request',
+            'event' => strtolower($request->method()).'_request',
             'url' => $request->fullUrl(),
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
@@ -65,7 +66,7 @@ class AuditMiddleware
     {
         $route = $request->route();
         $routeName = $route?->getName();
-        
+
         // Define routes that should be audited for "visits"
         $auditableRoutes = [
             'factions.rosters.index',
@@ -78,10 +79,10 @@ class AuditMiddleware
 
         if (in_array($routeName, $auditableRoutes)) {
             $factionParam = $route->parameter('faction') ?? $route->parameter('shortname');
-            $factionId = $factionParam instanceof \App\Models\Faction ? $factionParam->id : $factionParam;
-            
-            if (!is_numeric($factionId)) {
-                $factionId = \App\Models\Faction::where('shortname', $factionId)->first()?->id;
+            $factionId = $factionParam instanceof Faction ? $factionParam->id : $factionParam;
+
+            if (! is_numeric($factionId)) {
+                $factionId = Faction::where('shortname', $factionId)->first()?->id;
             }
 
             // Avoid duplicate visit logs in a short period (e.g., 5 minutes)
@@ -91,7 +92,7 @@ class AuditMiddleware
                 ->where('created_at', '>=', now()->subMinutes(5))
                 ->exists();
 
-            if (!$exists) {
+            if (! $exists) {
                 AuditLog::create([
                     'faction_id' => $factionId,
                     'user_id' => Auth::id(),

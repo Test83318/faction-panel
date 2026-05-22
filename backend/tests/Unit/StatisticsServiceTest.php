@@ -6,7 +6,7 @@ use App\Services\StatisticsService;
 use ReflectionClass;
 
 test('evaluateCount applies subtraction correctly', function () {
-    $service = new StatisticsService();
+    $service = new StatisticsService;
     $reflection = new ReflectionClass($service);
     $method = $reflection->getMethod('evaluateCount');
     $method->setAccessible(true);
@@ -17,14 +17,14 @@ test('evaluateCount applies subtraction correctly', function () {
             [
                 'type' => 'value',
                 'settings' => ['value' => 12],
-                'operator' => '+'
+                'operator' => '+',
             ],
             [
                 'type' => 'value',
                 'settings' => ['value' => 1],
-                'operator' => '-'
-            ]
-        ]
+                'operator' => '-',
+            ],
+        ],
     ];
 
     $totalRowsProcessed = 0;
@@ -34,7 +34,7 @@ test('evaluateCount applies subtraction correctly', function () {
 });
 
 test('evaluateCount handles brackets and operators correctly', function () {
-    $service = new StatisticsService();
+    $service = new StatisticsService;
     $reflection = new ReflectionClass($service);
     $method = $reflection->getMethod('evaluateCount');
     $method->setAccessible(true);
@@ -45,21 +45,21 @@ test('evaluateCount handles brackets and operators correctly', function () {
             [
                 'type' => 'value',
                 'settings' => ['value' => 12],
-                'operator' => '+'
+                'operator' => '+',
             ],
             [
                 'type' => 'value',
                 'brackets_open' => 1,
                 'settings' => ['value' => 1],
-                'operator' => '-'
+                'operator' => '-',
             ],
             [
                 'type' => 'value',
                 'brackets_close' => 1,
                 'settings' => ['value' => 2],
-                'operator' => '+'
-            ]
-        ]
+                'operator' => '+',
+            ],
+        ],
     ];
 
     $totalRowsProcessed = 0;
@@ -69,7 +69,7 @@ test('evaluateCount handles brackets and operators correctly', function () {
 });
 
 test('evaluateCount handles multiple operations correctly', function () {
-    $service = new StatisticsService();
+    $service = new StatisticsService;
     $reflection = new ReflectionClass($service);
     $method = $reflection->getMethod('evaluateCount');
     $method->setAccessible(true);
@@ -79,19 +79,19 @@ test('evaluateCount handles multiple operations correctly', function () {
         'conditions' => [
             [
                 'type' => 'value',
-                'settings' => ['value' => 10]
+                'settings' => ['value' => 10],
             ],
             [
                 'type' => 'value',
                 'settings' => ['value' => 2],
-                'operator' => '*'
+                'operator' => '*',
             ],
             [
                 'type' => 'value',
                 'settings' => ['value' => 5],
-                'operator' => '+'
-            ]
-        ]
+                'operator' => '+',
+            ],
+        ],
     ];
 
     $totalRowsProcessed = 0;

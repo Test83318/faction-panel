@@ -8,7 +8,9 @@ use Illuminate\Support\Facades\Log;
 class GtawService
 {
     protected string $baseUrl;
+
     protected string $clientId;
+
     protected string $clientSecret;
 
     public function __construct()
@@ -21,9 +23,10 @@ class GtawService
     public function getFactions(string $accessToken)
     {
         $response = Http::withToken($accessToken)->get("{$this->baseUrl}/api/factions");
-        
+
         if ($response->failed()) {
             Log::error('GTA:W Get Factions Failed', ['status' => $response->status(), 'body' => $response->json()]);
+
             return null;
         }
 
@@ -36,6 +39,7 @@ class GtawService
 
         if ($response->failed()) {
             Log::error('GTA:W Get Faction Members Failed', ['status' => $response->status(), 'body' => $response->json(), 'faction_id' => $factionId]);
+
             return null;
         }
 
@@ -48,6 +52,7 @@ class GtawService
 
         if ($response->failed()) {
             Log::error('GTA:W Get Faction ABAS Failed', ['status' => $response->status(), 'body' => $response->json(), 'faction_id' => $factionId]);
+
             return null;
         }
 
@@ -60,6 +65,7 @@ class GtawService
 
         if ($response->failed()) {
             Log::error('GTA:W Get Character Details Failed', ['status' => $response->status(), 'body' => $response->json(), 'char_id' => $characterId]);
+
             return null;
         }
 

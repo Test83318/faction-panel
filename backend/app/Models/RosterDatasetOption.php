@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class RosterDatasetOption extends Model
 {
     use Auditable;
+
     protected $fillable = ['roster_dataset_id', 'value', 'color', 'is_bold', 'order'];
 
     protected $casts = [

@@ -13,7 +13,7 @@ class FactionRecordController extends Controller
     public function index(string $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        
+
         $databases = FactionRecordDatabase::where('faction_id', $faction->id)
             ->with('creator:id,username')
             ->get();
@@ -31,7 +31,7 @@ class FactionRecordController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'create_faction_record_database')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'create_faction_record_database')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -58,15 +58,16 @@ class FactionRecordController extends Controller
 
     public function show(string $shortname, FactionRecordDatabase $database)
     {
-        if (!User::hasRecordPermission(Auth::user(), $database, 'view_database')) {
+        if (! User::hasRecordPermission(Auth::user(), $database, 'view_database')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
         return response()->json($database->load('creator:id,username'));
     }
 
     public function update(Request $request, string $shortname, FactionRecordDatabase $database)
     {
-        if (!User::hasFactionPermission(Auth::user(), $database->faction, 'global_faction_record_moderation') && $database->created_by !== Auth::id()) {
+        if (! User::hasFactionPermission(Auth::user(), $database->faction, 'global_faction_record_moderation') && $database->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -98,11 +99,12 @@ class FactionRecordController extends Controller
 
     public function destroy(string $shortname, FactionRecordDatabase $database)
     {
-        if (!User::hasFactionPermission(Auth::user(), $database->faction, 'global_faction_record_moderation') && $database->created_by !== Auth::id()) {
+        if (! User::hasFactionPermission(Auth::user(), $database->faction, 'global_faction_record_moderation') && $database->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         $database->delete();
+
         return response()->json(null, 204);
     }
 }

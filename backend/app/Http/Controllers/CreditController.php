@@ -15,7 +15,7 @@ class CreditController extends Controller
 
     public function store(Request $request)
     {
-        if (!Auth::user()->is_superadmin) {
+        if (! Auth::user()->is_superadmin) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -23,7 +23,7 @@ class CreditController extends Controller
             'name' => 'required|string|max:255',
             'role' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'order' => 'integer'
+            'order' => 'integer',
         ]);
 
         $credit = Credit::create($validated);
@@ -33,7 +33,7 @@ class CreditController extends Controller
 
     public function update(Request $request, Credit $credit)
     {
-        if (!Auth::user()->is_superadmin) {
+        if (! Auth::user()->is_superadmin) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -41,7 +41,7 @@ class CreditController extends Controller
             'name' => 'required|string|max:255',
             'role' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'order' => 'integer'
+            'order' => 'integer',
         ]);
 
         $credit->update($validated);
@@ -51,7 +51,7 @@ class CreditController extends Controller
 
     public function destroy(Credit $credit)
     {
-        if (!Auth::user()->is_superadmin) {
+        if (! Auth::user()->is_superadmin) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -62,13 +62,13 @@ class CreditController extends Controller
 
     public function reorder(Request $request)
     {
-        if (!Auth::user()->is_superadmin) {
+        if (! Auth::user()->is_superadmin) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'exists:credits,id'
+            'ids.*' => 'exists:credits,id',
         ]);
 
         foreach ($request->ids as $index => $id) {

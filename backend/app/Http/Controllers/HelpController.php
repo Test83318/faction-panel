@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\HelpCategory;
 use App\Models\HelpArticle;
+use App\Models\HelpCategory;
 use Illuminate\Http\Request;
 
 class HelpController extends Controller
@@ -26,22 +26,22 @@ class HelpController extends Controller
             ->where('is_published', true)
             ->with('category')
             ->firstOrFail();
-            
+
         return $article;
     }
 
     public function search(Request $request)
     {
         $query = $request->input('q');
-        
-        if (!$query) {
+
+        if (! $query) {
             return response()->json([]);
         }
 
         return HelpArticle::where('is_published', true)
             ->where(function ($q) use ($query) {
                 $q->where('title', 'like', "%{$query}%")
-                  ->orWhere('content', 'like', "%{$query}%");
+                    ->orWhere('content', 'like', "%{$query}%");
             })
             ->with('category')
             ->limit(10)

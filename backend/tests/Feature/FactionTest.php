@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\User;
 use App\Models\Faction;
+use App\Models\User;
 
 test('authenticated user can create a faction', function () {
     $user = User::factory()->create();
@@ -19,7 +19,7 @@ test('authenticated user can create a faction', function () {
         ->assertJsonPath('shortname', 'test-fac');
 
     $this->assertDatabaseHas('factions', ['shortname' => 'test-fac']);
-    
+
     // Check default roles were created
     $faction = Faction::where('shortname', 'test-fac')->first();
     expect($faction->roles()->count())->toBe(3);
@@ -63,7 +63,7 @@ test('unauthorized user cannot view a faction they are not in', function () {
     $user = User::factory()->create();
     $faction = Faction::factory()->create(['shortname' => 'private']);
 
-    $response = $this->actingAs($user)->getJson("/api/factions/private");
+    $response = $this->actingAs($user)->getJson('/api/factions/private');
 
     $response->assertStatus(403);
 });

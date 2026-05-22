@@ -12,8 +12,8 @@ class RoleController extends Controller
     public function index(string $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        
-        if (!$this->can($faction, 'view_permissions')) {
+
+        if (! $this->can($faction, 'view_permissions')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -24,7 +24,7 @@ class RoleController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
 
-        if (!$this->can($faction, 'create_ranks')) {
+        if (! $this->can($faction, 'create_ranks')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -57,7 +57,7 @@ class RoleController extends Controller
         $faction = $role->faction;
         $userWeight = Auth::user()->getHighestRoleWeight($faction->id);
 
-        if (!$this->can($faction, 'modify_ranks')) {
+        if (! $this->can($faction, 'modify_ranks')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -90,7 +90,7 @@ class RoleController extends Controller
     {
         $faction = $role->faction;
 
-        if (!$this->can($faction, 'delete_ranks')) {
+        if (! $this->can($faction, 'delete_ranks')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -112,7 +112,7 @@ class RoleController extends Controller
     {
         $faction = $role->faction;
 
-        if (!$this->can($faction, 'modify_permissions')) {
+        if (! $this->can($faction, 'modify_permissions')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

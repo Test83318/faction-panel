@@ -16,9 +16,10 @@ class GroupController extends Controller
         $user = Auth::user();
 
         $canManageAll = User::hasFactionPermission($user, $faction, 'view_groups');
-        
+
         if ($canManageAll) {
             $groups = $faction->groups()->with('members', 'leaders')->get();
+
             return response()->json($groups);
         }
 
@@ -36,7 +37,7 @@ class GroupController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'create_groups')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'create_groups')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -57,7 +58,7 @@ class GroupController extends Controller
     {
         $faction = $group->faction;
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'modify_groups')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'modify_groups')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -75,7 +76,7 @@ class GroupController extends Controller
     {
         $faction = $group->faction;
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'remove_groups')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'remove_groups')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -92,26 +93,26 @@ class GroupController extends Controller
         $isGlobalManager = User::hasFactionPermission($user, $faction, 'manage_group_members');
         $isGroupLeader = $group->leaders()->where('user_id', $user->id)->exists();
 
-        if (!$isGlobalManager && !$isGroupLeader) {
+        if (! $isGlobalManager && ! $isGroupLeader) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         $request->validate([
             'user_id' => 'required|exists:users,id',
-            'is_leader' => 'sometimes|boolean'
+            'is_leader' => 'sometimes|boolean',
         ]);
 
         $targetUserId = $request->user_id;
         $isLeader = $request->is_leader ?? false;
 
         // Group leaders cannot promote others to leaders
-        if (!$isGlobalManager && $isLeader) {
+        if (! $isGlobalManager && $isLeader) {
             return response()->json(['message' => 'Group leaders cannot promote members to leaders'], 403);
         }
 
         // Check if user is in faction
         $targetUser = User::find($targetUserId);
-        if (!$targetUser->factions()->where('faction_id', $faction->id)->exists()) {
+        if (! $targetUser->factions()->where('faction_id', $faction->id)->exists()) {
             return response()->json(['message' => 'User is not a member of this faction'], 422);
         }
 
@@ -128,18 +129,18 @@ class GroupController extends Controller
         $isGlobalManager = User::hasFactionPermission($authUser, $faction, 'manage_group_members');
         $isGroupLeader = $group->leaders()->where('user_id', $authUser->id)->exists();
 
-        if (!$isGlobalManager && !$isGroupLeader) {
+        if (! $isGlobalManager && ! $isGroupLeader) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         $targetPivot = $group->members()->where('user_id', $user->id)->first();
-        if (!$targetPivot) {
+        if (! $targetPivot) {
             return response()->json(['message' => 'User not in group'], 404);
         }
 
         // Group leaders cannot remove other leaders
-        if (!$isGlobalManager && $targetPivot->pivot->is_leader) {
-             return response()->json(['message' => 'Group leaders cannot remove other leaders'], 403);
+        if (! $isGlobalManager && $targetPivot->pivot->is_leader) {
+            return response()->json(['message' => 'Group leaders cannot remove other leaders'], 403);
         }
 
         $group->members()->detach($user->id);
@@ -151,16 +152,16 @@ class GroupController extends Controller
     {
         $faction = $group->faction;
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'manage_group_members')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'manage_group_members')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         $targetPivot = $group->members()->where('user_id', $user->id)->first();
-        if (!$targetPivot) {
+        if (! $targetPivot) {
             return response()->json(['message' => 'User not in group'], 404);
         }
 
-        $group->members()->updateExistingPivot($user->id, ['is_leader' => !$targetPivot->pivot->is_leader]);
+        $group->members()->updateExistingPivot($user->id, ['is_leader' => ! $targetPivot->pivot->is_leader]);
 
         return response()->json(['message' => 'Leader status toggled']);
     }
