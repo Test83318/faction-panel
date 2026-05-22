@@ -242,9 +242,20 @@ class IntegrationController extends Controller
                         $syncResults['name_changes']++;
                     }
 
-                    // Update existing
-                    $existingEntry->update(['data' => $memberData]);
-                    $syncResults['updated']++;
+                    // Only update if data has actually changed (avoids unnecessary audit log entries)
+                    $existingData = $existingEntry->data;
+                    $hasChanges = false;
+                    foreach ($memberData as $key => $value) {
+                        if (!array_key_exists($key, $existingData) || $existingData[$key] != $value) {
+                            $hasChanges = true;
+                            break;
+                        }
+                    }
+
+                    if ($hasChanges) {
+                        $existingEntry->update(['data' => $memberData]);
+                        $syncResults['updated']++;
+                    }
                 } else {
                     // Create new
                     $charDb->entries()->create([
