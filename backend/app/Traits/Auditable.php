@@ -52,6 +52,10 @@ trait Auditable
                 $factionId = $this->database?->faction_id;
             } elseif (method_exists($this, 'dataset')) {
                 $factionId = $this->dataset?->faction_id;
+            } elseif (method_exists($this, 'form')) {
+                $factionId = $this->form?->faction_id;
+            } elseif (method_exists($this, 'submission')) {
+                $factionId = $this->submission?->form?->faction_id;
             }
         }
 

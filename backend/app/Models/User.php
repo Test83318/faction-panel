@@ -436,4 +436,58 @@ class User extends Authenticatable
 
         return false;
     }
+
+    public static function hasFormPermission(?User $user, Form $form, string $permissionKey): bool
+    {
+        $faction = $form->faction;
+
+        // 1. Superadmin/Faction Leader/Global Form Moderator/Creator always have access
+        if ($user) {
+            if ($user->is_superadmin ||
+                $faction->faction_leader === $user->id ||
+                self::hasFactionPermission($user, $faction, 'global_faction_form_moderation') ||
+                $form->created_by === $user->id
+            ) {
+                return true;
+            }
+        }
+
+        // 2. Collect all permission sets applicable to this user
+        $permissionSets = collect();
+
+        // Public permissions (group_id and role_id are null)
+        $publicPerms = $form->formPermissions()->whereNull('group_id')->whereNull('role_id')->first();
+        if ($publicPerms) {
+            $permissionSets->push($publicPerms->permissions);
+        }
+
+        if ($user) {
+            // Group permissions
+            $userGroupIds = $user->groups()->where('faction_id', $faction->id)->pluck('groups.id');
+            $groupPerms = $form->formPermissions()->whereIn('group_id', $userGroupIds)->get();
+            foreach ($groupPerms as $gp) {
+                $permissionSets->push($gp->permissions);
+            }
+
+            // Role permissions
+            $userRoleIds = $user->roles()->where('faction_id', $faction->id)->pluck('roles.id');
+            $rolePerms = $form->formPermissions()->whereIn('role_id', $userRoleIds)->get();
+            foreach ($rolePerms as $rp) {
+                $permissionSets->push($rp->permissions);
+            }
+        }
+
+        if ($permissionSets->isEmpty()) {
+            return false;
+        }
+
+        // If any set has the permission as true, return true
+        foreach ($permissionSets as $set) {
+            if (is_array($set) && in_array($permissionKey, $set)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

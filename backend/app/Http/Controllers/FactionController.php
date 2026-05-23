@@ -179,6 +179,7 @@ class FactionController extends Controller
             $resolveDynamic($roster->rootSections);
         }
 
+
         // Include Datasets
         $datasets = $faction->rosterDatasets()
             ->with('options')
@@ -419,7 +420,7 @@ class FactionController extends Controller
                                         $changed = true;
                                     }
                                 }
-                            } elseif (($col['type'] ?? '') === 'database_data' && isset($col['source_column_id'])) {
+                            } elseif (str_contains($col['type'] ?? '', 'database_data') && isset($col['source_column_id'])) {
                                 $sourceColId = $col['source_column_id'];
                                 $sourceCol = collect($columns)->firstWhere('id', $sourceColId);
                                 $sourceValue = $data[$sourceColId] ?? null;

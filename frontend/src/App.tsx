@@ -26,6 +26,7 @@ import GtawSync from './components/GtawSync';
 import AuditLogs from './components/AuditLogs';
 import Statistics from './components/Statistics';
 import StatisticsDashboard from './components/StatisticsDashboard';
+import FactionForms from './components/FactionForms';
 import Welcome from './components/Welcome';
 import Credits from './components/Credits';
 import Changelog from './components/Changelog';
@@ -162,6 +163,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
   const canViewRecords = user?.is_superadmin || permissions.includes('view_faction_records');
   const canViewAuditLogs = user?.is_superadmin || permissions.includes('view_audit_logs');
   const canViewStatistics = user?.is_superadmin || permissions.includes('view_statistics');
+  const canViewForms = user?.is_superadmin || permissions.includes('view_faction_forms');
   const canViewSnapshots = user?.is_superadmin || permissions.includes('view_snapshots') || permissions.includes('administrator');
   const canViewGtawSync = (user?.is_superadmin || permissions.includes('sync_gtaw')) && factionData?.gtaw_faction_id;
 
@@ -186,6 +188,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
       canViewStatistics={canViewStatistics}
       canViewSnapshots={canViewSnapshots}
       canViewGtawSync={canViewGtawSync}
+      canViewForms={canViewForms}
       siteVersion={siteVersion}
     >
       <Routes>
@@ -206,6 +209,13 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
             recordData={recordData}
             onlineUsers={onlineUsers}
           />
+        } />
+        <Route path="forms/*" element={
+          canViewForms ? (
+            <main className="main flex-1 overflow-auto">
+              <FactionForms shortname={shortname!} user={user} permissions={permissions} />
+            </main>
+          ) : <Navigate to={`/${shortname}/roster`} />
         } />
         <Route path="records" element={
           canViewRecords ? (

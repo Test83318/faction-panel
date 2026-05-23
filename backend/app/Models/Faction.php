@@ -181,6 +181,11 @@ class Faction extends Model
         return $this->hasMany(Roster::class);
     }
 
+    public function forms()
+    {
+        return $this->hasMany(Form::class);
+    }
+
     public function recordDatabases()
     {
         return $this->hasMany(FactionRecordDatabase::class);
