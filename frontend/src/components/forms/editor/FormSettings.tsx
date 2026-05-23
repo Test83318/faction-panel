@@ -18,7 +18,6 @@ const FormSettings: React.FC<FormSettingsProps> = ({ form, onSave, saving }) => 
         cooldown_only_on_fail: form.cooldown_only_on_fail,
         max_submissions: form.max_submissions ?? '',
         is_enabled: form.is_enabled,
-        pass_points: form.pass_points || 0,
         is_automatic_grading: form.is_automatic_grading || false,
     });
 
@@ -70,13 +69,14 @@ const FormSettings: React.FC<FormSettingsProps> = ({ form, onSave, saving }) => 
                             <span className="text-[10px] opacity-70 italic">Allow users to access this form</span>
                         </div>
 
-                        <div className={`p-4 rounded-lg border flex flex-col gap-2 transition-all cursor-pointer ${formData.is_public ? 'bg-blue-500/10 border-blue-500/50 text-blue-500' : 'bg-bg border-border text-text-muted hover:border-blue-500/30'}`}
-                             onClick={() => setFormData({...formData, is_public: !formData.is_public})}>
+                        <div className="p-4 rounded-lg border bg-bg/30 border-border/50 text-text-muted opacity-60 flex flex-col gap-2 transition-all cursor-not-allowed"
+                             title="Public submissions are disabled for refinement">
                             <div className="flex justify-between items-center">
-                                <span className="text-xs font-bold uppercase tracking-widest">Public Access</span>
-                                <Eye size={16} />
+                                <span className="text-xs font-bold uppercase tracking-widest text-text-muted/75">Public Access</span>
+                                <Eye size={16} className="text-text-muted/50" />
                             </div>
                             <span className="text-[10px] opacity-70 italic">Allow non-logged in users to submit</span>
+                            <span className="text-[9px] text-amber-500 font-bold uppercase tracking-wider mt-1">Disabled — Undergoing Refinement</span>
                         </div>
 
                         <div className={`p-4 rounded-lg border flex flex-col gap-2 transition-all cursor-pointer ${formData.requires_gtaw_login ? 'bg-orange-500/10 border-orange-500/50 text-orange-500' : 'bg-bg border-border text-text-muted hover:border-orange-500/30'}`}
@@ -165,21 +165,7 @@ const FormSettings: React.FC<FormSettingsProps> = ({ form, onSave, saving }) => 
                         <Trophy size={18} className="text-yellow-500" />
                         Quiz Settings
                     </h3>
-
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-bold text-text-muted uppercase tracking-widest mb-2">Points to Pass</label>
-                            <input 
-                                type="number"
-                                min="0"
-                                value={formData.pass_points}
-                                onChange={e => setFormData({...formData, pass_points: parseInt(e.target.value) || 0})}
-                                className="w-full bg-bg border border-border rounded p-2.5 text-text focus:border-accent outline-none transition-colors"
-                            />
-                        </div>
-
-
-                    </div>
+                    <p className="text-xs text-text-muted italic">No global settings needed. Stage points and grading are managed on each stage and field.</p>
                 </div>
             )}
 

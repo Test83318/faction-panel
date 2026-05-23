@@ -18,7 +18,7 @@ class FormAutomationController extends Controller
         }
 
         return response()->json(
-            $form->automations()->orderBy('order')->with(['triggerStatus', 'actionStatus', 'actionGroup'])->get()
+            $form->automations()->orderBy('order')->with(['triggerStatus', 'triggerStage', 'actionStatus', 'actionGroup'])->get()
         );
     }
 
@@ -31,15 +31,16 @@ class FormAutomationController extends Controller
 
         $validated = $request->validate([
             'name' => 'nullable|string|max:255',
-            'trigger' => 'required|in:on_submit,on_status_change',
+            'trigger' => 'required|in:on_stage_submit,on_final_submit,on_status_change',
             'trigger_status_id' => 'nullable|exists:form_statuses,id',
+            'trigger_stage_id' => 'nullable|exists:form_stages,id',
             'condition_logic' => 'in:all,any',
             'conditions' => 'nullable|array',
-            'conditions.*.type' => 'nullable|string|in:field,points,status',
+            'conditions.*.type' => 'nullable|string|in:field,field_points,field_correctness,points,status',
             'conditions.*.field_id' => 'nullable|integer',
             'conditions.*.operator' => 'required|in:equals,not_equals,contains,gt,lt,gte,lte,is_empty,is_not_empty',
             'conditions.*.value' => 'nullable|string',
-            'action' => 'required|in:set_status,add_comment,give_group',
+            'action' => 'required|in:set_status,add_comment,give_group,continue_to_next_stage',
             'action_status_id' => 'nullable|exists:form_statuses,id',
             'action_comment' => 'nullable|string',
             'action_comment_internal' => 'boolean',
@@ -52,7 +53,7 @@ class FormAutomationController extends Controller
             'order' => $form->automations()->count(),
         ]);
 
-        return response()->json($automation->load(['triggerStatus', 'actionStatus', 'actionGroup']), 201);
+        return response()->json($automation->load(['triggerStatus', 'triggerStage', 'actionStatus', 'actionGroup']), 201);
     }
 
     public function update(Request $request, string $shortname, Form $form, FormAutomation $automation)
@@ -64,15 +65,16 @@ class FormAutomationController extends Controller
 
         $validated = $request->validate([
             'name' => 'nullable|string|max:255',
-            'trigger' => 'in:on_submit,on_status_change',
+            'trigger' => 'in:on_stage_submit,on_final_submit,on_status_change',
             'trigger_status_id' => 'nullable|exists:form_statuses,id',
+            'trigger_stage_id' => 'nullable|exists:form_stages,id',
             'condition_logic' => 'in:all,any',
             'conditions' => 'nullable|array',
-            'conditions.*.type' => 'nullable|string|in:field,points,status',
+            'conditions.*.type' => 'nullable|string|in:field,field_points,field_correctness,points,status',
             'conditions.*.field_id' => 'nullable|integer',
             'conditions.*.operator' => 'required|in:equals,not_equals,contains,gt,lt,gte,lte,is_empty,is_not_empty',
             'conditions.*.value' => 'nullable|string',
-            'action' => 'in:set_status,add_comment,give_group',
+            'action' => 'in:set_status,add_comment,give_group,continue_to_next_stage',
             'action_status_id' => 'nullable|exists:form_statuses,id',
             'action_comment' => 'nullable|string',
             'action_comment_internal' => 'boolean',
@@ -82,7 +84,7 @@ class FormAutomationController extends Controller
 
         $automation->update($validated);
 
-        return response()->json($automation->load(['triggerStatus', 'actionStatus', 'actionGroup']));
+        return response()->json($automation->load(['triggerStatus', 'triggerStage', 'actionStatus', 'actionGroup']));
     }
 
     public function destroy(string $shortname, Form $form, FormAutomation $automation)

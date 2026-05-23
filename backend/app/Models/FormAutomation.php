@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class FormAutomation extends Model
 {
     protected $fillable = [
-        'form_id', 'name', 'trigger', 'trigger_status_id',
+        'form_id', 'name', 'trigger', 'trigger_status_id', 'trigger_stage_id',
         'condition_logic', 'conditions', 'action',
         'action_status_id', 'action_comment', 'action_comment_internal',
         'action_group_id', 'is_enabled', 'order',
@@ -27,6 +27,11 @@ class FormAutomation extends Model
     public function triggerStatus()
     {
         return $this->belongsTo(FormStatus::class, 'trigger_status_id');
+    }
+
+    public function triggerStage()
+    {
+        return $this->belongsTo(FormStage::class, 'trigger_stage_id');
     }
 
     public function actionStatus()

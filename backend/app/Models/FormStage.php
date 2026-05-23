@@ -13,7 +13,14 @@ class FormStage extends Model
         'form_id',
         'name',
         'submit_status_id',
+        'required_points',
         'order',
+    ];
+
+    protected $casts = [
+        'required_points' => 'integer',
+        'submit_status_id' => 'integer',
+        'order' => 'integer',
     ];
 
     public function form()

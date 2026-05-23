@@ -15,7 +15,6 @@ class Form extends Model
         'faction_id',
         'name',
         'type',
-        'pass_points',
         'is_automatic_grading',
         'description',
         'metadata',
@@ -37,7 +36,6 @@ class Form extends Model
         'cooldown_only_on_fail' => 'boolean',
         'max_submissions' => 'integer',
         'is_enabled' => 'boolean',
-        'pass_points' => 'integer',
     ];
 
     public function faction()

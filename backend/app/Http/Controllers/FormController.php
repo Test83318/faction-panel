@@ -48,6 +48,7 @@ class FormController extends Controller
 
         $form = $faction->forms()->create([
             ...$validated,
+            'is_public' => false, // Force false for now (disabled under refinement)
             'created_by' => Auth::id(),
             'is_enabled' => true,
         ]);
@@ -106,9 +107,12 @@ class FormController extends Controller
             'max_submissions' => 'sometimes|nullable|integer|min:1',
             'is_enabled' => 'sometimes|boolean',
             'metadata' => 'nullable|array',
-            'pass_points' => 'sometimes|integer|min:0',
             'is_automatic_grading' => 'sometimes|boolean',
         ]);
+
+        if (isset($validated['is_public'])) {
+            $validated['is_public'] = false; // Force false for now (disabled under refinement)
+        }
 
         $form->update($validated);
 

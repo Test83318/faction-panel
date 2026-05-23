@@ -325,6 +325,7 @@ export interface FormStage {
   form_id: number;
   name: string;
   submit_status_id: number | null;
+  required_points?: number;
   order: number;
   sections?: FormSection[];
 }
@@ -358,7 +359,7 @@ export interface Form {
   cooldown_only_on_fail: boolean;
   max_submissions: number | null;
   is_enabled: boolean;
-  pass_points: number;
+  pass_points?: number;
   is_automatic_grading: boolean;
   created_by: number | null;
   creator?: {
@@ -430,7 +431,7 @@ export type AutomationOperator =
   | 'is_empty' | 'is_not_empty';
 
 export interface AutomationCondition {
-  type?: 'field' | 'points' | 'status';
+  type?: 'field' | 'field_points' | 'field_correctness' | 'points' | 'status';
   field_id?: number;
   operator: AutomationOperator;
   value: string;
@@ -440,11 +441,12 @@ export interface FormAutomation {
   id: number;
   form_id: number;
   name: string | null;
-  trigger: 'on_submit' | 'on_status_change';
+  trigger: 'on_stage_submit' | 'on_final_submit' | 'on_status_change';
   trigger_status_id: number | null;
+  trigger_stage_id: number | null;
   condition_logic: 'all' | 'any';
   conditions: AutomationCondition[] | null;
-  action: 'set_status' | 'add_comment' | 'give_group';
+  action: 'set_status' | 'add_comment' | 'give_group' | 'continue_to_next_stage';
   action_status_id: number | null;
   action_comment: string | null;
   action_comment_internal: boolean;
@@ -452,6 +454,7 @@ export interface FormAutomation {
   is_enabled: boolean;
   order: number;
   trigger_status?: FormStatus;
+  trigger_stage?: FormStage;
   action_status?: FormStatus;
   action_group?: Group;
 }

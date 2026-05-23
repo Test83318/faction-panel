@@ -94,6 +94,19 @@ const FormSubmissionStatus: React.FC<FormSubmissionStatusProps> = ({ submissionI
     const currentStatus = submission.current_status;
     const stages = [...(submission.form?.stages || [])].sort((a, b) => a.order - b.order);
 
+    const getStagePointsReached = (stage: any) => {
+        let total = 0;
+        stage.sections?.forEach((section: any) => {
+            section.fields?.forEach((field: any) => {
+                const resp = submission.responses?.find((r: any) => r.form_field_id === field.id);
+                if (resp) {
+                    total += resp.points_awarded || 0;
+                }
+            });
+        });
+        return total;
+    };
+
     return (
         <div className="flex flex-col min-h-screen bg-bg">
             {/* Header */}
@@ -176,8 +189,13 @@ const FormSubmissionStatus: React.FC<FormSubmissionStatusProps> = ({ submissionI
 
                         return (
                             <div key={stage.id} className="space-y-4">
-                                <h3 className="text-xs font-bold text-accent uppercase tracking-widest border-l-2 border-accent pl-3">
-                                    {stage.name}
+                                <h3 className="text-xs font-bold text-accent uppercase tracking-widest border-l-2 border-accent pl-3 flex items-center justify-between">
+                                    <span>{stage.name}</span>
+                                    {submission.form?.type === 'quiz' && (
+                                        <span className="text-[10px] bg-card border border-border px-2.5 py-0.5 rounded text-text-muted normal-case font-medium">
+                                            Score: {getStagePointsReached(stage)} / {stage.required_points || 0} PTS
+                                        </span>
+                                    )}
                                 </h3>
                                 
                                 {stage.sections?.map((section: any) => {
@@ -285,8 +303,13 @@ const FormSubmissionStatus: React.FC<FormSubmissionStatusProps> = ({ submissionI
 
                                 return (
                                     <div key={stage.id} className="space-y-1 border-b border-border/20 pb-3 last:border-0 last:pb-0">
-                                        <div className="text-[10px] font-bold text-accent uppercase tracking-wider py-1 px-2 mb-1">
-                                            {stage.name}
+                                        <div className="text-[10px] font-bold text-accent uppercase tracking-wider py-1 px-2 mb-1 flex items-center justify-between">
+                                            <span>{stage.name}</span>
+                                            {submission.form?.type === 'quiz' && (
+                                                <span className="text-[9px] text-text-muted normal-case font-medium">
+                                                    {getStagePointsReached(stage)}/{stage.required_points || 0} PTS
+                                                </span>
+                                            )}
                                         </div>
                                         {stage.sections?.map((section: any) => {
                                             const status = getSectionGradingStatus(section);

@@ -313,6 +313,24 @@ const FormSubmissionReview: React.FC<FormSubmissionReviewProps> = ({ submissionI
     if (!submission) return null;
 
     const stagesList = [...(submission.form?.stages || [])].sort((a, b) => a.order - b.order);
+    
+    const getStagePointsReached = (stage: any) => {
+        let total = 0;
+        stage.sections?.forEach((section: any) => {
+            section.fields?.forEach((field: any) => {
+                const resp = submission.responses?.find((r: any) => r.form_field_id === field.id);
+                if (resp) {
+                    const grade = grades[resp.id];
+                    if (grade !== undefined) {
+                        total += grade.points || 0;
+                    } else {
+                        total += resp.points_awarded || 0;
+                    }
+                }
+            });
+        });
+        return total;
+    };
     const internalCommentsList = submission.comments?.filter((c: any) => c.is_internal) || [];
 
     return (
@@ -365,8 +383,13 @@ const FormSubmissionReview: React.FC<FormSubmissionReviewProps> = ({ submissionI
 
                         return (
                             <div key={stage.id} className="space-y-4">
-                                <h3 className="text-xs font-bold text-accent uppercase tracking-widest border-l-2 border-accent pl-3">
-                                    {stage.name}
+                                <h3 className="text-xs font-bold text-accent uppercase tracking-widest border-l-2 border-accent pl-3 flex items-center justify-between">
+                                    <span>{stage.name}</span>
+                                    {submission.form?.type === 'quiz' && (
+                                        <span className="text-[10px] bg-card border border-border px-2.5 py-0.5 rounded text-text-muted normal-case font-medium">
+                                            Score: {getStagePointsReached(stage)} / {stage.required_points || 0} PTS
+                                        </span>
+                                    )}
                                 </h3>
 
                                 {stage.sections?.map((section: any) => {

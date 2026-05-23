@@ -19,6 +19,7 @@ class FormStageController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'submit_status_id' => 'nullable|exists:form_statuses,id',
+            'required_points' => 'nullable|integer|min:0',
         ]);
 
         $maxOrder = $form->stages()->max('order') ?? -1;
@@ -26,6 +27,7 @@ class FormStageController extends Controller
         $stage = $form->stages()->create([
             'name' => $validated['name'],
             'submit_status_id' => $validated['submit_status_id'] ?? null,
+            'required_points' => $validated['required_points'] ?? 0,
             'order' => $maxOrder + 1,
         ]);
 
@@ -41,6 +43,7 @@ class FormStageController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'submit_status_id' => 'sometimes|nullable|exists:form_statuses,id',
+            'required_points' => 'sometimes|integer|min:0',
         ]);
 
         $stage->update($validated);

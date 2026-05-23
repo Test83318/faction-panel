@@ -639,17 +639,20 @@ const FactionForms: React.FC<FactionFormsProps> = ({ shortname, user, permission
                                         placeholder="Explain the purpose of this form..."
                                     />
                                 </div>
-                                <div className="flex items-center gap-3 p-3 bg-bg/50 rounded border border-border">
+                                <div className="flex items-center gap-3 p-3 bg-bg/30 rounded border border-border/50 opacity-60 cursor-not-allowed" title="Public submissions are disabled for refinement">
                                     <input
                                         type="checkbox"
                                         id="is_public"
-                                        checked={newForm.is_public}
-                                        onChange={e => setNewForm({...newForm, is_public: e.target.checked})}
-                                        className="w-4 h-4 accent-accent"
+                                        checked={false}
+                                        disabled
+                                        className="w-4 h-4 accent-accent cursor-not-allowed"
                                     />
-                                    <label htmlFor="is_public" className="text-sm font-medium text-text cursor-pointer">
-                                        Allow non-logged in users to submit
-                                    </label>
+                                    <div className="flex flex-col">
+                                        <label htmlFor="is_public" className="text-sm font-medium text-text-muted cursor-not-allowed">
+                                            Allow non-logged in users to submit
+                                        </label>
+                                        <span className="text-[10px] text-amber-500 font-medium italic mt-0.5">Disabled — undergoing refinement</span>
+                                    </div>
                                 </div>
 
                                 <div className="pt-4 flex gap-3">

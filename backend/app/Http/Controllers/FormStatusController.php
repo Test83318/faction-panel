@@ -80,7 +80,7 @@ class FormStatusController extends Controller
                             return response()->json(['message' => 'System status flags and bindings cannot be modified.'], 422);
                         }
                     } else {
-                        if ((bool)$validated[$key] !== (bool)$currentVal) {
+                        if ((bool) $validated[$key] !== (bool) $currentVal) {
                             return response()->json(['message' => 'System status flags and bindings cannot be modified.'], 422);
                         }
                     }
@@ -90,7 +90,7 @@ class FormStatusController extends Controller
 
         $status->update(collect($validated)->except('stage_ids')->toArray());
 
-        if (array_key_exists('stage_ids', $validated) && !$isPending) {
+        if (array_key_exists('stage_ids', $validated) && ! $isPending) {
             $status->stages()->sync($validated['stage_ids'] ?? []);
         }
 

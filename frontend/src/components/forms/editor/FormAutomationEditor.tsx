@@ -13,11 +13,12 @@ interface Props {
 
 interface AutomationDraft {
     name: string;
-    trigger: 'on_submit' | 'on_status_change';
+    trigger: 'on_stage_submit' | 'on_final_submit' | 'on_status_change';
     trigger_status_id: number | null;
+    trigger_stage_id: number | null;
     condition_logic: 'all' | 'any';
     conditions: AutomationCondition[];
-    action: 'set_status' | 'add_comment' | 'give_group';
+    action: 'set_status' | 'add_comment' | 'give_group' | 'continue_to_next_stage';
     action_status_id: number | null;
     action_comment: string;
     action_comment_internal: boolean;
@@ -41,8 +42,9 @@ const VALUELESS_OPS: AutomationOperator[] = ['is_empty', 'is_not_empty'];
 
 const emptyDraft = (): AutomationDraft => ({
     name: '',
-    trigger: 'on_submit',
+    trigger: 'on_stage_submit',
     trigger_status_id: null,
+    trigger_stage_id: null,
     condition_logic: 'all',
     conditions: [],
     action: 'set_status',
@@ -103,6 +105,7 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
             name: automation.name ?? '',
             trigger: automation.trigger,
             trigger_status_id: automation.trigger_status_id,
+            trigger_stage_id: automation.trigger_stage_id ?? null,
             condition_logic: automation.condition_logic,
             conditions: automation.conditions ?? [],
             action: automation.action,
@@ -182,7 +185,11 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
     };
 
     const triggerLabel = (automation: FormAutomation) => {
-        if (automation.trigger === 'on_submit') return 'On Submit';
+        if (automation.trigger === 'on_stage_submit') {
+            const stage = form.stages?.find(s => s.id === automation.trigger_stage_id);
+            return stage ? `On Stage Submit: ${stage.name}` : 'On Stage Submit (Any Stage)';
+        }
+        if (automation.trigger === 'on_final_submit') return 'On Final Submit';
         const status = statuses.find(s => s.id === automation.trigger_status_id);
         return `On Status → ${status?.name ?? '?'}`;
     };
@@ -194,6 +201,8 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
         } else if (automation.action === 'give_group') {
             const grp = groups.find(g => g.id === automation.action_group_id);
             return `Give Group: ${grp?.name ?? '?'}`;
+        } else if (automation.action === 'continue_to_next_stage') {
+            return 'Continue to Next Stage';
         }
         return 'Add Comment';
     };
@@ -234,7 +243,8 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
                             <span className="text-xs font-bold uppercase tracking-widest text-accent">New Automation</span>
                         </div>
                         <div className="p-4">
-                            <AutomationForm
+                             <AutomationForm
+                                form={form}
                                 draft={draft}
                                 setDraft={setDraft}
                                 allFields={allFields}
@@ -338,7 +348,8 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
                                     className="overflow-hidden"
                                 >
                                     <div className="border-t border-border p-4">
-                                        <AutomationForm
+                                         <AutomationForm
+                                            form={form}
                                             draft={draft}
                                             setDraft={setDraft}
                                             allFields={allFields}
@@ -377,6 +388,7 @@ const FormAutomationEditor: React.FC<Props> = ({ form, shortname }) => {
 };
 
 interface AutomationFormProps {
+    form: Form;
     draft: AutomationDraft;
     setDraft: React.Dispatch<React.SetStateAction<AutomationDraft>>;
     allFields: any[];
@@ -389,7 +401,7 @@ interface AutomationFormProps {
 }
 
 const AutomationForm: React.FC<AutomationFormProps> = ({
-    draft, setDraft, allFields, statuses, groups, addCondition, updateCondition, removeCondition, disabled
+    form, draft, setDraft, allFields, statuses, groups, addCondition, updateCondition, removeCondition, disabled
 }) => {
     const inputCls = 'bg-bg border border-border rounded px-2.5 py-1.5 text-sm text-text focus:border-accent outline-none transition-colors';
     const labelCls = 'block text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1.5';
@@ -415,11 +427,12 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                     <label className={labelCls}>Trigger</label>
                     <select
                         value={draft.trigger}
-                        onChange={e => setDraft(d => ({ ...d, trigger: e.target.value as any, trigger_status_id: null }))}
+                        onChange={e => setDraft(d => ({ ...d, trigger: e.target.value as any, trigger_status_id: null, trigger_stage_id: null }))}
                         disabled={disabled}
                         className={`${inputCls} w-full disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
-                        <option value="on_submit">On Submit</option>
+                        <option value="on_stage_submit">On Stage Submit</option>
+                        <option value="on_final_submit">On Final Submit</option>
                         <option value="on_status_change">On Status Change</option>
                     </select>
                 </div>
@@ -434,6 +447,20 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                         >
                             <option value="">— any status —</option>
                             {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                    </div>
+                )}
+                {draft.trigger === 'on_stage_submit' && (
+                    <div>
+                        <label className={labelCls}>On Stage</label>
+                        <select
+                            value={draft.trigger_stage_id ?? ''}
+                            onChange={e => setDraft(d => ({ ...d, trigger_stage_id: e.target.value ? Number(e.target.value) : null }))}
+                            disabled={disabled}
+                            className={`${inputCls} w-full disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                            <option value="">— any stage —</option>
+                            {form.stages?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                     </div>
                 )}
@@ -470,11 +497,11 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                             <select
                                 value={cond.type ?? 'field'}
                                 onChange={e => {
-                                    const nextType = e.target.value as 'field' | 'points' | 'status';
+                                    const nextType = e.target.value as 'field' | 'field_points' | 'field_correctness' | 'points' | 'status';
                                     const patch: Partial<AutomationCondition> = { type: nextType };
-                                    if (nextType === 'field') {
+                                    if (nextType === 'field' || nextType === 'field_points' || nextType === 'field_correctness') {
                                         patch.field_id = allFields[0]?.id ?? 0;
-                                        patch.value = '';
+                                        patch.value = nextType === 'field_correctness' ? 'correct' : (nextType === 'field_points' ? '0' : '');
                                     } else if (nextType === 'points') {
                                         patch.field_id = undefined;
                                         patch.value = '0';
@@ -487,12 +514,18 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                                 disabled={disabled}
                                 className={`${inputCls} w-36 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed`}
                             >
-                                <option value="field">Field Response</option>
+                                <option value="field">Field Value</option>
+                                {form.type === 'quiz' && (
+                                    <>
+                                        <option value="field_points">Field Points</option>
+                                        <option value="field_correctness">Field Correctness</option>
+                                    </>
+                                )}
                                 <option value="points">Total Points</option>
                                 <option value="status">Current Status</option>
                             </select>
 
-                            {(cond.type ?? 'field') === 'field' ? (
+                            {['field', 'field_points', 'field_correctness'].includes(cond.type ?? 'field') ? (
                                 <select
                                     value={cond.field_id ?? ''}
                                     onChange={e => updateCondition(idx, { field_id: Number(e.target.value) })}
@@ -527,9 +560,20 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                                     >
                                         {statuses.map(s => <option key={s.id} value={s.id.toString()}>{s.name}</option>)}
                                     </select>
+                                ) : (cond.type ?? 'field') === 'field_correctness' ? (
+                                    <select
+                                        value={cond.value}
+                                        onChange={e => updateCondition(idx, { value: e.target.value })}
+                                        disabled={disabled}
+                                        className={`${inputCls} w-32 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed`}
+                                    >
+                                        <option value="correct">Correct</option>
+                                        <option value="partially_correct">Partially Correct</option>
+                                        <option value="incorrect">Incorrect</option>
+                                    </select>
                                 ) : (
                                     <input
-                                        type={(cond.type ?? 'field') === 'points' ? 'number' : 'text'}
+                                        type={['points', 'field_points'].includes(cond.type ?? 'field') ? 'number' : 'text'}
                                         value={cond.value}
                                         onChange={e => updateCondition(idx, { value: e.target.value })}
                                         disabled={disabled}
@@ -574,6 +618,7 @@ const AutomationForm: React.FC<AutomationFormProps> = ({
                         className={`${inputCls} w-full disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         <option value="set_status">Set Status</option>
+                        <option value="continue_to_next_stage">Continue to Next Stage</option>
                         <option value="add_comment">Add Comment</option>
                         <option value="give_group">Give Faction Group</option>
                     </select>

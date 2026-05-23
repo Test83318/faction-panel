@@ -157,16 +157,16 @@ class FormSubmissionController extends Controller
                 ->whereNotNull('submitted_at')
                 ->where(function ($query) {
                     $query->whereNull('current_status_id')
-                          ->orWhereHas('currentStatus', function ($q) {
-                              $q->where('is_closed', false);
-                          });
+                        ->orWhereHas('currentStatus', function ($q) {
+                            $q->where('is_closed', false);
+                        });
                 })
                 ->first();
 
             if ($openSubmission) {
                 return response()->json([
                     'message' => 'You already have an active submission for this form that is still under review or open.',
-                    'submission_id' => $openSubmission->id
+                    'submission_id' => $openSubmission->id,
                 ], 422);
             }
         }
@@ -184,8 +184,8 @@ class FormSubmissionController extends Controller
         }
 
         // 7. Create submission record
-        $pendingStatus = $form->statuses()->where('system_key', 'pending')->first() 
-            ?? $form->statuses()->where('name', 'Pending')->first() 
+        $pendingStatus = $form->statuses()->where('system_key', 'pending')->first()
+            ?? $form->statuses()->where('name', 'Pending')->first()
             ?? $form->statuses()->first();
         $firstStage = $form->stages()->first();
 
@@ -383,8 +383,8 @@ class FormSubmissionController extends Controller
 
         // 4. Finalize Submission
         // Always reset to the default "Submitted" status on each stage submission
-        $defaultStatus = $form->statuses()->where('system_key', 'submitted')->first() 
-            ?? $form->statuses()->where('name', 'Submitted')->first() 
+        $defaultStatus = $form->statuses()->where('system_key', 'submitted')->first()
+            ?? $form->statuses()->where('name', 'Submitted')->first()
             ?? $form->statuses()->first();
         $updateData = [
             'submitted_at' => now(),
@@ -398,9 +398,21 @@ class FormSubmissionController extends Controller
 
         $submission->update($updateData);
 
-        $this->runAutomations($submission->fresh(), 'on_submit');
+        $submissionFresh = $submission->fresh();
 
-        return response()->json(['message' => 'Form submitted successfully!', 'submission' => $submission->fresh()->load('currentStatus')]);
+        // Run On Stage Submit automations
+        $this->runAutomations($submissionFresh, 'on_stage_submit', null, $currentStage->id);
+
+        // Run On Final Submit automations if there is no next stage
+        $nextStage = FormStage::where('form_id', $form->id)
+            ->where('order', '>', $currentStage->order)
+            ->orderBy('order')
+            ->first();
+        if (! $nextStage) {
+            $this->runAutomations($submissionFresh, 'on_final_submit');
+        }
+
+        return response()->json(['message' => 'Form submitted successfully!', 'submission' => $submissionFresh->load('currentStatus')]);
     }
 
     public function show(string $shortname, FormSubmission $submission)
@@ -489,7 +501,7 @@ class FormSubmissionController extends Controller
         }
 
         // Ensure current status is passed and not closed
-        if (!$submission->currentStatus || !$submission->currentStatus->is_passed) {
+        if (! $submission->currentStatus || ! $submission->currentStatus->is_passed) {
             return response()->json(['message' => 'Submission status is not Passed.'], 422);
         }
 
@@ -503,7 +515,7 @@ class FormSubmissionController extends Controller
             ->orderBy('order')
             ->first();
 
-        if (!$nextStage) {
+        if (! $nextStage) {
             return response()->json(['message' => 'No next stage exists for this application.'], 422);
         }
 
@@ -524,7 +536,7 @@ class FormSubmissionController extends Controller
 
         return response()->json([
             'message' => 'Advanced to next stage successfully',
-            'submission' => $submission->fresh()->load('currentStatus', 'currentStage', 'form.stages')
+            'submission' => $submission->fresh()->load('currentStatus', 'currentStage', 'form.stages'),
         ]);
     }
 
@@ -540,7 +552,7 @@ class FormSubmissionController extends Controller
         // Find the first status belonging to the form where is_closed is true
         $closedStatus = $form->statuses()->where('is_closed', true)->first();
 
-        if (!$closedStatus) {
+        if (! $closedStatus) {
             return response()->json(['message' => 'No closed status is defined for this form.'], 422);
         }
 
@@ -552,7 +564,7 @@ class FormSubmissionController extends Controller
 
         return response()->json([
             'message' => 'Application concluded successfully',
-            'submission' => $submission->fresh()->load('currentStatus', 'currentStage')
+            'submission' => $submission->fresh()->load('currentStatus', 'currentStage'),
         ]);
     }
 
@@ -565,12 +577,12 @@ class FormSubmissionController extends Controller
         $isReviewer = User::hasFormPermission($user, $form, 'modify_submission_status');
         $isOwner = $submission->user_id === $user->id;
 
-        if (!$isReviewer && !$isOwner) {
+        if (! $isReviewer && ! $isOwner) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         // Ensure current status is failed and not closed
-        if (!$submission->currentStatus || !$submission->currentStatus->is_failed) {
+        if (! $submission->currentStatus || ! $submission->currentStatus->is_failed) {
             return response()->json(['message' => 'Submission status is not Failed.'], 422);
         }
 
@@ -594,7 +606,7 @@ class FormSubmissionController extends Controller
 
         return response()->json([
             'message' => 'Stage retake initiated successfully',
-            'submission' => $submission->fresh()->load('currentStatus', 'currentStage')
+            'submission' => $submission->fresh()->load('currentStatus', 'currentStage'),
         ]);
     }
 
@@ -616,7 +628,7 @@ class FormSubmissionController extends Controller
         ]);
 
         $isInternal = $validated['is_internal'] ?? false;
-        if (!$isInternal && empty($validated['form_section_id'])) {
+        if (! $isInternal && empty($validated['form_section_id'])) {
             return response()->json(['message' => 'Public reviewer-to-user comments must be bound to a section.'], 422);
         }
 
@@ -652,7 +664,7 @@ class FormSubmissionController extends Controller
                 ->where('form_submission_id', $submission->id)
                 ->firstOrFail();
 
-            if (!$response->field || !$response->field->has_grading) {
+            if (! $response->field || ! $response->field->has_grading) {
                 continue;
             }
 
@@ -680,7 +692,7 @@ class FormSubmissionController extends Controller
         return response()->json(['message' => 'Responses graded successfully']);
     }
 
-    private function runAutomations(FormSubmission $submission, string $trigger, ?int $triggeredStatusId = null): void
+    private function runAutomations(FormSubmission $submission, string $trigger, ?int $triggeredStatusId = null, ?int $triggeredStageId = null): void
     {
         $form = $submission->form;
 
@@ -688,6 +700,13 @@ class FormSubmissionController extends Controller
 
         if ($trigger === 'on_status_change' && $triggeredStatusId) {
             $query->where('trigger_status_id', $triggeredStatusId);
+        }
+
+        if ($trigger === 'on_stage_submit') {
+            $query->where(function ($q) use ($triggeredStageId) {
+                $q->whereNull('trigger_stage_id')
+                    ->orWhere('trigger_stage_id', $triggeredStageId);
+            });
         }
 
         foreach ($query->get() as $automation) {
@@ -715,6 +734,14 @@ class FormSubmissionController extends Controller
                 $response = $responses->get($condition['field_id'] ?? null);
                 $fieldValue = $response?->value ?? '';
                 $results[] = $this->evaluateCondition($condition['operator'], $fieldValue, $condition['value'] ?? '');
+            } elseif ($type === 'field_points') {
+                $response = $responses->get($condition['field_id'] ?? null);
+                $fieldPoints = $response?->points_awarded ?? 0;
+                $results[] = $this->evaluateCondition($condition['operator'], $fieldPoints, $condition['value'] ?? '0');
+            } elseif ($type === 'field_correctness') {
+                $response = $responses->get($condition['field_id'] ?? null);
+                $fieldCorrectness = $response?->correctness ?? '';
+                $results[] = $this->evaluateCondition($condition['operator'], $fieldCorrectness, $condition['value'] ?? '');
             } elseif ($type === 'points') {
                 $totalPoints = $submission->responses()->sum('points_awarded');
                 $results[] = $this->evaluateCondition($condition['operator'], $totalPoints, $condition['value'] ?? '0');
@@ -771,6 +798,34 @@ class FormSubmissionController extends Controller
             if ($group) {
                 if (! $group->members()->where('user_id', $submission->user_id)->exists()) {
                     $group->members()->attach($submission->user_id, ['is_leader' => false]);
+                }
+            }
+        }
+
+        if ($automation->action === 'continue_to_next_stage' && $submission->current_stage_id) {
+            $currentStage = $submission->currentStage 
+                ?? FormStage::where('id', $submission->current_stage_id)->first();
+            if ($currentStage) {
+                $nextStage = FormStage::where('form_id', $submission->form_id)
+                    ->where('order', '>', $currentStage->order)
+                    ->orderBy('order')
+                    ->first();
+
+                if ($nextStage) {
+                    $pendingStatus = $submission->form->statuses()
+                        ->where('system_key', 'pending')->first()
+                        ?? $submission->form->statuses()->where('name', 'Pending')->first()
+                        ?? $submission->form->statuses()->first();
+
+                    $submission->update([
+                        'current_stage_id' => $nextStage->id,
+                        'submitted_at' => null,
+                        'current_status_id' => $pendingStatus?->id,
+                    ]);
+
+                    if ($pendingStatus) {
+                        $this->runAutomations($submission->fresh(), 'on_status_change', $pendingStatus->id);
+                    }
                 }
             }
         }

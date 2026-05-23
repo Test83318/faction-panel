@@ -39,6 +39,7 @@ class FormStatus extends Model
         if ($this->relationLoaded('stages')) {
             return $this->stages->pluck('id')->toArray();
         }
+
         return $this->stages()->pluck('form_stages.id')->toArray();
     }
 

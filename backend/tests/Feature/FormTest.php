@@ -63,10 +63,31 @@ test('can add stages, sections and fields', function () {
             'name' => 'full_name',
             'is_required' => true,
             'points' => 0,
+            'is_automatic_scored' => true,
+            'correct_answer' => 'John Doe',
         ])
         ->assertStatus(201);
 
-    $this->assertDatabaseHas('form_fields', ['label' => 'Full Name', 'form_section_id' => $section->id]);
+    $this->assertDatabaseHas('form_fields', [
+        'label' => 'Full Name',
+        'form_section_id' => $section->id,
+        'is_automatic_scored' => true,
+        'correct_answer' => 'John Doe',
+    ]);
+
+    $field = FormField::where('name', 'full_name')->first();
+
+    // Update field correct answer
+    $this->actingAs($this->user)
+        ->putJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/fields/{$field->id}", [
+            'correct_answer' => 'Jane Doe',
+        ])
+        ->assertStatus(200);
+
+    $this->assertDatabaseHas('form_fields', [
+        'id' => $field->id,
+        'correct_answer' => 'Jane Doe',
+    ]);
 });
 
 test('can start and submit a form', function () {
@@ -141,7 +162,6 @@ test('auto-grades quiz forms', function () {
         'faction_id' => $this->faction->id,
         'type' => 'quiz',
         'is_enabled' => true,
-        'pass_points' => 10,
     ]);
     $stage = FormStage::create(['form_id' => $form->id, 'name' => 'Quiz Stage', 'order' => 0]);
     $section = FormSection::create(['form_stage_id' => $stage->id, 'name' => 'Questions', 'order' => 0]);
@@ -166,7 +186,7 @@ test('auto-grades quiz forms', function () {
     FormAutomation::create([
         'form_id' => $form->id,
         'name' => 'Auto Pass',
-        'trigger' => 'on_submit',
+        'trigger' => 'on_final_submit',
         'condition_logic' => 'all',
         'conditions' => [
             [
@@ -184,7 +204,7 @@ test('auto-grades quiz forms', function () {
     FormAutomation::create([
         'form_id' => $form->id,
         'name' => 'Auto Fail',
-        'trigger' => 'on_submit',
+        'trigger' => 'on_final_submit',
         'condition_logic' => 'all',
         'conditions' => [
             [
@@ -607,7 +627,7 @@ test('commenting permissions on form submission', function () {
     $form = Form::factory()->create(['faction_id' => $this->faction->id]);
     $stage = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 1', 'order' => 0]);
     $section = FormSection::create(['form_stage_id' => $stage->id, 'name' => 'Section 1', 'order' => 0]);
-    
+
     // Create an applicant user
     $applicant = User::factory()->create();
     $applicant->factions()->attach($this->faction->id);
@@ -685,8 +705,8 @@ test('grading updates correctness and points based on rules', function () {
                     'response_id' => $response->id,
                     'correctness' => 'correct',
                     'comment' => 'Great answer',
-                ]
-            ]
+                ],
+            ],
         ])
         ->assertStatus(200);
 
@@ -703,8 +723,8 @@ test('grading updates correctness and points based on rules', function () {
                     'response_id' => $response->id,
                     'correctness' => 'incorrect',
                     'comment' => 'Wrong answer',
-                ]
-            ]
+                ],
+            ],
         ])
         ->assertStatus(200);
 
@@ -721,8 +741,8 @@ test('grading updates correctness and points based on rules', function () {
                     'correctness' => 'partially_correct',
                     'points' => 5,
                     'comment' => 'Half correct',
-                ]
-            ]
+                ],
+            ],
         ])
         ->assertStatus(200);
 
@@ -768,8 +788,8 @@ test('standard graded form updates correctness without points', function () {
                     'response_id' => $response->id,
                     'correctness' => 'correct',
                     'comment' => 'Fine',
-                ]
-            ]
+                ],
+            ],
         ])
         ->assertStatus(200);
 
@@ -778,5 +798,3 @@ test('standard graded form updates correctness without points', function () {
     expect($response->points_awarded)->toBe(0); // Standard form has 0 points
     expect($response->reviewer_comment)->toBe('Fine');
 });
-
-

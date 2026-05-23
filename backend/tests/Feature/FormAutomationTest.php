@@ -104,7 +104,7 @@ test('evaluates points condition on submit', function () {
     FormAutomation::create([
         'form_id' => $form->id,
         'name' => 'Pass Automation',
-        'trigger' => 'on_submit',
+        'trigger' => 'on_final_submit',
         'condition_logic' => 'all',
         'conditions' => [
             [
@@ -250,7 +250,7 @@ test('skips group assignment for guest submissions without user id', function ()
     FormAutomation::create([
         'form_id' => $form->id,
         'name' => 'Give Group Automation',
-        'trigger' => 'on_submit',
+        'trigger' => 'on_final_submit',
         'condition_logic' => 'all',
         'conditions' => [],
         'action' => 'give_group',
@@ -281,4 +281,220 @@ test('skips group assignment for guest submissions without user id', function ()
     $submission = FormSubmission::find($submissionId);
     expect($submission->user_id)->toBeNull();
     expect($group->members()->count())->toBe(0);
+});
+
+test('evaluates on_stage_submit and new condition types', function () {
+    $form = Form::factory()->create(['faction_id' => $this->faction->id, 'type' => 'quiz', 'is_enabled' => true]);
+    $stage1 = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 1', 'order' => 0]);
+    $stage2 = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 2', 'order' => 1]);
+
+    $section1 = FormSection::create(['form_stage_id' => $stage1->id, 'name' => 'Sec 1', 'order' => 0]);
+    $field1 = FormField::create([
+        'form_section_id' => $section1->id,
+        'type' => 'text',
+        'label' => 'Q1',
+        'name' => 'q1',
+        'points' => 10,
+        'is_automatic_scored' => true,
+        'correct_answer' => 'A',
+        'order' => 0,
+        'has_grading' => true,
+    ]);
+
+    $passedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Passed', 'is_passed' => true, 'order' => 1]);
+    $submittedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Submitted', 'order' => 0]);
+
+    // Automation 1: on_stage_submit trigger, if field1 has points >= 10, set status to Passed
+    FormAutomation::create([
+        'form_id' => $form->id,
+        'name' => 'Stage Submit Pass',
+        'trigger' => 'on_stage_submit',
+        'condition_logic' => 'all',
+        'conditions' => [
+            [
+                'type' => 'field_points',
+                'field_id' => $field1->id,
+                'operator' => 'gte',
+                'value' => '10',
+            ],
+        ],
+        'action' => 'set_status',
+        'action_status_id' => $passedStatus->id,
+        'is_enabled' => true,
+        'order' => 0,
+    ]);
+
+    // Test case 1: correct answer (gets 10 points) -> triggers on_stage_submit, sets status to Passed
+    $res = $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/start");
+    $submissionId = $res->json('id');
+
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/{$submissionId}/submit", [
+            'responses' => [
+                $field1->id => 'A',
+            ],
+        ])
+        ->assertStatus(200);
+
+    $submission = FormSubmission::find($submissionId);
+    expect($submission->current_status_id)->toBe($passedStatus->id);
+});
+
+test('evaluates stage-bound vs global on_stage_submit triggers', function () {
+    $form = Form::factory()->create(['faction_id' => $this->faction->id, 'is_enabled' => true]);
+    $stageA = FormStage::create(['form_id' => $form->id, 'name' => 'Stage A', 'order' => 0]);
+    $stageB = FormStage::create(['form_id' => $form->id, 'name' => 'Stage B', 'order' => 1]);
+
+    $sectionA = FormSection::create(['form_stage_id' => $stageA->id, 'name' => 'Sec A', 'order' => 0]);
+    $fieldA = FormField::create([
+        'form_section_id' => $sectionA->id,
+        'type' => 'text',
+        'label' => 'Field A',
+        'name' => 'field_a',
+        'order' => 0,
+    ]);
+
+    $sectionB = FormSection::create(['form_stage_id' => $stageB->id, 'name' => 'Sec B', 'order' => 0]);
+    $fieldB = FormField::create([
+        'form_section_id' => $sectionB->id,
+        'type' => 'text',
+        'label' => 'Field B',
+        'name' => 'field_b',
+        'order' => 0,
+    ]);
+
+    $submittedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Submitted', 'order' => 0]);
+    $statusA = FormStatus::create(['form_id' => $form->id, 'name' => 'Status A', 'order' => 1]);
+    $statusB = FormStatus::create(['form_id' => $form->id, 'name' => 'Status B', 'order' => 2]);
+
+    // Automation 1: stage-bound to Stage A -> set status to Status A
+    FormAutomation::create([
+        'form_id' => $form->id,
+        'name' => 'Stage A Submit Action',
+        'trigger' => 'on_stage_submit',
+        'trigger_stage_id' => $stageA->id,
+        'condition_logic' => 'all',
+        'conditions' => [],
+        'action' => 'set_status',
+        'action_status_id' => $statusA->id,
+        'is_enabled' => true,
+        'order' => 0,
+    ]);
+
+    // Automation 2: stage-bound to Stage B -> set status to Status B
+    FormAutomation::create([
+        'form_id' => $form->id,
+        'name' => 'Stage B Submit Action',
+        'trigger' => 'on_stage_submit',
+        'trigger_stage_id' => $stageB->id,
+        'condition_logic' => 'all',
+        'conditions' => [],
+        'action' => 'set_status',
+        'action_status_id' => $statusB->id,
+        'is_enabled' => true,
+        'order' => 1,
+    ]);
+
+    // Automation 3: globally bound -> add comment "Global Triggered"
+    FormAutomation::create([
+        'form_id' => $form->id,
+        'name' => 'Global Stage Submit Action',
+        'trigger' => 'on_stage_submit',
+        'trigger_stage_id' => null,
+        'condition_logic' => 'all',
+        'conditions' => [],
+        'action' => 'add_comment',
+        'action_comment' => 'Global Triggered',
+        'is_enabled' => true,
+        'order' => 2,
+    ]);
+
+    // Submit Stage A
+    $res = $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/start");
+    $submissionId = $res->json('id');
+
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/{$submissionId}/submit", [
+            'responses' => [
+                $fieldA->id => 'Value A',
+            ],
+        ])
+        ->assertStatus(200);
+
+    $submission = FormSubmission::find($submissionId);
+    // Verify that Automation 1 (Stage A) and Automation 3 (Global) triggered, but not Automation 2 (Stage B)
+    expect($submission->current_status_id)->toBe($statusA->id);
+    expect($submission->comments()->where('comment', 'Global Triggered')->exists())->toBeTrue();
+
+    // Prepare for submitting Stage B by resetting submission
+    $submission->update([
+        'current_stage_id' => $stageB->id,
+        'submitted_at' => null,
+        'current_status_id' => $submittedStatus->id,
+    ]);
+
+    // Submit Stage B
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/{$submissionId}/submit", [
+            'responses' => [
+                $fieldB->id => 'Value B',
+            ],
+        ])
+        ->assertStatus(200);
+
+    $submissionFresh = FormSubmission::find($submissionId);
+    // Verify that Automation 2 (Stage B) and Automation 3 (Global) triggered, but not Automation 1 (Stage A)
+    expect($submissionFresh->current_status_id)->toBe($statusB->id);
+    expect($submissionFresh->comments()->where('comment', 'Global Triggered')->count())->toBe(2);
+});
+
+test('evaluates continue_to_next_stage automation action', function () {
+    $form = Form::factory()->create(['faction_id' => $this->faction->id, 'is_enabled' => true]);
+    $stage1 = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 1', 'order' => 0]);
+    $stage2 = FormStage::create(['form_id' => $form->id, 'name' => 'Stage 2', 'order' => 1]);
+
+    $section1 = FormSection::create(['form_stage_id' => $stage1->id, 'name' => 'Sec 1', 'order' => 0]);
+    $field1 = FormField::create([
+        'form_section_id' => $section1->id,
+        'type' => 'text',
+        'label' => 'Field 1',
+        'name' => 'field_1',
+        'order' => 0,
+    ]);
+
+    $submittedStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Submitted', 'order' => 0]);
+    $pendingStatus = FormStatus::create(['form_id' => $form->id, 'name' => 'Pending', 'order' => 1]);
+
+    // Create automation: on_stage_submit, action = continue_to_next_stage
+    FormAutomation::create([
+        'form_id' => $form->id,
+        'name' => 'Auto Advance Stage 1',
+        'trigger' => 'on_stage_submit',
+        'trigger_stage_id' => $stage1->id,
+        'condition_logic' => 'all',
+        'conditions' => [],
+        'action' => 'continue_to_next_stage',
+        'is_enabled' => true,
+        'order' => 0,
+    ]);
+
+    $res = $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/start");
+    $submissionId = $res->json('id');
+
+    $this->actingAs($this->user)
+        ->postJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}/submissions/{$submissionId}/submit", [
+            'responses' => [
+                $field1->id => 'Test Response',
+            ],
+        ])
+        ->assertStatus(200);
+
+    $submission = FormSubmission::find($submissionId);
+    // Verify that the submission advanced to Stage 2, submitted_at is null, status is Pending
+    expect($submission->current_stage_id)->toBe($stage2->id);
+    expect($submission->submitted_at)->toBeNull();
+    expect($submission->current_status_id)->toBe($pendingStatus->id);
 });

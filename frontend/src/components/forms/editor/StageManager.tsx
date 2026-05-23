@@ -18,6 +18,7 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
     const [editingStage, setEditingStage] = useState<number | null>(null);
     const [stageName, setStageName] = useState('');
     const [stageSubmitStatusId, setStageSubmitStatusId] = useState<number | null>(null);
+    const [requiredPoints, setRequiredPoints] = useState<number>(0);
     const confirm = useConfirm();
     const [pending, setPending] = useState(false);
 
@@ -46,7 +47,8 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
         try {
             await api.put(`/factions/${shortname}/forms/${form.id}/stages/${stageId}`, { 
                 name: stageName,
-                submit_status_id: stageSubmitStatusId
+                submit_status_id: stageSubmitStatusId,
+                required_points: requiredPoints
             });
             setEditingStage(null);
             await onUpdate();
@@ -159,6 +161,18 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
                                                 ))}
                                             </select>
                                         </div>
+                                        {form.type === 'quiz' && (
+                                            <div className="w-full md:w-32">
+                                                <label className="block text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1 ml-1">Required Points</label>
+                                                <input 
+                                                    type="number"
+                                                    min="0"
+                                                    value={requiredPoints}
+                                                    onChange={e => setRequiredPoints(parseInt(e.target.value) || 0)}
+                                                    className="bg-bg border border-border rounded px-3 py-1.5 text-sm text-text outline-none w-full"
+                                                />
+                                            </div>
+                                        )}
                                         <div className="flex items-center gap-2 pt-5">
                                             <button 
                                                 onClick={() => handleUpdateStage(stage.id)}
@@ -187,11 +201,18 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
                                                 Stage {stage.order + 1}
                                             </span>
                                         </h3>
-                                        <p className="text-[9px] text-text-muted font-bold uppercase tracking-widest mt-0.5">
-                                            {stage.submit_status_id 
-                                                ? `Status on Submit: ${form.statuses?.find(s => s.id === stage.submit_status_id)?.name || 'Unknown'}`
-                                                : 'Status on Submit: Default (Submitted)'
-                                            }
+                                        <p className="text-[9px] text-text-muted font-bold uppercase tracking-widest mt-0.5 flex flex-wrap gap-x-3">
+                                            <span>
+                                                {stage.submit_status_id 
+                                                    ? `Status on Submit: ${form.statuses?.find(s => s.id === stage.submit_status_id)?.name || 'Unknown'}`
+                                                    : 'Status on Submit: Default (Submitted)'
+                                                }
+                                            </span>
+                                            {form.type === 'quiz' && stage.required_points !== undefined && (
+                                                <span className="text-accent">
+                                                    · Required Points: {stage.required_points}
+                                                </span>
+                                            )}
                                         </p>
                                     </div>
                                 )}
@@ -202,6 +223,7 @@ const StageManager: React.FC<StageManagerProps> = ({ form, shortname, onUpdate }
                                             setEditingStage(stage.id);
                                             setStageName(stage.name);
                                             setStageSubmitStatusId(stage.submit_status_id);
+                                            setRequiredPoints(stage.required_points || 0);
                                         }}
                                         disabled={pending}
                                         className="p-2 text-text-muted hover:text-accent hover:bg-bg rounded transition-all disabled:opacity-50 disabled:cursor-not-allowed"
