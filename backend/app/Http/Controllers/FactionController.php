@@ -126,7 +126,7 @@ class FactionController extends Controller
             return $canViewGlobal || User::hasRosterPermission($user, $roster, 'view_roster');
         })->values();
 
-        if ($filteredRosters->isEmpty()) {
+        if ($filteredRosters->isEmpty() && ! $canViewGlobal) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
