@@ -166,24 +166,35 @@ class AuthController extends Controller
         $gtawUsername = $gtawUser['username'];
         $avatarUrl = $gtawUser['avatar_url'] ?? $gtawUser['avatar'] ?? null;
 
-        // Find user by GTA:W ID first
-        $user = User::where('gtaw_id', $gtawId)->first();
+        // Check if there is an authenticated user (linking from settings)
+        $currentUser = auth('sanctum')->user();
 
-        if (! $user) {
-            // Check if a user with the same GTA:W username or internal username already exists
-            $user = User::where('gtaw_username', $gtawUsername)
-                ->orWhere('username', $gtawUsername)
+        if ($currentUser) {
+            // Case 1: Linking GTA:W account to logged-in user
+            // Ensure this GTA:W account isn't already linked to a different user
+            $existingLink = User::where('gtaw_id', $gtawId)
+                ->where('id', '!=', $currentUser->id)
                 ->first();
 
-            if ($user) {
-                // Link GTA:W account to existing user
-                $user->update([
-                    'gtaw_id' => $gtawId,
-                    'gtaw_username' => $gtawUsername,
-                    'gtaw_access_token' => $accessToken,
-                    'avatar_url' => $avatarUrl,
-                ]);
-            } else {
+            if ($existingLink) {
+                return response()->json([
+                    'message' => 'This GTA:W account is already linked to another user.'
+                ], 400);
+            }
+
+            $currentUser->update([
+                'gtaw_id' => $gtawId,
+                'gtaw_username' => $gtawUsername,
+                'gtaw_access_token' => $accessToken,
+                'avatar_url' => $avatarUrl,
+            ]);
+
+            $user = $currentUser;
+        } else {
+            // Case 2: Not logged in (creating an account / logging in)
+            $user = User::where('gtaw_id', $gtawId)->first();
+
+            if (! $user) {
                 // Check if registration is allowed
                 $allowRegistrationSetting = SiteSetting::where('key', 'allow_registration')->first();
                 $allowRegistration = $allowRegistrationSetting ? ($allowRegistrationSetting->value === 'true') : (bool) config('features.allow_registration');
@@ -192,23 +203,40 @@ class AuthController extends Controller
                     return response()->json(['message' => 'Registration is currently disabled. No account found for this GTA:W user.'], 403);
                 }
 
+                // Check if a user with the same GTA:W username or internal username already exists
+                $collisionExists = User::where('gtaw_username', $gtawUsername)
+                    ->orWhere('username', $gtawUsername)
+                    ->exists();
+
+                $usernameToUse = $gtawUsername;
+                if ($collisionExists) {
+                    do {
+                        $randomDigits = strval(rand(1000, 9999));
+                        $candidateUsername = $gtawUsername . $randomDigits;
+                    } while (User::where('username', $candidateUsername)
+                        ->orWhere('gtaw_username', $candidateUsername)
+                        ->exists());
+
+                    $usernameToUse = $candidateUsername;
+                }
+
                 // Create new user
                 $user = User::create([
-                    'username' => $gtawUsername,
+                    'username' => $usernameToUse,
                     'gtaw_id' => $gtawId,
                     'gtaw_username' => $gtawUsername,
                     'gtaw_access_token' => $accessToken,
                     'avatar_url' => $avatarUrl,
                     'password' => null, // No password for GTA:W users
                 ]);
+            } else {
+                // User found by ID, update token and ensure username/avatar is synced
+                $user->update([
+                    'gtaw_access_token' => $accessToken,
+                    'gtaw_username' => $gtawUsername,
+                    'avatar_url' => $avatarUrl,
+                ]);
             }
-        } else {
-            // User found by ID, update token and ensure username/avatar is synced
-            $user->update([
-                'gtaw_access_token' => $accessToken,
-                'gtaw_username' => $gtawUsername,
-                'avatar_url' => $avatarUrl,
-            ]);
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
