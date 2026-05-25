@@ -178,7 +178,7 @@ class AuthController extends Controller
 
             if ($existingLink) {
                 return response()->json([
-                    'message' => 'This GTA:W account is already linked to another user.'
+                    'message' => 'This GTA:W account is already linked to another user.',
                 ], 400);
             }
 
@@ -212,7 +212,7 @@ class AuthController extends Controller
                 if ($collisionExists) {
                     do {
                         $randomDigits = strval(rand(1000, 9999));
-                        $candidateUsername = $gtawUsername . $randomDigits;
+                        $candidateUsername = $gtawUsername.$randomDigits;
                     } while (User::where('username', $candidateUsername)
                         ->orWhere('gtaw_username', $candidateUsername)
                         ->exists());

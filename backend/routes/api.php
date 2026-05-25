@@ -234,7 +234,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/factions/{shortname}/quick-search/settings', [QuickSearchController::class, 'updateSettings']);
     Route::get('/factions/{shortname}/quick-search', [QuickSearchController::class, 'search']);
 
-
     // Faction Forms Management
     Route::get('/factions/{shortname}/forms', [FormController::class, 'index']);
     Route::post('/factions/{shortname}/forms', [FormController::class, 'store']);

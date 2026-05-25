@@ -336,7 +336,7 @@ class RosterController extends Controller
             }
         }
 
-        $scanSection = function ($section, $roster) use (&$scanSection, &$referencedEntriesByDb, &$hiddenFieldsByDb, $getLinkedDatabaseId, $publishedDbsById, $user, $resolvedLinksMap, $datasetsById, $resolutionDbsById) {
+        $scanSection = function ($section, $roster) use (&$scanSection, &$referencedEntriesByDb, &$hiddenFieldsByDb, $getLinkedDatabaseId, $publishedDbsById, $user, $resolvedLinksMap, $resolutionDbsById) {
             $config = $section->section_options['dynamic_config'] ?? null;
             $isDynamicDb = ($section->data_source === 'dynamic') &&
                 $config &&
@@ -346,8 +346,8 @@ class RosterController extends Controller
 
             $columns = $section->use_roster_columns ? ($roster->columns ?? []) : ($section->columns ?: ($roster->columns ?? []));
             $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
-            $isEditor = User::hasRosterPermission($user, $roster, 'edit_defined_fields') || 
-                        User::hasRosterPermission($user, $roster, 'edit_predefined') || 
+            $isEditor = User::hasRosterPermission($user, $roster, 'edit_defined_fields') ||
+                        User::hasRosterPermission($user, $roster, 'edit_predefined') ||
                         User::hasRosterPermission($user, $roster, 'modify_roster');
 
             // Map column IDs to their linked database IDs and fields

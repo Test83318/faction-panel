@@ -128,7 +128,7 @@ test('view-only users should see masked resolved data in faction show (fixed emp
     $recordData = collect($data['record_data']);
     expect($recordData->count())->toBe(1);
     expect($recordData->first()['id'])->toBe($this->recordDb->id);
-    
+
     // BUT it should ONLY have the referenced entries (in this case 1)
     expect(count($recordData->first()['entries']))->toBe(1);
 });
@@ -155,7 +155,7 @@ test('view-only users should see masked resolved data for hidden_database_data t
 
     // 'abas' (database_data) should be visible
     expect($content['abas'])->toBe('Top Secret ABAS');
-    
+
     // 'secret_abas' (hidden_database_data) should be omitted (unset)
     expect(isset($content['secret_abas']))->toBeFalse();
 });

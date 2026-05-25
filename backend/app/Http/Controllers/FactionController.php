@@ -179,7 +179,6 @@ class FactionController extends Controller
             $resolveDynamic($roster->rootSections);
         }
 
-
         // Include Datasets
         $datasets = $faction->rosterDatasets()
             ->with('options')
@@ -338,7 +337,7 @@ class FactionController extends Controller
             }
         }
 
-        $scanSection = function ($section, $roster) use (&$scanSection, &$referencedEntriesByDb, &$hiddenFieldsByDb, $getLinkedDatabaseId, $publishedDbsById, $user, $resolvedLinksMap, $datasetsById, $resolutionDbsById) {
+        $scanSection = function ($section, $roster) use (&$scanSection, &$referencedEntriesByDb, &$hiddenFieldsByDb, $getLinkedDatabaseId, $user, $resolvedLinksMap, $resolutionDbsById) {
             $config = $section->section_options['dynamic_config'] ?? null;
             $isDynamicDb = ($section->data_source === 'dynamic') &&
                 $config &&
@@ -348,8 +347,8 @@ class FactionController extends Controller
 
             $columns = $section->use_roster_columns ? ($roster->columns ?? []) : ($section->columns ?: ($roster->columns ?? []));
             $canViewHidden = User::hasRosterPermission($user, $roster, 'view_hidden_data');
-            $isEditor = User::hasRosterPermission($user, $roster, 'edit_defined_fields') || 
-                        User::hasRosterPermission($user, $roster, 'edit_predefined') || 
+            $isEditor = User::hasRosterPermission($user, $roster, 'edit_defined_fields') ||
+                        User::hasRosterPermission($user, $roster, 'edit_predefined') ||
                         User::hasRosterPermission($user, $roster, 'modify_roster');
 
             // Map column IDs to their linked database IDs and fields
@@ -518,6 +517,7 @@ class FactionController extends Controller
             if (User::hasRecordPermission($user, $db, 'view_database')) {
                 return true;
             }
+
             // If they have any referenced entries, we must include the database (filtered)
             return ! empty($referencedEntriesByDb[$db->id]['ids'] ?? []) ||
                    ! empty($referencedEntriesByDb[$db->id]['values'] ?? []);

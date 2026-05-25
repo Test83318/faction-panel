@@ -803,7 +803,7 @@ class FormSubmissionController extends Controller
         }
 
         if ($automation->action === 'continue_to_next_stage' && $submission->current_stage_id) {
-            $currentStage = $submission->currentStage 
+            $currentStage = $submission->currentStage
                 ?? FormStage::where('id', $submission->current_stage_id)->first();
             if ($currentStage) {
                 $nextStage = FormStage::where('form_id', $submission->form_id)
