@@ -46,6 +46,8 @@ class InviteController extends Controller
 
         $invites = $query->get();
 
+        $this->audit('invite.list', "Viewed invites list for faction {$faction->name}");
+
         return response()->json($invites);
     }
 
@@ -98,6 +100,8 @@ class InviteController extends Controller
             'created_by' => $request->user()->id,
         ]);
 
+        $this->audit('invite.create', "Created invite code '{$invite->code}' for faction '{$faction->name}'", null, $invite, null, $invite->getAttributes());
+
         return response()->json($invite->load(['creator:id,username', 'role']), 201);
     }
 
@@ -109,6 +113,8 @@ class InviteController extends Controller
         if (! User::hasFactionPermission(Auth::user(), $faction, 'manage_invites')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('invite.delete', "Deleted invite code '{$invite->code}' for faction '{$faction->name}'", null, $invite, $invite->getAttributes());
 
         $invite->delete();
 
@@ -127,6 +133,8 @@ class InviteController extends Controller
         if ($faction->access === 'private') {
             return response()->json(['message' => 'This organization is not accepting new members via invite links.'], 403);
         }
+
+        $this->audit('invite.view', "Viewed details for invite code '{$invite->code}' of faction '{$faction->name}'", null, $invite);
 
         return response()->json([
             'id' => $faction->id,
@@ -177,6 +185,8 @@ class InviteController extends Controller
                 $user->roles()->attach($userRole->id);
             }
         }
+
+        $this->audit('invite.join', "User '{$user->username}' joined faction '{$faction->name}' using invite code '{$invite->code}'", null, $invite);
 
         return response()->json([
             'message' => 'Successfully joined '.$faction->name,

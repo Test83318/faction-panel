@@ -40,6 +40,8 @@ class UploadController extends Controller
 
         $path = $file->storeAs('branding', $filename, 'public');
 
+        $oldValues = $faction->getOriginal();
+
         // Persist the relative path immediately to the database
         if ($type === 'icon') {
             $faction->update(['image_url' => $path]);
@@ -50,6 +52,8 @@ class UploadController extends Controller
         } elseif ($type === 'favicon') {
             $faction->update(['favicon' => $path]);
         }
+
+        $this->audit('faction.upload_branding', "Uploaded branding '{$type}' for faction '{$faction->name}'", null, $faction, $oldValues, $faction->getDirty());
 
         return response()->json([
             'message' => 'File uploaded successfully',

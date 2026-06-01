@@ -22,6 +22,8 @@ class SetupController extends Controller
 
     public function status()
     {
+        $this->audit('setup.status', 'Checked system setup status');
+
         return response()->json([
             'is_setup' => $this->isSystemSetup(),
         ]);
@@ -54,6 +56,8 @@ class SetupController extends Controller
             // 5. Initialize default settings
             SiteSetting::updateOrCreate(['key' => 'allow_registration'], ['value' => 'true']);
             SiteSetting::updateOrCreate(['key' => 'version'], ['value' => '1.0.0']);
+
+            $this->audit('setup.complete', "Completed system setup and created superadmin user '{$user->username}'", null, $user, null, ['username' => $user->username]);
 
             return response()->json([
                 'message' => 'Setup completed successfully.',

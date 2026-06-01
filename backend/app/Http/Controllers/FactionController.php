@@ -16,6 +16,8 @@ class FactionController extends Controller
 {
     public function index()
     {
+        $this->audit('faction.index', 'Viewed list of joined factions');
+
         return Auth::user()->factions()->get();
     }
 
@@ -73,6 +75,8 @@ class FactionController extends Controller
                 $publicRole->permissions()->create(['permission_key' => $key, 'value' => 'NO']);
             }
         }
+
+        $this->audit('faction.create', "Created faction '{$faction->name}' ({$faction->shortname})", $faction->id, $faction);
 
         return response()->json($faction, 201);
     }
@@ -625,6 +629,8 @@ class FactionController extends Controller
         // Ensure rosters relation is NOT loaded or serialized on faction model to prevent unmasked data leakage
         $faction->unsetRelation('rosters');
 
+        $this->audit('faction.show', "Viewed faction panel for '{$faction->name}'", $faction->id, $faction);
+
         return response()->json([
             'faction' => $faction,
             'permissions' => $permissions,
@@ -697,7 +703,10 @@ class FactionController extends Controller
             return response()->json(['message' => 'Only the faction leader can transfer leadership.'], 403);
         }
 
+        $oldValues = $faction->getOriginal();
         $faction->update($validated);
+
+        $this->audit('faction.update', "Updated details for faction '{$faction->name}'", $faction->id, $faction, $oldValues, $faction->getDirty());
 
         return $faction;
     }
@@ -707,6 +716,8 @@ class FactionController extends Controller
         if ($faction->faction_leader !== Auth::id() && ! Auth::user()->is_superadmin) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('faction.delete', "Deleted faction '{$faction->name}'", $faction->id, $faction, $faction->getAttributes());
 
         $faction->delete();
 
@@ -738,6 +749,8 @@ class FactionController extends Controller
             Auth::user()->roles()->attach($userRole->id);
         }
 
+        $this->audit('faction.join', "Joined faction '{$faction->name}'", $faction->id, $faction);
+
         return response()->json(['message' => 'Joined successfully']);
     }
 
@@ -747,6 +760,8 @@ class FactionController extends Controller
             return response()->json(['message' => 'Leaders cannot leave. Transfer leadership first.'], 400);
         }
 
+        $this->audit('faction.leave', "Left faction '{$faction->name}'", $faction->id, $faction);
+
         $faction->users()->detach(Auth::id());
 
         return response()->json(['message' => 'Left successfully']);
@@ -754,6 +769,8 @@ class FactionController extends Controller
 
     public function getAllFactions()
     {
+        $this->audit('faction.list_all', 'Viewed all public factions');
+
         // Users only see factions with 'public' visibility
         return Faction::with('creator.membershipTier')
             ->where('visibility', 'public')
@@ -764,6 +781,8 @@ class FactionController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::guard('sanctum')->user();
+
+        $this->audit('faction.permissions', "Fetched permissions for faction '{$faction->name}'", $faction->id, $faction);
 
         $allPermissions = config('permissions.categories', []);
         $permissions = [];
@@ -789,6 +808,8 @@ class FactionController extends Controller
             ! $user->isGroupLeaderInFaction($faction->id)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('faction.members.index', "Viewed members list for faction '{$faction->name}'", $faction->id, $faction);
 
         $search = $request->query('search');
         $query = $faction->users()->with(['roles' => function ($query) use ($faction) {
@@ -817,6 +838,8 @@ class FactionController extends Controller
         if (! User::hasFactionPermission($user, $faction, 'view_users')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('faction.members.show', "Viewed member profile of '{$member->username}' in faction '{$faction->name}'", $faction->id, $member);
 
         $memberWithPivot = $faction->users()->where('users.id', $member->id)->firstOrFail();
         $memberWithPivot->load(['roles' => function ($query) use ($faction) {
@@ -851,6 +874,8 @@ class FactionController extends Controller
         if ($targetWeight >= $myWeight) {
             return response()->json(['message' => 'Cannot remove a user with equal or higher weight than your own.'], 403);
         }
+
+        $this->audit('faction.members.remove', "Removed member '{$user->username}' from faction '{$faction->name}'", $faction->id, $user);
 
         $faction->users()->detach($user->id);
 
@@ -903,8 +928,12 @@ class FactionController extends Controller
         }
 
         // Sync roles for this faction
+        $oldRoles = $user->roles()->where('faction_id', $faction->id)->pluck('roles.name')->toArray();
         $otherRoles = $user->roles()->where('faction_id', '!=', $faction->id)->pluck('roles.id')->toArray();
         $user->roles()->sync(array_merge($otherRoles, $request->role_ids));
+        $newRoles = $roles->pluck('name')->toArray();
+
+        $this->audit('faction.members.update_roles', "Updated roles for member '{$user->username}' in faction '{$faction->name}'", $faction->id, $user, ['roles' => $oldRoles], ['roles' => $newRoles]);
 
         return response()->json(['message' => 'User roles updated.']);
     }

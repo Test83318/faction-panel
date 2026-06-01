@@ -20,6 +20,8 @@ class GroupController extends Controller
         if ($canManageAll) {
             $groups = $faction->groups()->with('members', 'leaders')->get();
 
+            $this->audit('group.list', "Viewed all groups for faction {$faction->name}");
+
             return response()->json($groups);
         }
 
@@ -29,6 +31,8 @@ class GroupController extends Controller
             ->wherePivot('is_leader', true)
             ->with('members', 'leaders')
             ->get();
+
+        $this->audit('group.list', "Viewed lead groups for faction {$faction->name}");
 
         return response()->json($groups);
     }
@@ -51,6 +55,8 @@ class GroupController extends Controller
             'created_by' => Auth::id(),
         ]);
 
+        $this->audit('group.create', "Created group '{$group->name}'", null, $group, null, $group->getAttributes());
+
         return response()->json($group, 201);
     }
 
@@ -67,7 +73,10 @@ class GroupController extends Controller
             'color' => ['sometimes', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'],
         ]);
 
+        $oldValues = $group->getOriginal();
         $group->update($validated);
+
+        $this->audit('group.update', "Updated group '{$group->name}'", null, $group, $oldValues, $group->getDirty());
 
         return response()->json($group);
     }
@@ -79,6 +88,8 @@ class GroupController extends Controller
         if (! User::hasFactionPermission(Auth::user(), $faction, 'remove_groups')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('group.delete', "Deleted group '{$group->name}'", null, $group, $group->getAttributes());
 
         $group->delete();
 
@@ -118,6 +129,8 @@ class GroupController extends Controller
 
         $group->members()->syncWithoutDetaching([$targetUserId => ['is_leader' => $isLeader]]);
 
+        $this->audit('group.add_member', "Added member '{$targetUser->username}' to group '{$group->name}'", null, $group, null, ['user_id' => $targetUserId, 'is_leader' => $isLeader]);
+
         return response()->json(['message' => 'Member added']);
     }
 
@@ -143,6 +156,8 @@ class GroupController extends Controller
             return response()->json(['message' => 'Group leaders cannot remove other leaders'], 403);
         }
 
+        $this->audit('group.remove_member', "Removed member '{$user->username}' from group '{$group->name}'", null, $group, ['user_id' => $user->id]);
+
         $group->members()->detach($user->id);
 
         return response()->json(['message' => 'Member removed']);
@@ -161,7 +176,12 @@ class GroupController extends Controller
             return response()->json(['message' => 'User not in group'], 404);
         }
 
-        $group->members()->updateExistingPivot($user->id, ['is_leader' => ! $targetPivot->pivot->is_leader]);
+        $newLeaderStatus = ! $targetPivot->pivot->is_leader;
+        $statusStr = $newLeaderStatus ? 'leader' : 'regular member';
+
+        $this->audit('group.toggle_leader', "Toggled leader status for '{$user->username}' in group '{$group->name}' to {$statusStr}", null, $group, ['is_leader' => $targetPivot->pivot->is_leader], ['is_leader' => $newLeaderStatus]);
+
+        $group->members()->updateExistingPivot($user->id, ['is_leader' => $newLeaderStatus]);
 
         return response()->json(['message' => 'Leader status toggled']);
     }

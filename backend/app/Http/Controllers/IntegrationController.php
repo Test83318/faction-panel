@@ -46,6 +46,9 @@ class IntegrationController extends Controller
             }
         }
 
+        $faction = Faction::where('shortname', $shortname)->first();
+        $this->audit('integration.gtaw.available_factions', 'Fetched available GTA:W factions for integration'.($faction ? " on faction '{$faction->name}'" : ''), null, $faction);
+
         return response()->json($available);
     }
 
@@ -65,12 +68,16 @@ class IntegrationController extends Controller
             return response()->json(['message' => 'Integration already exists'], 400);
         }
 
-        return DB::transaction(function () use ($request, $faction) {
+        $oldValues = $faction->getOriginal();
+
+        return DB::transaction(function () use ($request, $faction, $oldValues) {
             $faction->update([
                 'gtaw_faction_id' => $request->gtaw_faction_id,
             ]);
 
             $dbs = $this->ensureGtawDatabases($faction);
+
+            $this->audit('integration.gtaw.setup', "Set up GTA:W integration for faction '{$faction->name}' with GTA:W faction ID {$request->gtaw_faction_id}", null, $faction, $oldValues, $faction->getDirty());
 
             return response()->json([
                 'message' => 'Integration setup successful',
@@ -332,6 +339,8 @@ class IntegrationController extends Controller
             }
         });
 
+        $this->audit('integration.gtaw.sync', "Synchronized GTA:W members for faction '{$faction->name}'", null, $faction, null, $syncResults);
+
         return response()->json([
             'message' => 'Synchronization complete',
             'results' => $syncResults,
@@ -469,6 +478,8 @@ class IntegrationController extends Controller
         if ($charDb) {
             $charDb->entries()->delete();
         }
+
+        $this->audit('integration.gtaw.prune', "Pruned synchronized GTA:W database entries for faction '{$faction->name}'", null, $faction);
 
         return response()->json(['message' => 'All synchronized data pruned']);
     }

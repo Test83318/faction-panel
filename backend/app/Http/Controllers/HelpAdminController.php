@@ -19,6 +19,8 @@ class HelpAdminController extends Controller
     {
         $this->checkSuperadmin($request);
 
+        $this->audit('help.admin.category.list', 'Viewed help categories for administration');
+
         return HelpCategory::withCount('articles')->orderBy('order')->get();
     }
 
@@ -31,7 +33,11 @@ class HelpAdminController extends Controller
             'order' => 'integer',
         ]);
 
-        return HelpCategory::create($validated);
+        $category = HelpCategory::create($validated);
+
+        $this->audit('help.admin.category.create', "Created help category '{$category->name}'", null, $category, null, $category->getAttributes());
+
+        return $category;
     }
 
     public function updateCategory(Request $request, HelpCategory $category)
@@ -43,7 +49,10 @@ class HelpAdminController extends Controller
             'order' => 'integer',
         ]);
 
+        $oldValues = $category->getOriginal();
         $category->update($validated);
+
+        $this->audit('help.admin.category.update', "Updated help category '{$category->name}'", null, $category, $oldValues, $category->getDirty());
 
         return $category;
     }
@@ -51,6 +60,9 @@ class HelpAdminController extends Controller
     public function deleteCategory(Request $request, HelpCategory $category)
     {
         $this->checkSuperadmin($request);
+
+        $this->audit('help.admin.category.delete', "Deleted help category '{$category->name}'", null, $category, $category->getAttributes());
+
         $category->delete();
 
         return response()->json(['message' => 'Category deleted']);
@@ -59,6 +71,8 @@ class HelpAdminController extends Controller
     public function getArticles(Request $request)
     {
         $this->checkSuperadmin($request);
+
+        $this->audit('help.admin.article.list', 'Viewed help articles for administration');
 
         return HelpArticle::with('category')->orderBy('order')->get();
     }
@@ -77,7 +91,11 @@ class HelpAdminController extends Controller
 
         $validated['created_by'] = $request->user()->id;
 
-        return HelpArticle::create($validated);
+        $article = HelpArticle::create($validated);
+
+        $this->audit('help.admin.article.create', "Created help article '{$article->title}'", null, $article, null, $article->getAttributes());
+
+        return $article;
     }
 
     public function updateArticle(Request $request, HelpArticle $article)
@@ -92,7 +110,10 @@ class HelpAdminController extends Controller
             'is_published' => 'boolean',
         ]);
 
+        $oldValues = $article->getOriginal();
         $article->update($validated);
+
+        $this->audit('help.admin.article.update', "Updated help article '{$article->title}'", null, $article, $oldValues, $article->getDirty());
 
         return $article;
     }
@@ -100,6 +121,9 @@ class HelpAdminController extends Controller
     public function deleteArticle(Request $request, HelpArticle $article)
     {
         $this->checkSuperadmin($request);
+
+        $this->audit('help.admin.article.delete', "Deleted help article '{$article->title}'", null, $article, $article->getAttributes());
+
         $article->delete();
 
         return response()->json(['message' => 'Article deleted']);

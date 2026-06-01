@@ -17,6 +17,8 @@ class RoleController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $this->audit('role.list', "Viewed roles for faction {$faction->name}");
+
         return $faction->roles()->with('permissions')->orderBy('weight', 'desc')->get();
     }
 
@@ -48,6 +50,8 @@ class RoleController extends Controller
                 $role->permissions()->create(['permission_key' => $key, 'value' => 'NO']);
             }
         }
+
+        $this->audit('role.create', "Created role '{$role->name}' in faction '{$faction->name}'", null, $role, null, $role->getAttributes());
 
         return $role->load('permissions');
     }
@@ -81,7 +85,10 @@ class RoleController extends Controller
             return response()->json(['message' => 'Cannot set weight equal to or higher than your own.'], 403);
         }
 
+        $oldValues = $role->getOriginal();
         $role->update($validated);
+
+        $this->audit('role.update', "Updated role '{$role->name}' in faction '{$faction->name}'", null, $role, $oldValues, $role->getDirty());
 
         return $role;
     }
@@ -102,6 +109,8 @@ class RoleController extends Controller
         if (in_array($role->name, $protectedRoles)) {
             return response()->json(['message' => "Cannot delete the {$role->name} role as it is a core system role."], 400);
         }
+
+        $this->audit('role.delete', "Deleted role '{$role->name}' in faction '{$faction->name}'", null, $role, $role->getAttributes());
 
         $role->delete();
 
@@ -137,11 +146,15 @@ class RoleController extends Controller
             );
         }
 
+        $this->audit('role.permissions_update', "Updated permissions for role '{$role->name}' in faction '{$faction->name}'", null, $role, null, $request->permissions);
+
         return response()->json(['message' => 'Permissions updated']);
     }
 
     public function getGlobalConfig()
     {
+        $this->audit('role.global_config', 'Viewed global permissions configuration');
+
         return response()->json(config('permissions.categories'));
     }
 

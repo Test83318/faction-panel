@@ -498,6 +498,8 @@ class RosterController extends Controller
             }
         });
 
+        $this->audit('roster.list', "Viewed rosters list for faction {$faction->name}");
+
         return response()->json($filteredRosters->values());
     }
 
@@ -593,6 +595,8 @@ class RosterController extends Controller
             'created_by' => Auth::id(),
         ]);
 
+        $this->audit('roster.create', "Created roster '{$roster->name}' for faction '{$faction->name}'", null, $roster, null, $roster->getAttributes());
+
         return response()->json($roster, 201);
     }
 
@@ -653,6 +657,7 @@ class RosterController extends Controller
             return response()->json(['message' => 'No authorized changes provided'], 403);
         }
 
+        $oldValues = $roster->getOriginal();
         $roster->update(collect($toUpdate)->except('section_order')->toArray());
 
         if (isset($validated['section_order']) && $canManageLayout) {
@@ -660,6 +665,8 @@ class RosterController extends Controller
                 $roster->sections()->where('id', $id)->update(['order' => $index]);
             }
         }
+
+        $this->audit('roster.update', "Updated roster '{$roster->name}' for faction '{$roster->faction->name}'", null, $roster, $oldValues, $roster->getDirty());
 
         return response()->json($roster);
     }
@@ -669,6 +676,8 @@ class RosterController extends Controller
         if (! User::hasRosterPermission(Auth::user(), $roster, 'modify_roster')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('roster.delete', "Deleted roster '{$roster->name}' for faction '{$roster->faction->name}'", null, $roster, $roster->getAttributes());
 
         $roster->delete();
 
@@ -774,6 +783,8 @@ class RosterController extends Controller
             $results[] = (string) $value;
         }
 
+        $this->audit('roster.resolve_links', 'Resolved links for roster rows');
+
         return response()->json(['results' => $results]);
     }
 
@@ -793,6 +804,8 @@ class RosterController extends Controller
         foreach ($request->roster_ids as $index => $id) {
             Roster::where('id', $id)->where('faction_id', $faction->id)->update(['order' => $index]);
         }
+
+        $this->audit('roster.reorder', "Reordered rosters for faction {$faction->name}", null, null, null, $request->roster_ids);
 
         return response()->json(['message' => 'Order updated']);
     }

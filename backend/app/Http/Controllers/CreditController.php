@@ -10,6 +10,8 @@ class CreditController extends Controller
 {
     public function index()
     {
+        $this->audit('credit.index', 'Viewed credits');
+
         return response()->json(Credit::orderBy('order')->get());
     }
 
@@ -28,6 +30,8 @@ class CreditController extends Controller
 
         $credit = Credit::create($validated);
 
+        $this->audit('credit.create', "Created credit for '{$credit->name}' as '{$credit->role}'", null, $credit);
+
         return response()->json($credit, 201);
     }
 
@@ -44,7 +48,10 @@ class CreditController extends Controller
             'order' => 'integer',
         ]);
 
+        $oldValues = $credit->getOriginal();
         $credit->update($validated);
+
+        $this->audit('credit.update', "Updated credit for '{$credit->name}'", null, $credit, $oldValues, $credit->getDirty());
 
         return response()->json($credit);
     }
@@ -54,6 +61,8 @@ class CreditController extends Controller
         if (! Auth::user()->is_superadmin) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('credit.delete', "Deleted credit for '{$credit->name}'", null, $credit, $credit->getAttributes());
 
         $credit->delete();
 
@@ -74,6 +83,8 @@ class CreditController extends Controller
         foreach ($request->ids as $index => $id) {
             Credit::where('id', $id)->update(['order' => $index]);
         }
+
+        $this->audit('credit.reorder', 'Reordered credits');
 
         return response()->json(['message' => 'Order updated']);
     }

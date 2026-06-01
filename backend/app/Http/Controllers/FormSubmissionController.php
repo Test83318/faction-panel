@@ -41,6 +41,8 @@ class FormSubmissionController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
+        $this->audit('form.submission.global_index', "Viewed all submissions for faction '{$faction->name}'", $faction->id);
+
         return response()->json($submissions);
     }
 
@@ -64,6 +66,8 @@ class FormSubmissionController extends Controller
             ->map(fn ($group) => $group->first())
             ->values();
 
+        $this->audit('form.submission.my_submissions', "Viewed my submissions for faction '{$faction->name}'", $faction->id);
+
         return response()->json($submissions);
     }
 
@@ -86,6 +90,8 @@ class FormSubmissionController extends Controller
         } else {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
+
+        $this->audit('form.submission.index', "Viewed submissions for form '{$form->name}'", null, $form);
 
         return response()->json($submissions);
     }
@@ -263,6 +269,8 @@ class FormSubmissionController extends Controller
             }
         }
 
+        $this->audit('form.submission.start', "Started submission for form '{$form->name}'", null, $submission);
+
         return response()->json($submission->load(['form', 'currentStage', 'currentStatus', 'responses']));
     }
 
@@ -279,6 +287,8 @@ class FormSubmissionController extends Controller
         if ($submission->submitted_at) {
             return response()->json(['message' => 'This form has already been submitted.'], 422);
         }
+
+        $oldValues = $submission->getOriginal();
 
         // 2. Validation - Only validate fields for the CURRENT stage
         $form = $submission->form;
@@ -412,6 +422,8 @@ class FormSubmissionController extends Controller
             $this->runAutomations($submissionFresh, 'on_final_submit');
         }
 
+        $this->audit('form.submission.submit', "Submitted stage '".($currentStage->name ?? '')."' for form '{$form->name}'", null, $submission, $oldValues, $submission->getDirty());
+
         return response()->json(['message' => 'Form submitted successfully!', 'submission' => $submissionFresh->load('currentStatus')]);
     }
 
@@ -441,6 +453,8 @@ class FormSubmissionController extends Controller
         if (! User::hasFormPermission($user, $submission->form, 'modify_submission_status')) {
             $submission->setRelation('comments', $submission->comments->where('is_internal', false));
         }
+
+        $this->audit('form.submission.show', "Viewed submission #{$submission->id} for form '{$submission->form->name}'", null, $submission);
 
         return response()->json($submission);
     }
@@ -484,9 +498,12 @@ class FormSubmissionController extends Controller
             $updateData['current_stage_id'] = $stage->id;
         }
 
+        $oldValues = $submission->getOriginal();
         $submission->update($updateData);
 
         $this->runAutomations($submission->fresh(), 'on_status_change', $status->id);
+
+        $this->audit('form.submission.update_status', "Updated status of submission #{$submission->id} to '{$status->name}' for form '{$form->name}'", null, $submission, $oldValues, $submission->getDirty());
 
         return response()->json(['message' => 'Status updated successfully', 'submission' => $submission->fresh()->load('currentStatus', 'currentStage')]);
     }
@@ -524,6 +541,7 @@ class FormSubmissionController extends Controller
             ?? $form->statuses()->where('name', 'Pending')->first()
             ?? $form->statuses()->first();
 
+        $oldValues = $submission->getOriginal();
         $submission->update([
             'current_stage_id' => $nextStage->id,
             'submitted_at' => null,
@@ -533,6 +551,8 @@ class FormSubmissionController extends Controller
         if ($pendingStatus) {
             $this->runAutomations($submission->fresh(), 'on_status_change', $pendingStatus->id);
         }
+
+        $this->audit('form.submission.advance', "Advanced submission #{$submission->id} to stage '{$nextStage->name}' for form '{$form->name}'", null, $submission, $oldValues, $submission->getDirty());
 
         return response()->json([
             'message' => 'Advanced to next stage successfully',
@@ -556,11 +576,14 @@ class FormSubmissionController extends Controller
             return response()->json(['message' => 'No closed status is defined for this form.'], 422);
         }
 
+        $oldValues = $submission->getOriginal();
         $submission->update([
             'current_status_id' => $closedStatus->id,
         ]);
 
         $this->runAutomations($submission->fresh(), 'on_status_change', $closedStatus->id);
+
+        $this->audit('form.submission.conclude', "Concluded submission #{$submission->id} with status '{$closedStatus->name}' for form '{$form->name}'", null, $submission, $oldValues, $submission->getDirty());
 
         return response()->json([
             'message' => 'Application concluded successfully',
@@ -595,6 +618,7 @@ class FormSubmissionController extends Controller
             ?? $form->statuses()->where('name', 'Pending')->first()
             ?? $form->statuses()->first();
 
+        $oldValues = $submission->getOriginal();
         $submission->update([
             'submitted_at' => null,
             'current_status_id' => $pendingStatus?->id,
@@ -603,6 +627,8 @@ class FormSubmissionController extends Controller
         if ($pendingStatus) {
             $this->runAutomations($submission->fresh(), 'on_status_change', $pendingStatus->id);
         }
+
+        $this->audit('form.submission.retake', "Initiated retake of stage for submission #{$submission->id} for form '{$form->name}'", null, $submission, $oldValues, $submission->getDirty());
 
         return response()->json([
             'message' => 'Stage retake initiated successfully',
@@ -638,6 +664,8 @@ class FormSubmissionController extends Controller
             'is_internal' => $isInternal,
             'form_section_id' => $isInternal ? null : $validated['form_section_id'],
         ]);
+
+        $this->audit('form.submission.comment', 'Added '.($isInternal ? 'internal' : 'public')." comment on submission #{$submission->id} for form '{$form->name}'", null, $comment);
 
         return response()->json($comment->load('user:id,username', 'section'));
     }
@@ -688,6 +716,8 @@ class FormSubmissionController extends Controller
                 'is_graded' => true,
             ]);
         }
+
+        $this->audit('form.submission.grade', "Graded responses for submission #{$submission->id} of form '{$form->name}'", null, $submission);
 
         return response()->json(['message' => 'Responses graded successfully']);
     }

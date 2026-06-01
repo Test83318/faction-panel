@@ -24,6 +24,8 @@ class FormController extends Controller
             return User::hasFormPermission($user, $form, 'view_form');
         })->values();
 
+        $this->audit('form.index', "Viewed forms list for faction '{$faction->name}'", $faction->id);
+
         return response()->json($forms);
     }
 
@@ -79,6 +81,8 @@ class FormController extends Controller
             'is_archived' => false,
         ]);
 
+        $this->audit('form.create', "Created form '{$form->name}'", null, $form);
+
         return response()->json($form->load('statuses.stages'), 201);
     }
 
@@ -87,6 +91,8 @@ class FormController extends Controller
         if (! User::hasFormPermission(Auth::user(), $form, 'view_form')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('form.show', "Viewed form '{$form->name}'", null, $form);
 
         return response()->json($form->load(['creator:id,username', 'statuses.stages', 'stages.sections.fields']));
     }
@@ -114,7 +120,10 @@ class FormController extends Controller
             $validated['is_public'] = false; // Force false for now (disabled under refinement)
         }
 
+        $oldValues = $form->getOriginal();
         $form->update($validated);
+
+        $this->audit('form.update', "Updated form '{$form->name}'", null, $form, $oldValues, $form->getDirty());
 
         return response()->json($form);
     }
@@ -124,6 +133,8 @@ class FormController extends Controller
         if (! User::hasFactionPermission(Auth::user(), $form->faction, 'global_faction_form_moderation') && $form->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('form.delete', "Deleted form '{$form->name}'", null, $form, $form->getAttributes());
 
         $form->delete();
 

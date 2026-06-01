@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\SiteSetting;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -28,6 +29,9 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        Auth::setUser($user);
+        $this->audit('auth.login', "Logged in user '{$user->username}'", null, $user);
 
         return response()->json([
             'access_token' => $token,
@@ -59,6 +63,9 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        Auth::setUser($user);
+        $this->audit('auth.register', "Registered new user '{$user->username}'", null, $user);
+
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
@@ -70,6 +77,8 @@ class AuthController extends Controller
     {
         $allowRegistrationSetting = SiteSetting::where('key', 'allow_registration')->first();
         $allowRegistration = $allowRegistrationSetting ? ($allowRegistrationSetting->value === 'true') : (bool) config('features.allow_registration');
+
+        $this->audit('auth.registration_status', 'Viewed registration status');
 
         return response()->json([
             'allow_registration' => $allowRegistration,
@@ -93,6 +102,8 @@ class AuthController extends Controller
         ]);
 
         $baseUrl = rtrim(config('features.gtaw_base_url'), '/');
+
+        $this->audit('auth.gtaw_redirect', 'Initiated GTA:W OAuth redirect');
 
         return response()->json([
             'url' => "{$baseUrl}/oauth/authorize?".$query,
@@ -182,6 +193,7 @@ class AuthController extends Controller
                 ], 400);
             }
 
+            $oldValues = $currentUser->getOriginal();
             $currentUser->update([
                 'gtaw_id' => $gtawId,
                 'gtaw_username' => $gtawUsername,
@@ -229,8 +241,11 @@ class AuthController extends Controller
                     'avatar_url' => $avatarUrl,
                     'password' => null, // No password for GTA:W users
                 ]);
+                $isNew = true;
             } else {
+                $isNew = false;
                 // User found by ID, update token and ensure username/avatar is synced
+                $oldValues = $user->getOriginal();
                 $user->update([
                     'gtaw_access_token' => $accessToken,
                     'gtaw_username' => $gtawUsername,
@@ -241,6 +256,15 @@ class AuthController extends Controller
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
+        Auth::setUser($user);
+        if ($currentUser) {
+            $this->audit('auth.gtaw_link', "Linked GTA:W account '{$gtawUsername}' to user '{$user->username}'", null, $user, $oldValues, $user->getDirty());
+        } elseif (isset($isNew) && $isNew) {
+            $this->audit('auth.gtaw_register', "Registered new user '{$user->username}' via GTA:W", null, $user);
+        } else {
+            $this->audit('auth.gtaw_login', "Logged in via GTA:W as '{$user->username}'", null, $user, $oldValues ?? null, $user->getDirty());
+        }
+
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
@@ -250,7 +274,9 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+        $this->audit('auth.logout', "Logged out user '{$user->username}'", null, $user);
+        $user->currentAccessToken()->delete();
 
         return response()->json([
             'message' => 'Successfully logged out',
@@ -259,7 +285,10 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return response()->json($request->user()->load('groups', 'factions', 'membershipTier', 'roles'));
+        $user = $request->user();
+        $this->audit('auth.me', "Fetched authenticated user profile for '{$user->username}'", null, $user);
+
+        return response()->json($user->load('groups', 'factions', 'membershipTier', 'roles'));
     }
 
     public function unlinkGtaw(Request $request)
@@ -270,10 +299,12 @@ class AuthController extends Controller
             return response()->json(['message' => 'You must set a password before unlinking your GTA:W account.'], 400);
         }
 
+        $oldValues = $user->getOriginal();
         $user->update([
             'gtaw_id' => null,
             'gtaw_username' => null,
         ]);
+        $this->audit('auth.unlink_gtaw', "Unlinked GTA:W account from user '{$user->username}'", null, $user, $oldValues, $user->getDirty());
 
         return response()->json(['message' => 'GTA:W account unlinked successfully.']);
     }
@@ -294,9 +325,11 @@ class AuthController extends Controller
             ]);
         }
 
+        $oldValues = $user->getOriginal();
         $user->update([
             'password' => Hash::make($request->password),
         ]);
+        $this->audit('auth.change_password', "Changed password for user '{$user->username}'", null, $user, $oldValues, $user->getDirty());
 
         return response()->json(['message' => 'Password updated successfully.']);
     }
@@ -309,7 +342,9 @@ class AuthController extends Controller
             'always_match_row_height' => 'sometimes|boolean',
         ]);
 
+        $oldValues = $user->getOriginal();
         $user->update($validated);
+        $this->audit('auth.update_settings', "Updated settings for user '{$user->username}'", null, $user, $oldValues, $user->getDirty());
 
         return response()->json([
             'message' => 'Settings updated successfully.',

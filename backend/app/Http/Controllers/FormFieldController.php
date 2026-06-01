@@ -44,6 +44,8 @@ class FormFieldController extends Controller
             'order' => $maxOrder + 1,
         ]);
 
+        $this->audit('form.field.create', "Created field '{$field->label}' in section '{$section->name}' of form '{$form->name}'", null, $field);
+
         return response()->json($field, 201);
     }
 
@@ -73,7 +75,10 @@ class FormFieldController extends Controller
             'width' => 'sometimes|integer|min:1|max:12',
         ]);
 
+        $oldValues = $field->getOriginal();
         $field->update($validated);
+
+        $this->audit('form.field.update', "Updated field '{$field->label}' of form '{$form->name}'", null, $field, $oldValues, $field->getDirty());
 
         return response()->json($field);
     }
@@ -83,6 +88,8 @@ class FormFieldController extends Controller
         if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('form.field.delete', "Deleted field '{$field->label}' of form '{$form->name}'", null, $field, $field->getAttributes());
 
         $field->delete();
 
@@ -106,6 +113,8 @@ class FormFieldController extends Controller
                 ->update(['order' => $index]);
         }
 
+        $this->audit('form.field.reorder', "Reordered fields in section '{$section->name}' of form '{$form->name}'", null, $section);
+
         return response()->json(['message' => 'Order updated']);
     }
 
@@ -126,10 +135,13 @@ class FormFieldController extends Controller
         }
 
         $maxOrder = $targetSection->fields()->max('order') ?? -1;
+        $oldValues = $field->getOriginal();
         $field->update([
             'form_section_id' => $targetSection->id,
             'order' => $maxOrder + 1,
         ]);
+
+        $this->audit('form.field.move', "Moved field '{$field->label}' to section '{$targetSection->name}' in form '{$form->name}'", null, $field, $oldValues, $field->getDirty());
 
         return response()->json($field);
     }

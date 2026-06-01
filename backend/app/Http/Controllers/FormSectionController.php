@@ -30,6 +30,8 @@ class FormSectionController extends Controller
             'order' => $maxOrder + 1,
         ]);
 
+        $this->audit('form.section.create', "Created section '{$section->name}' in stage '{$stage->name}' of form '{$form->name}'", null, $section);
+
         return response()->json($section, 201);
     }
 
@@ -44,7 +46,10 @@ class FormSectionController extends Controller
             'description' => 'nullable|string',
         ]);
 
+        $oldValues = $section->getOriginal();
         $section->update($validated);
+
+        $this->audit('form.section.update', "Updated section '{$section->name}' of form '{$form->name}'", null, $section, $oldValues, $section->getDirty());
 
         return response()->json($section);
     }
@@ -54,6 +59,8 @@ class FormSectionController extends Controller
         if (! User::hasFormPermission(Auth::user(), $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('form.section.delete', "Deleted section '{$section->name}' of form '{$form->name}'", null, $section, $section->getAttributes());
 
         $section->delete();
 
@@ -77,6 +84,8 @@ class FormSectionController extends Controller
                 ->update(['order' => $index]);
         }
 
+        $this->audit('form.section.reorder', "Reordered sections in stage '{$stage->name}' of form '{$form->name}'", null, $stage);
+
         return response()->json(['message' => 'Order updated']);
     }
 
@@ -94,10 +103,13 @@ class FormSectionController extends Controller
         $targetStage = FormStage::where('id', $validated['form_stage_id'])->where('form_id', $form->id)->firstOrFail();
 
         $maxOrder = $targetStage->sections()->max('order') ?? -1;
+        $oldValues = $section->getOriginal();
         $section->update([
             'form_stage_id' => $targetStage->id,
             'order' => $maxOrder + 1,
         ]);
+
+        $this->audit('form.section.move', "Moved section '{$section->name}' to stage '{$targetStage->name}' in form '{$form->name}'", null, $section, $oldValues, $section->getDirty());
 
         return response()->json($section);
     }

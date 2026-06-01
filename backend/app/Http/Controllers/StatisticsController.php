@@ -23,6 +23,8 @@ class StatisticsController extends Controller
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::user();
 
+        $this->audit('statistics_model.index', "Viewed statistics models for faction '{$faction->name}'", null, $faction);
+
         $canViewAll = User::hasFactionPermission($user, $faction, 'view_all_statistics_models');
         $isGlobalMod = User::hasFactionPermission($user, $faction, 'global_statistics_moderation');
 
@@ -70,6 +72,8 @@ class StatisticsController extends Controller
             'created_by' => Auth::id(),
         ]);
 
+        $this->audit('statistics_model.create', "Created statistics model '{$model->name}' for faction '{$faction->name}'", null, $model, null, $model->getAttributes());
+
         $isGlobalMod = User::hasFactionPermission($user, $faction, 'global_statistics_moderation');
         $this->appendPermissions($model, $user, $isGlobalMod);
 
@@ -87,6 +91,8 @@ class StatisticsController extends Controller
         if (! $canViewAll && ! $isGlobalMod && ! User::hasStatisticsPermission($user, $model, 'view_statistics')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('statistics_model.view', "Viewed statistics model '{$model->name}'", null, $model);
 
         $model->load(['creator', 'widgets']);
 
@@ -111,7 +117,10 @@ class StatisticsController extends Controller
             'created_by' => 'nullable|integer|exists:users,id',
         ]);
 
+        $oldValues = $model->getOriginal();
         $model->update($validated);
+
+        $this->audit('statistics_model.update', "Updated statistics model '{$model->name}'", null, $model, $oldValues, $model->getDirty());
 
         $this->appendPermissions($model, $user, $isGlobalMod);
 
@@ -129,6 +138,7 @@ class StatisticsController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $this->audit('statistics_model.delete', "Deleted statistics model '{$model->name}'", null, $model, $model->getAttributes());
         $model->delete();
 
         return response()->json(['message' => 'Statistics model deleted']);
@@ -147,6 +157,8 @@ class StatisticsController extends Controller
         ) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('statistics_model.recalculate', "Recalculated widgets for statistics model '{$model->name}'", null, $model);
 
         $widgets = $model->widgets;
         foreach ($widgets as $widget) {

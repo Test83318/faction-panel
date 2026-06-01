@@ -18,6 +18,8 @@ class AuditLogController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $this->audit('audit_log.index', "Viewed audit logs for faction '{$faction->name}'", $faction->id);
+
         $query = AuditLog::with('user')
             ->where('faction_id', $faction->id)
             ->latest();
@@ -67,6 +69,8 @@ class AuditLogController extends Controller
         if ($auditLog->faction_id !== $faction->id) {
             return response()->json(['message' => 'Not Found'], 404);
         }
+
+        $this->audit('audit_log.show', "Viewed audit log entry #{$auditLog->id}", $faction->id, $auditLog);
 
         return $auditLog->load(['user', 'auditable']);
     }

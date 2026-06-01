@@ -45,6 +45,8 @@ class FormStatusController extends Controller
             $status->stages()->sync($validated['stage_ids']);
         }
 
+        $this->audit('form.status.create', "Created status '{$status->name}' in form '{$form->name}'", null, $status);
+
         return response()->json($status->load('stages'), 201);
     }
 
@@ -88,11 +90,14 @@ class FormStatusController extends Controller
             }
         }
 
+        $oldValues = $status->getOriginal();
         $status->update(collect($validated)->except('stage_ids')->toArray());
 
         if (array_key_exists('stage_ids', $validated) && ! $isPending) {
             $status->stages()->sync($validated['stage_ids'] ?? []);
         }
+
+        $this->audit('form.status.update', "Updated status '{$status->name}' in form '{$form->name}'", null, $status, $oldValues, $status->getDirty());
 
         return response()->json($status->load('stages'));
     }
@@ -106,6 +111,8 @@ class FormStatusController extends Controller
         if ($status->system_key === 'submitted' || $status->name === 'Submitted' || $status->system_key === 'pending') {
             return response()->json(['message' => 'System statuses cannot be deleted.'], 422);
         }
+
+        $this->audit('form.status.delete', "Deleted status '{$status->name}' of form '{$form->name}'", null, $status, $status->getAttributes());
 
         $status->delete();
 
@@ -128,6 +135,8 @@ class FormStatusController extends Controller
                 ->where('form_id', $form->id)
                 ->update(['order' => $index]);
         }
+
+        $this->audit('form.status.reorder', "Reordered statuses of form '{$form->name}'", null, $form);
 
         return response()->json(['message' => 'Order updated']);
     }

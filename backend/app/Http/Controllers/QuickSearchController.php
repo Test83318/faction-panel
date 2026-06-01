@@ -25,6 +25,8 @@ class QuickSearchController extends Controller
             'exact_match_only' => 'required|boolean',
         ]);
 
+        $oldValues = $faction->getOriginal();
+
         $faction->update([
             'quick_search_enabled' => $validated['enabled'],
             'quick_search_settings' => [
@@ -33,6 +35,8 @@ class QuickSearchController extends Controller
                 'exact_match_only' => $validated['exact_match_only'],
             ],
         ]);
+
+        $this->audit('quick_search.settings.update', "Updated quick search settings for faction '{$faction->name}'", null, $faction, $oldValues, $faction->getDirty());
 
         return response()->json(['message' => 'Quick search settings updated', 'faction' => $faction]);
     }
@@ -97,6 +101,8 @@ class QuickSearchController extends Controller
                 'database_shortcode' => $database->record_shortcode,
             ];
         });
+
+        $this->audit('quick_search.query', "Performed quick search for query '{$query}' in faction '{$faction->name}'", null, $faction);
 
         return response()->json($results);
     }

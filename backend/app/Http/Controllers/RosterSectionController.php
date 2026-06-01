@@ -178,6 +178,8 @@ class RosterSectionController extends Controller
             'created_by' => Auth::id(),
         ]);
 
+        $this->audit('roster_section.create', "Created roster section '{$section->name}' in roster '{$roster->name}'", $roster->faction_id, $section, null, $section->getAttributes());
+
         return response()->json($section, 201);
     }
 
@@ -208,11 +210,14 @@ class RosterSectionController extends Controller
             $validated['shortname'] = strtoupper($validated['shortname']);
         }
 
+        $oldValues = $section->getOriginal();
         $section->update($validated);
 
         if (isset($validated['columns'])) {
             $this->cleanUpOrphanedData($section, $validated['columns']);
         }
+
+        $this->audit('roster_section.update', "Updated roster section '{$section->name}'", $section->roster->faction_id, $section, $oldValues, $section->getDirty());
 
         return response()->json($section);
     }
@@ -227,6 +232,7 @@ class RosterSectionController extends Controller
             return response()->json(['message' => 'The master section cannot be deleted'], 422);
         }
 
+        $this->audit('roster_section.delete', "Deleted roster section '{$section->name}'", $section->roster->faction_id, $section, $section->getAttributes());
         $section->delete();
 
         return response()->json(['message' => 'Section deleted']);
@@ -252,6 +258,8 @@ class RosterSectionController extends Controller
                     'parent_id' => $request->parent_id,
                 ]);
         }
+
+        $this->audit('roster_section.reorder', "Reordered sections in roster '{$roster->name}'", $roster->faction_id, $roster, null, ['section_ids' => $request->section_ids, 'parent_id' => $request->parent_id]);
 
         return response()->json(['message' => 'Order updated']);
     }

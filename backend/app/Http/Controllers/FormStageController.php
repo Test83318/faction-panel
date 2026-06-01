@@ -31,6 +31,8 @@ class FormStageController extends Controller
             'order' => $maxOrder + 1,
         ]);
 
+        $this->audit('form.stage.create', "Created stage '{$stage->name}' in form '{$form->name}'", null, $stage);
+
         return response()->json($stage, 201);
     }
 
@@ -46,7 +48,10 @@ class FormStageController extends Controller
             'required_points' => 'sometimes|integer|min:0',
         ]);
 
+        $oldValues = $stage->getOriginal();
         $stage->update($validated);
+
+        $this->audit('form.stage.update', "Updated stage '{$stage->name}' of form '{$form->name}'", null, $stage, $oldValues, $stage->getDirty());
 
         return response()->json($stage);
     }
@@ -58,6 +63,8 @@ class FormStageController extends Controller
         }
 
         // Optional: Check if it's the only stage if we want to enforce at least one
+
+        $this->audit('form.stage.delete', "Deleted stage '{$stage->name}' of form '{$form->name}'", null, $stage, $stage->getAttributes());
 
         $stage->delete();
 
@@ -80,6 +87,8 @@ class FormStageController extends Controller
                 ->where('form_id', $form->id)
                 ->update(['order' => $index]);
         }
+
+        $this->audit('form.stage.reorder', "Reordered stages of form '{$form->name}'", null, $form);
 
         return response()->json(['message' => 'Order updated']);
     }

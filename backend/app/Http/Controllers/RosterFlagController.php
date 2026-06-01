@@ -14,6 +14,8 @@ class RosterFlagController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
 
+        $this->audit('roster_flag.index', "Viewed roster flags for faction '{$faction->name}'", null, $faction);
+
         return response()->json($faction->rosterFlags()->get());
     }
 
@@ -41,6 +43,8 @@ class RosterFlagController extends Controller
             'created_by' => Auth::id(),
         ]);
 
+        $this->audit('roster_flag.create', "Created roster flag '{$flag->name}' for faction '{$faction->name}'", null, $flag, null, $flag->getAttributes());
+
         return response()->json($flag, 201);
     }
 
@@ -58,7 +62,9 @@ class RosterFlagController extends Controller
             'excluded_roster_ids' => 'sometimes|nullable|array',
         ]);
 
+        $oldValues = $flag->getOriginal();
         $flag->update($validated);
+        $this->audit('roster_flag.update', "Updated roster flag '{$flag->name}'", null, $flag, $oldValues, $flag->getDirty());
 
         return response()->json($flag);
     }
@@ -69,6 +75,7 @@ class RosterFlagController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $this->audit('roster_flag.delete', "Deleted roster flag '{$flag->name}'", null, $flag, $flag->getAttributes());
         $flag->delete();
 
         return response()->json(['message' => 'Flag deleted']);

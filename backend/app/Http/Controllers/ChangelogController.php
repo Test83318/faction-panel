@@ -9,6 +9,8 @@ class ChangelogController extends Controller
 {
     public function index()
     {
+        $this->audit('changelog.index', 'Viewed changelog entries');
+
         return response()->json(
             ChangelogEntry::orderBy('order', 'asc')->orderBy('released_at', 'desc')->get()
         );
@@ -26,6 +28,8 @@ class ChangelogController extends Controller
 
         $entry = ChangelogEntry::create($data);
 
+        $this->audit('changelog.create', "Created changelog entry '{$entry->title}' ({$entry->version})", null, $entry);
+
         return response()->json($entry, 201);
     }
 
@@ -39,13 +43,18 @@ class ChangelogController extends Controller
             'order' => 'sometimes|integer|min:0',
         ]);
 
+        $oldValues = $entry->getOriginal();
         $entry->update($data);
+
+        $this->audit('changelog.update', "Updated changelog entry '{$entry->title}' ({$entry->version})", null, $entry, $oldValues, $entry->getDirty());
 
         return response()->json($entry->fresh());
     }
 
     public function destroy(ChangelogEntry $entry)
     {
+        $this->audit('changelog.delete', "Deleted changelog entry '{$entry->title}' ({$entry->version})", null, $entry, $entry->getAttributes());
+
         $entry->delete();
 
         return response()->json(null, 204);

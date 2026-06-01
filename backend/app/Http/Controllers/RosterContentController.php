@@ -52,6 +52,8 @@ class RosterContentController extends Controller
             'created_by' => Auth::id(),
         ]);
 
+        $this->audit('roster.content.create', "Created roster content for section '{$section->name}' in roster '{$roster->name}'", null, $content, null, $content->getAttributes());
+
         return response()->json($content, 201);
     }
 
@@ -118,12 +120,15 @@ class RosterContentController extends Controller
             }
         }
 
+        $oldValues = $content->getOriginal();
         $content->update([
             ...$validated,
             'editing_by' => null,
             'editing_at' => null,
             'editing_col' => null,
         ]);
+
+        $this->audit('roster.content.update', "Updated roster content in section '{$content->section->name}' in roster '{$roster->name}'", null, $content, $oldValues, $content->getDirty());
 
         return response()->json($content);
     }
@@ -145,6 +150,8 @@ class RosterContentController extends Controller
             'editing_col' => $request->col_id,
         ]);
 
+        $this->audit('roster.content.lock', "Locked roster content column '{$request->col_id}' in section '{$content->section->name}' in roster '{$roster->name}'", null, $content);
+
         return response()->json(['message' => 'Locked successfully']);
     }
 
@@ -159,6 +166,8 @@ class RosterContentController extends Controller
             ]);
         }
 
+        $this->audit('roster.content.unlock', "Unlocked roster content in section '{$content->section->name}' in roster '{$content->section->roster->name}'", null, $content);
+
         return response()->json(['message' => 'Unlocked successfully']);
     }
 
@@ -169,6 +178,8 @@ class RosterContentController extends Controller
         if (! User::hasRosterPermission(Auth::user(), $roster, 'edit_predefined')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('roster.content.delete', "Deleted roster content from section '{$content->section->name}' in roster '{$roster->name}'", null, $content, $content->getAttributes());
 
         $content->delete();
 
@@ -192,6 +203,8 @@ class RosterContentController extends Controller
                 ->where('section_id', $section->id)
                 ->update(['order' => $index]);
         }
+
+        $this->audit('roster.content.reorder', "Reordered roster content for section '{$section->name}' in roster '{$roster->name}'", null, $section, null, $request->content_ids);
 
         return response()->json(['message' => 'Reordered successfully']);
     }
@@ -256,6 +269,8 @@ class RosterContentController extends Controller
 
             $contentModel->update($updateData);
         }
+
+        $this->audit('roster.content.batch_update', "Batch updated roster content for section '{$section->name}' in roster '{$roster->name}'", null, $section, null, $request->contents);
 
         return response()->json(['message' => 'Batch update successful']);
     }

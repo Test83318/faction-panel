@@ -74,10 +74,14 @@ trait Auditable
             }
         }
 
+        $modelName = class_basename($this);
+        $description = ucfirst($event)." {$modelName} (#{$this->id})";
+
         AuditLog::create([
             'faction_id' => $factionId,
             'user_id' => Auth::id(),
             'event' => $event,
+            'description' => $description,
             'auditable_type' => static::class,
             'auditable_id' => $this->id,
             'old_values' => $oldValues,

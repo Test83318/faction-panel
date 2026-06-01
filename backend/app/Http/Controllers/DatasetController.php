@@ -32,6 +32,8 @@ class DatasetController extends Controller
             }
         }
 
+        $this->audit('dataset.index', "Viewed roster datasets for faction '{$faction->name}'", $faction->id);
+
         $datasets = RosterDataset::where('faction_id', $faction->id)
             ->with(['options', 'recordDatabase'])
             ->get();
@@ -58,6 +60,8 @@ class DatasetController extends Controller
             'record_database_id' => $request->record_database_id,
         ]);
 
+        $this->audit('dataset.create', "Created roster dataset '{$dataset->name}' for faction '{$faction->name}'", $faction->id, $dataset);
+
         return response()->json($dataset->load(['options', 'recordDatabase']));
     }
 
@@ -78,11 +82,15 @@ class DatasetController extends Controller
             'options.*.order' => 'integer',
         ]);
 
-        DB::transaction(function () use ($dataset, $request) {
+        $oldValues = $dataset->getOriginal();
+        $dirty = [];
+
+        DB::transaction(function () use ($dataset, $request, &$dirty) {
             $dataset->update([
                 'name' => $request->name,
                 'record_database_id' => $request->record_database_id,
             ]);
+            $dirty = $dataset->getDirty();
 
             if ($request->has('options')) {
                 $optionIds = collect($request->options)->pluck('id')->filter(fn ($id) => is_numeric($id));
@@ -106,6 +114,8 @@ class DatasetController extends Controller
             }
         });
 
+        $this->audit('dataset.update', "Updated roster dataset '{$dataset->name}'", $faction->id, $dataset, $oldValues, $dirty);
+
         return response()->json($dataset->load('options'));
     }
 
@@ -115,6 +125,8 @@ class DatasetController extends Controller
         if (! User::hasFactionPermission(Auth::user(), $faction, 'modify_roster_variables')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('dataset.delete', "Deleted roster dataset '{$dataset->name}'", $faction->id, $dataset, $dataset->getAttributes());
 
         $dataset->delete();
 

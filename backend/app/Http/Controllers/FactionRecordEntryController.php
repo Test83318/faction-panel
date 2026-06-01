@@ -24,6 +24,8 @@ class FactionRecordEntryController extends Controller
             ->orderBy('entry_id', 'desc')
             ->get();
 
+        $this->audit('record_entry.index', "Viewed entries for record database '{$database->name}'", $database->faction_id, $database);
+
         return response()->json($entries);
     }
 
@@ -63,6 +65,8 @@ class FactionRecordEntryController extends Controller
             'created_by' => Auth::id(),
         ]);
 
+        $this->audit('record_entry.create', "Created entry #{$entry->entry_id} in database '{$database->name}'", $database->faction_id, $entry);
+
         return response()->json($entry->load('creator:id,username'), 201);
     }
 
@@ -75,6 +79,8 @@ class FactionRecordEntryController extends Controller
         if ($entry->database_id !== $database->id) {
             return response()->json(['message' => 'Entry does not belong to this database'], 404);
         }
+
+        $this->audit('record_entry.show', "Viewed entry #{$entry->entry_id} in database '{$database->name}'", $database->faction_id, $entry);
 
         $entry->load('creator:id,username');
         $result = $entry->toArray();
@@ -254,7 +260,10 @@ class FactionRecordEntryController extends Controller
             }
         }
 
+        $oldValues = $entry->getOriginal();
         $entry->update($validated);
+
+        $this->audit('record_entry.update', "Updated entry #{$entry->entry_id} in database '{$database->name}'", $database->faction_id, $entry, $oldValues, $entry->getDirty());
 
         return response()->json($entry->load('creator:id,username'));
     }
@@ -272,6 +281,8 @@ class FactionRecordEntryController extends Controller
         if ($database->is_api_database) {
             return response()->json(['message' => 'This database is managed by an external API and cannot be modified manually.'], 403);
         }
+
+        $this->audit('record_entry.delete', "Deleted entry #{$entry->entry_id} in database '{$database->name}'", $database->faction_id, $entry, $entry->getAttributes());
 
         $entry->delete();
 

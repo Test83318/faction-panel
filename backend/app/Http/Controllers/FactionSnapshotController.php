@@ -19,6 +19,8 @@ class FactionSnapshotController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $this->audit('snapshot.index', "Viewed snapshots for faction '{$faction->name}'", $faction->id);
+
         return response()->json(
             FactionSnapshot::where('faction_id', $faction->id)
                 ->with('creator')
@@ -41,6 +43,8 @@ class FactionSnapshotController extends Controller
 
         $snapshot = $this->createSnapshot($faction, $request->name, $request->description, 'manual');
 
+        $this->audit('snapshot.create', "Created manual snapshot '{$snapshot->name}'", null, $snapshot);
+
         return response()->json($snapshot);
     }
 
@@ -54,10 +58,14 @@ class FactionSnapshotController extends Controller
             ->exists();
 
         if ($exists) {
+            $this->audit('snapshot.auto_create_skip', "Skipped automatic snapshot for faction '{$faction->name}': already exists for today", $faction->id);
+
             return response()->json(['message' => 'Auto snapshot already exists for today']);
         }
 
-        $this->createSnapshot($faction, 'Automatic Backup '.now()->format('Y-m-d H:i'), 'Scheduled daily automatic snapshot', 'auto');
+        $snapshot = $this->createSnapshot($faction, 'Automatic Backup '.now()->format('Y-m-d H:i'), 'Scheduled daily automatic snapshot', 'auto');
+
+        $this->audit('snapshot.auto_create', "Triggered daily automatic snapshot '{$snapshot->name}'", $faction->id, $snapshot);
 
         return response()->json(['message' => 'Auto snapshot created']);
     }
@@ -205,6 +213,8 @@ class FactionSnapshotController extends Controller
         if (! User::hasFactionPermission(Auth::user(), $faction, 'restore_snapshot')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $oldValues = $faction->getOriginal();
 
         DB::transaction(function () use ($faction, $snapshot) {
             $data = $snapshot->data;
@@ -508,6 +518,8 @@ class FactionSnapshotController extends Controller
             }
         });
 
+        $this->audit('snapshot.restore', "Restored faction '{$faction->name}' from snapshot '{$snapshot->name}'", null, $snapshot, $oldValues, $faction->getDirty());
+
         return response()->json(['message' => 'Restore successful']);
     }
 
@@ -544,6 +556,8 @@ class FactionSnapshotController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $this->audit('snapshot.delete', "Deleted snapshot '{$snapshot->name}'", null, $snapshot, $snapshot->getAttributes());
+
         $snapshot->delete();
 
         return response()->json(['message' => 'Snapshot deleted']);
@@ -554,6 +568,8 @@ class FactionSnapshotController extends Controller
         if (! User::hasFactionPermission(Auth::user(), $snapshot->faction, 'view_snapshots')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('snapshot.download', "Downloaded snapshot '{$snapshot->name}'", null, $snapshot);
 
         $filename = 'snapshot_'.$snapshot->faction->shortname.'_'.$snapshot->created_at->format('Y-m-d_H-i').'.json';
 
@@ -593,6 +609,8 @@ class FactionSnapshotController extends Controller
             'type' => 'manual',
             'created_by' => Auth::id(),
         ]);
+
+        $this->audit('snapshot.upload', "Uploaded snapshot '{$snapshot->name}'", null, $snapshot);
 
         return response()->json($snapshot);
     }

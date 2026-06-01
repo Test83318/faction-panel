@@ -16,6 +16,8 @@ class FormPermissionController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $this->audit('form.permission.index', "Viewed permissions for form '{$form->name}'", null, $form);
+
         return response()->json($form->formPermissions()->with(['group', 'role'])->get());
     }
 
@@ -32,6 +34,12 @@ class FormPermissionController extends Controller
             'permissions' => 'required|array',
         ]);
 
+        $existingPermission = $form->formPermissions()->where([
+            'group_id' => $validated['group_id'],
+            'role_id' => $validated['role_id'],
+        ])->first();
+        $oldValues = $existingPermission ? $existingPermission->getOriginal() : null;
+
         $formPermission = $form->formPermissions()->updateOrCreate(
             [
                 'group_id' => $validated['group_id'],
@@ -40,7 +48,11 @@ class FormPermissionController extends Controller
             ['permissions' => $validated['permissions']]
         );
 
-        return response()->json($formPermission->load(['group', 'role']));
+        $formPermission->load(['group', 'role']);
+        $targetName = $formPermission->group ? "group '{$formPermission->group->name}'" : ($formPermission->role ? "role '{$formPermission->role->name}'" : 'all');
+        $this->audit('form.permission.update', "Updated form permissions for {$targetName} in form '{$form->name}'", null, $formPermission, $oldValues, $formPermission->getDirty());
+
+        return response()->json($formPermission);
     }
 
     public function destroy(string $shortname, Form $form, $permissionId)
@@ -50,6 +62,11 @@ class FormPermissionController extends Controller
         }
 
         $permission = $form->formPermissions()->findOrFail($permissionId);
+        $permission->load(['group', 'role']);
+        $targetName = $permission->group ? "group '{$permission->group->name}'" : ($permission->role ? "role '{$permission->role->name}'" : 'all');
+
+        $this->audit('form.permission.delete', "Deleted form permissions for {$targetName} in form '{$form->name}'", null, $permission, $permission->getAttributes());
+
         $permission->delete();
 
         return response()->json(['message' => 'Permission removed']);

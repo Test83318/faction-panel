@@ -17,6 +17,8 @@ class FormAutomationController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $this->audit('form.automation.index', "Viewed automations for form '{$form->name}'", null, $form);
+
         return response()->json(
             $form->automations()->orderBy('order')->with(['triggerStatus', 'triggerStage', 'actionStatus', 'actionGroup'])->get()
         );
@@ -53,6 +55,8 @@ class FormAutomationController extends Controller
             'order' => $form->automations()->count(),
         ]);
 
+        $this->audit('form.automation.create', "Created automation '".($automation->name ?? 'Unnamed Automation')."' for form '{$form->name}'", null, $automation);
+
         return response()->json($automation->load(['triggerStatus', 'triggerStage', 'actionStatus', 'actionGroup']), 201);
     }
 
@@ -82,7 +86,10 @@ class FormAutomationController extends Controller
             'is_enabled' => 'boolean',
         ]);
 
+        $oldValues = $automation->getOriginal();
         $automation->update($validated);
+
+        $this->audit('form.automation.update', "Updated automation '".($automation->name ?? 'Unnamed Automation')."' for form '{$form->name}'", null, $automation, $oldValues, $automation->getDirty());
 
         return response()->json($automation->load(['triggerStatus', 'triggerStage', 'actionStatus', 'actionGroup']));
     }
@@ -93,6 +100,8 @@ class FormAutomationController extends Controller
         if (! User::hasFormPermission($user, $form, 'form_editor')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('form.automation.delete', "Deleted automation '".($automation->name ?? 'Unnamed Automation')."' from form '{$form->name}'", null, $automation, $automation->getAttributes());
 
         $automation->delete();
 

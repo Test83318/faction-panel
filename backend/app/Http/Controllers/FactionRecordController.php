@@ -24,6 +24,8 @@ class FactionRecordController extends Controller
             return User::hasRecordPermission($user, $database, 'view_database');
         })->values();
 
+        $this->audit('record_database.index', "Viewed list of record databases for faction '{$faction->name}'", $faction->id);
+
         return response()->json($databases);
     }
 
@@ -53,6 +55,8 @@ class FactionRecordController extends Controller
             'created_by' => Auth::id(),
         ]);
 
+        $this->audit('record_database.create', "Created record database '{$database->name}'", $faction->id, $database);
+
         return response()->json($database, 201);
     }
 
@@ -61,6 +65,8 @@ class FactionRecordController extends Controller
         if (! User::hasRecordPermission(Auth::user(), $database, 'view_database')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('record_database.show', "Viewed record database '{$database->name}'", $database->faction_id, $database);
 
         return response()->json($database->load('creator:id,username'));
     }
@@ -92,7 +98,10 @@ class FactionRecordController extends Controller
             unset($validated['database_structure']);
         }
 
+        $oldValues = $database->getOriginal();
         $database->update($validated);
+
+        $this->audit('record_database.update', "Updated record database '{$database->name}'", $database->faction_id, $database, $oldValues, $database->getDirty());
 
         return response()->json($database);
     }
@@ -102,6 +111,8 @@ class FactionRecordController extends Controller
         if (! User::hasFactionPermission(Auth::user(), $database->faction, 'global_faction_record_moderation') && $database->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('record_database.delete', "Deleted record database '{$database->name}'", $database->faction_id, $database, $database->getAttributes());
 
         $database->delete();
 

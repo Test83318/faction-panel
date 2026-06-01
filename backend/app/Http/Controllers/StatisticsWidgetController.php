@@ -46,6 +46,8 @@ class StatisticsWidgetController extends Controller
             'last_calculated_at' => now(),
         ]);
 
+        $this->audit('statistics_widget.create', "Created statistics widget '{$widget->name}' on model '{$model->name}'", $faction->id, $widget, null, $widget->getAttributes());
+
         return response()->json($widget, 201);
     }
 
@@ -68,6 +70,7 @@ class StatisticsWidgetController extends Controller
             'order' => 'sometimes|integer',
         ]);
 
+        $oldValues = $widget->getOriginal();
         $widget->update($validated);
 
         // Recalculate
@@ -77,6 +80,8 @@ class StatisticsWidgetController extends Controller
             'is_intensive' => $result['is_intensive'],
             'last_calculated_at' => now(),
         ]);
+
+        $this->audit('statistics_widget.update', "Updated statistics widget '{$widget->name}'", $faction->id, $widget, $oldValues, $widget->getDirty());
 
         return response()->json($widget);
     }
@@ -92,6 +97,7 @@ class StatisticsWidgetController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $this->audit('statistics_widget.delete', "Deleted statistics widget '{$widget->name}'", $faction->id, $widget, $widget->getAttributes());
         $widget->delete();
 
         return response()->json(['message' => 'Widget deleted']);
@@ -110,6 +116,8 @@ class StatisticsWidgetController extends Controller
         ) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('statistics_widget.recalculate', "Recalculated statistics widget '{$widget->name}'", $faction->id, $widget);
 
         $result = $this->statisticsService->calculate($widget);
         $widget->update([
@@ -138,6 +146,8 @@ class StatisticsWidgetController extends Controller
         foreach ($validated['widget_ids'] as $index => $id) {
             StatisticsWidget::where('id', $id)->where('statistics_model_id', $model->id)->update(['order' => $index]);
         }
+
+        $this->audit('statistics_widget.reorder', "Reordered widgets on statistics model '{$model->name}'", $faction->id, $model, null, ['widget_ids' => $validated['widget_ids']]);
 
         return response()->json(['message' => 'Order updated']);
     }
