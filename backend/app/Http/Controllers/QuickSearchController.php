@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Faction;
 use App\Models\FactionRecordDatabase;
-use App\Models\FactionRecordEntry;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,7 +14,7 @@ class QuickSearchController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'modify_global_quick_search')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'modify_global_quick_search')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -26,6 +25,8 @@ class QuickSearchController extends Controller
             'exact_match_only' => 'required|boolean',
         ]);
 
+        $oldValues = $faction->getOriginal();
+
         $faction->update([
             'quick_search_enabled' => $validated['enabled'],
             'quick_search_settings' => [
@@ -35,6 +36,8 @@ class QuickSearchController extends Controller
             ],
         ]);
 
+        $this->audit('quick_search.settings.update', "Updated quick search settings for faction '{$faction->name}'", null, $faction, $oldValues, $faction->getDirty());
+
         return response()->json(['message' => 'Quick search settings updated', 'faction' => $faction]);
     }
 
@@ -42,7 +45,7 @@ class QuickSearchController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
 
-        if (!$faction->quick_search_enabled || !$faction->quick_search_settings) {
+        if (! $faction->quick_search_enabled || ! $faction->quick_search_settings) {
             return response()->json([], 200);
         }
 
@@ -53,17 +56,17 @@ class QuickSearchController extends Controller
 
         $query = $request->input('q');
 
-        if (!$query || strlen($query) < ( $exactMatchOnly ? 1 : 3)) {
+        if (! $query || strlen($query) < ($exactMatchOnly ? 1 : 3)) {
             return response()->json([], 200);
         }
 
         $database = FactionRecordDatabase::find($dbId);
-        if (!$database || $database->faction_id !== $faction->id) {
+        if (! $database || $database->faction_id !== $faction->id) {
             return response()->json([], 200);
         }
 
         // Check if user has permission to view this specific database
-        if (!User::hasRecordPermission(Auth::user(), $database, 'view_database')) {
+        if (! User::hasRecordPermission(Auth::user(), $database, 'view_database')) {
             return response()->json([], 403);
         }
 
@@ -82,14 +85,14 @@ class QuickSearchController extends Controller
             if ($driver === 'pgsql') {
                 $entriesQuery->whereRaw("data->>'{$columnId}' ILIKE ?", ["%{$query}%"]);
             } elseif ($driver === 'mysql') {
-                $entriesQuery->whereRaw("LOWER(data->>'$.\"{$columnId}\"') LIKE ?", ["%" . strtolower($query) . "%"]);
+                $entriesQuery->whereRaw("LOWER(data->>'$.\"{$columnId}\"') LIKE ?", ['%'.strtolower($query).'%']);
             } else {
                 // SQLite fallback
-                $entriesQuery->whereRaw("LOWER(json_extract(data, '$.\"{$columnId}\"')) LIKE ?", ["%" . strtolower($query) . "%"]);
+                $entriesQuery->whereRaw("LOWER(json_extract(data, '$.\"{$columnId}\"')) LIKE ?", ['%'.strtolower($query).'%']);
             }
         }
 
-        $results = $entriesQuery->limit(10)->get()->map(function($entry) use ($columnId, $database) {
+        $results = $entriesQuery->limit(10)->get()->map(function ($entry) use ($columnId, $database) {
             return [
                 'id' => $entry->id,
                 'entry_id' => $entry->entry_id,
@@ -98,6 +101,8 @@ class QuickSearchController extends Controller
                 'database_shortcode' => $database->record_shortcode,
             ];
         });
+
+        $this->audit('quick_search.query', "Performed quick search for query '{$query}' in faction '{$faction->name}'", null, $faction);
 
         return response()->json($results);
     }

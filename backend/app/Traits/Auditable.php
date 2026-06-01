@@ -3,6 +3,7 @@
 namespace App\Traits;
 
 use App\Models\AuditLog;
+use App\Models\Faction;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
 
@@ -17,7 +18,7 @@ trait Auditable
         static::updated(function ($model) {
             $oldValues = array_intersect_key($model->getOriginal(), $model->getDirty());
             $newValues = $model->getDirty();
-            
+
             // Exclude updated_at if it's the only thing changed
             if (count($newValues) === 1 && isset($newValues['updated_at'])) {
                 return;
@@ -40,7 +41,7 @@ trait Auditable
     {
         $factionId = $this->faction_id ?? null;
 
-        if (!$factionId) {
+        if (! $factionId) {
             if (method_exists($this, 'faction')) {
                 $factionId = $this->faction?->id;
             } elseif (method_exists($this, 'section')) {
@@ -51,28 +52,36 @@ trait Auditable
                 $factionId = $this->database?->faction_id;
             } elseif (method_exists($this, 'dataset')) {
                 $factionId = $this->dataset?->faction_id;
+            } elseif (method_exists($this, 'form')) {
+                $factionId = $this->form?->faction_id;
+            } elseif (method_exists($this, 'submission')) {
+                $factionId = $this->submission?->form?->faction_id;
             }
         }
-        
+
         // If still null, try to get from request context
-        if (!$factionId) {
+        if (! $factionId) {
             $route = Request::route();
             if ($route) {
                 $factionParam = $route->parameter('faction') ?? $route->parameter('shortname');
                 if ($factionParam) {
-                    $factionId = $factionParam instanceof \App\Models\Faction ? $factionParam->id : $factionParam;
-                    
-                    if (!is_numeric($factionId)) {
-                        $factionId = \App\Models\Faction::where('shortname', $factionId)->first()?->id;
+                    $factionId = $factionParam instanceof Faction ? $factionParam->id : $factionParam;
+
+                    if (! is_numeric($factionId)) {
+                        $factionId = Faction::where('shortname', $factionId)->first()?->id;
                     }
                 }
             }
         }
 
+        $modelName = class_basename($this);
+        $description = ucfirst($event)." {$modelName} (#{$this->id})";
+
         AuditLog::create([
             'faction_id' => $factionId,
             'user_id' => Auth::id(),
             'event' => $event,
+            'description' => $description,
             'auditable_type' => static::class,
             'auditable_id' => $this->id,
             'old_values' => $oldValues,

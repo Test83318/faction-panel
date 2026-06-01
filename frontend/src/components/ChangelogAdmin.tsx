@@ -61,7 +61,7 @@ const ChangelogAdmin: React.FC = () => {
             title: 'Delete Changelog Entry',
             message: `Delete "${entry.title}"?`,
             confirmText: 'Delete',
-            confirmVariant: 'danger',
+            variant: 'danger',
         });
         if (!ok) return;
         const loadToast = toast.loading('Deleting...');

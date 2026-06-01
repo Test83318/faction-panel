@@ -22,7 +22,7 @@ class StatisticsWidgetController extends Controller
     public function store(Request $request, StatisticsModel $model)
     {
         $faction = $model->faction;
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') && 
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') &&
             $model->created_by !== Auth::id()
         ) {
             return response()->json(['message' => 'Forbidden'], 403);
@@ -46,6 +46,8 @@ class StatisticsWidgetController extends Controller
             'last_calculated_at' => now(),
         ]);
 
+        $this->audit('statistics_widget.create', "Created statistics widget '{$widget->name}' on model '{$model->name}'", $faction->id, $widget, null, $widget->getAttributes());
+
         return response()->json($widget, 201);
     }
 
@@ -54,7 +56,7 @@ class StatisticsWidgetController extends Controller
         $model = $widget->statisticsModel;
         $faction = $model->faction;
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') && 
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') &&
             $model->created_by !== Auth::id()
         ) {
             return response()->json(['message' => 'Forbidden'], 403);
@@ -68,6 +70,7 @@ class StatisticsWidgetController extends Controller
             'order' => 'sometimes|integer',
         ]);
 
+        $oldValues = $widget->getOriginal();
         $widget->update($validated);
 
         // Recalculate
@@ -78,6 +81,8 @@ class StatisticsWidgetController extends Controller
             'last_calculated_at' => now(),
         ]);
 
+        $this->audit('statistics_widget.update', "Updated statistics widget '{$widget->name}'", $faction->id, $widget, $oldValues, $widget->getDirty());
+
         return response()->json($widget);
     }
 
@@ -86,12 +91,13 @@ class StatisticsWidgetController extends Controller
         $model = $widget->statisticsModel;
         $faction = $model->faction;
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') && 
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') &&
             $model->created_by !== Auth::id()
         ) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $this->audit('statistics_widget.delete', "Deleted statistics widget '{$widget->name}'", $faction->id, $widget, $widget->getAttributes());
         $widget->delete();
 
         return response()->json(['message' => 'Widget deleted']);
@@ -103,13 +109,15 @@ class StatisticsWidgetController extends Controller
         $faction = $model->faction;
         $user = Auth::user();
 
-        if (!$user->is_superadmin && 
-            $faction->faction_leader !== $user->id && 
-            !User::hasFactionPermission($user, $faction, 'global_statistics_moderation') &&
-            !User::hasStatisticsPermission($user, $model, 'view_statistics')
+        if (! $user->is_superadmin &&
+            $faction->faction_leader !== $user->id &&
+            ! User::hasFactionPermission($user, $faction, 'global_statistics_moderation') &&
+            ! User::hasStatisticsPermission($user, $model, 'view_statistics')
         ) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('statistics_widget.recalculate', "Recalculated statistics widget '{$widget->name}'", $faction->id, $widget);
 
         $result = $this->statisticsService->calculate($widget);
         $widget->update([
@@ -124,7 +132,7 @@ class StatisticsWidgetController extends Controller
     public function reorder(Request $request, StatisticsModel $model)
     {
         $faction = $model->faction;
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') && 
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'global_statistics_moderation') &&
             $model->created_by !== Auth::id()
         ) {
             return response()->json(['message' => 'Forbidden'], 403);
@@ -132,12 +140,14 @@ class StatisticsWidgetController extends Controller
 
         $validated = $request->validate([
             'widget_ids' => 'required|array',
-            'widget_ids.*' => 'exists:statistics_widgets,id'
+            'widget_ids.*' => 'exists:statistics_widgets,id',
         ]);
 
         foreach ($validated['widget_ids'] as $index => $id) {
             StatisticsWidget::where('id', $id)->where('statistics_model_id', $model->id)->update(['order' => $index]);
         }
+
+        $this->audit('statistics_widget.reorder', "Reordered widgets on statistics model '{$model->name}'", $faction->id, $model, null, ['widget_ids' => $validated['widget_ids']]);
 
         return response()->json(['message' => 'Order updated']);
     }

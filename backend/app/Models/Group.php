@@ -8,13 +8,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Group extends Model
 {
-    use SoftDeletes, Auditable;
+    use Auditable, SoftDeletes;
 
     protected $fillable = [
         'faction_id',
         'name',
         'color',
-        'created_by'
+        'created_by',
     ];
 
     public function faction()

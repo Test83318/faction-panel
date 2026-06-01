@@ -7,8 +7,8 @@ use App\Models\RosterDataset;
 use App\Models\RosterDatasetOption;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class DatasetController extends Controller
 {
@@ -18,7 +18,7 @@ class DatasetController extends Controller
         $user = Auth::guard('sanctum')->user();
 
         // Anyone who can view the faction should be able to see datasets for dropdowns
-        if (!User::hasFactionPermission($user, $faction, 'view_faction_roster')) {
+        if (! User::hasFactionPermission($user, $faction, 'view_faction_roster')) {
             // Check if they have at least one roster they can view
             $canViewAnyRoster = false;
             foreach ($faction->rosters as $roster) {
@@ -27,10 +27,12 @@ class DatasetController extends Controller
                     break;
                 }
             }
-            if (!$canViewAnyRoster) {
+            if (! $canViewAnyRoster) {
                 return response()->json(['message' => 'Forbidden'], 403);
             }
         }
+
+        $this->audit('dataset.index', "Viewed roster datasets for faction '{$faction->name}'", $faction->id);
 
         $datasets = RosterDataset::where('faction_id', $faction->id)
             ->with(['options', 'recordDatabase'])
@@ -42,8 +44,8 @@ class DatasetController extends Controller
     public function store($shortname, Request $request)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'modify_roster_variables')) {
+
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'modify_roster_variables')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -58,13 +60,15 @@ class DatasetController extends Controller
             'record_database_id' => $request->record_database_id,
         ]);
 
+        $this->audit('dataset.create', "Created roster dataset '{$dataset->name}' for faction '{$faction->name}'", $faction->id, $dataset);
+
         return response()->json($dataset->load(['options', 'recordDatabase']));
     }
 
     public function update(RosterDataset $dataset, Request $request)
     {
         $faction = $dataset->faction;
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'modify_roster_variables')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'modify_roster_variables')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -78,14 +82,18 @@ class DatasetController extends Controller
             'options.*.order' => 'integer',
         ]);
 
-        DB::transaction(function () use ($dataset, $request) {
+        $oldValues = $dataset->getOriginal();
+        $dirty = [];
+
+        DB::transaction(function () use ($dataset, $request, &$dirty) {
             $dataset->update([
                 'name' => $request->name,
                 'record_database_id' => $request->record_database_id,
             ]);
+            $dirty = $dataset->getDirty();
 
             if ($request->has('options')) {
-                $optionIds = collect($request->options)->pluck('id')->filter(fn($id) => is_numeric($id));
+                $optionIds = collect($request->options)->pluck('id')->filter(fn ($id) => is_numeric($id));
                 $dataset->options()->whereNotIn('id', $optionIds)->delete();
 
                 foreach ($request->options as $index => $optionData) {
@@ -106,17 +114,22 @@ class DatasetController extends Controller
             }
         });
 
+        $this->audit('dataset.update', "Updated roster dataset '{$dataset->name}'", $faction->id, $dataset, $oldValues, $dirty);
+
         return response()->json($dataset->load('options'));
     }
 
     public function destroy(RosterDataset $dataset)
     {
         $faction = $dataset->faction;
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'modify_roster_variables')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'modify_roster_variables')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $this->audit('dataset.delete', "Deleted roster dataset '{$dataset->name}'", $faction->id, $dataset, $dataset->getAttributes());
+
         $dataset->delete();
+
         return response()->json(['message' => 'Dataset deleted']);
     }
 }

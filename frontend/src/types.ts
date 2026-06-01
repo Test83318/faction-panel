@@ -293,3 +293,168 @@ export interface Faction {
   leader?: User;
   users_count?: number;
 }
+
+export interface FormField {
+  id: number;
+  form_section_id: number;
+  type: string;
+  label: string;
+  name: string;
+  options?: any;
+  validation_rules?: any;
+  order: number;
+  points: number;
+  is_required: boolean;
+  has_grading: boolean;
+  is_automatic_scored: boolean;
+  correct_answer?: string;
+  prefill_type?: string | null;
+}
+
+export interface FormSection {
+  id: number;
+  form_stage_id: number;
+  name: string;
+  description: string | null;
+  order: number;
+  fields?: FormField[];
+}
+
+export interface FormStage {
+  id: number;
+  form_id: number;
+  name: string;
+  submit_status_id: number | null;
+  required_points?: number;
+  order: number;
+  sections?: FormSection[];
+}
+
+export interface FormStatus {
+  id: number;
+  form_id: number;
+  stage_ids: number[];
+  name: string;
+  order: number;
+  is_hidden: boolean;
+  is_locked: boolean;
+  is_closed: boolean;
+  is_failed: boolean;
+  is_passed: boolean;
+  is_archived: boolean;
+  system_key?: string | null;
+  stages?: FormStage[];
+}
+
+export interface Form {
+  id: number;
+  faction_id: number;
+  name: string;
+  type: 'standard' | 'quiz';
+  description: string | null;
+  metadata?: any;
+  is_public: boolean;
+  requires_gtaw_login: boolean;
+  cooldown_seconds: number;
+  cooldown_only_on_fail: boolean;
+  max_submissions: number | null;
+  is_enabled: boolean;
+  pass_points?: number;
+  is_automatic_grading: boolean;
+  created_by: number | null;
+  creator?: {
+    id: number;
+    username: string;
+  };
+  stages?: FormStage[];
+  statuses?: FormStatus[];
+}
+
+export interface FormResponse {
+  id: number;
+  form_submission_id: number;
+  form_field_id: number;
+  value: any;
+  points_awarded: number;
+  reviewer_comment: string | null;
+  is_graded: boolean;
+  correctness?: 'correct' | 'partially_correct' | 'incorrect' | null;
+  field?: FormField;
+}
+
+export interface FormComment {
+  id: number;
+  form_submission_id: number;
+  user_id: number;
+  comment: string;
+  is_internal: boolean;
+  created_at: string;
+  user?: {
+    id: number;
+    username: string;
+  };
+}
+
+export interface FormSubmission {
+  id: number;
+  form_id: number;
+  user_id: number | null;
+  current_stage_id: number | null;
+  current_status_id: number | null;
+  started_at: string;
+  submitted_at: string | null;
+  metadata?: any;
+  form?: Form;
+  current_stage?: FormStage;
+  current_status?: FormStatus;
+  user?: {
+    id: number;
+    username: string;
+  };
+  responses?: FormResponse[];
+  comments?: FormComment[];
+}
+
+export interface FormPermission {
+  id: number;
+  form_id: number;
+  group_id: number | null;
+  role_id: number | null;
+  permissions: string[];
+  group?: Group;
+  role?: Role;
+}
+
+export type AutomationOperator =
+  | 'equals' | 'not_equals' | 'contains'
+  | 'gt' | 'lt' | 'gte' | 'lte'
+  | 'is_empty' | 'is_not_empty';
+
+export interface AutomationCondition {
+  type?: 'field' | 'field_points' | 'field_correctness' | 'points' | 'status';
+  field_id?: number;
+  operator: AutomationOperator;
+  value: string;
+}
+
+export interface FormAutomation {
+  id: number;
+  form_id: number;
+  name: string | null;
+  trigger: 'on_stage_submit' | 'on_final_submit' | 'on_status_change';
+  trigger_status_id: number | null;
+  trigger_stage_id: number | null;
+  condition_logic: 'all' | 'any';
+  conditions: AutomationCondition[] | null;
+  action: 'set_status' | 'add_comment' | 'give_group' | 'continue_to_next_stage';
+  action_status_id: number | null;
+  action_comment: string | null;
+  action_comment_internal: boolean;
+  action_group_id: number | null;
+  is_enabled: boolean;
+  order: number;
+  trigger_status?: FormStatus;
+  trigger_stage?: FormStage;
+  action_status?: FormStatus;
+  action_group?: Group;
+}

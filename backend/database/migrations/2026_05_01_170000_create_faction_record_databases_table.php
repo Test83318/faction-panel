@@ -16,8 +16,8 @@ return new class extends Migration
             $table->foreignId('faction_id')->constrained()->onDelete('cascade');
             $table->string('name');
             $table->text('description')->nullable();
-            $table->string('data_overview_display');
-            $table->string('data_entry_display');
+            $table->json('data_overview_display')->nullable();
+            $table->json('data_entry_display')->nullable();
             $table->string('record_shortcode')->nullable();
             $table->json('permissions')->nullable();
             $table->json('database_structure')->nullable();

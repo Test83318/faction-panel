@@ -15,7 +15,7 @@ class FactionRecordEntryController extends Controller
 {
     public function index(string $shortname, FactionRecordDatabase $database)
     {
-        if (!User::hasRecordPermission(Auth::user(), $database, 'view_database')) {
+        if (! User::hasRecordPermission(Auth::user(), $database, 'view_database')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -24,12 +24,14 @@ class FactionRecordEntryController extends Controller
             ->orderBy('entry_id', 'desc')
             ->get();
 
+        $this->audit('record_entry.index', "Viewed entries for record database '{$database->name}'", $database->faction_id, $database);
+
         return response()->json($entries);
     }
 
     public function store(Request $request, string $shortname, FactionRecordDatabase $database)
     {
-        if (!User::hasRecordPermission(Auth::user(), $database, 'add_entries')) {
+        if (! User::hasRecordPermission(Auth::user(), $database, 'add_entries')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -45,10 +47,10 @@ class FactionRecordEntryController extends Controller
         // Basic validation against structure
         $structure = $database->database_structure;
         foreach ($structure as $field) {
-            if (($field['required'] ?? false) && (!isset($validated['data'][$field['id']]) || $validated['data'][$field['id']] === '')) {
+            if (($field['required'] ?? false) && (! isset($validated['data'][$field['id']]) || $validated['data'][$field['id']] === '')) {
                 return response()->json([
                     'message' => "The {$field['name']} field is required.",
-                    'errors' => [$field['id'] => ["The {$field['name']} field is required."]]
+                    'errors' => [$field['id'] => ["The {$field['name']} field is required."]],
                 ], 422);
             }
         }
@@ -63,18 +65,22 @@ class FactionRecordEntryController extends Controller
             'created_by' => Auth::id(),
         ]);
 
+        $this->audit('record_entry.create', "Created entry #{$entry->entry_id} in database '{$database->name}'", $database->faction_id, $entry);
+
         return response()->json($entry->load('creator:id,username'), 201);
     }
 
     public function show(string $shortname, FactionRecordDatabase $database, FactionRecordEntry $entry)
     {
-        if (!User::hasRecordPermission(Auth::user(), $database, 'view_database')) {
+        if (! User::hasRecordPermission(Auth::user(), $database, 'view_database')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         if ($entry->database_id !== $database->id) {
             return response()->json(['message' => 'Entry does not belong to this database'], 404);
         }
+
+        $this->audit('record_entry.show', "Viewed entry #{$entry->entry_id} in database '{$database->name}'", $database->faction_id, $entry);
 
         $entry->load('creator:id,username');
         $result = $entry->toArray();
@@ -87,16 +93,18 @@ class FactionRecordEntryController extends Controller
                 $linkedData = [];
                 foreach ($customization['linked_databases'] as $link) {
                     $targetDb = FactionRecordDatabase::find($link['database_id']);
-                    if (!$targetDb || !User::hasRecordPermission(Auth::user(), $targetDb, 'view_database')) continue;
+                    if (! $targetDb || ! User::hasRecordPermission(Auth::user(), $targetDb, 'view_database')) {
+                        continue;
+                    }
 
                     $sourceField = $link['source_field'];
                     $targetField = $link['target_field'];
 
                     $sourceValue = ($sourceField === 'id') ? $entry->entry_id : ($entry->data[$sourceField] ?? null);
-                    
+
                     if ($sourceValue !== null) {
                         $query = $targetDb->entries()
-                            ->where('data->' . $targetField, $sourceValue)
+                            ->where('data->'.$targetField, $sourceValue)
                             ->with('creator:id,username');
 
                         // Handle exclusion of current record (useful for self-links)
@@ -105,11 +113,11 @@ class FactionRecordEntryController extends Controller
                         }
 
                         $linkedEntries = $query->get();
-                        
+
                         $linkedData[] = [
                             'config' => $link,
                             'database' => $targetDb->only(['id', 'name', 'record_shortcode', 'database_structure']),
-                            'entries' => $linkedEntries
+                            'entries' => $linkedEntries,
                         ];
                     }
                 }
@@ -119,57 +127,63 @@ class FactionRecordEntryController extends Controller
             // 2. Roster Integrations
             if (isset($customization['roster_integration']['enabled']) && $customization['roster_integration']['enabled']) {
                 $rosterIntegrations = [];
-                
+
                 // 1. Find all datasets linked to this database
                 $linkedDatasetIds = RosterDataset::where('record_database_id', $database->id)->pluck('id')->toArray();
 
                 // Find all rosters in this faction
                 $rosters = Roster::where('faction_id', $database->faction_id)->get();
-                
+
                 foreach ($rosters as $roster) {
-                    if (!User::hasRosterPermission(Auth::user(), $roster, 'view_roster')) continue;
+                    if (! User::hasRosterPermission(Auth::user(), $roster, 'view_roster')) {
+                        continue;
+                    }
 
                     $rosterMatches = collect();
-                    
+
                     // Check all sections of this roster
                     $sections = $roster->sections()->get();
                     foreach ($sections as $section) {
                         // Determine which columns to use (section-specific or roster-default)
-                        $colsToScan = collect($section->columns ?: $roster->columns);
-                        
-                        $linkedCols = $colsToScan->filter(function($col) use ($database, $linkedDatasetIds) {
-                            return (($col['linked_database_id'] ?? null) == $database->id) || 
+                        $colsToScan = collect($section->use_roster_columns ? ($roster->columns ?? []) : ($section->columns ?: ($roster->columns ?? [])));
+
+                        $linkedCols = $colsToScan->filter(function ($col) use ($database, $linkedDatasetIds) {
+                            return (($col['linked_database_id'] ?? null) == $database->id) ||
                                    (isset($col['dataset_id']) && in_array($col['dataset_id'], $linkedDatasetIds));
                         });
 
                         foreach ($linkedCols as $col) {
                             // Determine which field of the record is used as the label in this column
                             $fieldId = $col['database_field_id'] ?? null;
-                            if (!$fieldId || in_array($fieldId, ['table', 'compact', 'cards', 'detailed', 'rows'])) {
+                            if (! $fieldId || in_array($fieldId, ['table', 'compact', 'cards', 'detailed', 'rows'])) {
                                 $fieldId = $database->database_structure[0]['id'] ?? null;
                             }
 
-                            if (!$fieldId) continue;
+                            if (! $fieldId) {
+                                continue;
+                            }
 
                             // Generate label(s) to match. Try common formats for robustness.
                             $labels = [];
                             if ($fieldId === 'id') {
-                                $labels[] = (string)$entry->entry_id;
-                            } else if ($fieldId === 'created_at') {
+                                $labels[] = (string) $entry->entry_id;
+                            } elseif ($fieldId === 'created_at') {
                                 $labels[] = $entry->created_at->toDateString();
                                 $labels[] = $entry->created_at->format('m/d/Y');
                                 $labels[] = $entry->created_at->format('d/m/Y');
                             } else {
                                 $val = $entry->data[$fieldId] ?? null;
-                                if ($val !== null) $labels[] = (string)$val;
+                                if ($val !== null) {
+                                    $labels[] = (string) $val;
+                                }
                             }
 
                             foreach ($labels as $label) {
                                 $contents = RosterContent::where('section_id', $section->id)
-                                    ->where('content->' . $col['id'], $label)
+                                    ->where('content->'.$col['id'], $label)
                                     ->with('section')
                                     ->get();
-                                
+
                                 $rosterMatches = $rosterMatches->concat($contents);
                             }
                         }
@@ -179,9 +193,31 @@ class FactionRecordEntryController extends Controller
                         // Deduplicate by content ID
                         $uniqueContents = $rosterMatches->unique('id')->values();
 
+                        // Mask hidden columns if user lacks permission
+                        $canViewHidden = User::hasRosterPermission(Auth::user(), $roster, 'view_hidden_data');
+                        if (! $canViewHidden) {
+                            foreach ($uniqueContents as $content) {
+                                $sectionCols = $content->section->use_roster_columns ? ($roster->columns ?? []) : ($content->section->columns ?: ($roster->columns ?? []));
+                                $hiddenColIds = collect($sectionCols)
+                                    ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
+                                    ->pluck('id')
+                                    ->toArray();
+
+                                $data = $content->content;
+                                if (is_array($data)) {
+                                    foreach ($hiddenColIds as $colId) {
+                                        if (isset($data[$colId]) && $data[$colId] !== '') {
+                                            unset($data[$colId]);
+                                        }
+                                    }
+                                    $content->content = $data;
+                                }
+                            }
+                        }
+
                         $rosterIntegrations[] = [
                             'roster' => $roster->only(['id', 'name', 'shortname', 'columns']),
-                            'contents' => $uniqueContents
+                            'contents' => $uniqueContents,
                         ];
                     }
                 }
@@ -194,7 +230,7 @@ class FactionRecordEntryController extends Controller
 
     public function update(Request $request, string $shortname, FactionRecordDatabase $database, FactionRecordEntry $entry)
     {
-        if (!User::hasRecordPermission(Auth::user(), $database, 'modify_entries')) {
+        if (! User::hasRecordPermission(Auth::user(), $database, 'modify_entries')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -215,23 +251,26 @@ class FactionRecordEntryController extends Controller
         if (isset($validated['data'])) {
             $structure = $database->database_structure;
             foreach ($structure as $field) {
-                if (($field['required'] ?? false) && (!isset($validated['data'][$field['id']]) || $validated['data'][$field['id']] === '')) {
+                if (($field['required'] ?? false) && (! isset($validated['data'][$field['id']]) || $validated['data'][$field['id']] === '')) {
                     return response()->json([
                         'message' => "The {$field['name']} field is required.",
-                        'errors' => [$field['id'] => ["The {$field['name']} field is required."]]
+                        'errors' => [$field['id'] => ["The {$field['name']} field is required."]],
                     ], 422);
                 }
             }
         }
 
+        $oldValues = $entry->getOriginal();
         $entry->update($validated);
+
+        $this->audit('record_entry.update', "Updated entry #{$entry->entry_id} in database '{$database->name}'", $database->faction_id, $entry, $oldValues, $entry->getDirty());
 
         return response()->json($entry->load('creator:id,username'));
     }
 
     public function destroy(string $shortname, FactionRecordDatabase $database, FactionRecordEntry $entry)
     {
-        if (!User::hasRecordPermission(Auth::user(), $database, 'delete_entries')) {
+        if (! User::hasRecordPermission(Auth::user(), $database, 'delete_entries')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -242,6 +281,8 @@ class FactionRecordEntryController extends Controller
         if ($database->is_api_database) {
             return response()->json(['message' => 'This database is managed by an external API and cannot be modified manually.'], 403);
         }
+
+        $this->audit('record_entry.delete', "Deleted entry #{$entry->entry_id} in database '{$database->name}'", $database->faction_id, $entry, $entry->getAttributes());
 
         $entry->delete();
 

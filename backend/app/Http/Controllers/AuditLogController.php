@@ -14,9 +14,11 @@ class AuditLogController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'view_audit_logs')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'view_audit_logs')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('audit_log.index', "Viewed audit logs for faction '{$faction->name}'", $faction->id);
 
         $query = AuditLog::with('user')
             ->where('faction_id', $faction->id)
@@ -31,17 +33,17 @@ class AuditLogController extends Controller
         }
 
         if ($request->filled('auditable_type')) {
-            $query->where('auditable_type', 'like', '%' . $request->auditable_type . '%');
+            $query->where('auditable_type', 'like', '%'.$request->auditable_type.'%');
         }
 
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('old_values', 'like', '%' . $search . '%')
-                  ->orWhere('new_values', 'like', '%' . $search . '%')
-                  ->orWhereHas('user', function($uq) use ($search) {
-                      $uq->where('username', 'like', '%' . $search . '%');
-                  });
+            $query->where(function ($q) use ($search) {
+                $q->where('old_values', 'like', '%'.$search.'%')
+                    ->orWhere('new_values', 'like', '%'.$search.'%')
+                    ->orWhereHas('user', function ($uq) use ($search) {
+                        $uq->where('username', 'like', '%'.$search.'%');
+                    });
             });
         }
 
@@ -60,13 +62,15 @@ class AuditLogController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'view_audit_logs')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'view_audit_logs')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
         if ($auditLog->faction_id !== $faction->id) {
             return response()->json(['message' => 'Not Found'], 404);
         }
+
+        $this->audit('audit_log.show', "Viewed audit log entry #{$auditLog->id}", $faction->id, $auditLog);
 
         return $auditLog->load(['user', 'auditable']);
     }

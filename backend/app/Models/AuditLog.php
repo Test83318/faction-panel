@@ -12,6 +12,7 @@ class AuditLog extends Model
         'faction_id',
         'user_id',
         'event',
+        'description',
         'auditable_type',
         'auditable_id',
         'old_values',

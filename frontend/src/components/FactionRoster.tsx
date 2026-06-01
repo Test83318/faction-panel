@@ -403,13 +403,31 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
     };
 
     const getSingleValue = (c: any): number => {
-        // New Formula Evaluation Logic
+        // New Formula Evaluation Logic with Bracket Support
         if (c.conditions && Array.isArray(c.conditions)) {
             let result = 0;
-            let currentGroupValue = 0;
-            let lastArithmeticOp = '+';
+            const stack: { result: number; operator: string }[] = [];
+            let isFirst = true;
+
+            const applyOp = (base: number, next: number, op: string): number => {
+                if (op === '+') return base + next;
+                if (op === '-') return base - next;
+                if (op === '*') return base * next;
+                if (op === '/') return next === 0 ? 0 : base / next;
+                if (op === 'AND') return Math.min(base, next);
+                if (op === 'OR') return Math.max(base, next);
+                return next;
+            };
 
             c.conditions.forEach((cond: any, idx: number) => {
+                // 1. Handle Opening Brackets
+                const openCount = parseInt(cond.brackets_open || 0);
+                for (let i = 0; i < openCount; i++) {
+                    stack.push({ result, operator: isFirst ? '+' : cond.operator || '+' });
+                    result = 0;
+                    isFirst = true;
+                }
+
                 let condMatchedValue = 0;
 
                 if (cond.type === 'value') {
@@ -559,16 +577,21 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                 }
 
                 // 3. Combine using operator sequentially
-                if (idx === 0) {
+                if (isFirst) {
                     result = condMatchedValue;
+                    isFirst = false;
                 } else {
-                    const op = cond.operator || '+';
-                    if (op === '+') result += condMatchedValue;
-                    else if (op === '-') result -= condMatchedValue;
-                    else if (op === '*') result *= condMatchedValue;
-                    else if (op === '/') result = condMatchedValue === 0 ? 0 : result / condMatchedValue;
-                    else if (op === 'AND') result = Math.min(result, condMatchedValue);
-                    else if (op === 'OR') result = Math.max(result, condMatchedValue);
+                    result = applyOp(result, condMatchedValue, cond.operator || '+');
+                }
+
+                // 4. Handle Closing Brackets
+                const closeCount = parseInt(cond.brackets_close || 0);
+                for (let i = 0; i < closeCount; i++) {
+                    if (stack.length > 0) {
+                        const { result: prevResult, operator: prevOp } = stack.pop()!;
+                        result = applyOp(prevResult, result, prevOp);
+                        isFirst = false;
+                    }
                 }
             });
 
@@ -669,7 +692,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
             const secondaryValue = getSingleValue(secondaryCount);
             if (count.show_percentage) {
                 const percentage = secondaryValue === 0 ? 0 : (primaryValue / secondaryValue) * 100;
-                return `${formatValue(percentage, count.should_round)}%`;
+                return `${formatValue(primaryValue, count.should_round)} (${formatValue(percentage, count.should_round)}%)`;
             }
             return `${formatValue(primaryValue, count.should_round)} / ${formatValue(secondaryValue, secondaryCount.should_round)}`;
         }

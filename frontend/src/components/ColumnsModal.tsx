@@ -211,11 +211,13 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                           <option value="predefined_hidden_text">Predefined Hidden Text</option>
                           <option value="predefined_hidden_dropdown">Predefined Hidden Dropdown</option>
                           <option value="database_data">Database Data Column</option>
+                          <option value="hidden_database_data">Hidden Database Data Column</option>
                           <option value="linked_roster_data">Linked Roster Column</option>
+                          <option value="hidden_linked_roster_data">Hidden Linked Roster Column</option>
                         </select>
                       </div>
 
-                    {col.type === 'database_data' && (
+                    {col.type?.includes('database_data') && (
                         <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 space-y-4">
                             <div className="flex items-center gap-2 text-accent">
                                 <Database size={14} />

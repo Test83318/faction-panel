@@ -3,8 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Faction;
-use App\Models\FactionRecordDatabase;
-use App\Models\FactionRecordEntry;
 use App\Models\User;
 use App\Services\GtawService;
 use Illuminate\Http\Request;
@@ -24,12 +22,12 @@ class IntegrationController extends Controller
     public function getAvailableFactions(string $shortname)
     {
         $user = Auth::user();
-        if (!$user->gtaw_access_token) {
+        if (! $user->gtaw_access_token) {
             return response()->json(['message' => 'User not linked with GTA:W'], 400);
         }
 
         $res = $this->gtawService->getFactions($user->gtaw_access_token);
-        if (!$res || !isset($res['data'])) {
+        if (! $res || ! isset($res['data'])) {
             return response()->json(['message' => 'Failed to fetch factions from GTA:W or invalid response'], 500);
         }
 
@@ -43,10 +41,13 @@ class IntegrationController extends Controller
                     'id' => $f['faction'],
                     'name' => $f['faction_name'],
                     'rank' => $rank,
-                    'rank_name' => $f['faction_rank_name'] ?? ''
+                    'rank_name' => $f['faction_rank_name'] ?? '',
                 ];
             }
         }
+
+        $faction = Faction::where('shortname', $shortname)->first();
+        $this->audit('integration.gtaw.available_factions', 'Fetched available GTA:W factions for integration'.($faction ? " on faction '{$faction->name}'" : ''), null, $faction);
 
         return response()->json($available);
     }
@@ -54,8 +55,8 @@ class IntegrationController extends Controller
     public function setupGtaw(Request $request, string $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        
-        if (!Auth::user()->hasPermission('sync_gtaw', $faction->id)) {
+
+        if (! Auth::user()->hasPermission('sync_gtaw', $faction->id)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -67,12 +68,16 @@ class IntegrationController extends Controller
             return response()->json(['message' => 'Integration already exists'], 400);
         }
 
-        return DB::transaction(function () use ($request, $faction) {
+        $oldValues = $faction->getOriginal();
+
+        return DB::transaction(function () use ($request, $faction, $oldValues) {
             $faction->update([
-                'gtaw_faction_id' => $request->gtaw_faction_id
+                'gtaw_faction_id' => $request->gtaw_faction_id,
             ]);
 
             $dbs = $this->ensureGtawDatabases($faction);
+
+            $this->audit('integration.gtaw.setup', "Set up GTA:W integration for faction '{$faction->name}' with GTA:W faction ID {$request->gtaw_faction_id}", null, $faction, $oldValues, $faction->getDirty());
 
             return response()->json([
                 'message' => 'Integration setup successful',
@@ -80,8 +85,8 @@ class IntegrationController extends Controller
                     'characters' => $dbs['CHARS'],
                     'history' => $dbs['CHIST'],
                     'name_changes' => $dbs['CNAME'],
-                    'activity' => $dbs['ACTIVITY']
-                ]
+                    'activity' => $dbs['ACTIVITY'],
+                ],
             ]);
         });
     }
@@ -89,22 +94,22 @@ class IntegrationController extends Controller
     public function syncGtaw(Request $request, string $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        
-        if (!Auth::user()->hasPermission('sync_gtaw', $faction->id)) {
+
+        if (! Auth::user()->hasPermission('sync_gtaw', $faction->id)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        if (!$faction->gtaw_faction_id) {
+        if (! $faction->gtaw_faction_id) {
             return response()->json(['message' => 'Integration not setup'], 400);
         }
 
         $user = Auth::user();
-        if (!$user->gtaw_access_token) {
+        if (! $user->gtaw_access_token) {
             return response()->json(['message' => 'User not linked with GTA:W'], 400);
         }
 
         $res = $this->gtawService->getFactionMembers($user->gtaw_access_token, $faction->gtaw_faction_id);
-        if (!$res || !isset($res['data']['members'])) {
+        if (! $res || ! isset($res['data']['members'])) {
             return response()->json(['message' => 'Failed to fetch members from GTA:W or invalid response'], 500);
         }
 
@@ -121,11 +126,11 @@ class IntegrationController extends Controller
         $activityDb = $dbs['ACTIVITY'];
 
         $currentEntries = $charDb->entries()->get();
-        
+
         // 1. Deduplicate GTA:W members list first
         $gtawMembers = collect($res['data']['members'] ?? [])
             ->groupBy('character_id')
-            ->map(fn($group) => $group->sortByDesc('rank')->first())
+            ->map(fn ($group) => $group->sortByDesc('rank')->first())
             ->values()
             ->toArray();
 
@@ -136,15 +141,15 @@ class IntegrationController extends Controller
             'removed' => 0,
             'duplicates_removed' => 0,
             'name_changes' => 0,
-            'activity_logs' => 0
+            'activity_logs' => 0,
         ];
 
-        DB::transaction(function () use ($charDb, $historyDb, $nameChangeDb, $activityDb, $currentEntries, $gtawMembers, $abasData, $now, &$syncResults) {
+        DB::transaction(function () use ($charDb, $historyDb, $nameChangeDb, $activityDb, $gtawMembers, $abasData, $now, &$syncResults) {
             // 2. Pre-sync duplicate cleanup for Characters Database (before any other logic)
             $charDb->entries()->get()
-                ->groupBy(fn($e) => $e->data['char_id'] ?? null)
-                ->filter(fn($g, $id) => $id && $g->count() > 1)
-                ->each(function($group) use (&$syncResults) {
+                ->groupBy(fn ($e) => $e->data['char_id'] ?? null)
+                ->filter(fn ($g, $id) => $id && $g->count() > 1)
+                ->each(function ($group) use (&$syncResults) {
                     $keepId = $group->max('id');
                     foreach ($group as $entry) {
                         if ($entry->id !== $keepId) {
@@ -164,12 +169,13 @@ class IntegrationController extends Controller
             foreach ($userGroups as $userId => $group) {
                 if ($group->count() <= 1) {
                     $isAltMap[$group->first()['character_id']] = false;
+
                     continue;
                 }
-                
+
                 $highestRank = $group->max('rank');
                 $primaryChar = $group->where('rank', $highestRank)->sortByDesc('character_id')->first();
-                
+
                 foreach ($group as $m) {
                     $isAltMap[$m['character_id']] = ($m['character_id'] !== $primaryChar['character_id']);
                 }
@@ -181,7 +187,7 @@ class IntegrationController extends Controller
                 $charId = $member['character_id'];
                 $abas = $abasData[$charId]['abas'] ?? $member['abas'] ?? 0;
                 $userId = $member['user_id'];
-                $userAbasTotals[$userId] = ($userAbasTotals[$userId] ?? 0) + (float)$abas;
+                $userAbasTotals[$userId] = ($userAbasTotals[$userId] ?? 0) + (float) $abas;
             }
 
             foreach ($gtawMembers as $member) {
@@ -193,7 +199,7 @@ class IntegrationController extends Controller
                 });
 
                 $abasValue = $abasData[$charId]['abas'] ?? $member['abas'] ?? 0;
-                $abasString = number_format((float)$abasValue, 2);
+                $abasString = number_format((float) $abasValue, 2);
 
                 $memberData = [
                     'id' => $member['character_id'],
@@ -208,8 +214,8 @@ class IntegrationController extends Controller
                 ];
 
                 // Check for ABAS change
-                $oldAbas = $existingEntry ? (float)($existingEntry->data['abas'] ?? 0) : 0;
-                $newAbas = (float)$abasValue;
+                $oldAbas = $existingEntry ? (float) ($existingEntry->data['abas'] ?? 0) : 0;
+                $newAbas = (float) $abasValue;
 
                 if (abs($oldAbas - $newAbas) > 0.001) {
                     $activityDb->entries()->create([
@@ -218,10 +224,10 @@ class IntegrationController extends Controller
                             'char_id' => $charId,
                             'user_id' => $member['user_id'],
                             'name' => $member['character_name'],
-                            'abas' => number_format($oldAbas, 2) . ' > ' . $abasString,
-                            'date' => $now
+                            'abas' => number_format($oldAbas, 2).' > '.$abasString,
+                            'date' => $now,
                         ],
-                        'created_by' => Auth::id()
+                        'created_by' => Auth::id(),
                     ]);
                     $syncResults['activity_logs']++;
                 }
@@ -235,22 +241,33 @@ class IntegrationController extends Controller
                                 'char_id' => $charId,
                                 'old_name' => $existingEntry->data['name'],
                                 'new_name' => $member['character_name'],
-                                'date' => $now
+                                'date' => $now,
                             ],
-                            'created_by' => Auth::id()
+                            'created_by' => Auth::id(),
                         ]);
                         $syncResults['name_changes']++;
                     }
 
-                    // Update existing
-                    $existingEntry->update(['data' => $memberData]);
-                    $syncResults['updated']++;
+                    // Only update if data has actually changed (avoids unnecessary audit log entries)
+                    $existingData = $existingEntry->data;
+                    $hasChanges = false;
+                    foreach ($memberData as $key => $value) {
+                        if (! array_key_exists($key, $existingData) || $existingData[$key] != $value) {
+                            $hasChanges = true;
+                            break;
+                        }
+                    }
+
+                    if ($hasChanges) {
+                        $existingEntry->update(['data' => $memberData]);
+                        $syncResults['updated']++;
+                    }
                 } else {
                     // Create new
                     $charDb->entries()->create([
                         'entry_id' => ($charDb->entries()->withTrashed()->max('entry_id') ?? 0) + 1,
                         'data' => $memberData,
-                        'created_by' => Auth::id()
+                        'created_by' => Auth::id(),
                     ]);
 
                     // Log to history
@@ -260,9 +277,9 @@ class IntegrationController extends Controller
                             'char_id' => $charId,
                             'name' => $member['character_name'],
                             'action' => 'Added',
-                            'date' => $now
+                            'date' => $now,
                         ],
-                        'created_by' => Auth::id()
+                        'created_by' => Auth::id(),
                     ]);
 
                     $syncResults['added']++;
@@ -272,7 +289,7 @@ class IntegrationController extends Controller
             // Remove characters no longer in faction
             foreach ($freshEntries as $entry) {
                 $charId = $entry->data['char_id'] ?? null;
-                if ($charId && !in_array($charId, $processedCharIds)) {
+                if ($charId && ! in_array($charId, $processedCharIds)) {
                     // Log to history before deleting
                     $historyDb->entries()->create([
                         'entry_id' => ($historyDb->entries()->withTrashed()->max('entry_id') ?? 0) + 1,
@@ -280,9 +297,9 @@ class IntegrationController extends Controller
                             'char_id' => $charId,
                             'name' => $entry->data['name'],
                             'action' => 'Removed',
-                            'date' => $now
+                            'date' => $now,
                         ],
-                        'created_by' => Auth::id()
+                        'created_by' => Auth::id(),
                     ]);
 
                     $entry->delete();
@@ -292,7 +309,7 @@ class IntegrationController extends Controller
 
             // Final check: Recalculate is_alt markers for all entries based on stored rank_id
             $finalEntries = $charDb->entries()->get();
-            $userGroups = $finalEntries->groupBy(fn($e) => $e->data['user_id'] ?? null);
+            $userGroups = $finalEntries->groupBy(fn ($e) => $e->data['user_id'] ?? null);
 
             foreach ($userGroups as $userId => $group) {
                 if ($group->count() <= 1) {
@@ -302,13 +319,14 @@ class IntegrationController extends Controller
                         $newData['is_alt'] = false;
                         $entry->update(['data' => $newData]);
                     }
+
                     continue;
                 }
 
-                $highestRank = $group->max(fn($e) => (int)($e->data['rank_id'] ?? 0));
-                $primaryChar = $group->where(fn($e) => (int)($e->data['rank_id'] ?? 0) === $highestRank)
-                                    ->sortByDesc(fn($e) => (int)($e->data['char_id'] ?? 0))
-                                    ->first();
+                $highestRank = $group->max(fn ($e) => (int) ($e->data['rank_id'] ?? 0));
+                $primaryChar = $group->where(fn ($e) => (int) ($e->data['rank_id'] ?? 0) === $highestRank)
+                    ->sortByDesc(fn ($e) => (int) ($e->data['char_id'] ?? 0))
+                    ->first();
 
                 foreach ($group as $entry) {
                     $isAlt = (($entry->data['char_id'] ?? null) !== ($primaryChar->data['char_id'] ?? null));
@@ -321,9 +339,11 @@ class IntegrationController extends Controller
             }
         });
 
+        $this->audit('integration.gtaw.sync', "Synchronized GTA:W members for faction '{$faction->name}'", null, $faction, null, $syncResults);
+
         return response()->json([
             'message' => 'Synchronization complete',
-            'results' => $syncResults
+            'results' => $syncResults,
         ]);
     }
 
@@ -347,8 +367,8 @@ class IntegrationController extends Controller
                 'is_published' => true,
                 'detail_customization' => [
                     'linked_databases' => [],
-                    'roster_integration' => ['enabled' => true]
-                ]
+                    'roster_integration' => ['enabled' => true],
+                ],
             ],
             'ACTIVITY' => [
                 'name' => 'Activity Database',
@@ -393,7 +413,7 @@ class IntegrationController extends Controller
 
         foreach ($databases as $shortcode => $config) {
             $db = $faction->recordDatabases()->where('record_shortcode', $shortcode)->first();
-            if (!$db) {
+            if (! $db) {
                 $db = $faction->recordDatabases()->create([
                     'name' => $config['name'],
                     'description' => $config['description'],
@@ -407,7 +427,7 @@ class IntegrationController extends Controller
                     'data_overview_display' => 'table',
                     'data_entry_display' => 'card',
                 ]);
-                
+
                 if ($shortcode === 'CHARS') {
                     // Add self-link for "Other characters of this user"
                     $db->update([
@@ -418,11 +438,11 @@ class IntegrationController extends Controller
                                     'database_id' => $db->id,
                                     'source_field' => 'user_id',
                                     'target_field' => 'user_id',
-                                    'exclude_current' => true
-                                ]
+                                    'exclude_current' => true,
+                                ],
                             ],
-                            'roster_integration' => ['enabled' => true]
-                        ]
+                            'roster_integration' => ['enabled' => true],
+                        ],
                     ]);
                 }
             } else {
@@ -431,7 +451,7 @@ class IntegrationController extends Controller
                 $updated = false;
                 foreach ($config['structure'] as $field) {
                     $exists = collect($currentStructure)->contains('id', $field['id']);
-                    if (!$exists) {
+                    if (! $exists) {
                         $currentStructure[] = $field;
                         $updated = true;
                     }
@@ -446,12 +466,11 @@ class IntegrationController extends Controller
         return $result;
     }
 
-
     public function pruneGtaw(Request $request, string $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        
-        if (!Auth::user()->hasPermission('sync_gtaw', $faction->id)) {
+
+        if (! Auth::user()->hasPermission('sync_gtaw', $faction->id)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -459,6 +478,8 @@ class IntegrationController extends Controller
         if ($charDb) {
             $charDb->entries()->delete();
         }
+
+        $this->audit('integration.gtaw.prune', "Pruned synchronized GTA:W database entries for faction '{$faction->name}'", null, $faction);
 
         return response()->json(['message' => 'All synchronized data pruned']);
     }

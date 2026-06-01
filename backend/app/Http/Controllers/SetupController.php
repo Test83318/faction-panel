@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\SiteSetting;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -12,7 +13,7 @@ class SetupController extends Controller
 {
     private function isSystemSetup(): bool
     {
-        if (!Schema::hasTable('users')) {
+        if (! Schema::hasTable('users')) {
             return false;
         }
 
@@ -21,6 +22,8 @@ class SetupController extends Controller
 
     public function status()
     {
+        $this->audit('setup.status', 'Checked system setup status');
+
         return response()->json([
             'is_setup' => $this->isSystemSetup(),
         ]);
@@ -51,8 +54,10 @@ class SetupController extends Controller
             ]);
 
             // 5. Initialize default settings
-            \App\Models\SiteSetting::updateOrCreate(['key' => 'allow_registration'], ['value' => 'true']);
-            \App\Models\SiteSetting::updateOrCreate(['key' => 'version'], ['value' => '1.0.0']);
+            SiteSetting::updateOrCreate(['key' => 'allow_registration'], ['value' => 'true']);
+            SiteSetting::updateOrCreate(['key' => 'version'], ['value' => '1.0.0']);
+
+            $this->audit('setup.complete', "Completed system setup and created superadmin user '{$user->username}'", null, $user, null, ['username' => $user->username]);
 
             return response()->json([
                 'message' => 'Setup completed successfully.',
@@ -60,7 +65,7 @@ class SetupController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Setup failed: ' . $e->getMessage(),
+                'message' => 'Setup failed: '.$e->getMessage(),
             ], 500);
         }
     }

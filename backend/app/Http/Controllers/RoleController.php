@@ -12,10 +12,12 @@ class RoleController extends Controller
     public function index(string $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        
-        if (!$this->can($faction, 'view_permissions')) {
+
+        if (! $this->can($faction, 'view_permissions')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('role.list', "Viewed roles for faction {$faction->name}");
 
         return $faction->roles()->with('permissions')->orderBy('weight', 'desc')->get();
     }
@@ -24,7 +26,7 @@ class RoleController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
 
-        if (!$this->can($faction, 'create_ranks')) {
+        if (! $this->can($faction, 'create_ranks')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -49,6 +51,8 @@ class RoleController extends Controller
             }
         }
 
+        $this->audit('role.create', "Created role '{$role->name}' in faction '{$faction->name}'", null, $role, null, $role->getAttributes());
+
         return $role->load('permissions');
     }
 
@@ -57,7 +61,7 @@ class RoleController extends Controller
         $faction = $role->faction;
         $userWeight = Auth::user()->getHighestRoleWeight($faction->id);
 
-        if (!$this->can($faction, 'modify_ranks')) {
+        if (! $this->can($faction, 'modify_ranks')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -81,7 +85,10 @@ class RoleController extends Controller
             return response()->json(['message' => 'Cannot set weight equal to or higher than your own.'], 403);
         }
 
+        $oldValues = $role->getOriginal();
         $role->update($validated);
+
+        $this->audit('role.update', "Updated role '{$role->name}' in faction '{$faction->name}'", null, $role, $oldValues, $role->getDirty());
 
         return $role;
     }
@@ -90,7 +97,7 @@ class RoleController extends Controller
     {
         $faction = $role->faction;
 
-        if (!$this->can($faction, 'delete_ranks')) {
+        if (! $this->can($faction, 'delete_ranks')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -103,6 +110,8 @@ class RoleController extends Controller
             return response()->json(['message' => "Cannot delete the {$role->name} role as it is a core system role."], 400);
         }
 
+        $this->audit('role.delete', "Deleted role '{$role->name}' in faction '{$faction->name}'", null, $role, $role->getAttributes());
+
         $role->delete();
 
         return response()->json(['message' => 'Role deleted']);
@@ -112,7 +121,7 @@ class RoleController extends Controller
     {
         $faction = $role->faction;
 
-        if (!$this->can($faction, 'modify_permissions')) {
+        if (! $this->can($faction, 'modify_permissions')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -137,11 +146,15 @@ class RoleController extends Controller
             );
         }
 
+        $this->audit('role.permissions_update', "Updated permissions for role '{$role->name}' in faction '{$faction->name}'", null, $role, null, $request->permissions);
+
         return response()->json(['message' => 'Permissions updated']);
     }
 
     public function getGlobalConfig()
     {
+        $this->audit('role.global_config', 'Viewed global permissions configuration');
+
         return response()->json(config('permissions.categories'));
     }
 

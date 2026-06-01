@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable(['username', 'password', 'is_superadmin', 'avatar_url', 'gtaw_id', 'gtaw_username', 'gtaw_access_token', 'membership_tier_id', 'always_match_row_height'])]
@@ -39,7 +40,7 @@ class User extends Authenticatable
 
     public function getGtawLinkedAttribute(): bool
     {
-        return !empty($this->gtaw_access_token);
+        return ! empty($this->gtaw_access_token);
     }
 
     public function membershipTier()
@@ -49,15 +50,19 @@ class User extends Authenticatable
 
     protected function getAvatarUrlAttribute($value)
     {
-        if (!$value) return null;
-        if (str_starts_with($value, 'http')) return $value;
-        
-        $baseUrl = env('STORAGE_URL');
-        if (!$baseUrl) {
-            $baseUrl = rtrim(config('app.url'), '/') . '/storage';
+        if (! $value) {
+            return null;
         }
-        
-        return rtrim($baseUrl, '/') . '/' . ltrim($value, '/');
+        if (str_starts_with($value, 'http')) {
+            return $value;
+        }
+
+        $baseUrl = env('STORAGE_URL');
+        if (! $baseUrl) {
+            $baseUrl = rtrim(config('app.url'), '/').'/storage';
+        }
+
+        return rtrim($baseUrl, '/').'/'.ltrim($value, '/');
     }
 
     protected function setAvatarUrlAttribute($value)
@@ -67,12 +72,14 @@ class User extends Authenticatable
 
     private function stripStorageUrl($value)
     {
-        if (!$value) return null;
-        
+        if (! $value) {
+            return null;
+        }
+
         $bases = array_filter([
             env('STORAGE_URL'),
-            rtrim(config('app.url'), '/') . '/storage',
-            rtrim(\Illuminate\Support\Facades\Storage::disk('public')->url(''), '/')
+            rtrim(config('app.url'), '/').'/storage',
+            rtrim(Storage::disk('public')->url(''), '/'),
         ]);
 
         foreach ($bases as $base) {
@@ -81,7 +88,7 @@ class User extends Authenticatable
                 return ltrim(str_replace($base, '', $value), '/');
             }
         }
-        
+
         return $value;
     }
 
@@ -157,7 +164,7 @@ class User extends Authenticatable
         if ($user) {
             $userRoles = $user->roles()->where('faction_id', $faction->id)->with('permissions')->get();
             foreach ($userRoles as $role) {
-                if (!$roles->contains('id', $role->id)) {
+                if (! $roles->contains('id', $role->id)) {
                     $roles->push($role);
                 }
             }
@@ -182,7 +189,7 @@ class User extends Authenticatable
             'delete_faction', // Example of a future permission
         ];
 
-        if ($isSystemAdmin && !in_array($permissionKey, $leaderOnlyPermissions)) {
+        if ($isSystemAdmin && ! in_array($permissionKey, $leaderOnlyPermissions)) {
             return true;
         }
 
@@ -202,13 +209,15 @@ class User extends Authenticatable
             }
         }
 
-        return $hasYes && !$hasNever;
+        return $hasYes && ! $hasNever;
     }
 
     public function hasPermission(string $permissionKey, int $factionId): bool
     {
         $faction = Faction::find($factionId);
-        if (!$faction) return false;
+        if (! $faction) {
+            return false;
+        }
 
         return self::hasFactionPermission($this, $faction, $permissionKey);
     }
@@ -241,15 +250,10 @@ class User extends Authenticatable
     {
         $faction = $roster->faction;
 
-        // 0. Check for global 'view_faction_roster' if the key is 'view_roster'
-        if ($permissionKey === 'view_roster' && self::hasFactionPermission($user, $faction, 'view_faction_roster')) {
-            return true;
-        }
-
         // 1. Superadmin/Faction Leader/Global Roster Moderator/Creator always have access
         if ($user) {
-            if ($user->is_superadmin || 
-                $faction->faction_leader === $user->id || 
+            if ($user->is_superadmin ||
+                $faction->faction_leader === $user->id ||
                 self::hasFactionPermission($user, $faction, 'global_roster_moderation') ||
                 $roster->created_by === $user->id
             ) {
@@ -296,14 +300,43 @@ class User extends Authenticatable
         return false;
     }
 
+    public static function canViewRoster(?User $user, Roster $roster): bool
+    {
+        if ($user && $user->is_superadmin) {
+            return true;
+        }
+
+        $faction = $roster->faction;
+        if ($user && $faction->faction_leader === $user->id) {
+            return true;
+        }
+
+        if ($user && self::hasFactionPermission($user, $faction, 'global_roster_moderation')) {
+            return true;
+        }
+
+        if ($user && $roster->created_by === $user->id) {
+            return true;
+        }
+
+        $hasExplicitPerms = $roster->rosterPermissions()->exists();
+        if ($hasExplicitPerms) {
+            return self::hasRosterPermission($user, $roster, 'view_roster');
+        }
+
+        $canViewGlobal = $user && self::hasFactionPermission($user, $faction, 'view_faction_roster');
+
+        return $canViewGlobal || self::hasRosterPermission($user, $roster, 'view_roster');
+    }
+
     public static function hasRecordPermission(?User $user, FactionRecordDatabase $database, string $permissionKey): bool
     {
         $faction = $database->faction;
 
         // 1. Superadmin/Faction Leader/Global Record Moderator/Creator always have access
         if ($user) {
-            if ($user->is_superadmin || 
-                $faction->faction_leader === $user->id || 
+            if ($user->is_superadmin ||
+                $faction->faction_leader === $user->id ||
                 self::hasFactionPermission($user, $faction, 'global_faction_record_moderation') ||
                 $database->created_by === $user->id
             ) {
@@ -356,8 +389,8 @@ class User extends Authenticatable
 
         // 1. Superadmin/Faction Leader/Global Statistics Moderator/Creator always have access
         if ($user) {
-            if ($user->is_superadmin || 
-                $faction->faction_leader === $user->id || 
+            if ($user->is_superadmin ||
+                $faction->faction_leader === $user->id ||
                 self::hasFactionPermission($user, $faction, 'global_statistics_moderation') ||
                 $model->created_by === $user->id
             ) {
@@ -385,6 +418,60 @@ class User extends Authenticatable
             // Role permissions
             $userRoleIds = $user->roles()->where('faction_id', $faction->id)->pluck('roles.id');
             $rolePerms = $model->statisticsPermissions()->whereIn('role_id', $userRoleIds)->get();
+            foreach ($rolePerms as $rp) {
+                $permissionSets->push($rp->permissions);
+            }
+        }
+
+        if ($permissionSets->isEmpty()) {
+            return false;
+        }
+
+        // If any set has the permission as true, return true
+        foreach ($permissionSets as $set) {
+            if (is_array($set) && in_array($permissionKey, $set)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static function hasFormPermission(?User $user, Form $form, string $permissionKey): bool
+    {
+        $faction = $form->faction;
+
+        // 1. Superadmin/Faction Leader/Global Form Moderator/Creator always have access
+        if ($user) {
+            if ($user->is_superadmin ||
+                $faction->faction_leader === $user->id ||
+                self::hasFactionPermission($user, $faction, 'global_faction_form_moderation') ||
+                $form->created_by === $user->id
+            ) {
+                return true;
+            }
+        }
+
+        // 2. Collect all permission sets applicable to this user
+        $permissionSets = collect();
+
+        // Public permissions (group_id and role_id are null)
+        $publicPerms = $form->formPermissions()->whereNull('group_id')->whereNull('role_id')->first();
+        if ($publicPerms) {
+            $permissionSets->push($publicPerms->permissions);
+        }
+
+        if ($user) {
+            // Group permissions
+            $userGroupIds = $user->groups()->where('faction_id', $faction->id)->pluck('groups.id');
+            $groupPerms = $form->formPermissions()->whereIn('group_id', $userGroupIds)->get();
+            foreach ($groupPerms as $gp) {
+                $permissionSets->push($gp->permissions);
+            }
+
+            // Role permissions
+            $userRoleIds = $user->roles()->where('faction_id', $faction->id)->pluck('roles.id');
+            $rolePerms = $form->formPermissions()->whereIn('role_id', $userRoleIds)->get();
             foreach ($rolePerms as $rp) {
                 $permissionSets->push($rp->permissions);
             }

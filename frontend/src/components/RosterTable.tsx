@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 import { hexToRgb } from '../utils';
 import { LinkedDataModal } from './LinkedDataModal';
 
-const CellScaler: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className }) => {
+const CellScaler: React.FC<{ children: React.ReactNode, className?: string, tooltipContent?: React.ReactNode, forceShowTooltip?: boolean, disabled?: boolean }> = ({ children, className, tooltipContent, forceShowTooltip, disabled }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
@@ -42,7 +42,8 @@ const CellScaler: React.FC<{ children: React.ReactNode, className?: string }> = 
     }, [updateScale]);
 
     const handleMouseEnter = (e: React.MouseEvent) => {
-        if (!isOverflowing) return;
+        if (disabled) return;
+        if (!isOverflowing && !forceShowTooltip) return;
         setHovered(true);
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         setTooltipPos({ x: rect.left + rect.width / 2, y: rect.top - 6 });
@@ -50,31 +51,60 @@ const CellScaler: React.FC<{ children: React.ReactNode, className?: string }> = 
 
     const handleMouseLeave = () => setHovered(false);
 
+    const fullText = contentRef.current?.textContent ?? '';
+    const renderTooltip = () => {
+        if (disabled || !hovered || (!isOverflowing && !forceShowTooltip)) return null;
+        if (tooltipContent) {
+            return createPortal(
+                <div
+                    className="fixed z-[9999] pointer-events-none -translate-x-1/2 -translate-y-full"
+                    style={{ left: tooltipPos.x, top: tooltipPos.y }}
+                >
+                    {tooltipContent}
+                </div>,
+                document.body
+            );
+        }
+        if (fullText) {
+            return createPortal(
+                <div
+                    className="fixed z-[9999] px-2 py-1 bg-card border border-border rounded shadow-lg text-xs font-medium pointer-events-none -translate-x-1/2 -translate-y-full"
+                    style={{ left: tooltipPos.x, top: tooltipPos.y }}
+                >
+                    {fullText}
+                </div>,
+                document.body
+            );
+        }
+        return null;
+    };
+
     if (scrollingText && isOverflowing) {
         const overflow = (containerRef.current?.offsetWidth ?? 0) - (contentRef.current?.scrollWidth ?? 0);
         const duration = Math.max(1.5, Math.abs(overflow) / 40);
         return (
-            <div
-                ref={containerRef}
-                className={`w-full h-full flex items-center justify-center overflow-hidden ${className}`}
-                onMouseEnter={() => setHovered(true)}
-                onMouseLeave={() => setHovered(false)}
-            >
+            <>
                 <div
-                    ref={contentRef}
-                    className="whitespace-nowrap"
-                    style={{
-                        transform: hovered ? `translateX(${overflow}px)` : 'translateX(0)',
-                        transition: hovered ? `transform ${duration}s linear` : 'transform 0.3s ease-in-out',
-                    }}
+                    ref={containerRef}
+                    className={`w-full h-full flex items-center justify-center overflow-hidden ${className}`}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
                 >
-                    {children}
+                    <div
+                        ref={contentRef}
+                        className="whitespace-nowrap"
+                        style={{
+                            transform: hovered ? `translateX(${overflow}px)` : 'translateX(0)',
+                            transition: hovered ? `transform ${duration}s linear` : 'transform 0.3s ease-in-out',
+                        }}
+                    >
+                        {children}
+                    </div>
                 </div>
-            </div>
+                {renderTooltip()}
+            </>
         );
     }
-
-    const fullText = contentRef.current?.textContent ?? '';
 
     return (
         <>
@@ -96,15 +126,7 @@ const CellScaler: React.FC<{ children: React.ReactNode, className?: string }> = 
                     {children}
                 </div>
             </div>
-            {hovered && isOverflowing && fullText && createPortal(
-                <div
-                    className="fixed z-[9999] px-2 py-1 bg-card border border-border rounded shadow-lg text-xs font-medium pointer-events-none -translate-x-1/2 -translate-y-full"
-                    style={{ left: tooltipPos.x, top: tooltipPos.y }}
-                >
-                    {fullText}
-                </div>,
-                document.body
-            )}
+            {renderTooltip()}
         </>
     );
 };
@@ -195,7 +217,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     const collectLinks = (rows: RosterContent[]) => {
         rows.forEach(row => {
             activeCols.forEach(col => {
-                if (col.type === 'linked_roster_data') {
+                if (col.type?.includes('linked_roster_data')) {
                     const val = (editingRowId === row.id && editingColId === col.id) ? editData[col.id] : row.content?.[col.id];
                     if (val && typeof val === 'object' && val.roster_id && val.row_id && val.col_id) {
                         linksToResolve.push({ rowId: row.id, colId: col.id, config: val });
@@ -385,7 +407,16 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   ];
 
   const evaluateFlag = React.useCallback((row: RosterContent, col: RosterColumn, flag: any) => {
+    // If the user does not have edit access to the roster, do not evaluate flags at all.
+    const hasEditAccess = canModerate || permissions?.edit_defined_fields || permissions?.edit_predefined;
+    if (!hasEditAccess) return false;
+
     if (!flag.rules || flag.rules.length === 0) return false;
+
+    // If this is a hidden column and the user cannot view hidden data, do not evaluate flags on it.
+    const isHidden = col.type && col.type.includes('hidden');
+    const canViewHidden = canModerate || permissions?.view_hidden_data;
+    if (isHidden && !canViewHidden) return false;
 
     // Determine current value, accounting for unsaved edits
     const isThisRowEditing = editingRowId === row.id;
@@ -495,7 +526,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 return false;
         }
     });
-  }, [datasets, contents, allContents, editingRowId, editData, recordData]);
+  }, [datasets, contents, allContents, editingRowId, editData, recordData, canModerate, permissions]);
 
   const handleBulkAdd = () => {
     const count = Math.min(Math.max(1, rowCountToAdd), 20);
@@ -864,31 +895,6 @@ export const RosterTable: React.FC<RosterTableProps> = ({
       ? datasetOptions.map((o: any) => ({ id: o.id, label: o.value || '', color: o.color, bold: o.is_bold })) 
       : (col.options || []).map((o: any, idx: number) => ({ ...o, id: o.id || `manual_${idx}` }));
 
-    if (isSaving && col.id === savingRows.get(row.id)) {
-        return (
-            <div className="flex items-center justify-center h-full w-full rt-cell-content">
-                <div className="px-2 py-0.5 bg-accent/10 border border-accent/20 rounded animate-pulse flex items-center gap-1.5">
-                    <div className="w-1 h-1 rounded-full bg-accent animate-bounce" />
-                    <span className="text-[7px] font-black text-accent uppercase tracking-widest">Saving</span>
-                </div>
-            </div>
-        );
-    }
-
-    if (isLocked && col.id === (row.editing_col || activeCols[0].id)) {
-        return (
-            <div className="flex items-center justify-center h-full w-full rt-cell-content">
-                <div className="px-2 py-0.5 bg-danger/10 border border-danger/20 rounded flex items-center gap-1.5 group/lock relative">
-                    <div className="w-1 h-1 rounded-full bg-danger" />
-                    <span className="text-[7px] font-black text-danger uppercase tracking-widest">Editing</span>
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black text-white text-[7px] font-bold uppercase rounded opacity-0 group-hover/lock:opacity-100 transition-opacity whitespace-nowrap z-[100]">
-                        {row.editor?.username || 'Another user'} is editing
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
     // If dynamic dataset, pull from recordData
     if (boundDataset?.record_database_id) {
         const db = recordData.find(d => d.id === boundDataset.record_database_id);
@@ -916,10 +922,168 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         }
     }
 
+    const activeFlags = flags.filter(f => (col.flags || []).some(flagId => Number(flagId) === Number(f.id)) && evaluateFlag(row, col, f));
+
+    const getRowName = () => {
+        const nameCol = activeCols.find(c => c.id === 'name' || c.name.toLowerCase() === 'name');
+        const nameColId = nameCol?.id || 'name';
+        const nameValue = editingRowId === row.id ? (editData[nameColId] || editData.name) : (row.content?.[nameColId] || row.content?.name);
+        return typeof nameValue === 'string' ? nameValue : '';
+    };
+    const rowName = getRowName();
+
+    const isValueId = value && (!isNaN(Number(value)) || String(value).startsWith('temp_') || String(value).startsWith('opt_'));
+    const selectedOpt = effectiveOptions.find(o => 
+        String(o.id) === String(value) || (!isValueId && o.label === value)
+    );
+
+    const getCellDisplayValue = () => {
+        // Always return redacted placeholder for hidden columns when user lacks permission
+        if (!showValue) return '??????';
+
+        if (col.type?.includes('database_data') && col.source_column_id) {
+            const sourceCol = activeCols.find(c => c.id === col.source_column_id);
+            let sourceValue = isEditing ? editData[sourceCol?.id || ''] : (row.content?.[sourceCol?.id || ''] || '');
+            if (sourceCol?.type?.includes('linked_roster_data')) {
+                sourceValue = resolvedLinks.get(`${row.id}_${sourceCol.id}`) || '';
+            }
+            if (sourceValue) {
+                const sourceDataset = datasets.find(d => d.id === sourceCol?.dataset_id);
+                const db = recordData.find(d => d.id === sourceDataset?.record_database_id);
+                if (db && db.entries) {
+                    const entry = db.entries.find((e: any) => {
+                        let fieldId = sourceCol?.database_field_id;
+                        if (!fieldId || ['table', 'compact', 'cards', 'detailed', 'rows'].includes(fieldId)) {
+                            fieldId = db.database_structure?.[0]?.id;
+                        }
+                        const label = (fieldId === 'id') ? String(e.entry_id) : 
+                                     (fieldId === 'created_at') ? new Date(e.created_at).toLocaleDateString() :
+                                     e.data?.[fieldId || ''];
+                        return label === sourceValue;
+                    });
+                    if (entry) {
+                        const fieldId = col.data_field_id;
+                        if (fieldId === 'id') return String(entry.entry_id);
+                        if (fieldId === 'created_at') return new Date(entry.created_at).toLocaleDateString();
+                        return String(entry.data?.[fieldId || ''] || '-');
+                    }
+                }
+            }
+            if (!canEditAny && row.content?.[col.id]) return String(row.content[col.id]);
+            return '-';
+        }
+        if (col.type?.includes('linked_roster_data')) {
+            const resolvedValue = resolvedLinks.get(`${row.id}_${col.id}`);
+            if (resolvedValue) return resolvedValue;
+            if (row.content?.[col.id] && typeof row.content[col.id] !== 'object') {
+                return String(row.content[col.id]);
+            }
+            return '-';
+        }
+        return selectedOpt?.label || String(value) || '-';
+    };
+    const cellDisplayValue = getCellDisplayValue();
+
+    const legendItems: { icon: React.ReactNode, label: string }[] = [];
+
+    // Only populate legend items when the user is allowed to see the cell value.
+    // Flags/tags/checkboxes on hidden columns must not be exposed via the tooltip.
+    if (showValue) {
+        activeFlags.forEach(f => {
+            const IconComponent = (LucideIcons as any)[f.icon] || LucideIcons.HelpCircle;
+            legendItems.push({
+                icon: <IconComponent size={10} style={{ color: f.color }} />,
+                label: f.name
+            });
+        });
+
+        appliedTags.forEach((tagLabel: string) => {
+            const tagDef = col.tags?.find(t => (typeof t === 'string' ? t : t?.label) === tagLabel);
+            const tagColor = (tagDef && typeof tagDef !== 'string') ? tagDef.color : '#fff';
+            const tagIconName = (tagDef && typeof tagDef !== 'string') ? tagDef.icon : null;
+            
+            let icon;
+            if (tagIconName && (LucideIcons as any)[tagIconName]) {
+                const IconComponent = (LucideIcons as any)[tagIconName];
+                icon = <IconComponent size={10} style={{ color: tagColor || 'inherit' }} />;
+            } else {
+                icon = <span className="w-1.5 h-1.5 rounded-[1px]" style={{ backgroundColor: tagColor || '#fff' }} />;
+            }
+            legendItems.push({
+                icon,
+                label: tagLabel
+            });
+        });
+
+        checked.forEach((cbLabel: string) => {
+            const cbDef = col.checkboxes?.find(cb => (typeof cb === 'string' ? cb : cb?.label) === cbLabel);
+            const cbColor = (cbDef && typeof cbDef !== 'string') ? cbDef.color : null;
+            legendItems.push({
+                icon: <LucideIcons.Check size={10} style={{ color: cbColor || 'var(--accent)' }} />,
+                label: cbLabel
+            });
+        });
+    }
+
+    // Suppress the tooltip entirely for hidden cells — never expose any value via hover
+    const tooltipContent = showValue ? (
+        <div className="p-3 bg-card border border-border rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] flex flex-col gap-2 min-w-[150px] text-left">
+            <div className="text-[11px] font-black uppercase tracking-wider text-text">
+                {rowName.toUpperCase() || 'MEMBER'}
+            </div>
+            <div className="border-t border-border/80 my-0.5" />
+            <div className="text-[9px] text-muted font-bold uppercase tracking-tight">
+                {cellDisplayValue}
+            </div>
+            {legendItems.length > 0 && (
+                <div className="flex flex-col gap-1.5 mt-1 pt-1.5 border-t border-border/30">
+                    {legendItems.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-1.5 text-[8px] font-black uppercase text-muted/80">
+                            <span className="shrink-0 flex items-center justify-center w-3 h-3">
+                                {item.icon}
+                            </span>
+                            <span className="text-muted/40 font-normal">-</span>
+                            <span className="tracking-tight">{item.label}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    ) : null;
+
+    if (isSaving && col.id === savingRows.get(row.id)) {
+        return (
+            <div className="flex items-center justify-center h-full w-full rt-cell-content">
+                <div className="px-2 py-0.5 bg-accent/10 border border-accent/20 rounded animate-pulse flex items-center gap-1.5">
+                    <div className="w-1 h-1 rounded-full bg-accent animate-bounce" />
+                    <span className="text-[7px] font-black text-accent uppercase tracking-widest">Saving</span>
+                </div>
+            </div>
+        );
+    }
+
+    if (isLocked && col.id === (row.editing_col || activeCols[0].id)) {
+        return (
+            <div className="flex items-center justify-center h-full w-full rt-cell-content">
+                <div className="px-2 py-0.5 bg-danger/10 border border-danger/20 rounded flex items-center gap-1.5 group/lock relative">
+                    <div className="w-1 h-1 rounded-full bg-danger" />
+                    <span className="text-[7px] font-black text-danger uppercase tracking-widest">Editing</span>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-black text-white text-[7px] font-bold uppercase rounded opacity-0 group-hover/lock:opacity-100 transition-opacity whitespace-nowrap z-[100]">
+                        {row.editor?.username || 'Another user'} is editing
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+
     // Handle Database Data Column Type
-    if (col.type === 'database_data' && col.source_column_id) {
+    if (col.type?.includes('database_data') && col.source_column_id) {
         const sourceCol = activeCols.find(c => c.id === col.source_column_id);
-        const sourceValue = isEditing ? editData[sourceCol?.id || ''] : (row.content?.[sourceCol?.id || ''] || '');
+        let sourceValue = isEditing ? editData[sourceCol?.id || ''] : (row.content?.[sourceCol?.id || ''] || '');
+        if (sourceCol?.type === 'linked_roster_data') {
+            sourceValue = resolvedLinks.get(`${row.id}_${sourceCol.id}`) || '';
+        }
         
         if (sourceValue) {
             // Find the database linked to the source column's dataset
@@ -950,7 +1114,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
                     return (
                         <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-60 italic relative group/cell rt-cell-content">
-                            <CellScaler>
+                            <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} disabled={isEditing}>
                                 <span className="text-[10px] uppercase font-bold text-accent">
                                     {displayValue}
                                 </span>
@@ -958,7 +1122,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                             <Link 
                                 to={`/${shortname}/records?database=${db.record_shortcode || db.id}&record=${entry.entry_id}`}
                                 onClick={(e) => e.stopPropagation()}
-                                className="absolute -top-1 -right-1 p-1 bg-card border border-border rounded text-muted hover:text-accent opacity-0 group-hover/cell:opacity-100 transition-all z-10 shadow-sm"
+                                className="absolute -bottom-1 -right-1 p-1 bg-card border border-border rounded text-muted hover:text-accent opacity-0 group-hover/cell:opacity-100 transition-all z-10 shadow-sm"
                             >
                                 <ExternalLink size={8} />
                             </Link>
@@ -968,17 +1132,34 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             }
         }
 
+        if (!canEditAny && row.content?.[col.id]) {
+            return (
+                <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-60 italic relative group/cell rt-cell-content">
+                    <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} disabled={isEditing}>
+                        <span className="text-[10px] uppercase font-bold text-accent">
+                            {String(row.content[col.id])}
+                        </span>
+                    </CellScaler>
+                </div>
+            );
+        }
+
         return (
             <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap opacity-20 rt-cell-content">
-                <CellScaler>
+                <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} disabled={isEditing}>
                     <span className="text-[10px] uppercase font-bold">-</span>
                 </CellScaler>
             </div>
         );
     }
 
-    if (col.type === 'linked_roster_data') {
-        const resolvedValue = resolvedLinks.get(`${row.id}_${col.id}`) || '-';
+    if (col.type?.includes('linked_roster_data')) {
+        let resolvedValue = resolvedLinks.get(`${row.id}_${col.id}`);
+        if (!resolvedValue && !canEditAny && row.content?.[col.id] && typeof row.content[col.id] !== 'object') {
+            resolvedValue = String(row.content[col.id]);
+        }
+        if (!resolvedValue) resolvedValue = '-';
+
         if (isEditing) {
             return (
                 <div className="flex flex-col items-center justify-center h-full w-full gap-1 rt-cell-content">
@@ -997,24 +1178,18 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         }
         return (
             <div className="flex flex-col items-center justify-center h-full w-full rt-cell-content">
-                <CellScaler>
+                <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} disabled={isEditing}>
                     <span className="text-[10px] uppercase font-medium">{resolvedValue}</span>
                 </CellScaler>
             </div>
         );
     }
 
-    const isValueId = value && (!isNaN(Number(value)) || String(value).startsWith('temp_') || String(value).startsWith('opt_'));
-    const selectedOpt = effectiveOptions.find(o => 
-        String(o.id) === String(value) || (!isValueId && o.label === value)
-    );
-    
     const textStyle: React.CSSProperties = {
       color: selectedOpt?.color || 'inherit',
       fontWeight: selectedOpt?.bold ? 'bold' : 'normal',
     };
 
-    const activeFlags = flags.filter(f => (col.flags || []).some(flagId => Number(flagId) === Number(f.id)) && evaluateFlag(row, col, f));
     const hasOrphanedFlag = activeFlags.some(f => (f.rules || []).some((r: any) => r.type === 'orphaned_database_link'));
 
     if (isEditing && isColEditable(col)) {
@@ -1034,7 +1209,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 <option key={opt.id} value={opt.id} style={{ color: opt.color || 'inherit' }}>{opt.label}</option>
               ))}
             </select>
-            <CellScaler className="relative z-20 pointer-events-none">
+            <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} className="relative z-20 pointer-events-none" disabled={isEditing}>
                 <div className="flex items-center gap-1 overflow-visible">
                     <div className="text-[10px] uppercase font-medium transition-colors" style={textStyle}>
                     {selectedOpt?.label || value || <span className="opacity-20 italic">Select...</span>}
@@ -1178,7 +1353,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             onClick={() => inputRef.current?.focus()}
             title={hasOrphanedFlag ? 'Linked database record no longer exists' : undefined}
         >
-          <CellScaler>
+          <CellScaler tooltipContent={tooltipContent} forceShowTooltip={legendItems.length > 0} disabled={isEditing}>
             <div className="relative w-full flex flex-row items-center justify-center px-1 overflow-visible">
                 <input 
                 ref={col.id === editingColId ? inputRef : null}
@@ -1364,10 +1539,10 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         title={hasOrphanedFlag ? 'Linked database record no longer exists' : undefined}
         onClick={() => canEditAny && handleStartEdit(row, col.id)}
       >
-        <CellScaler>
+        <CellScaler tooltipContent={tooltipContent} forceShowTooltip={showValue && legendItems.length > 0} disabled={isEditing}>
             <div className="flex items-center gap-1.5 px-1 overflow-visible">
                 <span 
-                    className={`text-[10px] uppercase font-medium transition-all ${!showValue ? 'blur-[3px] select-none opacity-50 font-black tracking-widest' : ''}`} 
+                    className={`text-[10px] uppercase font-medium transition-all ${!showValue ? 'blur-[3px] select-none opacity-50 font-black tracking-widest rt-cell-hidden-value' : ''}`} 
                     style={textStyle}
                 >
                     {showValue ? (selectedOpt?.label || value || '-') : '??????'}
@@ -1466,7 +1641,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             <Link 
                 to={`/${shortname}/records?database=${selectedOpt.dbShortcode}&record=${selectedOpt.entryId}`}
                 onClick={(e) => e.stopPropagation()}
-                className="absolute -top-1 -right-1 p-1 bg-card border border-border rounded text-muted hover:text-accent opacity-0 group-hover/cell:opacity-100 transition-all z-10 shadow-sm"
+                className="absolute -bottom-1 -right-1 p-1 bg-card border border-border rounded text-muted hover:text-accent opacity-0 group-hover/cell:opacity-100 transition-all z-10 shadow-sm"
             >
                 <ExternalLink size={8} />
             </Link>

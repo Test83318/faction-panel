@@ -1,29 +1,41 @@
 <?php
 
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\FactionController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\InviteController;
-use App\Http\Controllers\RosterController;
-use App\Http\Controllers\RosterSectionController;
-use App\Http\Controllers\RosterContentController;
-use App\Http\Controllers\GroupController;
-use App\Http\Controllers\RosterPermissionController;
+use App\Http\Controllers\ChangelogController;
+use App\Http\Controllers\CreditController;
 use App\Http\Controllers\DatasetController;
-use App\Http\Controllers\RosterFlagController;
+use App\Http\Controllers\FactionController;
 use App\Http\Controllers\FactionRecordController;
-use App\Http\Controllers\FactionRecordPermissionController;
 use App\Http\Controllers\FactionRecordEntryController;
+use App\Http\Controllers\FactionRecordPermissionController;
+use App\Http\Controllers\FactionSnapshotController;
+use App\Http\Controllers\FormAutomationController;
+use App\Http\Controllers\FormController;
+use App\Http\Controllers\FormFieldController;
+use App\Http\Controllers\FormPermissionController;
+use App\Http\Controllers\FormSectionController;
+use App\Http\Controllers\FormStageController;
+use App\Http\Controllers\FormStatusController;
+use App\Http\Controllers\FormSubmissionController;
+use App\Http\Controllers\GroupController;
+use App\Http\Controllers\HelpAdminController;
+use App\Http\Controllers\HelpController;
+use App\Http\Controllers\IntegrationController;
+use App\Http\Controllers\InviteController;
+use App\Http\Controllers\QuickSearchController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\RosterContentController;
+use App\Http\Controllers\RosterController;
+use App\Http\Controllers\RosterFlagController;
+use App\Http\Controllers\RosterPermissionController;
+use App\Http\Controllers\RosterSectionController;
+use App\Http\Controllers\SetupController;
+use App\Http\Controllers\StatisticsController;
+use App\Http\Controllers\StatisticsPermissionController;
+use App\Http\Controllers\StatisticsWidgetController;
 use App\Http\Controllers\SuperadminController;
 use App\Http\Controllers\UploadController;
-use App\Http\Controllers\HelpController;
-use App\Http\Controllers\HelpAdminController;
-use App\Http\Controllers\FactionSnapshotController;
-use App\Http\Controllers\AuditLogController;
-use App\Http\Controllers\IntegrationController;
-use App\Http\Controllers\SetupController;
-use App\Http\Controllers\ChangelogController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/setup/status', [SetupController::class, 'status']);
@@ -40,7 +52,7 @@ Route::get('/auth/registration-status', [AuthController::class, 'registrationSta
 Route::get('/auth/gtaw/redirect', [AuthController::class, 'gtawRedirect']);
 Route::post('/auth/gtaw/callback', [AuthController::class, 'gtawCallback']);
 Route::get('/site-settings/public', [SuperadminController::class, 'getPublicSettings']);
-Route::get('/credits', [\App\Http\Controllers\CreditController::class, 'index']);
+Route::get('/credits', [CreditController::class, 'index']);
 
 Route::get('/invites/{code}', [InviteController::class, 'show']);
 
@@ -82,10 +94,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/superadmin/membership-tiers/{tier}', [SuperadminController::class, 'deleteMembershipTier']);
 
     // Credits Management Routes
-    Route::post('/superadmin/credits', [\App\Http\Controllers\CreditController::class, 'store']);
-    Route::put('/superadmin/credits/{credit}', [\App\Http\Controllers\CreditController::class, 'update']);
-    Route::delete('/superadmin/credits/{credit}', [\App\Http\Controllers\CreditController::class, 'destroy']);
-    Route::put('/superadmin/credits/reorder', [\App\Http\Controllers\CreditController::class, 'reorder']);
+    Route::post('/superadmin/credits', [CreditController::class, 'store']);
+    Route::put('/superadmin/credits/{credit}', [CreditController::class, 'update']);
+    Route::delete('/superadmin/credits/{credit}', [CreditController::class, 'destroy']);
+    Route::put('/superadmin/credits/reorder', [CreditController::class, 'reorder']);
 
     // Changelog Management
     Route::post('/superadmin/changelog', [ChangelogController::class, 'store']);
@@ -190,24 +202,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/factions/{shortname}/audit-logs', [AuditLogController::class, 'index']);
 
     // Statistics Management
-    Route::get('/factions/{shortname}/statistics', [\App\Http\Controllers\StatisticsController::class, 'index']);
-    Route::post('/factions/{shortname}/statistics', [\App\Http\Controllers\StatisticsController::class, 'store']);
-    Route::get('/statistics/{model}', [\App\Http\Controllers\StatisticsController::class, 'show']);
-    Route::put('/statistics/{model}', [\App\Http\Controllers\StatisticsController::class, 'update']);
-    Route::delete('/statistics/{model}', [\App\Http\Controllers\StatisticsController::class, 'destroy']);
-    Route::post('/statistics/{model}/recalculate', [\App\Http\Controllers\StatisticsController::class, 'recalculate']);
+    Route::get('/factions/{shortname}/statistics', [StatisticsController::class, 'index']);
+    Route::post('/factions/{shortname}/statistics', [StatisticsController::class, 'store']);
+    Route::get('/statistics/{model}', [StatisticsController::class, 'show']);
+    Route::put('/statistics/{model}', [StatisticsController::class, 'update']);
+    Route::delete('/statistics/{model}', [StatisticsController::class, 'destroy']);
+    Route::post('/statistics/{model}/recalculate', [StatisticsController::class, 'recalculate']);
 
     // Statistics Widgets
-    Route::post('/statistics/{model}/widgets', [\App\Http\Controllers\StatisticsWidgetController::class, 'store']);
-    Route::put('/statistics-widgets/{widget}', [\App\Http\Controllers\StatisticsWidgetController::class, 'update']);
-    Route::delete('/statistics-widgets/{widget}', [\App\Http\Controllers\StatisticsWidgetController::class, 'destroy']);
-    Route::post('/statistics-widgets/{widget}/recalculate', [\App\Http\Controllers\StatisticsWidgetController::class, 'recalculate']);
-    Route::put('/statistics/{model}/widgets/reorder', [\App\Http\Controllers\StatisticsWidgetController::class, 'reorder']);
+    Route::post('/statistics/{model}/widgets', [StatisticsWidgetController::class, 'store']);
+    Route::put('/statistics-widgets/{widget}', [StatisticsWidgetController::class, 'update']);
+    Route::delete('/statistics-widgets/{widget}', [StatisticsWidgetController::class, 'destroy']);
+    Route::post('/statistics-widgets/{widget}/recalculate', [StatisticsWidgetController::class, 'recalculate']);
+    Route::put('/statistics/{model}/widgets/reorder', [StatisticsWidgetController::class, 'reorder']);
 
     // Statistics Permissions
-    Route::get('/statistics/{model}/permissions', [\App\Http\Controllers\StatisticsPermissionController::class, 'index']);
-    Route::put('/statistics/{model}/permissions', [\App\Http\Controllers\StatisticsPermissionController::class, 'update']);
-    Route::delete('/statistics/{model}/permissions/{permissionId}', [\App\Http\Controllers\StatisticsPermissionController::class, 'destroy']);
+    Route::get('/statistics/{model}/permissions', [StatisticsPermissionController::class, 'index']);
+    Route::put('/statistics/{model}/permissions', [StatisticsPermissionController::class, 'update']);
+    Route::delete('/statistics/{model}/permissions/{permissionId}', [StatisticsPermissionController::class, 'destroy']);
 
     // Faction Snapshots
     Route::get('/factions/{shortname}/snapshots', [FactionSnapshotController::class, 'index']);
@@ -219,8 +231,67 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/factions/{shortname}/audit-logs/{auditLog}', [AuditLogController::class, 'show']);
 
     // Quick Search
-    Route::put('/factions/{shortname}/quick-search/settings', [\App\Http\Controllers\QuickSearchController::class, 'updateSettings']);
-    Route::get('/factions/{shortname}/quick-search', [\App\Http\Controllers\QuickSearchController::class, 'search']);
+    Route::put('/factions/{shortname}/quick-search/settings', [QuickSearchController::class, 'updateSettings']);
+    Route::get('/factions/{shortname}/quick-search', [QuickSearchController::class, 'search']);
+
+    // Faction Forms Management
+    Route::get('/factions/{shortname}/forms', [FormController::class, 'index']);
+    Route::post('/factions/{shortname}/forms', [FormController::class, 'store']);
+    Route::get('/factions/{shortname}/forms/{form}', [FormController::class, 'show']);
+    Route::put('/factions/{shortname}/forms/{form}', [FormController::class, 'update']);
+    Route::delete('/factions/{shortname}/forms/{form}', [FormController::class, 'destroy']);
+
+    // Faction Form Permissions
+    Route::get('/factions/{shortname}/forms/{form}/permissions', [FormPermissionController::class, 'index']);
+    Route::put('/factions/{shortname}/forms/{form}/permissions', [FormPermissionController::class, 'update']);
+    Route::delete('/factions/{shortname}/forms/{form}/permissions/{permissionId}', [FormPermissionController::class, 'destroy']);
+
+    // Faction Form Editor Components
+    // Stages
+    Route::post('/factions/{shortname}/forms/{form}/stages', [FormStageController::class, 'store']);
+    Route::put('/factions/{shortname}/forms/{form}/stages/{stage}', [FormStageController::class, 'update']);
+    Route::delete('/factions/{shortname}/forms/{form}/stages/{stage}', [FormStageController::class, 'destroy']);
+    Route::put('/factions/{shortname}/forms/{form}/stages/reorder', [FormStageController::class, 'reorder']);
+
+    // Sections
+    Route::post('/factions/{shortname}/forms/{form}/stages/{stage}/sections', [FormSectionController::class, 'store']);
+    Route::put('/factions/{shortname}/forms/{form}/sections/{section}', [FormSectionController::class, 'update']);
+    Route::delete('/factions/{shortname}/forms/{form}/sections/{section}', [FormSectionController::class, 'destroy']);
+    Route::put('/factions/{shortname}/forms/{form}/stages/{stage}/sections/reorder', [FormSectionController::class, 'reorder']);
+    Route::post('/factions/{shortname}/forms/{form}/sections/{section}/move', [FormSectionController::class, 'move']);
+
+    // Fields
+    Route::post('/factions/{shortname}/forms/{form}/sections/{section}/fields', [FormFieldController::class, 'store']);
+    Route::put('/factions/{shortname}/forms/{form}/fields/{field}', [FormFieldController::class, 'update']);
+    Route::delete('/factions/{shortname}/forms/{form}/fields/{field}', [FormFieldController::class, 'destroy']);
+    Route::put('/factions/{shortname}/forms/{form}/sections/{section}/fields/reorder', [FormFieldController::class, 'reorder']);
+    Route::post('/factions/{shortname}/forms/{form}/fields/{field}/move', [FormFieldController::class, 'move']);
+
+    // Statuses
+    Route::post('/factions/{shortname}/forms/{form}/statuses', [FormStatusController::class, 'store']);
+    Route::put('/factions/{shortname}/forms/{form}/statuses/{status}', [FormStatusController::class, 'update']);
+    Route::delete('/factions/{shortname}/forms/{form}/statuses/{status}', [FormStatusController::class, 'destroy']);
+    Route::put('/factions/{shortname}/forms/{form}/statuses/reorder', [FormStatusController::class, 'reorder']);
+
+    // Automations
+    Route::get('/factions/{shortname}/forms/{form}/automations', [FormAutomationController::class, 'index']);
+    Route::post('/factions/{shortname}/forms/{form}/automations', [FormAutomationController::class, 'store']);
+    Route::put('/factions/{shortname}/forms/{form}/automations/{automation}', [FormAutomationController::class, 'update']);
+    Route::delete('/factions/{shortname}/forms/{form}/automations/{automation}', [FormAutomationController::class, 'destroy']);
+
+    // Form Submissions
+    Route::get('/factions/{shortname}/submissions', [FormSubmissionController::class, 'globalIndex']);
+    Route::get('/factions/{shortname}/my-submissions', [FormSubmissionController::class, 'mySubmissions']);
+    Route::get('/factions/{shortname}/forms/{form}/submissions', [FormSubmissionController::class, 'index']);
+    Route::post('/factions/{shortname}/forms/{form}/submissions/start', [FormSubmissionController::class, 'start']);
+    Route::post('/factions/{shortname}/forms/{form}/submissions/{submission}/submit', [FormSubmissionController::class, 'submit']);
+    Route::get('/factions/{shortname}/forms/submissions/{submission}', [FormSubmissionController::class, 'show']);
+    Route::put('/factions/{shortname}/forms/submissions/{submission}/status', [FormSubmissionController::class, 'updateStatus']);
+    Route::post('/factions/{shortname}/forms/submissions/{submission}/advance', [FormSubmissionController::class, 'advance']);
+    Route::post('/factions/{shortname}/forms/submissions/{submission}/conclude', [FormSubmissionController::class, 'conclude']);
+    Route::post('/factions/{shortname}/forms/submissions/{submission}/retake', [FormSubmissionController::class, 'retake']);
+    Route::post('/factions/{shortname}/forms/submissions/{submission}/comments', [FormSubmissionController::class, 'addComment']);
+    Route::post('/factions/{shortname}/forms/submissions/{submission}/grade', [FormSubmissionController::class, 'gradeResponses']);
 
     // GTA:W Integration
     Route::get('/factions/{shortname}/integrations/gtaw/available', [IntegrationController::class, 'getAvailableFactions']);

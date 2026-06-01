@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X, Plus, Trash2, Save, Calculator, Settings2, Info, GripVertical, Check, Target, Hash, Filter, PlusCircle, Sigma } from 'lucide-react';
+import { X, Plus, Trash2, Save, Calculator, Settings2, Info, GripVertical, Check, Target, Hash, Filter, PlusCircle, Sigma, Minus } from 'lucide-react';
 import { Reorder } from 'motion/react';
 import api from '../api';
 import toast from 'react-hot-toast';
@@ -312,7 +312,7 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                                             <div className="flex items-center justify-between px-1">
                                                                 <div className="flex flex-col">
                                                                     <span className="text-[9px] font-black text-muted uppercase tracking-widest">Show Percentage</span>
-                                                                    <span className="text-[7px] text-muted/50 font-bold uppercase">Display as (X / Y) %</span>
+                                                                    <span className="text-[7px] text-muted/50 font-bold uppercase">Display as X (Y%)</span>
                                                                 </div>
                                                                 <button 
                                                                     onClick={() => updateCount(idx, { show_percentage: !count.show_percentage })}
@@ -419,6 +419,45 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                                             )}
                                                             
                                                             <div className={`bg-surface/30 border border-border/50 rounded-xl p-4 flex flex-col gap-4 ${cIdx > 0 ? 'mt-4' : ''}`}>
+                                                                <div className="flex items-center gap-2 mb-1 px-1">
+                                                                    <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden h-7">
+                                                                        <button 
+                                                                            onClick={() => updateCondition(idx, cIdx, { brackets_open: Math.max(0, (cond.brackets_open || 0) - 1) })}
+                                                                            className="w-7 h-full flex items-center justify-center hover:bg-surface text-muted border-r border-border"
+                                                                        >
+                                                                            <Minus size={10} />
+                                                                        </button>
+                                                                        <div className="px-2 text-[10px] font-black text-accent min-w-[20px] text-center">
+                                                                            {'('.repeat(cond.brackets_open || 0) || '—'}
+                                                                        </div>
+                                                                        <button 
+                                                                            onClick={() => updateCondition(idx, cIdx, { brackets_open: (cond.brackets_open || 0) + 1 })}
+                                                                            className="w-7 h-full flex items-center justify-center hover:bg-surface text-muted"
+                                                                        >
+                                                                            <Plus size={10} />
+                                                                        </button>
+                                                                    </div>
+                                                                    <div className="text-[8px] font-black uppercase text-muted tracking-widest px-1">Brackets</div>
+                                                                    <div className="flex-1" />
+                                                                    <div className="flex items-center bg-card border border-border rounded-lg overflow-hidden h-7">
+                                                                        <button 
+                                                                            onClick={() => updateCondition(idx, cIdx, { brackets_close: Math.max(0, (cond.brackets_close || 0) - 1) })}
+                                                                            className="w-7 h-full flex items-center justify-center hover:bg-surface text-muted border-r border-border"
+                                                                        >
+                                                                            <Minus size={10} />
+                                                                        </button>
+                                                                        <div className="px-2 text-[10px] font-black text-accent min-w-[20px] text-center">
+                                                                            {')'.repeat(cond.brackets_close || 0) || '—'}
+                                                                        </div>
+                                                                        <button 
+                                                                            onClick={() => updateCondition(idx, cIdx, { brackets_close: (cond.brackets_close || 0) + 1 })}
+                                                                            className="w-7 h-full flex items-center justify-center hover:bg-surface text-muted"
+                                                                        >
+                                                                            <Plus size={10} />
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+
                                                                 <div className="flex items-start gap-4">
                                                                     <div className="flex flex-col gap-4 flex-1">
                                                                         <div className="grid grid-cols-3 gap-4">

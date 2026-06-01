@@ -162,6 +162,26 @@ return [
                 ],
             ],
         ],
+        'forms' => [
+            'name' => 'Faction Forms',
+            'permissions' => [
+                'view_faction_forms' => [
+                    'name' => 'View Faction Forms',
+                    'description' => 'Allows viewing the faction forms system.',
+                    'type' => 'VIEW',
+                ],
+                'create_faction_forms' => [
+                    'name' => 'Create Faction Forms',
+                    'description' => 'Allows creating new forms.',
+                    'type' => 'CREATE',
+                ],
+                'global_faction_form_moderation' => [
+                    'name' => 'Global Faction Form Moderation',
+                    'description' => 'Grants full control over all forms (modify, delete).',
+                    'type' => 'MODIFY',
+                ],
+            ],
+        ],
         'audit_logs' => [
             'name' => 'Audit Logs',
             'permissions' => [

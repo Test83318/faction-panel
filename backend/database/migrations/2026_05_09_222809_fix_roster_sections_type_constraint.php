@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -18,7 +18,7 @@ return new class extends Migration
             // Drop the check constraint created by the original enum definition
             DB::statement('ALTER TABLE roster_sections DROP CONSTRAINT IF EXISTS roster_sections_type_check');
         }
-        
+
         // Redundantly ensure it's a string column just in case
         Schema::table('roster_sections', function (Blueprint $table) {
             $table->string('type')->change();

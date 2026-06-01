@@ -13,7 +13,7 @@ class FactionRecordController extends Controller
     public function index(string $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
-        
+
         $databases = FactionRecordDatabase::where('faction_id', $faction->id)
             ->with('creator:id,username')
             ->get();
@@ -24,6 +24,8 @@ class FactionRecordController extends Controller
             return User::hasRecordPermission($user, $database, 'view_database');
         })->values();
 
+        $this->audit('record_database.index', "Viewed list of record databases for faction '{$faction->name}'", $faction->id);
+
         return response()->json($databases);
     }
 
@@ -31,7 +33,7 @@ class FactionRecordController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
 
-        if (!User::hasFactionPermission(Auth::user(), $faction, 'create_faction_record_database')) {
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'create_faction_record_database')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -53,20 +55,25 @@ class FactionRecordController extends Controller
             'created_by' => Auth::id(),
         ]);
 
+        $this->audit('record_database.create', "Created record database '{$database->name}'", $faction->id, $database);
+
         return response()->json($database, 201);
     }
 
     public function show(string $shortname, FactionRecordDatabase $database)
     {
-        if (!User::hasRecordPermission(Auth::user(), $database, 'view_database')) {
+        if (! User::hasRecordPermission(Auth::user(), $database, 'view_database')) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $this->audit('record_database.show', "Viewed record database '{$database->name}'", $database->faction_id, $database);
+
         return response()->json($database->load('creator:id,username'));
     }
 
     public function update(Request $request, string $shortname, FactionRecordDatabase $database)
     {
-        if (!User::hasFactionPermission(Auth::user(), $database->faction, 'global_faction_record_moderation') && $database->created_by !== Auth::id()) {
+        if (! User::hasFactionPermission(Auth::user(), $database->faction, 'global_faction_record_moderation') && $database->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -91,18 +98,24 @@ class FactionRecordController extends Controller
             unset($validated['database_structure']);
         }
 
+        $oldValues = $database->getOriginal();
         $database->update($validated);
+
+        $this->audit('record_database.update', "Updated record database '{$database->name}'", $database->faction_id, $database, $oldValues, $database->getDirty());
 
         return response()->json($database);
     }
 
     public function destroy(string $shortname, FactionRecordDatabase $database)
     {
-        if (!User::hasFactionPermission(Auth::user(), $database->faction, 'global_faction_record_moderation') && $database->created_by !== Auth::id()) {
+        if (! User::hasFactionPermission(Auth::user(), $database->faction, 'global_faction_record_moderation') && $database->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $this->audit('record_database.delete', "Deleted record database '{$database->name}'", $database->faction_id, $database, $database->getAttributes());
+
         $database->delete();
+
         return response()->json(null, 204);
     }
 }

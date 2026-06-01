@@ -16,6 +16,7 @@ interface AuditLog {
         username: string;
     };
     event: string;
+    description: string | null;
     auditable_type: string | null;
     auditable_id: number | null;
     old_values: any | null;
@@ -115,13 +116,13 @@ const AuditLogs: React.FC<AuditLogsProps> = ({ shortname }) => {
         const allKeys = Array.from(new Set([...Object.keys(oldValues || {}), ...Object.keys(newValues || {})]));
         
         return (
-            <div className="space-y-2 border border-border rounded-lg overflow-hidden bg-black/20">
-                <div className="grid grid-cols-3 bg-muted/30 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted border-b border-border">
+            <div className="space-y-2 border border-border rounded-xl overflow-hidden bg-surface">
+                <div className="grid grid-cols-3 bg-muted/10 px-4 py-2.5 text-[9px] font-black uppercase tracking-widest text-muted border-b border-border">
                     <div>Field</div>
                     <div>Original</div>
                     <div>Updated</div>
                 </div>
-                <div className="divide-y divide-border/50">
+                <div className="divide-y divide-border/40">
                     {allKeys.map(key => {
                         const oldVal = oldValues?.[key];
                         const newVal = newValues?.[key];
@@ -130,18 +131,18 @@ const AuditLogs: React.FC<AuditLogsProps> = ({ shortname }) => {
                         if (JSON.stringify(oldVal) === JSON.stringify(newVal)) return null;
 
                         const formatVal = (val: any) => {
-                            if (val === null) return <span className="italic text-muted">null</span>;
+                            if (val === null) return <span className="italic text-muted/60">null</span>;
                             if (typeof val === 'boolean') return val ? 'True' : 'False';
                             if (typeof val === 'object') return 'JSON Object';
                             return String(val);
                         };
 
                         return (
-                            <div key={key} className="grid grid-cols-3 px-3 py-2 text-xs items-center gap-2">
+                            <div key={key} className="grid grid-cols-3 px-4 py-3 text-xs items-center gap-3">
                                 <div className="font-bold text-accent truncate">{key}</div>
-                                <div className="text-red-400 truncate line-through opacity-70">{formatVal(oldVal)}</div>
-                                <div className="text-green-400 font-semibold truncate flex items-center gap-2">
-                                    <ArrowRight size={10} className="text-muted shrink-0" />
+                                <div className="text-danger/80 truncate line-through font-medium">{formatVal(oldVal)}</div>
+                                <div className="text-green-600 dark:text-green-400 font-semibold truncate flex items-center gap-2">
+                                    <ArrowRight size={10} className="text-muted/60 shrink-0" />
                                     {formatVal(newVal)}
                                 </div>
                             </div>
@@ -252,6 +253,7 @@ const AuditLogs: React.FC<AuditLogsProps> = ({ shortname }) => {
                             <tr className="bg-muted/30 text-[10px] font-black uppercase tracking-[0.2em] text-muted border-b border-border">
                                 <th className="px-8 py-5">Event</th>
                                 <th className="px-8 py-5">Administrator</th>
+                                <th className="px-8 py-5">Description</th>
                                 <th className="px-8 py-5">Modified Component</th>
                                 <th className="px-8 py-5">Timestamp</th>
                                 <th className="px-8 py-5 text-right">Details</th>
@@ -260,7 +262,7 @@ const AuditLogs: React.FC<AuditLogsProps> = ({ shortname }) => {
                         <tbody className="divide-y divide-border">
                             {loading && logs.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-8 py-20 text-center">
+                                    <td colSpan={6} className="px-8 py-20 text-center">
                                         <Loading message="Loading logs..." />
                                     </td>
                                 </tr>
@@ -276,6 +278,11 @@ const AuditLogs: React.FC<AuditLogsProps> = ({ shortname }) => {
                                             </div>
                                             <span className="font-black text-xs uppercase tracking-widest text-text">{log.user?.username || 'SYSTEM'}</span>
                                         </div>
+                                    </td>
+                                    <td className="px-8 py-5">
+                                        <span className="font-semibold text-xs text-text normal-case block max-w-sm truncate" title={log.description || ''}>
+                                            {log.description || <span className="italic text-muted/50">N/A</span>}
+                                        </span>
                                     </td>
                                     <td className="px-8 py-5">
                                         <div className="flex flex-col">
@@ -348,147 +355,153 @@ const AuditLogs: React.FC<AuditLogsProps> = ({ shortname }) => {
                 )}
             </div>
 
-            {/* Detailed Modal */}
-            <AnimatePresence>
-                {selectedLog && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8">
-                        <motion.div 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setSelectedLog(null)}
-                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
-                        />
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="bg-card border border-border w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl rounded-[2.5rem] relative"
-                        >
-                            {/* Modal Header */}
-                            <div className="p-8 border-b border-border flex items-center justify-between bg-muted/10">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-4 bg-accent/10 rounded-2xl border border-accent/20">
-                                        <Info size={24} className="text-accent" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">Log Details</h2>
-                                        <p className="text-[10px] text-muted font-bold uppercase tracking-widest mt-1 italic">Event ID: #{selectedLog.id}</p>
-                                    </div>
-                                </div>
-                                <button 
-                                    onClick={() => setSelectedLog(null)}
-                                    className="w-12 h-12 flex items-center justify-center bg-surface border border-border rounded-2xl text-muted hover:text-white hover:bg-danger/20 hover:border-danger/30 transition-all"
-                                >
-                                    <X size={20} />
-                                </button>
-                            </div>
+             {/* Detailed Modal */}
+             <AnimatePresence>
+                 {selectedLog && (
+                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-8">
+                         <motion.div 
+                             initial={{ opacity: 0 }}
+                             animate={{ opacity: 1 }}
+                             exit={{ opacity: 0 }}
+                             onClick={() => setSelectedLog(null)}
+                             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                         />
+                         <motion.div 
+                             initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                             animate={{ opacity: 1, scale: 1, y: 0 }}
+                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                             className="bg-card border border-border w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl rounded-[2.5rem] relative"
+                         >
+                             {/* Modal Header */}
+                             <div className="p-8 border-b border-border flex items-center justify-between bg-muted/10">
+                                 <div className="flex items-center gap-4">
+                                     <div className="p-4 bg-accent/10 rounded-2xl border border-accent/20">
+                                         <Info size={24} className="text-accent" />
+                                     </div>
+                                     <div>
+                                         <h2 className="text-2xl font-black uppercase tracking-tighter leading-none">Log Details</h2>
+                                         <p className="text-[10px] text-muted font-bold uppercase tracking-widest mt-1 italic">Event ID: #{selectedLog.id}</p>
+                                     </div>
+                                 </div>
+                                 <button 
+                                     onClick={() => setSelectedLog(null)}
+                                     className="w-12 h-12 flex items-center justify-center bg-surface border border-border rounded-2xl text-muted hover:text-white hover:bg-danger/20 hover:border-danger/30 transition-all"
+                                 >
+                                     <X size={20} />
+                                 </button>
+                             </div>
+ 
+                             <div className="p-8 overflow-y-auto space-y-10">
+                                 {/* Top Info Grid */}
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                     {/* Activity Description */}
+                                     <div className="bg-surface/50 border border-border rounded-2xl p-5 col-span-1 md:col-span-2">
+                                         <label className="text-[9px] font-black text-muted uppercase tracking-[0.2em] block mb-1.5">Activity Description</label>
+                                         <p className="font-semibold text-sm text-text normal-case leading-relaxed">{selectedLog.description || 'No detailed description available.'}</p>
+                                     </div>
 
-                            <div className="p-8 overflow-y-auto space-y-10">
-                                {/* Top Info Grid */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                                    <div className="space-y-6">
-                                        <div className="bg-surface/50 border border-border rounded-2xl p-4 flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center text-accent">
-                                                <UserIcon size={20} />
-                                            </div>
-                                            <div>
-                                                <label className="text-[9px] font-black text-muted uppercase tracking-[0.2em] block">Performed By</label>
-                                                <p className="font-black text-sm uppercase tracking-wider">{selectedLog.user?.username || 'SYSTEM'}</p>
-                                            </div>
-                                        </div>
-                                        <div className="bg-surface/50 border border-border rounded-2xl p-4 flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center text-accent">
-                                                <History size={20} />
-                                            </div>
-                                            <div>
-                                                <label className="text-[9px] font-black text-muted uppercase tracking-[0.2em] block">Event Status</label>
-                                                <div className="mt-1">{formatEvent(selectedLog.event)}</div>
-                                            </div>
-                                        </div>
-                                        <div className="bg-surface/50 border border-border rounded-2xl p-4 flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center text-accent">
-                                                <Clock size={20} />
-                                            </div>
-                                            <div>
-                                                <label className="text-[9px] font-black text-muted uppercase tracking-[0.2em] block">Date & Time</label>
-                                                <p className="font-bold text-xs uppercase tracking-widest">{new Date(selectedLog.created_at).toLocaleString()}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-6">
-                                        <div className="bg-surface/50 border border-border rounded-2xl p-4 flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center text-accent">
-                                                <Monitor size={20} />
-                                            </div>
-                                            <div>
-                                                <label className="text-[9px] font-black text-muted uppercase tracking-[0.2em] block">Technical Endpoint</label>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    <span className="px-1.5 py-0.5 bg-accent/10 border border-accent/20 rounded text-[10px] font-black text-accent">{selectedLog.method}</span>
-                                                    <span className="text-[10px] font-mono text-muted truncate max-w-[200px]">{selectedLog.url}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="bg-surface/50 border border-border rounded-2xl p-4 flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center text-accent">
-                                                <Globe size={20} />
-                                            </div>
-                                            <div>
-                                                <label className="text-[9px] font-black text-muted uppercase tracking-[0.2em] block">IP Identification</label>
-                                                <p className="font-mono text-xs">{selectedLog.ip_address}</p>
-                                            </div>
-                                        </div>
-                                        <div className="bg-surface/50 border border-border rounded-2xl p-4 flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center text-accent">
-                                                <Info size={20} />
-                                            </div>
-                                            <div>
-                                                <label className="text-[9px] font-black text-muted uppercase tracking-[0.2em] block">Target Component</label>
-                                                <p className="font-black text-xs uppercase tracking-widest text-accent">
-                                                    {getAuditableName(selectedLog.auditable_type)} {selectedLog.auditable_id && `[#${selectedLog.auditable_id}]`}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Data Changes - The core part */}
-                                <div className="space-y-6 pt-10 border-t border-border">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
-                                            <div className="w-2 h-8 bg-accent rounded-full" />
-                                            Modification Analysis
-                                        </h3>
-                                    </div>
-                                    
-                                    {selectedLog.event === 'updated' ? (
-                                        renderDiff(selectedLog.old_values, selectedLog.new_values)
-                                    ) : (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                            <div className="space-y-4">
-                                                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-red-500/80">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                                                    Original State
-                                                </div>
-                                                <pre className="p-6 bg-black/40 rounded-3xl border border-border text-[11px] overflow-auto max-h-80 font-mono text-red-300 leading-relaxed shadow-inner">
-                                                    {selectedLog.old_values ? JSON.stringify(selectedLog.old_values, null, 4) : 'NULL'}
-                                                </pre>
-                                            </div>
-                                            <div className="space-y-4">
-                                                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-green-500/80">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                                                    Modified State
-                                                </div>
-                                                <pre className="p-6 bg-black/40 rounded-3xl border border-border text-[11px] overflow-auto max-h-80 font-mono text-green-300 leading-relaxed shadow-inner">
-                                                    {selectedLog.new_values ? JSON.stringify(selectedLog.new_values, null, 4) : 'NULL'}
-                                                </pre>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="space-y-3 pt-6 border-t border-border">
+                                     <div className="space-y-6">
+                                         <div className="bg-surface/50 border border-border rounded-2xl p-4 flex items-center gap-4">
+                                             <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center text-accent">
+                                                 <UserIcon size={20} />
+                                             </div>
+                                             <div>
+                                                 <label className="text-[9px] font-black text-muted uppercase tracking-[0.2em] block">Performed By</label>
+                                                 <p className="font-black text-sm uppercase tracking-wider">{selectedLog.user?.username || 'SYSTEM'}</p>
+                                             </div>
+                                         </div>
+                                         <div className="bg-surface/50 border border-border rounded-2xl p-4 flex items-center gap-4">
+                                             <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center text-accent">
+                                                 <History size={20} />
+                                             </div>
+                                             <div>
+                                                 <label className="text-[9px] font-black text-muted uppercase tracking-[0.2em] block">Event Status</label>
+                                                 <div className="mt-1">{formatEvent(selectedLog.event)}</div>
+                                             </div>
+                                         </div>
+                                         <div className="bg-surface/50 border border-border rounded-2xl p-4 flex items-center gap-4">
+                                             <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center text-accent">
+                                                 <Clock size={20} />
+                                             </div>
+                                             <div>
+                                                 <label className="text-[9px] font-black text-muted uppercase tracking-[0.2em] block">Date & Time</label>
+                                                 <p className="font-bold text-xs uppercase tracking-widest">{new Date(selectedLog.created_at).toLocaleString()}</p>
+                                             </div>
+                                         </div>
+                                     </div>
+ 
+                                     <div className="space-y-6">
+                                         <div className="bg-surface/50 border border-border rounded-2xl p-4 flex items-center gap-4">
+                                             <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center text-accent">
+                                                 <Monitor size={20} />
+                                             </div>
+                                             <div>
+                                                 <label className="text-[9px] font-black text-muted uppercase tracking-[0.2em] block">Technical Endpoint</label>
+                                                 <div className="flex items-center gap-2 mt-0.5">
+                                                     <span className="px-1.5 py-0.5 bg-accent/10 border border-accent/20 rounded text-[10px] font-black text-accent">{selectedLog.method}</span>
+                                                     <span className="text-[10px] font-mono text-muted truncate max-w-[200px]">{selectedLog.url}</span>
+                                                 </div>
+                                             </div>
+                                         </div>
+                                         <div className="bg-surface/50 border border-border rounded-2xl p-4 flex items-center gap-4">
+                                             <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center text-accent">
+                                                 <Globe size={20} />
+                                             </div>
+                                             <div>
+                                                 <label className="text-[9px] font-black text-muted uppercase tracking-[0.2em] block">IP Identification</label>
+                                                 <p className="font-mono text-xs">{selectedLog.ip_address}</p>
+                                             </div>
+                                         </div>
+                                         <div className="bg-surface/50 border border-border rounded-2xl p-4 flex items-center gap-4">
+                                             <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center text-accent">
+                                                 <Info size={20} />
+                                             </div>
+                                             <div>
+                                                 <label className="text-[9px] font-black text-muted uppercase tracking-[0.2em] block">Target Component</label>
+                                                 <p className="font-black text-xs uppercase tracking-widest text-accent">
+                                                     {getAuditableName(selectedLog.auditable_type)} {selectedLog.auditable_id && `[#${selectedLog.auditable_id}]`}
+                                                 </p>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 </div>
+ 
+                                 {/* Data Changes - The core part */}
+                                 <div className="space-y-6 pt-10 border-t border-border">
+                                     <div className="flex items-center justify-between">
+                                         <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
+                                             <div className="w-2 h-8 bg-accent rounded-full" />
+                                             Modification Analysis
+                                         </h3>
+                                     </div>
+                                     
+                                     {selectedLog.event === 'updated' ? (
+                                         renderDiff(selectedLog.old_values, selectedLog.new_values)
+                                     ) : (
+                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                             <div className="space-y-4">
+                                                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-danger/80">
+                                                     <div className="w-1.5 h-1.5 rounded-full bg-danger" />
+                                                     Original State
+                                                 </div>
+                                                 <pre className="p-6 bg-danger/5 rounded-3xl border border-danger/10 text-[11px] overflow-auto max-h-80 font-mono text-danger/80 leading-relaxed shadow-inner">
+                                                     {selectedLog.old_values ? JSON.stringify(selectedLog.old_values, null, 4) : 'NULL'}
+                                                 </pre>
+                                             </div>
+                                             <div className="space-y-4">
+                                                 <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-green-600 dark:text-green-400">
+                                                     <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                                                     Modified State
+                                                 </div>
+                                                 <pre className="p-6 bg-green-500/5 rounded-3xl border border-green-500/10 text-[11px] overflow-auto max-h-80 font-mono text-green-600 dark:text-green-400 leading-relaxed shadow-inner">
+                                                     {selectedLog.new_values ? JSON.stringify(selectedLog.new_values, null, 4) : 'NULL'}
+                                                 </pre>
+                                             </div>
+                                         </div>
+                                     )}
+                                 </div>
+ 
+                                 <div className="space-y-3 pt-6 border-t border-border">
                                     <label className="text-[10px] font-black text-muted uppercase tracking-[0.2em] block">Agent Signature</label>
                                     <p className="text-[10px] text-muted font-bold italic bg-muted/20 p-4 rounded-2xl border border-border/50 break-all leading-relaxed">
                                         {selectedLog.user_agent}
