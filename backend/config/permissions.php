@@ -30,6 +30,11 @@ return [
                     'description' => 'Allows managing conditional formatting flags for rosters.',
                     'type' => 'MODIFY',
                 ],
+                'utilize_sandbox_rosters' => [
+                    'name' => 'Utilize Sandbox Rosters',
+                    'description' => 'Allows utilizing sandbox rosters.',
+                    'type' => 'VIEW',
+                ],
             ],
         ],
         'groups' => [

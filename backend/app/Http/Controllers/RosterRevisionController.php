@@ -11,6 +11,10 @@ class RosterRevisionController extends Controller
 {
     public function index(Roster $roster)
     {
+        if ($roster->is_sandbox) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $faction = $roster->faction;
         $user = Auth::user();
 
@@ -31,6 +35,10 @@ class RosterRevisionController extends Controller
 
     public function show(Roster $roster, RosterRevision $revision)
     {
+        if ($roster->is_sandbox) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $faction = $roster->faction;
         $user = Auth::user();
 
@@ -49,6 +57,10 @@ class RosterRevisionController extends Controller
 
     public function restore(Roster $roster, RosterRevision $revision)
     {
+        if ($roster->is_sandbox) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $faction = $roster->faction;
         $user = Auth::user();
 

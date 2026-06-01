@@ -12,6 +12,10 @@ class RosterPermissionController extends Controller
 {
     public function index(Roster $roster)
     {
+        if ($roster->is_sandbox) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $faction = $roster->faction;
         if (! User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation') && $roster->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);
@@ -24,6 +28,10 @@ class RosterPermissionController extends Controller
 
     public function update(Request $request, Roster $roster)
     {
+        if ($roster->is_sandbox) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $faction = $roster->faction;
         if (! User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation') && $roster->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);
@@ -66,6 +74,10 @@ class RosterPermissionController extends Controller
 
     public function destroy(Roster $roster, $permissionId)
     {
+        if ($roster->is_sandbox) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $faction = $roster->faction;
         if (! User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation') && $roster->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);

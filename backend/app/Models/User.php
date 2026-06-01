@@ -248,6 +248,12 @@ class User extends Authenticatable
 
     public static function hasRosterPermission(?User $user, Roster $roster, string $permissionKey): bool
     {
+        if ($roster->is_sandbox) {
+            return $user && 
+                   $roster->created_by === $user->id && 
+                   self::hasFactionPermission($user, $roster->faction, 'utilize_sandbox_rosters');
+        }
+
         $faction = $roster->faction;
 
         // 1. Superadmin/Faction Leader/Global Roster Moderator/Creator always have access
@@ -302,6 +308,12 @@ class User extends Authenticatable
 
     public static function canViewRoster(?User $user, Roster $roster): bool
     {
+        if ($roster->is_sandbox) {
+            return $user && 
+                   $roster->created_by === $user->id && 
+                   self::hasFactionPermission($user, $roster->faction, 'utilize_sandbox_rosters');
+        }
+
         if ($user && $user->is_superadmin) {
             return true;
         }

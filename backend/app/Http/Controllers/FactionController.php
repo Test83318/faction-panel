@@ -110,9 +110,11 @@ class FactionController extends Controller
         }
 
         $canViewGlobal = in_array('view_faction_roster', $permissions);
+        $hasSandboxPerm = in_array('utilize_sandbox_rosters', $permissions);
 
         // Include Roster Data
         $rosters = $faction->rosters()
+            ->where('is_sandbox', false)
             ->with(['rootSections.children', 'rootSections.contents.editor'])
             ->orderBy('order')
             ->orderBy('id')
@@ -130,7 +132,7 @@ class FactionController extends Controller
             return $canViewGlobal || User::hasRosterPermission($user, $roster, 'view_roster');
         })->values();
 
-        if ($filteredRosters->isEmpty() && ! $canViewGlobal) {
+        if ($filteredRosters->isEmpty() && ! $canViewGlobal && ! $hasSandboxPerm) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -166,6 +168,17 @@ class FactionController extends Controller
                 ];
             });
 
+        $sandboxRosters = collect();
+        if ($hasSandboxPerm && $user) {
+            $sandboxRosters = $faction->rosters()
+                ->where('is_sandbox', true)
+                ->where('created_by', $user->id)
+                ->with(['rootSections.children', 'rootSections.contents.editor'])
+                ->orderBy('order')
+                ->orderBy('id')
+                ->get();
+        }
+
         // Resolve dynamic sections ONLY for the filtered rosters
         $dynamicService = new DynamicSectionService;
         $resolveDynamic = function ($sections) use (&$resolveDynamic, $dynamicService, $faction) {
@@ -180,6 +193,9 @@ class FactionController extends Controller
         };
 
         foreach ($filteredRosters as $roster) {
+            $resolveDynamic($roster->rootSections);
+        }
+        foreach ($sandboxRosters as $roster) {
             $resolveDynamic($roster->rootSections);
         }
 
@@ -626,6 +642,21 @@ class FactionController extends Controller
             }
         });
 
+        $sandboxRosters->each(function ($roster) use ($user) {
+            $perms = [
+                'view_roster' => true,
+                'modify_roster' => true,
+                'manage_columns' => true,
+                'manage_layout' => true,
+                'add_sections' => true,
+                'remove_sections' => true,
+                'edit_predefined' => true,
+                'edit_defined_fields' => true,
+                'view_hidden_data' => true,
+            ];
+            $roster->user_roster_permissions = $perms;
+        });
+
         // Ensure rosters relation is NOT loaded or serialized on faction model to prevent unmasked data leakage
         $faction->unsetRelation('rosters');
 
@@ -635,6 +666,7 @@ class FactionController extends Controller
             'faction' => $faction,
             'permissions' => $permissions,
             'rosters' => $filteredRosters,
+            'sandbox_rosters' => $sandboxRosters,
             'datasets' => $datasets,
             'flags' => $flags,
             'record_data' => $recordDataResponse,

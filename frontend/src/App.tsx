@@ -46,7 +46,9 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeDivId, setActiveDivId] = useState<number | null>(null);
+  const [activeSandboxDivId, setActiveSandboxDivId] = useState<number | null>(null);
   const [rosters, setRosters] = useState<any[]>([]);
+  const [sandboxRosters, setSandboxRosters] = useState<any[]>([]);
   const [datasets, setDatasets] = useState<any[]>([]);
   const [flags, setFlags] = useState<any[]>([]);
   const [recordData, setRecordData] = useState<any[]>([]);
@@ -57,7 +59,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
       const res = await api.get(`/factions/${shortname}`, {
         params: { roster_id: activeDivId }
       });
-      const { faction, permissions: perms, rosters: rosterData, datasets: datasetData, flags: flagData, record_data: recordDataRes, online_users: onlineUsersRes } = res.data;
+      const { faction, permissions: perms, rosters: rosterData, sandbox_rosters: sandboxRosterData, datasets: datasetData, flags: flagData, record_data: recordDataRes, online_users: onlineUsersRes } = res.data;
       
       const normalizedDatasets = (datasetData || []).map((d: any) => ({
         ...d,
@@ -70,6 +72,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
       setFactionData(faction);
       setPermissions(perms);
       setRosters(rosterData);
+      setSandboxRosters(sandboxRosterData || []);
       setDatasets(normalizedDatasets);
       setFlags(flagData);
       setRecordData(recordDataRes);
@@ -86,6 +89,19 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
         }
       } else {
         setActiveDivId(null);
+      }
+
+      if (sandboxRosterData && sandboxRosterData.length > 0) {
+        const sandboxParam = searchParams.get('sandbox_roster');
+        const targetSandbox = sandboxRosterData.find((r: any) => r.shortname === sandboxParam || String(r.id) === sandboxParam);
+        
+        if (targetSandbox) {
+          setActiveSandboxDivId(targetSandbox.id);
+        } else if (activeSandboxDivId === null || !sandboxRosterData.find((r: any) => r.id === activeSandboxDivId)) {
+          setActiveSandboxDivId(sandboxRosterData[0].id);
+        }
+      } else {
+        setActiveSandboxDivId(null);
       }
 
       if (faction.color) {
@@ -132,6 +148,18 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
     }
   };
 
+  const handleSetActiveSandboxDivId = (id: number | null) => {
+    setActiveSandboxDivId(id);
+    if (id) {
+      const roster = sandboxRosters.find(r => r.id === id);
+      if (roster) {
+        const newParams = new URLSearchParams(searchParams);
+        newParams.set('sandbox_roster', roster.shortname);
+        setSearchParams(newParams, { replace: true });
+      }
+    }
+  };
+
   useEffect(() => {
     if (rosters.length > 0) {
       const rosterParam = searchParams.get('roster');
@@ -140,7 +168,14 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
         setActiveDivId(targetRoster.id);
       }
     }
-  }, [searchParams, rosters]);
+    if (sandboxRosters.length > 0) {
+      const sandboxParam = searchParams.get('sandbox_roster');
+      const targetSandbox = sandboxRosters.find((r: any) => r.shortname === sandboxParam || String(r.id) === sandboxParam);
+      if (targetSandbox && targetSandbox.id !== activeSandboxDivId) {
+        setActiveSandboxDivId(targetSandbox.id);
+      }
+    }
+  }, [searchParams, rosters, sandboxRosters]);
 
   if (loading) return <Loading message="Initializing Faction..." />;
   if (error) return (
@@ -152,11 +187,18 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
   );
 
   const activeDivision = rosters.find(r => r.id === activeDivId) || null;
-  const totalMembers = activeDivision ? (
-    (activeDivision.leadership?.length || 0) +
-    (activeDivision.bureaus?.reduce((acc: number, b: any) =>
-      acc + (b.leadership?.length || 0) + (b.units?.reduce((uAcc: number, u: any) => uAcc + (u.members?.length || 0), 0) || 0), 0) || 0)
-  ) : 0;
+  const activeSandboxDivision = sandboxRosters.find(r => r.id === activeSandboxDivId) || null;
+
+  const calculateTotalMembers = (div: any) => {
+    return div ? (
+      (div.leadership?.length || 0) +
+      (div.bureaus?.reduce((acc: number, b: any) =>
+        acc + (b.leadership?.length || 0) + (b.units?.reduce((uAcc: number, u: any) => uAcc + (u.members?.length || 0), 0) || 0), 0) || 0)
+    ) : 0;
+  };
+
+  const totalMembers = calculateTotalMembers(activeDivision);
+  const totalSandboxMembers = calculateTotalMembers(activeSandboxDivision);
 
   const isGroupLeader = user?.groups?.some((g: any) => g.faction_id === factionData?.id && g.pivot?.is_leader) || false;
   const canViewAdmin = user?.is_superadmin || permissions.includes('view_admin_page');
@@ -167,6 +209,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
   const canViewForms = user?.is_superadmin || permissions.includes('view_faction_forms');
   const canViewSnapshots = user?.is_superadmin || permissions.includes('view_snapshots') || permissions.includes('administrator');
   const canViewGtawSync = (user?.is_superadmin || permissions.includes('sync_gtaw')) && factionData?.gtaw_faction_id;
+  const canViewSandboxRoster = user?.is_superadmin || permissions.includes('utilize_sandbox_rosters');
 
   if (location.pathname === `/${shortname}`) {
     return <Navigate to={`/${shortname}/roster`} replace />;
@@ -190,11 +233,13 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
       canViewSnapshots={canViewSnapshots}
       canViewGtawSync={canViewGtawSync}
       canViewForms={canViewForms}
+      canViewSandboxRoster={canViewSandboxRoster}
       siteVersion={siteVersion}
     >
       <Routes>
         <Route path="roster" element={
           <FactionRoster 
+            user={user}
             isDark={isDark}
             activeDivision={activeDivision} 
             totalMembers={totalMembers} 
@@ -210,6 +255,29 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
             recordData={recordData}
             onlineUsers={onlineUsers}
           />
+        } />
+        <Route path="sandbox-roster" element={
+          canViewSandboxRoster ? (
+            <FactionRoster 
+              user={user}
+              isDark={isDark}
+              activeDivision={activeSandboxDivision} 
+              totalMembers={totalSandboxMembers} 
+              rosters={sandboxRosters} 
+              setRosters={setSandboxRosters}
+              activeDivId={activeSandboxDivId} 
+              setActiveDivId={handleSetActiveSandboxDivId}
+              permissions={permissions}
+              shortname={shortname}
+              fetchRosters={fetchAllData}
+              datasets={datasets}
+              flags={flags}
+              recordData={recordData}
+              onlineUsers={onlineUsers}
+              isSandbox={true}
+              mainRosters={rosters}
+            />
+          ) : <Navigate to={`/${shortname}/roster`} />
         } />
         <Route path="forms/*" element={
           canViewForms ? (

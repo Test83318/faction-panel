@@ -44,6 +44,11 @@ class RosterRevision extends Model
      */
     public static function logRevision(int $rosterId, string $description, ?int $userId = null): void
     {
+        $roster = Roster::find($rosterId);
+        if ($roster && $roster->is_sandbox) {
+            return;
+        }
+
         if (in_array($rosterId, self::$captured)) {
             return;
         }

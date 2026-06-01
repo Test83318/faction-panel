@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../api';
 import { Roster as RosterType } from '../types';
-import { Plus, Pencil, MoreVertical, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Database, Menu, Flag, FileCode2, Calculator, Minus, X, Clock } from 'lucide-react';
+import { Plus, Pencil, MoreVertical, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Database, Menu, Flag, FileCode2, Calculator, Minus, X, Clock, Sparkles } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 import { SyncGridRow } from './SyncGridRow';
 import RosterLayoutModal from './RosterLayoutModal';
@@ -33,6 +33,8 @@ interface FactionRosterProps {
     recordData: any[];
     flags: any[];
     onlineUsers?: any[];
+    isSandbox?: boolean;
+    mainRosters?: any[];
 }
 
 const FactionRoster: React.FC<FactionRosterProps> = ({ 
@@ -50,12 +52,25 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
     datasets, 
     recordData, 
     flags,
-    onlineUsers = []
+    onlineUsers = [],
+    isSandbox = false,
+    mainRosters = []
 }) => {
   const navigate = useNavigate();
-  const canCreate = permissions.includes('create_roster');
-  const canModifyVariables = permissions.includes('modify_roster_variables');
-  const canModifyFlags = permissions.includes('modify_roster_flags');
+  const targetRosters = isSandbox ? [...rosters, ...mainRosters] : rosters;
+  const activeFlagsList = isSandbox ? [] : flags;
+
+  const [showSandboxIntro, setShowSandboxIntro] = useState(false);
+  useEffect(() => {
+    if (isSandbox && !localStorage.getItem('sandbox-intro-dismissed')) {
+      setShowSandboxIntro(true);
+    } else {
+      setShowSandboxIntro(false);
+    }
+  }, [isSandbox]);
+  const canCreate = isSandbox ? true : permissions.includes('create_roster');
+  const canModifyVariables = isSandbox ? false : permissions.includes('modify_roster_variables');
+  const canModifyFlags = isSandbox ? false : permissions.includes('modify_roster_flags');
   const isGlobalMod = permissions.includes('global_roster_moderation');
   
   const rosterPerms = activeDivision?.user_roster_permissions || {};
@@ -154,7 +169,10 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
         await api.put(`/rosters/${newRoster.id}`, newRoster);
         toast.success('Roster updated', { id: loadToast });
       } else {
-        await api.post(`/factions/${shortname}/rosters`, newRoster);
+        await api.post(`/factions/${shortname}/rosters`, {
+          ...newRoster,
+          is_sandbox: isSandbox
+        });
         toast.success('Roster created', { id: loadToast });
       }
       await fetchRosters();
@@ -526,7 +544,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
                         if (cond.type === 'flags') {
                             if (!cond.settings?.flag_id) return false;
-                            const flag = flags.find(f => f.id === cond.settings.flag_id);
+                            const flag = activeFlagsList.find(f => f.id === cond.settings.flag_id);
                             if (!flag) return false;
                             
                             const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
@@ -644,7 +662,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
             if (c.type === 'flags') {
                 if (!c.settings.flag_id) return false;
-                const flag = flags.find(f => f.id === c.settings.flag_id);
+                const flag = activeFlagsList.find(f => f.id === c.settings.flag_id);
                 if (!flag) return false;
                 
                 const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
@@ -882,14 +900,14 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         canModerate={isGlobalMod}
                         permissions={rosterPerms}
                         onEdit={handleEditSection}
-                        onManageCounts={(s) => setShowCountsModal({ target: s, type: 'section' })}
+                        onManageCounts={isSandbox ? undefined : (s) => setShowCountsModal({ target: s, type: 'section' })}
                         calculateCount={calculateCount}
                         columns={section.use_roster_columns ? (rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns) : (section.columns || rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns)}
                         rosterColumns={rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns}
                         datasets={datasets}
                         recordData={recordData}
                         allContents={allContents}
-                        flags={flags}
+                        flags={activeFlagsList}
                         editMode={editMode}
                         rosterColor={activeDivision.color}
                         onRefresh={fetchRosters}
@@ -922,14 +940,14 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                 permissions={rosterPerms}
                                 onAddChild={handleAddChildSection}
                                 onEdit={handleEditSection}
-                                onManageCounts={(s) => setShowCountsModal({ target: s, type: 'section' })}
+                                onManageCounts={isSandbox ? undefined : (s) => setShowCountsModal({ target: s, type: 'section' })}
                                 calculateCount={calculateCount}
                                 columns={section.use_roster_columns ? (rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns) : (section.columns || rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns)}
                                 rosterColumns={rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns}
                                 datasets={datasets}
                                 recordData={recordData}
                                 allContents={allContents}
-                                flags={flags}
+                                flags={activeFlagsList}
                                 editMode={editMode}
                                 rosterColor={activeDivision.color}
                                 onRefresh={fetchRosters}
@@ -968,14 +986,14 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                     permissions={rosterPerms}
                                     onAddChild={handleAddChildSection}
                                     onEdit={handleEditSection}
-                                    onManageCounts={(s) => setShowCountsModal({ target: s, type: 'section' })}
+                                    onManageCounts={isSandbox ? undefined : (s) => setShowCountsModal({ target: s, type: 'section' })}
                                     calculateCount={calculateCount}
                                     columns={section.use_roster_columns ? (rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns) : (section.columns || rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns)}
                                     rosterColumns={rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns}
                                     datasets={datasets}
                                     recordData={recordData}
                                     allContents={allContents}
-                                    flags={flags}
+                                    flags={activeFlagsList}
                                     editMode={editMode}
                                     rosterColor={activeDivision.color}
                                     onRefresh={fetchRosters}
@@ -1009,14 +1027,14 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                         permissions={rosterPerms}
                                         onAddChild={handleAddChildSection}
                                         onEdit={handleEditSection}
-                                        onManageCounts={(s) => setShowCountsModal({ target: s, type: 'section' })}
+                                        onManageCounts={isSandbox ? undefined : (s) => setShowCountsModal({ target: s, type: 'section' })}
                                         calculateCount={calculateCount}
                                         columns={section.use_roster_columns ? (rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns) : (section.columns || rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns)}
                                         rosterColumns={rosters.find((r: any) => r.id === (section.roster_id || activeDivId))?.columns}
                                         datasets={datasets}
                                         recordData={recordData}
                                         allContents={allContents}
-                                        flags={flags}
+                                        flags={activeFlagsList}
                                         editMode={editMode}
                                         rosterColor={activeDivision.color}
                                         onRefresh={fetchRosters}
@@ -1204,7 +1222,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                         <Layout size={12} /> Manage Layout
                                     </button>
                                 )}
-                                {(isGlobalMod || roster.user_roster_permissions?.modify_roster) && (
+                                {!isSandbox && (isGlobalMod || roster.user_roster_permissions?.modify_roster) && (
                                     <button 
                                         onClick={() => {
                                             setShowCountsModal({ target: roster, type: 'roster' });
@@ -1215,7 +1233,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                         <Calculator size={12} /> Manage Counts
                                     </button>
                                 )}
-                                {(isGlobalMod || roster.user_roster_permissions?.modify_roster) && (
+                                {!isSandbox && (isGlobalMod || roster.user_roster_permissions?.modify_roster) && (
                                     <button 
                                         onClick={() => {
                                             setShowPermissionsModal(roster);
@@ -1226,7 +1244,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                         <Shield size={12} /> Permissions
                                     </button>
                                 )}
-                                {(isGlobalMod || roster.user_roster_permissions?.revision_history) && (
+                                {!isSandbox && (isGlobalMod || roster.user_roster_permissions?.revision_history) && (
                                     <button 
                                         onClick={() => {
                                             setActiveMenuId(null);
@@ -1270,7 +1288,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                 >
                     <Plus size={16} />
                 </button>
-                {canModifyVariables && (
+                {!isSandbox && canModifyVariables && (
                     <div className="relative">
                         <button 
                             onClick={(e) => {
@@ -1340,6 +1358,77 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
       </div>
 
       {/* Modals */}
+      {showSandboxIntro && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-300">
+          <div className="bg-gradient-to-b from-card to-card/95 border border-white/10 rounded-2xl shadow-[0_0_50px_rgba(139,92,246,0.15)] max-w-md w-full p-6 relative overflow-hidden animate-in zoom-in-95 duration-300">
+            {/* Ambient Background Glow */}
+            <div className="absolute -top-12 -left-12 w-32 h-32 bg-violet-600/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex flex-col items-center text-center relative z-10">
+              {/* Animated Icon Container */}
+              <div className="w-16 h-16 bg-violet-500/10 border border-violet-500/30 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(139,92,246,0.1)] group hover:scale-105 transition-transform duration-300">
+                <Sparkles className="w-8 h-8 text-violet-400 animate-pulse" />
+              </div>
+
+              <h2 className="text-2xl font-black tracking-tight mb-2 uppercase bg-gradient-to-r from-violet-600 via-violet-500 to-indigo-600 dark:from-violet-200 dark:via-violet-400 dark:to-indigo-300 bg-clip-text text-transparent">
+                Sandbox Rosters
+              </h2>
+              <div className="h-0.5 w-12 bg-violet-500/30 rounded-full mb-6" />
+
+              <p className="text-xs text-muted leading-relaxed uppercase tracking-wider mb-6 font-medium max-w-sm">
+                Welcome to your private design suite. Sandbox rosters allow you to model structures, draft layouts, and play with data configurations in complete isolation.
+              </p>
+
+              {/* Feature Cards Grid */}
+              <div className="space-y-3 w-full text-left mb-8">
+                <div className="p-3 bg-surface/30 border border-border/40 rounded-xl flex items-start gap-3">
+                  <div className="p-1 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 mt-0.5">
+                    <Shield className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase tracking-wider text-text">Creator-Only Access</h4>
+                    <p className="text-[9px] text-muted uppercase tracking-tighter leading-normal mt-0.5">These rosters are strictly private. No other users can see or access them.</p>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-surface/30 border border-border/40 rounded-xl flex items-start gap-3">
+                  <div className="p-1 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-400 mt-0.5">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase tracking-wider text-text">No Auditing & Revisions</h4>
+                    <p className="text-[9px] text-muted uppercase tracking-tighter leading-normal mt-0.5">Changes are excluded from system-wide audit logs and revision tracking history.</p>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-surface/30 border border-border/40 rounded-xl flex items-start gap-3">
+                  <div className="p-1 bg-violet-500/10 border border-violet-500/20 rounded-lg text-violet-400 mt-0.5">
+                    <Layout className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-[10px] font-black uppercase tracking-wider text-text">Dynamic Reference Mapping</h4>
+                    <p className="text-[9px] text-muted uppercase tracking-tighter leading-normal mt-0.5">Cross-link sections to import records from main live rosters directly.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Close / Action Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.setItem('sandbox-intro-dismissed', 'true');
+                  setShowSandboxIntro(false);
+                }}
+                className="w-full py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-xl shadow-[0_0_20px_rgba(139,92,246,0.3)] flex items-center justify-center text-[10px] font-black uppercase tracking-widest active:scale-[0.98] transition-all duration-200"
+              >
+                Get Started
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showColumnsModal && (
         <ColumnsModal 
           target={showColumnsModal} 
@@ -1680,7 +1769,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                 {sectionData.section_options?.dynamic_config?.source_type === 'database' && recordData.map(db => (
                                     <option key={db.id} value={db.id}>{db.name}</option>
                                 ))}
-                                {sectionData.section_options?.dynamic_config?.source_type === 'section' && rosters.flatMap(r => {
+                                {sectionData.section_options?.dynamic_config?.source_type === 'section' && targetRosters.flatMap(r => {
                                     const flatten = (sections: any[]): any[] => {
                                         let res: any[] = [];
                                         sections.forEach(s => {
@@ -1785,7 +1874,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                                 className="w-full bg-surface border border-border p-1.5 rounded text-[9px] font-bold uppercase outline-none focus:border-accent"
                                             >
                                                 <option value="all">All Rosters</option>
-                                                {rosters.map(r => (
+                                                {targetRosters.map(r => (
                                                     <option key={r.id} value={r.id}>{r.name}</option>
                                                 ))}
                                             </select>
@@ -1832,7 +1921,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                                     const findSectionAndCols = (sections: any[]): any => {
                                                         for (const s of sections) {
                                                             if (String(s.id) === String(sourceId)) {
-                                                                const roster = rosters.find(r => r.id === s.roster_id);
+                                                                const roster = targetRosters.find(r => r.id === s.roster_id);
                                                                 return s.use_roster_columns ? roster?.columns : s.columns;
                                                             }
                                                             if (s.children) {
@@ -1843,7 +1932,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                                         return null;
                                                     };
                                                     let cols = null;
-                                                    for (const r of rosters) {
+                                                    for (const r of targetRosters) {
                                                         cols = findSectionAndCols(r.root_sections || []);
                                                         if (cols) break;
                                                     }
@@ -1872,13 +1961,13 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                                 <option value="">Select Field...</option>
                                                 {(() => {
                                                     if (rule.roster_id === 'all') {
-                                                        const allCols = rosters.flatMap(r => r.columns || []);
+                                                        const allCols = targetRosters.flatMap(r => r.columns || []);
                                                         const uniqueCols = Array.from(new Map(allCols.map(c => [c.name, c])).values());
                                                         return uniqueCols.map((c: any) => (
                                                             <option key={c.name} value={c.id}>{c.name}</option>
                                                         ));
                                                     }
-                                                    return rosters.find(r => String(r.id) === String(rule.roster_id))?.columns?.map((c: any) => (
+                                                    return targetRosters.find(r => String(r.id) === String(rule.roster_id))?.columns?.map((c: any) => (
                                                         <option key={c.id} value={c.id}>{c.name}</option>
                                                     ));
                                                 })()}
@@ -1956,24 +2045,24 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                                                     ));
                                                                 }
                                                                 if (sourceType === 'section') {
-                                                                    const findSectionAndCols = (sections: any[]): any => {
-                                                                        for (const s of sections) {
-                                                                            if (String(s.id) === String(sourceId)) {
-                                                                                const roster = rosters.find(r => r.id === s.roster_id);
-                                                                                return s.use_roster_columns ? roster?.columns : s.columns;
-                                                                            }
-                                                                            if (s.children) {
-                                                                                const found = findSectionAndCols(s.children);
-                                                                                if (found) return found;
-                                                                            }
-                                                                        }
-                                                                        return null;
-                                                                    };
-                                                                    let cols = null;
-                                                                    for (const r of rosters) {
-                                                                        cols = findSectionAndCols(r.root_sections || []);
-                                                                        if (cols) break;
-                                                                    }
+                                                                     const findSectionAndCols = (sections: any[]): any => {
+                                                                         for (const s of sections) {
+                                                                             if (String(s.id) === String(sourceId)) {
+                                                                                 const roster = targetRosters.find(r => r.id === s.roster_id);
+                                                                                 return s.use_roster_columns ? roster?.columns : s.columns;
+                                                                             }
+                                                                             if (s.children) {
+                                                                                 const found = findSectionAndCols(s.children);
+                                                                                 if (found) return found;
+                                                                             }
+                                                                         }
+                                                                         return null;
+                                                                     };
+                                                                     let cols = null;
+                                                                     for (const r of targetRosters) {
+                                                                         cols = findSectionAndCols(r.root_sections || []);
+                                                                         if (cols) break;
+                                                                     }
                                                                     return cols?.map((c: any) => (
                                                                         <option key={c.id} value={c.id}>{c.name}</option>
                                                                     ));
@@ -2030,7 +2119,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                             const findSectionAndCols = (sections: any[]): any => {
                                                 for (const s of sections) {
                                                     if (String(s.id) === String(sourceId)) {
-                                                        const roster = rosters.find(r => r.id === s.roster_id);
+                                                        const roster = targetRosters.find(r => r.id === s.roster_id);
                                                         return s.use_roster_columns ? roster?.columns : s.columns;
                                                     }
                                                     if (s.children) {
@@ -2041,7 +2130,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                                 return null;
                                             };
                                             let cols = null;
-                                            for (const r of rosters) {
+                                            for (const r of targetRosters) {
                                                 cols = findSectionAndCols(r.root_sections || []);
                                                 if (cols) break;
                                             }
@@ -2182,7 +2271,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                                         const findSectionAndCols = (sections: any[]): any => {
                                                             for (const s of sections) {
                                                                 if (String(s.id) === String(sourceId)) {
-                                                                    const roster = rosters.find(r => r.id === s.roster_id);
+                                                                    const roster = targetRosters.find(r => r.id === s.roster_id);
                                                                     return s.use_roster_columns ? roster?.columns : s.columns;
                                                                 }
                                                                 if (s.children) {
@@ -2193,7 +2282,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                                             return null;
                                                         };
                                                         let cols = null;
-                                                        for (const r of rosters) {
+                                                        for (const r of targetRosters) {
                                                             cols = findSectionAndCols(r.root_sections || []);
                                                             if (cols) break;
                                                         }
@@ -2369,7 +2458,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                 
                 return cols;
             })()}
-            flags={flags}
+            flags={activeFlagsList}
             allSections={(() => {
                 const rosterId = showCountsModal.type === 'roster' ? showCountsModal.target.id : (showCountsModal.target.roster_id || activeDivId);
                 const roster = rosters.find(r => r.id === rosterId);

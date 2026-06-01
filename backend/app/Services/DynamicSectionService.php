@@ -50,14 +50,17 @@ class DynamicSectionService
         } elseif ($sourceType === 'section' && $sourceId) {
             $sourceSection = RosterSection::with('contents')->find($sourceId);
             if ($sourceSection) {
-                foreach ($sourceSection->contents as $content) {
-                    $data[] = [
-                        'id' => 'sec_'.$content->id,
-                        'data' => $content->content,
-                        'type' => $content->type,
-                        'created_at' => $content->created_at,
-                        'updated_at' => $content->updated_at,
-                    ];
+                $sourceRoster = $sourceSection->roster;
+                if ($sourceRoster && \App\Models\User::canViewRoster(\Illuminate\Support\Facades\Auth::user(), $sourceRoster)) {
+                    foreach ($sourceSection->contents as $content) {
+                        $data[] = [
+                            'id' => 'sec_'.$content->id,
+                            'data' => $content->content,
+                            'type' => $content->type,
+                            'created_at' => $content->created_at,
+                            'updated_at' => $content->updated_at,
+                        ];
+                    }
                 }
             }
         }
@@ -337,6 +340,15 @@ class DynamicSectionService
         if ($rosterId !== 'all') {
             $rostersQuery->where('id', $rosterId);
         }
+
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $rostersQuery->where(function ($q) use ($user) {
+            $q->where('is_sandbox', false)
+              ->orWhere(function ($q2) use ($user) {
+                  $q2->where('is_sandbox', true)
+                     ->where('created_by', $user ? $user->id : null);
+              });
+        });
 
         $rosters = $rostersQuery->with('sections.contents')->get();
         foreach ($rosters as $roster) {

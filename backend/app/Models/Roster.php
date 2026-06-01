@@ -22,6 +22,7 @@ class Roster extends Model
         'layout_settings',
         'default_sections_per_row',
         'created_by',
+        'is_sandbox',
     ];
 
     protected $casts = [
@@ -29,6 +30,7 @@ class Roster extends Model
         'columns' => 'array',
         'counts' => 'array',
         'layout_settings' => 'array',
+        'is_sandbox' => 'boolean',
     ];
 
     public function faction()

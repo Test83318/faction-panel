@@ -271,6 +271,7 @@ class FactionSeeder extends Seeder
                     'view_users' => 'YES',
                     'view_permissions' => 'YES',
                     'view_faction_roster' => 'YES',
+                    'utilize_sandbox_rosters' => 'YES',
                     'view_groups' => 'YES',
                     'create_roster' => 'YES',
                     'global_roster_moderation' => 'YES',
@@ -294,6 +295,7 @@ class FactionSeeder extends Seeder
                     'view_admin_page' => 'YES',
                     'view_users' => 'YES',
                     'view_faction_roster' => 'YES',
+                    'utilize_sandbox_rosters' => 'YES',
                     'view_groups' => 'YES',
                     'view_faction_records' => 'YES',
                     'view_faction_forms' => 'YES',
@@ -307,6 +309,7 @@ class FactionSeeder extends Seeder
                 'type' => 'primary',
                 'permissions' => [
                     'view_faction_roster' => 'YES',
+                    'utilize_sandbox_rosters' => 'YES',
                     'view_groups' => 'YES',
                     'view_faction_records' => 'YES',
                 ],
@@ -318,6 +321,7 @@ class FactionSeeder extends Seeder
                 'type' => 'primary',
                 'permissions' => [
                     'view_faction_roster' => 'YES',
+                    'utilize_sandbox_rosters' => 'YES',
                 ],
             ],
             [
@@ -353,6 +357,7 @@ class FactionSeeder extends Seeder
                     'view_admin_page' => 'YES',
                     'view_users' => 'YES',
                     'view_faction_roster' => 'YES',
+                    'utilize_sandbox_rosters' => 'YES',
                     'view_groups' => 'YES',
                     'create_roster' => 'YES',
                     'global_roster_moderation' => 'YES',
@@ -366,6 +371,7 @@ class FactionSeeder extends Seeder
                 'color' => '#ef4444',
                 'permissions' => [
                     'view_faction_roster' => 'YES',
+                    'utilize_sandbox_rosters' => 'YES',
                     'view_groups' => 'YES',
                 ],
             ],
@@ -397,6 +403,7 @@ class FactionSeeder extends Seeder
                 'color' => '#10b981',
                 'permissions' => [
                     'view_faction_roster' => 'YES',
+                    'utilize_sandbox_rosters' => 'YES',
                 ],
             ],
             [
@@ -427,6 +434,7 @@ class FactionSeeder extends Seeder
                 'color' => '#06b6d4',
                 'permissions' => [
                     'view_faction_roster' => 'YES',
+                    'utilize_sandbox_rosters' => 'YES',
                 ],
             ],
             [
