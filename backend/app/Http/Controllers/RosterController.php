@@ -850,7 +850,7 @@ class RosterController extends Controller
         ]);
 
         $rosters = Roster::whereIn('id', $request->roster_ids)->get();
-        $allSandbox = $rosters->isNotEmpty() && $rosters->every(fn($r) => $r->is_sandbox && $r->created_by === Auth::id());
+        $allSandbox = $rosters->isNotEmpty() && $rosters->every(fn ($r) => $r->is_sandbox && $r->created_by === Auth::id());
 
         if ($allSandbox) {
             if (! User::hasFactionPermission(Auth::user(), $faction, 'utilize_sandbox_rosters')) {
@@ -866,7 +866,7 @@ class RosterController extends Controller
             Roster::where('id', $id)->where('faction_id', $faction->id)->update(['order' => $index]);
         }
 
-        if (!$allSandbox) {
+        if (! $allSandbox) {
             $this->audit('roster.reorder', "Reordered rosters for faction {$faction->name}", null, null, null, $request->roster_ids);
         }
 

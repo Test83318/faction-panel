@@ -4,6 +4,7 @@ namespace App\Traits;
 
 use App\Models\AuditLog;
 use App\Models\Faction;
+use App\Models\Roster;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
 
@@ -40,7 +41,7 @@ trait Auditable
     public function logAudit(string $event, ?array $oldValues, ?array $newValues): void
     {
         // Bypass audit logs for sandbox rosters, sections, and contents
-        if ($this instanceof \App\Models\Roster && $this->is_sandbox) {
+        if ($this instanceof Roster && $this->is_sandbox) {
             return;
         }
         if (method_exists($this, 'roster') && $this->roster?->is_sandbox) {

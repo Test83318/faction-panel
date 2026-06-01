@@ -1,11 +1,10 @@
 <?php
 
-use App\Models\Faction;
-use App\Models\Role;
-use App\Models\Roster;
-use App\Models\User;
 use App\Models\AuditLog;
+use App\Models\Faction;
+use App\Models\Roster;
 use App\Models\RosterRevision;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 
 beforeEach(function () {
@@ -119,7 +118,7 @@ test('FactionController show separates regular and sandbox rosters', function ()
 test('Users can create and manage their own sandbox rosters', function () {
     // 1. Create sandbox roster via POST
     Auth::guard('sanctum')->forgetUser();
-    $response = $this->actingAs($this->user)->postJson("/api/factions/lssd/rosters", [
+    $response = $this->actingAs($this->user)->postJson('/api/factions/lssd/rosters', [
         'name' => 'My Test Sandbox',
         'shortname' => 'TEST',
         'color' => '#00ff00',
@@ -160,7 +159,7 @@ test('Sandbox rosters bypass auditing and revisions', function () {
 
     // 1. Create a sandbox roster
     Auth::guard('sanctum')->forgetUser();
-    $response = $this->actingAs($this->user)->postJson("/api/factions/lssd/rosters", [
+    $response = $this->actingAs($this->user)->postJson('/api/factions/lssd/rosters', [
         'name' => 'Silent Roster',
         'shortname' => 'SILT',
         'color' => '#ffffff',

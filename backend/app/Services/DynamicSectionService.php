@@ -6,7 +6,9 @@ use App\Models\Faction;
 use App\Models\FactionRecordDatabase;
 use App\Models\RosterContent;
 use App\Models\RosterSection;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class DynamicSectionService
 {
@@ -51,7 +53,7 @@ class DynamicSectionService
             $sourceSection = RosterSection::with('contents')->find($sourceId);
             if ($sourceSection) {
                 $sourceRoster = $sourceSection->roster;
-                if ($sourceRoster && \App\Models\User::canViewRoster(\Illuminate\Support\Facades\Auth::user(), $sourceRoster)) {
+                if ($sourceRoster && User::canViewRoster(Auth::user(), $sourceRoster)) {
                     foreach ($sourceSection->contents as $content) {
                         $data[] = [
                             'id' => 'sec_'.$content->id,
@@ -341,13 +343,13 @@ class DynamicSectionService
             $rostersQuery->where('id', $rosterId);
         }
 
-        $user = \Illuminate\Support\Facades\Auth::user();
+        $user = Auth::user();
         $rostersQuery->where(function ($q) use ($user) {
             $q->where('is_sandbox', false)
-              ->orWhere(function ($q2) use ($user) {
-                  $q2->where('is_sandbox', true)
-                     ->where('created_by', $user ? $user->id : null);
-              });
+                ->orWhere(function ($q2) use ($user) {
+                    $q2->where('is_sandbox', true)
+                        ->where('created_by', $user ? $user->id : null);
+                });
         });
 
         $rosters = $rostersQuery->with('sections.contents')->get();

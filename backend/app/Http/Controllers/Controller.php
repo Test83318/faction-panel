@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\Faction;
+use App\Models\Roster;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 
@@ -20,7 +21,7 @@ abstract class Controller
         // Bypass manual audit logs for sandbox rosters, sections, and contents
         if ($auditable) {
             $isSandbox = false;
-            if ($auditable instanceof \App\Models\Roster && $auditable->is_sandbox) {
+            if ($auditable instanceof Roster && $auditable->is_sandbox) {
                 $isSandbox = true;
             } elseif (method_exists($auditable, 'roster') && $auditable->roster?->is_sandbox) {
                 $isSandbox = true;

@@ -642,7 +642,7 @@ class FactionController extends Controller
             }
         });
 
-        $sandboxRosters->each(function ($roster) use ($user) {
+        $sandboxRosters->each(function ($roster) {
             $perms = [
                 'view_roster' => true,
                 'modify_roster' => true,
