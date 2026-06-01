@@ -19,6 +19,10 @@ class FactionSnapshot extends Model
         'data' => 'array',
     ];
 
+    protected $hidden = [
+        'data',
+    ];
+
     public function faction()
     {
         return $this->belongsTo(Faction::class);

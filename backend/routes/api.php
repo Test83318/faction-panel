@@ -29,6 +29,7 @@ use App\Http\Controllers\RosterContentController;
 use App\Http\Controllers\RosterController;
 use App\Http\Controllers\RosterFlagController;
 use App\Http\Controllers\RosterPermissionController;
+use App\Http\Controllers\RosterRevisionController;
 use App\Http\Controllers\RosterSectionController;
 use App\Http\Controllers\SetupController;
 use App\Http\Controllers\StatisticsController;
@@ -163,6 +164,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/groups/{group}/members', [GroupController::class, 'addMember']);
     Route::delete('/groups/{group}/members/{user}', [GroupController::class, 'removeMember']);
     Route::put('/groups/{group}/members/{user}/toggle-leader', [GroupController::class, 'toggleLeader']);
+
+    // Roster Revision Management
+    Route::get('/rosters/{roster}/revisions', [RosterRevisionController::class, 'index']);
+    Route::get('/rosters/{roster}/revisions/{revision}', [RosterRevisionController::class, 'show']);
+    Route::post('/rosters/{roster}/revisions/{revision}/restore', [RosterRevisionController::class, 'restore']);
 
     // Roster Permission Management
     Route::get('/rosters/{roster}/permissions', [RosterPermissionController::class, 'index']);

@@ -333,7 +333,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             {renderCounts(section)}
           </div>
           <div className="flex items-center gap-2">
-            {canEditSection && (
+            {canEditSection && onManageCounts && (
                 <button 
                     onClick={() => onManageCounts?.(section)}
                     className="p-1 hover:bg-surface rounded text-muted hover:text-accent transition-colors"
@@ -428,13 +428,15 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           <div className="flex items-center gap-1 ml-auto">
             {canEditSection && (
                 <>
-                    <button 
-                        onClick={() => onManageCounts?.(section)}
-                        className="px-1.5 py-0.5 hover:bg-bg rounded text-muted hover:text-accent flex items-center gap-1 transition-colors"
-                        title="Manage Section Counts"
-                    >
-                        <span className="text-[7px] font-black uppercase tracking-widest">counts</span>
-                    </button>
+                    {onManageCounts && (
+                        <button 
+                            onClick={() => onManageCounts?.(section)}
+                            className="px-1.5 py-0.5 hover:bg-bg rounded text-muted hover:text-accent flex items-center gap-1 transition-colors"
+                            title="Manage Section Counts"
+                        >
+                            <span className="text-[7px] font-black uppercase tracking-widest">counts</span>
+                        </button>
+                    )}
                     {canAddChildSection && (
                         <button 
                             onClick={() => onAddChild?.(section.id)}

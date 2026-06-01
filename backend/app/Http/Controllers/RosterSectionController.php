@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Roster;
 use App\Models\RosterContent;
+use App\Models\RosterRevision;
 use App\Models\RosterSection;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -180,6 +181,8 @@ class RosterSectionController extends Controller
 
         $this->audit('roster_section.create', "Created roster section '{$section->name}' in roster '{$roster->name}'", $roster->faction_id, $section, null, $section->getAttributes());
 
+        RosterRevision::logRevision($roster->id, "Created section '{$section->name}'", Auth::id());
+
         return response()->json($section, 201);
     }
 
@@ -219,6 +222,8 @@ class RosterSectionController extends Controller
 
         $this->audit('roster_section.update', "Updated roster section '{$section->name}'", $section->roster->faction_id, $section, $oldValues, $section->getDirty());
 
+        RosterRevision::logRevision($section->roster_id, "Updated section '{$section->name}'", Auth::id());
+
         return response()->json($section);
     }
 
@@ -234,6 +239,8 @@ class RosterSectionController extends Controller
 
         $this->audit('roster_section.delete', "Deleted roster section '{$section->name}'", $section->roster->faction_id, $section, $section->getAttributes());
         $section->delete();
+
+        RosterRevision::logRevision($section->roster_id, "Deleted section '{$section->name}'", Auth::id());
 
         return response()->json(['message' => 'Section deleted']);
     }
@@ -260,6 +267,8 @@ class RosterSectionController extends Controller
         }
 
         $this->audit('roster_section.reorder', "Reordered sections in roster '{$roster->name}'", $roster->faction_id, $roster, null, ['section_ids' => $request->section_ids, 'parent_id' => $request->parent_id]);
+
+        RosterRevision::logRevision($roster->id, 'Reordered sections', Auth::id());
 
         return response()->json(['message' => 'Order updated']);
     }

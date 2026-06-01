@@ -1,9 +1,9 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "b00skit/antelope-backend",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "The Laravel backend for Antelope Faction Panel.",
+    "keywords": ["antelope", "laravel", "faction-panel"],
     "license": "MIT",
     "require": {
         "php": "^8.3",

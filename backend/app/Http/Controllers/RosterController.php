@@ -7,6 +7,7 @@ use App\Models\FactionRecordDatabase;
 use App\Models\Roster;
 use App\Models\RosterContent;
 use App\Models\RosterDataset;
+use App\Models\RosterRevision;
 use App\Models\RosterSection;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -157,32 +158,41 @@ class RosterController extends Controller
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::guard('sanctum')->user();
 
-        // If user has view_faction_roster, they see everything by default.
-        // If not, they might still see specific rosters if they have permission.
         $isGlobalViewer = User::hasFactionPermission($user, $faction, 'view_faction_roster');
+        $hasSandboxPerm = User::hasFactionPermission($user, $faction, 'utilize_sandbox_rosters');
 
         $rosters = $faction->rosters()
+            ->where('is_sandbox', false)
             ->with(['rootSections.children', 'rootSections.contents.editor'])
             ->orderBy('order')
             ->orderBy('id')
             ->get();
 
         $filteredRosters = $rosters->filter(function ($roster) use ($user, $isGlobalViewer) {
-            // If this roster has explicit permission entries, always enforce them —
-            // even global viewers (view_faction_roster) are subject to per-roster access control.
             $hasExplicitPerms = $roster->rosterPermissions()->exists();
             if ($hasExplicitPerms) {
                 return User::hasRosterPermission($user, $roster, 'view_roster');
             }
 
-            // No explicit permissions: fall back to global permission
             return $isGlobalViewer || User::hasRosterPermission($user, $roster, 'view_roster');
         });
 
-        if ($filteredRosters->isEmpty() && ! $isGlobalViewer) {
-            // If they have no global permission and no specific roster permissions, they get Forbidden
+        $sandboxRosters = collect();
+        if ($hasSandboxPerm && $user) {
+            $sandboxRosters = $faction->rosters()
+                ->where('is_sandbox', true)
+                ->where('created_by', $user->id)
+                ->with(['rootSections.children', 'rootSections.contents.editor'])
+                ->orderBy('order')
+                ->orderBy('id')
+                ->get();
+        }
+
+        if ($filteredRosters->isEmpty() && ! $isGlobalViewer && ! $hasSandboxPerm) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $allRosters = $filteredRosters->concat($sandboxRosters);
 
         // Include Published Record Databases & Entries — all for resolution, filter for response later
         $allPublishedDatabases = $faction->recordDatabases()
@@ -462,45 +472,60 @@ class RosterController extends Controller
             }
         };
 
-        foreach ($filteredRosters as $roster) {
+        foreach ($allRosters as $roster) {
             foreach ($roster->rootSections as $section) {
                 $scanSection($section, $roster);
             }
         }
 
-        $filteredRosters->each(function ($roster) use ($user) {
-            $canModify = User::hasRosterPermission($user, $roster, 'modify_roster');
-            $canViewHidden = $canModify || User::hasRosterPermission($user, $roster, 'view_hidden_data');
+        $allRosters->each(function ($roster) use ($user) {
+            if ($roster->is_sandbox) {
+                $perms = [
+                    'view_roster' => true,
+                    'modify_roster' => true,
+                    'manage_columns' => true,
+                    'manage_layout' => true,
+                    'add_sections' => true,
+                    'remove_sections' => true,
+                    'edit_predefined' => true,
+                    'edit_defined_fields' => true,
+                    'view_hidden_data' => true,
+                ];
+                $roster->user_roster_permissions = $perms;
+            } else {
+                $canModify = User::hasRosterPermission($user, $roster, 'modify_roster');
+                $canViewHidden = $canModify || User::hasRosterPermission($user, $roster, 'view_hidden_data');
 
-            $perms = [
-                'view_roster' => User::hasRosterPermission($user, $roster, 'view_roster'),
-                'modify_roster' => $canModify,
-                'manage_columns' => User::hasRosterPermission($user, $roster, 'manage_columns'),
-                'manage_layout' => User::hasRosterPermission($user, $roster, 'manage_layout'),
-                'add_sections' => User::hasRosterPermission($user, $roster, 'add_sections'),
-                'remove_sections' => User::hasRosterPermission($user, $roster, 'remove_sections'),
-                'edit_predefined' => User::hasRosterPermission($user, $roster, 'edit_predefined'),
-                'edit_defined_fields' => User::hasRosterPermission($user, $roster, 'edit_defined_fields'),
-                'view_hidden_data' => $canViewHidden,
-            ];
-            $roster->user_roster_permissions = $perms;
+                $perms = [
+                    'view_roster' => User::hasRosterPermission($user, $roster, 'view_roster'),
+                    'modify_roster' => $canModify,
+                    'manage_columns' => User::hasRosterPermission($user, $roster, 'manage_columns'),
+                    'manage_layout' => User::hasRosterPermission($user, $roster, 'manage_layout'),
+                    'add_sections' => User::hasRosterPermission($user, $roster, 'add_sections'),
+                    'remove_sections' => User::hasRosterPermission($user, $roster, 'remove_sections'),
+                    'edit_predefined' => User::hasRosterPermission($user, $roster, 'edit_predefined'),
+                    'edit_defined_fields' => User::hasRosterPermission($user, $roster, 'edit_defined_fields'),
+                    'view_hidden_data' => $canViewHidden,
+                ];
+                $roster->user_roster_permissions = $perms;
 
-            // Apply data masking if user cannot view hidden data
-            if (! $canViewHidden) {
-                $hiddenColIds = collect($roster->columns ?? [])
-                    ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
-                    ->pluck('id')
-                    ->toArray();
+                // Apply data masking if user cannot view hidden data
+                if (! $canViewHidden) {
+                    $hiddenColIds = collect($roster->columns ?? [])
+                        ->filter(fn ($col) => str_contains($col['type'] ?? '', 'hidden'))
+                        ->pluck('id')
+                        ->toArray();
 
-                foreach ($roster->rootSections as $section) {
-                    $this->maskSection($section, $hiddenColIds, $roster, true);
+                    foreach ($roster->rootSections as $section) {
+                        $this->maskSection($section, $hiddenColIds, $roster, true);
+                    }
                 }
             }
         });
 
         $this->audit('roster.list', "Viewed rosters list for faction {$faction->name}");
 
-        return response()->json($filteredRosters->values());
+        return response()->json($allRosters->values());
     }
 
     private function maskSection($section, array $rosterHiddenColIds, $roster = null, $omit = false)
@@ -543,9 +568,16 @@ class RosterController extends Controller
     public function store(Request $request, $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
+        $isSandbox = $request->boolean('is_sandbox', false);
 
-        if (! User::hasFactionPermission(Auth::user(), $faction, 'create_roster')) {
-            return response()->json(['message' => 'Forbidden'], 403);
+        if ($isSandbox) {
+            if (! User::hasFactionPermission(Auth::user(), $faction, 'utilize_sandbox_rosters')) {
+                return response()->json(['message' => 'Forbidden'], 403);
+            }
+        } else {
+            if (! User::hasFactionPermission(Auth::user(), $faction, 'create_roster')) {
+                return response()->json(['message' => 'Forbidden'], 403);
+            }
         }
 
         $validated = $request->validate([
@@ -556,6 +588,7 @@ class RosterController extends Controller
             'columns' => 'nullable|array',
             'layout_settings' => 'nullable|array',
             'default_sections_per_row' => 'nullable|integer|min:1|max:4',
+            'is_sandbox' => 'sometimes|boolean',
         ]);
 
         $validated['shortname'] = strtoupper($validated['shortname']);
@@ -578,6 +611,7 @@ class RosterController extends Controller
 
         $roster = $faction->rosters()->create([
             ...$validated,
+            'is_sandbox' => $isSandbox,
             'order' => $maxOrder + 1,
             'columns' => $columns,
             'layout_settings' => $layoutSettings,
@@ -603,12 +637,21 @@ class RosterController extends Controller
     public function update(Request $request, Roster $roster)
     {
         $user = Auth::user();
-        $canModify = User::hasRosterPermission($user, $roster, 'modify_roster');
-        $canManageLayout = User::hasRosterPermission($user, $roster, 'manage_layout');
-        $canManageColumns = User::hasRosterPermission($user, $roster, 'manage_columns');
+        if ($roster->is_sandbox) {
+            if ($roster->created_by !== $user->id || ! User::hasFactionPermission($user, $roster->faction, 'utilize_sandbox_rosters')) {
+                return response()->json(['message' => 'Forbidden'], 403);
+            }
+            $canModify = true;
+            $canManageLayout = true;
+            $canManageColumns = true;
+        } else {
+            $canModify = User::hasRosterPermission($user, $roster, 'modify_roster');
+            $canManageLayout = User::hasRosterPermission($user, $roster, 'manage_layout');
+            $canManageColumns = User::hasRosterPermission($user, $roster, 'manage_columns');
 
-        if (! $canModify && ! $canManageLayout && ! $canManageColumns) {
-            return response()->json(['message' => 'Forbidden'], 403);
+            if (! $canModify && ! $canManageLayout && ! $canManageColumns) {
+                return response()->json(['message' => 'Forbidden'], 403);
+            }
         }
 
         $validated = $request->validate([
@@ -668,13 +711,22 @@ class RosterController extends Controller
 
         $this->audit('roster.update', "Updated roster '{$roster->name}' for faction '{$roster->faction->name}'", null, $roster, $oldValues, $roster->getDirty());
 
+        RosterRevision::logRevision($roster->id, 'Updated roster settings', Auth::id());
+
         return response()->json($roster);
     }
 
     public function destroy(Roster $roster)
     {
-        if (! User::hasRosterPermission(Auth::user(), $roster, 'modify_roster')) {
-            return response()->json(['message' => 'Forbidden'], 403);
+        $user = Auth::user();
+        if ($roster->is_sandbox) {
+            if ($roster->created_by !== $user->id || ! User::hasFactionPermission($user, $roster->faction, 'utilize_sandbox_rosters')) {
+                return response()->json(['message' => 'Forbidden'], 403);
+            }
+        } else {
+            if (! User::hasRosterPermission($user, $roster, 'modify_roster')) {
+                return response()->json(['message' => 'Forbidden'], 403);
+            }
         }
 
         $this->audit('roster.delete', "Deleted roster '{$roster->name}' for faction '{$roster->faction->name}'", null, $roster, $roster->getAttributes());
@@ -792,20 +844,31 @@ class RosterController extends Controller
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
 
-        if (! User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
         $request->validate([
             'roster_ids' => 'required|array',
             'roster_ids.*' => 'exists:rosters,id',
         ]);
 
+        $rosters = Roster::whereIn('id', $request->roster_ids)->get();
+        $allSandbox = $rosters->isNotEmpty() && $rosters->every(fn ($r) => $r->is_sandbox && $r->created_by === Auth::id());
+
+        if ($allSandbox) {
+            if (! User::hasFactionPermission(Auth::user(), $faction, 'utilize_sandbox_rosters')) {
+                return response()->json(['message' => 'Forbidden'], 403);
+            }
+        } else {
+            if (! User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+                return response()->json(['message' => 'Forbidden'], 403);
+            }
+        }
+
         foreach ($request->roster_ids as $index => $id) {
             Roster::where('id', $id)->where('faction_id', $faction->id)->update(['order' => $index]);
         }
 
-        $this->audit('roster.reorder', "Reordered rosters for faction {$faction->name}", null, null, null, $request->roster_ids);
+        if (! $allSandbox) {
+            $this->audit('roster.reorder', "Reordered rosters for faction {$faction->name}", null, null, null, $request->roster_ids);
+        }
 
         return response()->json(['message' => 'Order updated']);
     }

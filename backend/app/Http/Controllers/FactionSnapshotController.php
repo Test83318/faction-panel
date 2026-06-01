@@ -23,6 +23,7 @@ class FactionSnapshotController extends Controller
 
         return response()->json(
             FactionSnapshot::where('faction_id', $faction->id)
+                ->select('id', 'faction_id', 'name', 'description', 'type', 'created_by', 'created_at', 'updated_at')
                 ->with('creator')
                 ->orderBy('created_at', 'desc')
                 ->get()
@@ -87,6 +88,7 @@ class FactionSnapshotController extends Controller
         if ($type === 'auto') {
             $oldSnapshots = FactionSnapshot::where('faction_id', $faction->id)
                 ->where('type', 'auto')
+                ->select('id')
                 ->orderBy('created_at', 'desc')
                 ->skip(7)
                 ->take(100) // SQLite requires a LIMIT if OFFSET is used

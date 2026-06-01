@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Roster;
+use App\Models\RosterRevision;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +12,10 @@ class RosterPermissionController extends Controller
 {
     public function index(Roster $roster)
     {
+        if ($roster->is_sandbox) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $faction = $roster->faction;
         if (! User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation') && $roster->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);
@@ -23,6 +28,10 @@ class RosterPermissionController extends Controller
 
     public function update(Request $request, Roster $roster)
     {
+        if ($roster->is_sandbox) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $faction = $roster->faction;
         if (! User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation') && $roster->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);
@@ -58,11 +67,17 @@ class RosterPermissionController extends Controller
             $rosterPermission->getDirty()
         );
 
+        RosterRevision::logRevision($roster->id, 'Updated permissions', Auth::id());
+
         return response()->json($rosterPermission->load(['group', 'role']));
     }
 
     public function destroy(Roster $roster, $permissionId)
     {
+        if ($roster->is_sandbox) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $faction = $roster->faction;
         if (! User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation') && $roster->created_by !== Auth::id()) {
             return response()->json(['message' => 'Forbidden'], 403);
@@ -71,6 +86,8 @@ class RosterPermissionController extends Controller
         $permission = $roster->rosterPermissions()->findOrFail($permissionId);
         $this->audit('roster_permission.delete', "Deleted permissions on roster '{$roster->name}'", $faction->id, $permission, $permission->getAttributes());
         $permission->delete();
+
+        RosterRevision::logRevision($roster->id, 'Deleted permissions entry', Auth::id());
 
         return response()->json(['message' => 'Permission removed']);
     }

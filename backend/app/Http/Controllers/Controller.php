@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\Faction;
+use App\Models\Roster;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 
@@ -17,6 +18,21 @@ abstract class Controller
         ?array $oldValues = null,
         ?array $newValues = null
     ): void {
+        // Bypass manual audit logs for sandbox rosters, sections, and contents
+        if ($auditable) {
+            $isSandbox = false;
+            if ($auditable instanceof Roster && $auditable->is_sandbox) {
+                $isSandbox = true;
+            } elseif (method_exists($auditable, 'roster') && $auditable->roster?->is_sandbox) {
+                $isSandbox = true;
+            } elseif (method_exists($auditable, 'section') && $auditable->section?->roster?->is_sandbox) {
+                $isSandbox = true;
+            }
+            if ($isSandbox) {
+                return;
+            }
+        }
+
         // If factionId is null, try to infer it from the request route parameters or model context
         if (! $factionId) {
             $route = request()->route();
