@@ -7,7 +7,6 @@ use App\Models\FactionRecordDatabase;
 use App\Models\FactionRecordDatabasePermission;
 use App\Models\FactionRecordEntry;
 use App\Models\Form;
-use App\Models\FormAutomation;
 use App\Models\FormComment;
 use App\Models\FormField;
 use App\Models\FormResponse;
@@ -220,7 +219,7 @@ class FactionSeeder extends Seeder
         ]);
 
         // Helper function to seed roles and their permissions
-        $seedFactionRoles = function (Faction $faction, array $roleConfig) use ($superadmin) {
+        $seedFactionRoles = function (Faction $faction, array $roleConfig) {
             $roles = [];
             foreach ($roleConfig as $config) {
                 $role = Role::updateOrCreate(
@@ -249,6 +248,7 @@ class FactionSeeder extends Seeder
                 }
                 $roles[$config['name']] = $role;
             }
+
             return $roles;
         };
 

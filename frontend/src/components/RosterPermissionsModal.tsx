@@ -20,6 +20,7 @@ const AVAILABLE_PERMISSIONS = [
     { key: 'manage_columns', name: 'Manage Columns', description: 'Configure table columns and types' },
     { key: 'manage_layout', name: 'Manage Layout', description: 'Reorder sections and manage row organization' },
     { key: 'view_hidden_data', name: 'View Hidden Data', description: 'See content in columns marked as hidden' },
+    { key: 'revision_history', name: 'Revision History', description: 'Access the roster revision history' },
 ];
 
 export const RosterPermissionsModal: React.FC<RosterPermissionsModalProps> = ({ roster, shortname, onClose }) => {

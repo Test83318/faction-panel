@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence, Reorder } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../api';
 import { Roster as RosterType } from '../types';
-import { Plus, Pencil, MoreVertical, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Database, Menu, Flag, FileCode2, Calculator, Minus, X } from 'lucide-react';
+import { Plus, Pencil, MoreVertical, Layout, GripVertical, ChevronLeft, ChevronRight, Trash2, ShieldAlert, Shield, Settings2, Database, Menu, Flag, FileCode2, Calculator, Minus, X, Clock } from 'lucide-react';
 import { SectionCard } from './SectionCard';
 import { SyncGridRow } from './SyncGridRow';
 import RosterLayoutModal from './RosterLayoutModal';
@@ -51,6 +52,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
     flags,
     onlineUsers = []
 }) => {
+  const navigate = useNavigate();
   const canCreate = permissions.includes('create_roster');
   const canModifyVariables = permissions.includes('modify_roster_variables');
   const canModifyFlags = permissions.includes('modify_roster_flags');
@@ -1222,6 +1224,17 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                         className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface rounded transition-colors"
                                     >
                                         <Shield size={12} /> Permissions
+                                    </button>
+                                )}
+                                {(isGlobalMod || roster.user_roster_permissions?.revision_history) && (
+                                    <button 
+                                        onClick={() => {
+                                            setActiveMenuId(null);
+                                            navigate(`/${shortname}/rosters/${roster.id}/revisions`);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-text hover:bg-surface rounded transition-colors"
+                                    >
+                                        <Clock size={12} /> View Revision History
                                     </button>
                                 )}
                                 {(isGlobalMod || roster.user_roster_permissions?.modify_roster) && (

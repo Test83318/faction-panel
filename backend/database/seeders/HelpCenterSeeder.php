@@ -7,7 +7,6 @@ use App\Models\HelpCategory;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class HelpCenterSeeder extends Seeder
 {

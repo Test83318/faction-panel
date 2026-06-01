@@ -7,6 +7,7 @@ use App\Models\FactionRecordDatabase;
 use App\Models\Roster;
 use App\Models\RosterContent;
 use App\Models\RosterDataset;
+use App\Models\RosterRevision;
 use App\Models\RosterSection;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -667,6 +668,8 @@ class RosterController extends Controller
         }
 
         $this->audit('roster.update', "Updated roster '{$roster->name}' for faction '{$roster->faction->name}'", null, $roster, $oldValues, $roster->getDirty());
+
+        RosterRevision::logRevision($roster->id, 'Updated roster settings', Auth::id());
 
         return response()->json($roster);
     }

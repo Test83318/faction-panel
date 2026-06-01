@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\RosterContent;
+use App\Models\RosterRevision;
 use App\Models\RosterSection;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -53,6 +54,8 @@ class RosterContentController extends Controller
         ]);
 
         $this->audit('roster.content.create', "Created roster content for section '{$section->name}' in roster '{$roster->name}'", null, $content, null, $content->getAttributes());
+
+        RosterRevision::logRevision($roster->id, "Created row in section '{$section->name}'", Auth::id());
 
         return response()->json($content, 201);
     }
@@ -130,6 +133,8 @@ class RosterContentController extends Controller
 
         $this->audit('roster.content.update', "Updated roster content in section '{$content->section->name}' in roster '{$roster->name}'", null, $content, $oldValues, $content->getDirty());
 
+        RosterRevision::logRevision($roster->id, "Updated row in section '{$content->section->name}'", Auth::id());
+
         return response()->json($content);
     }
 
@@ -183,6 +188,8 @@ class RosterContentController extends Controller
 
         $content->delete();
 
+        RosterRevision::logRevision($roster->id, "Deleted row from section '{$content->section->name}'", Auth::id());
+
         return response()->json(['message' => 'Content deleted']);
     }
 
@@ -205,6 +212,8 @@ class RosterContentController extends Controller
         }
 
         $this->audit('roster.content.reorder', "Reordered roster content for section '{$section->name}' in roster '{$roster->name}'", null, $section, null, $request->content_ids);
+
+        RosterRevision::logRevision($roster->id, "Reordered rows in section '{$section->name}'", Auth::id());
 
         return response()->json(['message' => 'Reordered successfully']);
     }
@@ -271,6 +280,8 @@ class RosterContentController extends Controller
         }
 
         $this->audit('roster.content.batch_update', "Batch updated roster content for section '{$section->name}' in roster '{$roster->name}'", null, $section, null, $request->contents);
+
+        RosterRevision::logRevision($roster->id, "Batch updated rows in section '{$section->name}'", Auth::id());
 
         return response()->json(['message' => 'Batch update successful']);
     }

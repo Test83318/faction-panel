@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Roster;
+use App\Models\RosterRevision;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -58,6 +59,8 @@ class RosterPermissionController extends Controller
             $rosterPermission->getDirty()
         );
 
+        RosterRevision::logRevision($roster->id, 'Updated permissions', Auth::id());
+
         return response()->json($rosterPermission->load(['group', 'role']));
     }
 
@@ -71,6 +74,8 @@ class RosterPermissionController extends Controller
         $permission = $roster->rosterPermissions()->findOrFail($permissionId);
         $this->audit('roster_permission.delete', "Deleted permissions on roster '{$roster->name}'", $faction->id, $permission, $permission->getAttributes());
         $permission->delete();
+
+        RosterRevision::logRevision($roster->id, 'Deleted permissions entry', Auth::id());
 
         return response()->json(['message' => 'Permission removed']);
     }

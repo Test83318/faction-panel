@@ -20,6 +20,7 @@ import HelpCategoryView from './components/HelpCategoryView';
 import FactionRoster from './components/FactionRoster';
 import FactionRecords from './components/FactionRecords';
 import FactionSnapshots from './components/FactionSnapshots';
+import RosterRevisions from './components/RosterRevisions';
 import GroupManagement from './components/GroupManagement';
 import Administration from './components/Administration';
 import GtawSync from './components/GtawSync';
@@ -258,6 +259,11 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
               <FactionSnapshots />
             </main>
           ) : <Navigate to={`/${shortname}/roster`} />
+        } />
+        <Route path="rosters/:rosterId/revisions" element={
+          <main className="main flex-1 overflow-auto p-5">
+            <RosterRevisions datasets={datasets} recordData={recordData} user={user} />
+          </main>
         } />
         <Route path="gtaw-sync" element={
           canViewGtawSync ? (
