@@ -15,11 +15,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'username' => 'testuser',
-            'is_superadmin' => true,
+        $this->call([
+            MembershipTierSeeder::class,
+            SiteSettingSeeder::class,
+            ChangelogSeeder::class,
+            CreditSeeder::class,
+            HelpCenterSeeder::class,
+            FactionSeeder::class,
         ]);
     }
 }
