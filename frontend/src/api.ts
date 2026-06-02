@@ -9,6 +9,10 @@ api.interceptors.request.use((config) => {
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
+    const authKey = import.meta.env.VITE_API_AUTH_KEY;
+    if (authKey) {
+        config.headers['X-API-Auth-Key'] = authKey;
+    }
     return config;
 });
 

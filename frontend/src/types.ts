@@ -458,3 +458,40 @@ export interface FormAutomation {
   action_status?: FormStatus;
   action_group?: Group;
 }
+
+export interface Notification {
+  id: number;
+  faction_id: number | null;
+  notification_scheme_id: number | null;
+  scheme_name?: string | null;
+  type: 'system' | 'user' | 'faction';
+  title: string;
+  message: string;
+  data?: any;
+  is_read: boolean;
+  created_at: string;
+  faction_shortname?: string | null;
+}
+
+export interface NotificationSchemePermission {
+  id: number;
+  notification_scheme_id: number;
+  role_id: number | null;
+  group_id: number | null;
+  permissions: string[];
+  role?: Role;
+  group?: Group;
+}
+
+export interface NotificationScheme {
+  id: number;
+  faction_id: number;
+  name: string;
+  trigger_type: 'database_entry_created' | 'database_entry_updated' | 'roster_row_created' | 'roster_row_updated' | 'faction_updated';
+  target_id: number | null;
+  conditions: any[] | null;
+  read_type: 'global' | 'user_bound';
+  text_template: string | null;
+  created_by: number | null;
+  permissions?: NotificationSchemePermission[];
+}

@@ -22,7 +22,7 @@ class AuditLogController extends Controller
 
         $query = AuditLog::with('user')
             ->where('faction_id', $faction->id)
-            ->latest();
+            ->latest('id');
 
         if ($request->filled('event')) {
             $query->where('event', $request->event);

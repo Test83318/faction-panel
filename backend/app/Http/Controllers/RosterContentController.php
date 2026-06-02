@@ -57,6 +57,12 @@ class RosterContentController extends Controller
 
         RosterRevision::logRevision($roster->id, "Created row in section '{$section->name}'", Auth::id());
 
+        try {
+            \App\Services\NotificationService::triggerRosterContentEvent($content, 'created');
+        } catch (\Exception $e) {
+            \Log::error("Failed triggering notification: " . $e->getMessage());
+        }
+
         return response()->json($content, 201);
     }
 
@@ -86,7 +92,7 @@ class RosterContentController extends Controller
             $lastUpdated = Carbon::parse($validated['last_updated_at']);
 
             // Get the last user who updated this
-            $lastAudit = $content->audits()->where('event', 'updated')->latest()->first();
+            $lastAudit = $content->audits()->where('event', 'updated')->latest('id')->first();
             $lastUpdatedByMe = $lastAudit && $lastAudit->user_id === $user->id;
 
             // Use timestamp comparison with 1s buffer for precision mismatches
@@ -134,6 +140,12 @@ class RosterContentController extends Controller
         $this->audit('roster.content.update', "Updated roster content in section '{$content->section->name}' in roster '{$roster->name}'", null, $content, $oldValues, $content->getDirty());
 
         RosterRevision::logRevision($roster->id, "Updated row in section '{$content->section->name}'", Auth::id());
+
+        try {
+            \App\Services\NotificationService::triggerRosterContentEvent($content, 'updated');
+        } catch (\Exception $e) {
+            \Log::error("Failed triggering notification: " . $e->getMessage());
+        }
 
         return response()->json($content);
     }
@@ -277,6 +289,12 @@ class RosterContentController extends Controller
             }
 
             $contentModel->update($updateData);
+
+            try {
+                \App\Services\NotificationService::triggerRosterContentEvent($contentModel, 'updated');
+            } catch (\Exception $e) {
+                \Log::error("Failed triggering notification: " . $e->getMessage());
+            }
         }
 
         $this->audit('roster.content.batch_update', "Batch updated roster content for section '{$section->name}' in roster '{$roster->name}'", null, $section, null, $request->contents);

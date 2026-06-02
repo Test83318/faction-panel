@@ -6,6 +6,7 @@ use App\Models\Faction;
 use App\Models\MembershipTier;
 use App\Models\SiteSetting;
 use App\Models\User;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -241,5 +242,56 @@ class SuperadminController extends Controller
             'token_type' => 'Bearer',
             'user' => $user->load('groups', 'factions'),
         ]);
+    }
+
+    public function getSystemNotifications(Request $request)
+    {
+        $this->checkSuperadmin($request);
+
+        $this->audit('superadmin.notifications.view', 'Viewed system notifications list');
+
+        return Notification::where('type', 'system')
+            ->with('user:id,username')
+            ->orderBy('created_at', 'desc')
+            ->get();
+    }
+
+    public function storeSystemNotification(Request $request)
+    {
+        $this->checkSuperadmin($request);
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'message' => 'required|string',
+            'user_id' => 'nullable|integer|exists:users,id',
+        ]);
+
+        $notif = Notification::create([
+            'type' => 'system',
+            'title' => $validated['title'],
+            'message' => $validated['message'],
+            'user_id' => $validated['user_id'] ?? null,
+            'is_read' => false,
+        ]);
+
+        $targetText = $notif->user_id ? "user '{$notif->user->username}'" : "all users";
+        $this->audit('superadmin.notifications.create', "Created system notification '{$notif->title}' targeting {$targetText}", null, $notif, null, $notif->getAttributes());
+
+        return response()->json($notif->load('user:id,username'), 201);
+    }
+
+    public function deleteSystemNotification(Request $request, Notification $notification)
+    {
+        $this->checkSuperadmin($request);
+
+        if ($notification->type !== 'system') {
+            return response()->json(['message' => 'Invalid notification type.'], 400);
+        }
+
+        $this->audit('superadmin.notifications.delete', "Deleted system notification '{$notification->title}'", null, $notification, $notification->getAttributes());
+
+        $notification->delete();
+
+        return response()->json(['message' => 'System notification deleted successfully']);
     }
 }

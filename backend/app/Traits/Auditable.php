@@ -35,7 +35,7 @@ trait Auditable
 
     public function audits()
     {
-        return $this->morphMany(AuditLog::class, 'auditable');
+        return $this->morphMany(AuditLog::class, 'auditable')->latest('id');
     }
 
     public function logAudit(string $event, ?array $oldValues, ?array $newValues): void

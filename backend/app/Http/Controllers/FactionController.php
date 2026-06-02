@@ -740,6 +740,12 @@ class FactionController extends Controller
 
         $this->audit('faction.update', "Updated details for faction '{$faction->name}'", $faction->id, $faction, $oldValues, $faction->getDirty());
 
+        try {
+            \App\Services\NotificationService::triggerFactionEvent($faction, 'updated');
+        } catch (\Exception $e) {
+            \Log::error("Failed triggering notification: " . $e->getMessage());
+        }
+
         return $faction;
     }
 
