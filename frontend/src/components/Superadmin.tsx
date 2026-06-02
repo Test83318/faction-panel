@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import Loading from './Loading';
 import toast from 'react-hot-toast';
-import { Shield, ArrowLeft, Users, Building2, Edit2, Trash2, UserPlus, Check, X, CreditCard, Plus, Settings, ScrollText, BookOpen } from 'lucide-react';
+import { Shield, ArrowLeft, Users, Building2, Edit2, Trash2, UserPlus, Check, X, CreditCard, Plus, Settings, ScrollText, BookOpen, Bell } from 'lucide-react';
 import { User, Faction, MembershipTier } from '../types';
 import HelpAdmin from './HelpAdmin';
 import CreditAdmin from './CreditAdmin';
@@ -18,7 +18,7 @@ interface SuperadminProps {
 const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'factions' | 'users' | 'tiers' | 'settings' | 'help' | 'credits' | 'changelog'>('factions');
+    const [activeTab, setActiveTab] = useState<'factions' | 'users' | 'tiers' | 'settings' | 'help' | 'credits' | 'changelog' | 'notifications'>('factions');
     
     const [factions, setFactions] = useState<Faction[]>([]);
     const [usersList, setUsersList] = useState<User[]>([]);
@@ -186,6 +186,162 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
         }
     };
 
+    const SystemNotificationsTab = () => {
+        const [sysNotifications, setSysNotifications] = useState<any[]>([]);
+        const [sysLoading, setSysLoading] = useState(true);
+        const [sysTitle, setSysTitle] = useState('');
+        const [sysMessage, setSysMessage] = useState('');
+        const [sysUserId, setSysUserId] = useState('');
+        const [sysProcessing, setSysProcessing] = useState(false);
+
+        const fetchSysNotifications = async () => {
+            setSysLoading(true);
+            try {
+                const res = await api.get('/superadmin/notifications');
+                setSysNotifications(res.data);
+            } catch (err) {
+                console.error(err);
+                toast.error('Failed to load system notifications');
+            } finally {
+                setSysLoading(false);
+            }
+        };
+
+        useEffect(() => {
+            fetchSysNotifications();
+        }, []);
+
+        const handleSubmitSysNotif = async (e: React.FormEvent) => {
+            e.preventDefault();
+            if (!sysTitle.trim() || !sysMessage.trim()) return;
+
+            setSysProcessing(true);
+            const loadToast = toast.loading('Issuing notification...');
+            try {
+                await api.post('/superadmin/notifications', {
+                    title: sysTitle,
+                    message: sysMessage,
+                    user_id: sysUserId ? parseInt(sysUserId) : null
+                });
+                toast.success('System notification issued successfully', { id: loadToast });
+                setSysTitle('');
+                setSysMessage('');
+                setSysUserId('');
+                fetchSysNotifications();
+            } catch (err: any) {
+                toast.error(err.response?.data?.message || 'Failed to issue notification', { id: loadToast });
+            } finally {
+                setSysProcessing(false);
+            }
+        };
+
+        const handleDeleteSysNotif = async (id: number) => {
+            if (!window.confirm('Are you sure you want to delete this system notification?')) return;
+            const loadToast = toast.loading('Deleting...');
+            try {
+                await api.delete(`/superadmin/notifications/${id}`);
+                toast.success('System notification deleted', { id: loadToast });
+                fetchSysNotifications();
+            } catch (err: any) {
+                toast.error(err.response?.data?.message || 'Failed to delete notification', { id: loadToast });
+            }
+        };
+
+        return (
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8">
+                <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                    <h3 className="text-xl font-black uppercase tracking-tighter italic mb-4 flex items-center gap-2">
+                        <Bell className="text-accent" size={20} />
+                        Active System Notifications
+                    </h3>
+                    
+                    {sysLoading ? (
+                        <div className="py-12 text-center text-muted font-bold text-xs uppercase tracking-widest">Loading...</div>
+                    ) : sysNotifications.length === 0 ? (
+                        <div className="py-12 text-center text-muted font-bold text-xs uppercase tracking-widest border border-dashed border-border rounded-xl">No active system notifications</div>
+                    ) : (
+                        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                            {sysNotifications.map((n: any) => (
+                                <div key={n.id} className="p-4 border border-border rounded-xl bg-surface/30 relative flex justify-between items-start">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-xs">{n.title}</span>
+                                            {n.user_id ? (
+                                                <span className="px-1.5 py-0.5 bg-accent/15 border border-accent/20 rounded font-black text-[7px] uppercase tracking-widest text-accent">
+                                                    Targeted: {n.user?.username}
+                                                </span>
+                                            ) : (
+                                                <span className="px-1.5 py-0.5 bg-yellow-500/15 border border-yellow-500/20 rounded font-black text-[7px] uppercase tracking-widest text-[#FFD700]">
+                                                    Broadcast (All Users)
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-muted font-medium mt-1">{n.message}</p>
+                                        <span className="text-[8px] text-muted/60 font-bold block mt-2">{new Date(n.created_at).toLocaleString()}</span>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleDeleteSysNotif(n.id)}
+                                        className="p-1.5 text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
+                                    >
+                                        <Trash2 size={13} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="bg-card border border-border rounded-xl p-6 shadow-sm h-fit">
+                    <h3 className="text-lg font-black uppercase tracking-tighter italic mb-4 flex items-center gap-2">
+                        <Plus className="text-accent" size={18} />
+                        Issue System Notification
+                    </h3>
+                    <form onSubmit={handleSubmitSysNotif} className="space-y-4">
+                        <div>
+                          <label className="block text-[9px] font-black uppercase tracking-widest text-muted mb-1.5">Notification Title</label>
+                          <input
+                            type="text"
+                            value={sysTitle}
+                            onChange={e => setSysTitle(e.target.value)}
+                            placeholder="e.g. System Maintenance Scheduled"
+                            className="w-full bg-surface border border-border p-3 rounded-xl text-xs font-bold"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-black uppercase tracking-widest text-muted mb-1.5">Notification Message</label>
+                          <textarea
+                            value={sysMessage}
+                            onChange={e => setSysMessage(e.target.value)}
+                            placeholder="Type details of the release or maintenance..."
+                            rows={4}
+                            className="w-full bg-surface border border-border p-3 rounded-xl text-xs font-medium"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-black uppercase tracking-widest text-muted mb-1.5">Target User ID (Optional)</label>
+                          <input
+                            type="number"
+                            value={sysUserId}
+                            onChange={e => setSysUserId(e.target.value)}
+                            placeholder="Leave blank to broadcast to everyone"
+                            className="w-full bg-surface border border-border p-3 rounded-xl text-xs font-mono"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={sysProcessing}
+                          className="w-full py-3 bg-accent hover:bg-accent/90 text-white rounded-xl font-bold uppercase tracking-widest text-[9px] transition shadow-lg shadow-accent/20 disabled:opacity-50"
+                        >
+                          {sysProcessing ? 'Issuing...' : 'Issue Notification'}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        );
+    };
+
     if (loading) return <Loading message="Loading Superadmin Panel..." />;
 
     return (
@@ -274,6 +430,16 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                     >
                         <ScrollText size={14} /> Changelog
                     </button>
+                    <button
+                        onClick={() => setActiveTab('notifications')}
+                        className={`flex items-center gap-2 px-6 py-3 font-bold text-[10px] uppercase tracking-widest transition-all ${
+                            activeTab === 'notifications'
+                                ? 'border-b-2 border-accent text-accent bg-accent/5'
+                                : 'text-muted hover:text-text hover:bg-surface'
+                        }`}
+                    >
+                        <Bell size={14} /> System Notifications
+                    </button>
                 </div>
 
                 {/* Help Center Tab */}
@@ -289,6 +455,11 @@ const Superadmin: React.FC<SuperadminProps> = ({ user, onLogin }) => {
                 {/* Changelog Tab */}
                 {activeTab === 'changelog' && (
                     <ChangelogAdmin />
+                )}
+
+                {/* Notifications Tab */}
+                {activeTab === 'notifications' && (
+                    <SystemNotificationsTab />
                 )}
 
                 {/* Settings Tab */}

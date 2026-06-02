@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
-import { Users, Settings, Layers, Database, History, RefreshCw, Camera, BarChart3, FileText, Sparkles } from 'lucide-react';
+import { Users, Settings, Layers, Database, History, RefreshCw, Camera, BarChart3, FileText, Sparkles, Bell } from 'lucide-react';
 
 interface SidebarProps {
   shortname: string;
@@ -13,6 +13,7 @@ interface SidebarProps {
   canViewStatistics?: boolean;
   canViewForms?: boolean;
   canViewSandboxRoster?: boolean;
+  canViewNotifications?: boolean;
   user: any | null;
   siteVersion?: string;
   customFooterText?: string | null;
@@ -29,6 +30,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   canViewStatistics = false,
   canViewForms = false,
   canViewSandboxRoster = false,
+  canViewNotifications = false,
   user, 
   siteVersion = '1.0.0', 
   customFooterText 
@@ -91,6 +93,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <Layers size={14} />
             Group Management
+          </NavLink>
+        )}
+
+        {canViewNotifications && (
+          <NavLink 
+            to={`/${shortname}/notifications`}
+            className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
+          >
+            <Bell size={14} />
+            Faction Notifications
           </NavLink>
         )}
 

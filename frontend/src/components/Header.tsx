@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Shield, Moon, Sun, LogOut, User, LogIn, ChevronDown, Settings, LayoutGrid, ShieldAlert, HelpCircle, Contrast, UserPlus } from 'lucide-react';
+import { Shield, Moon, Sun, LogOut, User, LogIn, ChevronDown, Settings, LayoutGrid, ShieldAlert, HelpCircle, Contrast, UserPlus, Bell, CheckCheck, ExternalLink } from 'lucide-react';
 import QuickSearch from './QuickSearch';
 import api from '../api';
 import toast from 'react-hot-toast';
@@ -58,6 +58,146 @@ export const Header: React.FC<HeaderProps> = ({
   const isFactionPage = !!branding?.shortname;
   const activeBanner = isDark ? bannerLogoDark : (bannerLogoLight || bannerLogoDark);
   const canJoin = isFactionPage && user && !userRole && branding?.access === 'joinable';
+
+  // Notifications State & Hooks
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [hasFactionAccess, setHasFactionAccess] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [activeTab, setActiveTab] = useState('system_user');
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const fetchNotifications = async () => {
+    if (!user) return;
+    try {
+      const res = await api.get('/notifications');
+      setNotifications(res.data.notifications);
+      setUnreadCount(res.data.unread_count);
+      setHasFactionAccess(res.data.has_faction_access);
+    } catch (err) {
+      console.error('Failed to fetch notifications', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  useEffect(() => {
+    const handleClickOutsideNotif = (event: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutsideNotif);
+    return () => document.removeEventListener('mousedown', handleClickOutsideNotif);
+  }, []);
+
+  const toggleNotifDropdown = async () => {
+    const nextShow = !showNotifications;
+    setShowNotifications(nextShow);
+    if (nextShow) {
+      await fetchNotifications();
+      if (!hasFactionAccess) {
+        try {
+          await api.post('/notifications/read-all');
+          setUnreadCount(0);
+          setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        } catch (err) {
+          console.error(err);
+        }
+      } else {
+        if (activeTab === 'system_user') {
+          markSystemUserRead();
+        } else {
+          const schemeId = parseInt(activeTab);
+          if (!isNaN(schemeId)) {
+            markSchemeRead(schemeId);
+          }
+        }
+      }
+    }
+  };
+
+  const markSystemUserRead = async () => {
+    try {
+      await api.post('/notifications/read-all');
+      setNotifications(prev =>
+        prev.map(n => (n.type !== 'faction' ? { ...n, is_read: true } : n))
+      );
+      setTimeout(recalculateUnread, 100);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const markSchemeRead = async (schemeId: number) => {
+    try {
+      await api.post(`/notifications/schemes/${schemeId}/read-all`);
+      setNotifications(prev =>
+        prev.map(n => (n.notification_scheme_id === schemeId ? { ...n, is_read: true } : n))
+      );
+      setTimeout(recalculateUnread, 100);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const recalculateUnread = () => {
+    setNotifications(prev => {
+      const unread = prev.filter(n => !n.is_read).length;
+      setUnreadCount(unread);
+      return prev;
+    });
+  };
+
+  const handleNotificationClick = async (notif: any) => {
+    if (!notif.is_read) {
+      try {
+        await api.post(`/notifications/${notif.id}/read`);
+        setNotifications(prev =>
+          prev.map(n => (n.id === notif.id ? { ...n, is_read: true } : n))
+        );
+        setTimeout(recalculateUnread, 100);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    if (notif.data) {
+      const short = notif.faction_shortname || branding?.shortname;
+      if (notif.data.database_id) {
+        navigate(`/${short}/records?database=${notif.data.database_id}`);
+      } else if (notif.data.roster_id) {
+        navigate(`/${short}/roster?roster=${notif.data.roster_id}`);
+      } else if (notif.data.faction_shortname) {
+        navigate(`/${notif.data.faction_shortname}/roster`);
+      }
+    }
+    setShowNotifications(false);
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    if (tab === 'system_user') {
+      markSystemUserRead();
+    } else {
+      const schemeId = parseInt(tab);
+      if (!isNaN(schemeId)) {
+        markSchemeRead(schemeId);
+      }
+    }
+  };
+
+  const uniqueSchemes = Array.from(
+    new Map(
+      notifications
+        .filter(n => n.type === 'faction' && n.notification_scheme_id)
+        .map(n => [n.notification_scheme_id, { id: n.notification_scheme_id, name: n.scheme_name }])
+    ).values()
+  );
 
   const handleJoin = async () => {
     setJoining(true);
@@ -157,6 +297,171 @@ export const Header: React.FC<HeaderProps> = ({
           <UserPlus size={12} />
           {joining ? '...' : 'Join Faction'}
         </button>
+      )}
+
+      {user && (
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={toggleNotifDropdown}
+            className={`p-1.5 transition-colors flex items-center gap-1.5 mr-2 relative rounded-lg ${showNotifications ? 'text-accent bg-border/20' : 'text-muted hover:text-accent hover:bg-border/10'}`}
+            title="Notifications"
+          >
+            <Bell size={18} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center border-2 border-surface animate-pulse">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {showNotifications && (
+            <div 
+              className={`absolute right-0 mt-2 bg-card border border-border rounded-xl shadow-2xl z-[400] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 ${hasFactionAccess ? 'w-[540px]' : 'w-80'}`}
+              style={{ top: '100%' }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface/50">
+                <span className="text-[10px] font-black uppercase tracking-widest text-text">Notifications</span>
+                {unreadCount > 0 && (
+                  <button 
+                    onClick={async () => {
+                      if (!hasFactionAccess) {
+                        try {
+                          await api.post('/notifications/read-all');
+                          setNotifications(prev => prev.map(n => ({...n, is_read: true})));
+                          setUnreadCount(0);
+                        } catch (err) {
+                          console.error(err);
+                        }
+                      } else {
+                        if (activeTab === 'system_user') {
+                          markSystemUserRead();
+                        } else {
+                          markSchemeRead(parseInt(activeTab));
+                        }
+                      }
+                    }}
+                    className="flex items-center gap-1 text-[9px] font-black uppercase text-accent hover:opacity-85 transition-opacity"
+                  >
+                    <CheckCheck size={11} />
+                    Mark tab as read
+                  </button>
+                )}
+              </div>
+
+              {/* Body */}
+              {!hasFactionAccess ? (
+                <div className="max-h-80 overflow-y-auto divide-y divide-border/50">
+                  {notifications.length === 0 ? (
+                    <div className="p-8 text-center text-muted font-bold text-[10px] uppercase tracking-widest">No notifications</div>
+                  ) : (
+                    notifications.map(notif => (
+                      <div 
+                        key={notif.id}
+                        onClick={() => handleNotificationClick(notif)}
+                        className={`p-3 text-left cursor-pointer transition-colors hover:bg-border/20 relative group ${!notif.is_read ? 'bg-accent/5' : ''}`}
+                      >
+                        {!notif.is_read && <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-accent" />}
+                        <div className="pl-3">
+                          <p className="text-[10px] font-bold text-text truncate pr-4">{notif.title}</p>
+                          <p className="text-[9px] text-muted font-medium mt-0.5 line-clamp-2">{notif.message}</p>
+                          <span className="text-[8px] text-muted/60 font-bold block mt-1.5">{new Date(notif.created_at).toLocaleString()}</span>
+                        </div>
+                        {notif.data && (
+                          <ExternalLink size={10} className="absolute right-3 top-3 text-muted/40 group-hover:text-accent transition-colors" />
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-[180px_1fr] h-96">
+                  {/* Left panel tabs */}
+                  <div className="border-r border-border bg-surface/30 overflow-y-auto p-1.5 space-y-1">
+                    <button
+                      onClick={() => handleTabChange('system_user')}
+                      className={`w-full text-left p-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-between ${activeTab === 'system_user' ? 'bg-accent text-white shadow-md' : 'text-muted hover:bg-border/30'}`}
+                    >
+                      <span className="truncate mr-1">System & User</span>
+                      {notifications.filter(n => n.type !== 'faction' && !n.is_read).length > 0 && (
+                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full ${activeTab === 'system_user' ? 'bg-white text-accent' : 'bg-red-500 text-white'}`}>
+                          {notifications.filter(n => n.type !== 'faction' && !n.is_read).length}
+                        </span>
+                      )}
+                    </button>
+
+                    {uniqueSchemes.map((scheme: any) => {
+                      const count = notifications.filter(n => n.notification_scheme_id === scheme.id && !n.is_read).length;
+                      return (
+                        <button
+                          key={scheme.id}
+                          onClick={() => handleTabChange(String(scheme.id))}
+                          className={`w-full text-left p-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-between ${activeTab === String(scheme.id) ? 'bg-accent text-white shadow-md' : 'text-muted hover:bg-border/30'}`}
+                        >
+                          <span className="truncate mr-1">{scheme.name}</span>
+                          {count > 0 && (
+                            <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full ${activeTab === String(scheme.id) ? 'bg-white text-accent' : 'bg-red-500 text-white'}`}>
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Right panel list */}
+                  <div className="overflow-y-auto divide-y divide-border/50 h-full">
+                    {activeTab === 'system_user' ? (
+                      notifications.filter(n => n.type !== 'faction').length === 0 ? (
+                        <div className="h-full flex items-center justify-center p-8 text-center text-muted font-bold text-[10px] uppercase tracking-widest">No notifications</div>
+                      ) : (
+                        notifications.filter(n => n.type !== 'faction').map(notif => (
+                          <div 
+                            key={notif.id}
+                            onClick={() => handleNotificationClick(notif)}
+                            className={`p-3 text-left cursor-pointer transition-colors hover:bg-border/20 relative group ${!notif.is_read ? 'bg-accent/5' : ''}`}
+                          >
+                            {!notif.is_read && <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-accent" />}
+                            <div className="pl-3">
+                              <p className="text-[10px] font-bold text-text truncate pr-4">{notif.title}</p>
+                              <p className="text-[9px] text-muted font-medium mt-0.5 line-clamp-2">{notif.message}</p>
+                              <span className="text-[8px] text-muted/60 font-bold block mt-1.5">{new Date(notif.created_at).toLocaleString()}</span>
+                            </div>
+                            {notif.data && (
+                              <ExternalLink size={10} className="absolute right-3 top-3 text-muted/40 group-hover:text-accent transition-colors" />
+                            )}
+                          </div>
+                        ))
+                      )
+                    ) : (
+                      notifications.filter(n => n.notification_scheme_id === parseInt(activeTab)).length === 0 ? (
+                        <div className="h-full flex items-center justify-center p-8 text-center text-muted font-bold text-[10px] uppercase tracking-widest">No notifications</div>
+                      ) : (
+                        notifications.filter(n => n.notification_scheme_id === parseInt(activeTab)).map(notif => (
+                          <div 
+                            key={notif.id}
+                            onClick={() => handleNotificationClick(notif)}
+                            className={`p-3 text-left cursor-pointer transition-colors hover:bg-border/20 relative group ${!notif.is_read ? 'bg-accent/5' : ''}`}
+                          >
+                            {!notif.is_read && <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-accent" />}
+                            <div className="pl-3">
+                              <p className="text-[10px] font-bold text-text truncate pr-4">{notif.title}</p>
+                              <p className="text-[9px] text-muted font-medium mt-0.5 line-clamp-2">{notif.message}</p>
+                              <span className="text-[8px] text-muted/60 font-bold block mt-1.5">{new Date(notif.created_at).toLocaleString()}</span>
+                            </div>
+                            {notif.data && (
+                              <ExternalLink size={10} className="absolute right-3 top-3 text-muted/40 group-hover:text-accent transition-colors" />
+                            )}
+                          </div>
+                        ))
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {user && (

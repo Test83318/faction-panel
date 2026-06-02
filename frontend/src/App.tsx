@@ -27,10 +27,11 @@ import GtawSync from './components/GtawSync';
 import AuditLogs from './components/AuditLogs';
 import Statistics from './components/Statistics';
 import StatisticsDashboard from './components/StatisticsDashboard';
-import FactionForms from './components/FactionForms';
 import Welcome from './components/Welcome';
 import Credits from './components/Credits';
 import Changelog from './components/Changelog';
+import FactionForms from './components/FactionForms';
+import FactionNotifications from './components/FactionNotifications';
 import GlobalLayout from './layouts/GlobalLayout';
 import FactionLayout from './layouts/FactionLayout';
 import { ConfirmationProvider } from './components/ConfirmationProvider';
@@ -210,6 +211,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
   const canViewSnapshots = user?.is_superadmin || permissions.includes('view_snapshots') || permissions.includes('administrator');
   const canViewGtawSync = (user?.is_superadmin || permissions.includes('sync_gtaw')) && factionData?.gtaw_faction_id;
   const canViewSandboxRoster = user?.is_superadmin || permissions.includes('utilize_sandbox_rosters');
+  const canViewNotifications = user?.is_superadmin || permissions.includes('view_notifications') || permissions.includes('configure_notifications') || permissions.includes('administrator');
 
   if (location.pathname === `/${shortname}`) {
     return <Navigate to={`/${shortname}/roster`} replace />;
@@ -234,6 +236,7 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
       canViewGtawSync={canViewGtawSync}
       canViewForms={canViewForms}
       canViewSandboxRoster={canViewSandboxRoster}
+      canViewNotifications={canViewNotifications}
       siteVersion={siteVersion}
     >
       <Routes>
@@ -344,6 +347,13 @@ const DashboardWrapper = ({ user, onLogout, isDark, toggleTheme, highContrast, t
           canViewAdmin ? (
             <main className="main flex-1 overflow-auto p-5">
               <Administration faction={factionData} user={user} permissions={permissions} />
+            </main>
+          ) : <Navigate to={`/${shortname}/roster`} />
+        } />
+        <Route path="notifications" element={
+          canViewNotifications ? (
+            <main className="main flex-1 overflow-auto p-5">
+              <FactionNotifications shortname={shortname!} user={user} permissions={permissions} />
             </main>
           ) : <Navigate to={`/${shortname}/roster`} />
         } />

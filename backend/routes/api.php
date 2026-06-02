@@ -37,6 +37,8 @@ use App\Http\Controllers\StatisticsPermissionController;
 use App\Http\Controllers\StatisticsWidgetController;
 use App\Http\Controllers\SuperadminController;
 use App\Http\Controllers\UploadController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\NotificationSchemeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/setup/status', [SetupController::class, 'status']);
@@ -83,6 +85,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/superadmin/factions/{faction}', [SuperadminController::class, 'updateFaction']);
     Route::delete('/superadmin/factions/{faction}', [SuperadminController::class, 'deleteFaction']);
     Route::post('/superadmin/impersonate/{user}', [SuperadminController::class, 'impersonate']);
+
+    // Superadmin System Notifications
+    Route::get('/superadmin/notifications', [SuperadminController::class, 'getSystemNotifications']);
+    Route::post('/superadmin/notifications', [SuperadminController::class, 'storeSystemNotification']);
+    Route::delete('/superadmin/notifications/{notification}', [SuperadminController::class, 'deleteSystemNotification']);
 
     // Site Settings
     Route::get('/superadmin/settings', [SuperadminController::class, 'getSettings']);
@@ -323,4 +330,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/articles/{article}', [HelpAdminController::class, 'updateArticle']);
         Route::delete('/articles/{article}', [HelpAdminController::class, 'deleteArticle']);
     });
+
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'read']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'readAll']);
+    Route::post('/notifications/schemes/{scheme}/read-all', [NotificationController::class, 'readScheme']);
+
+    // Notification Schemes
+    Route::get('/factions/{shortname}/notification-schemes', [NotificationSchemeController::class, 'index']);
+    Route::post('/factions/{shortname}/notification-schemes', [NotificationSchemeController::class, 'store']);
+    Route::put('/notification-schemes/{scheme}', [NotificationSchemeController::class, 'update']);
+    Route::delete('/notification-schemes/{scheme}', [NotificationSchemeController::class, 'destroy']);
 });
