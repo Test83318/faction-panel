@@ -722,50 +722,132 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
                                                                             </div>
                                                                         </div>
                                                                         <div className="p-4 space-y-2">
-                                                                            {(group.conditions || []).map((cond: any, cIdx: number) => (
-                                                                                <div key={cond.id} className="flex items-center gap-3">
-                                                                                    <div className="flex-1 grid grid-cols-3 gap-2">
-                                                                                        <select 
-                                                                                            value={cond.target_col}
-                                                                                            onChange={e => updateCondition(idx, gIdx, cIdx, { target_col: e.target.value })}
-                                                                                            className="bg-card border border-border rounded-lg px-2 py-1.5 text-[10px] font-bold"
-                                                                                        >
-                                                                                            <option value="">Select Column...</option>
-                                                                                            {getColumns(series.source_type, series.source_id).map((c: any) => (
-                                                                                                <option key={c.id} value={c.id}>{c.name}</option>
-                                                                                            ))}
-                                                                                        </select>
-                                                                                        <select 
-                                                                                            value={cond.match_type}
-                                                                                            onChange={e => updateCondition(idx, gIdx, cIdx, { match_type: e.target.value })}
-                                                                                            className="bg-card border border-border rounded-lg px-2 py-1.5 text-[10px]"
-                                                                                        >
-                                                                                            <option value="exists">Exists</option>
-                                                                                            <option value="equals">=</option>
-                                                                                            <option value="not_equals">!=</option>
-                                                                                            <option value="contains">Contains</option>
-                                                                                            <option value="is_null">Is Empty</option>
-                                                                                        </select>
-                                                                                        <input 
-                                                                                            value={cond.match_value}
-                                                                                            onChange={e => updateCondition(idx, gIdx, cIdx, { match_value: e.target.value })}
-                                                                                            className="bg-card border border-border rounded-lg px-2 py-1.5 text-[10px] outline-none focus:border-accent"
-                                                                                            placeholder="Value..."
-                                                                                            disabled={['exists', 'is_null'].includes(cond.match_type)}
-                                                                                        />
+                                                                            {(group.conditions || []).map((cond: any, cIdx: number) => {
+                                                                                const isInRoster = cond.match_type === 'in_roster';
+                                                                                return (
+                                                                                    <div key={cond.id} className="flex flex-col gap-2 bg-surface/10 p-3 rounded-xl border border-border/30">
+                                                                                        <div className="flex items-center gap-3">
+                                                                                            <div className="flex-1 grid grid-cols-3 gap-2">
+                                                                                                <select 
+                                                                                                    value={cond.target_col}
+                                                                                                    onChange={e => updateCondition(idx, gIdx, cIdx, { target_col: e.target.value })}
+                                                                                                    className="bg-card border border-border rounded-lg px-2 py-1.5 text-[10px] font-bold"
+                                                                                                >
+                                                                                                    <option value="">Select Column...</option>
+                                                                                                    {getColumns(series.source_type, series.source_id).map((c: any) => (
+                                                                                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                                                                                    ))}
+                                                                                                </select>
+                                                                                                <select 
+                                                                                                    value={cond.match_type}
+                                                                                                    onChange={e => updateCondition(idx, gIdx, cIdx, { match_type: e.target.value })}
+                                                                                                    className="bg-card border border-border rounded-lg px-2 py-1.5 text-[10px]"
+                                                                                                >
+                                                                                                    <option value="exists">Exists</option>
+                                                                                                    <option value="equals">=</option>
+                                                                                                    <option value="not_equals">!=</option>
+                                                                                                    <option value="contains">Contains</option>
+                                                                                                    <option value="is_null">Is Empty</option>
+                                                                                                    <option value="in_roster">Is In Roster</option>
+                                                                                                </select>
+                                                                                                <input 
+                                                                                                    value={isInRoster ? 'Joined to Roster' : cond.match_value || ''}
+                                                                                                    onChange={e => updateCondition(idx, gIdx, cIdx, { match_value: e.target.value })}
+                                                                                                    className="bg-card border border-border rounded-lg px-2 py-1.5 text-[10px] outline-none focus:border-accent"
+                                                                                                    placeholder="Value..."
+                                                                                                    disabled={isInRoster || ['exists', 'is_null'].includes(cond.match_type)}
+                                                                                                />
+                                                                                            </div>
+                                                                                            <button 
+                                                                                                type="button"
+                                                                                                onClick={() => {
+                                                                                                    const newConditions = group.conditions.filter((_: any, i: number) => i !== cIdx);
+                                                                                                    updateLogicGroup(idx, gIdx, { conditions: newConditions });
+                                                                                                }}
+                                                                                                className="p-1.5 text-muted hover:text-danger rounded-lg transition-colors"
+                                                                                            >
+                                                                                                <X size={14} />
+                                                                                            </button>
+                                                                                        </div>
+
+                                                                                        {isInRoster && (
+                                                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-surface/30 rounded-lg border border-border/40 text-[9px] animate-in fade-in duration-200">
+                                                                                                <div>
+                                                                                                    <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1">Target Roster</label>
+                                                                                                    <select
+                                                                                                        value={cond.relation_roster_id || ''}
+                                                                                                        onChange={e => updateCondition(idx, gIdx, cIdx, { relation_roster_id: e.target.value, relation_roster_col: '', relation_column: '' })}
+                                                                                                        className="w-full bg-card border border-border rounded px-2 py-1 text-[9px] font-bold"
+                                                                                                    >
+                                                                                                        <option value="">Select Roster...</option>
+                                                                                                        {rosters.map(r => (
+                                                                                                            <option key={r.id} value={r.id}>{r.name}</option>
+                                                                                                        ))}
+                                                                                                    </select>
+                                                                                                </div>
+                                                                                                <div>
+                                                                                                    <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1">Roster Join Column</label>
+                                                                                                    <select
+                                                                                                        value={cond.relation_roster_col || ''}
+                                                                                                        onChange={e => updateCondition(idx, gIdx, cIdx, { relation_roster_col: e.target.value })}
+                                                                                                        className="w-full bg-card border border-border rounded px-2 py-1 text-[9px] font-bold"
+                                                                                                        disabled={!cond.relation_roster_id}
+                                                                                                    >
+                                                                                                        <option value="">Select Join Column...</option>
+                                                                                                        {getColumns('roster', cond.relation_roster_id).map((c: any) => (
+                                                                                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                                                                                        ))}
+                                                                                                    </select>
+                                                                                                </div>
+                                                                                                <div className="md:col-span-2 border-t border-border/20 pt-2 mt-1">
+                                                                                                    <p className="font-black uppercase tracking-wider text-accent mb-2">Optional Roster Column Filter</p>
+                                                                                                    <div className="grid grid-cols-3 gap-2">
+                                                                                                        <div>
+                                                                                                            <label className="block text-[7px] font-black uppercase text-muted mb-0.5">Roster Column</label>
+                                                                                                            <select
+                                                                                                                value={cond.relation_column || ''}
+                                                                                                                onChange={e => updateCondition(idx, gIdx, cIdx, { relation_column: e.target.value })}
+                                                                                                                className="w-full bg-card border border-border rounded px-2 py-1 text-[9px] font-bold"
+                                                                                                                disabled={!cond.relation_roster_id}
+                                                                                                            >
+                                                                                                                <option value="">No filter...</option>
+                                                                                                                {getColumns('roster', cond.relation_roster_id).map((c: any) => (
+                                                                                                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                                                                                                ))}
+                                                                                                            </select>
+                                                                                                        </div>
+                                                                                                        <div>
+                                                                                                            <label className="block text-[7px] font-black uppercase text-muted mb-0.5">Match Type</label>
+                                                                                                            <select
+                                                                                                                value={cond.relation_match_type || 'equals'}
+                                                                                                                onChange={e => updateCondition(idx, gIdx, cIdx, { relation_match_type: e.target.value })}
+                                                                                                                className="w-full bg-card border border-border rounded px-2 py-1 text-[9px]"
+                                                                                                                disabled={!cond.relation_column}
+                                                                                                            >
+                                                                                                                <option value="exists">Exists</option>
+                                                                                                                <option value="equals">=</option>
+                                                                                                                <option value="not_equals">!=</option>
+                                                                                                                <option value="contains">Contains</option>
+                                                                                                                <option value="is_null">Is Empty</option>
+                                                                                                            </select>
+                                                                                                        </div>
+                                                                                                        <div>
+                                                                                                            <label className="block text-[7px] font-black uppercase text-muted mb-0.5">Match Value</label>
+                                                                                                            <input
+                                                                                                                value={cond.relation_value || ''}
+                                                                                                                onChange={e => updateCondition(idx, gIdx, cIdx, { relation_value: e.target.value })}
+                                                                                                                className="w-full bg-card border border-border rounded px-2 py-1 text-[9px] outline-none"
+                                                                                                                placeholder="Value..."
+                                                                                                                disabled={!cond.relation_column || ['exists', 'is_null'].includes(cond.relation_match_type)}
+                                                                                                            />
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        )}
                                                                                     </div>
-                                                                                    <button 
-                                                                                        type="button"
-                                                                                        onClick={() => {
-                                                                                            const newConditions = group.conditions.filter((_: any, i: number) => i !== cIdx);
-                                                                                            updateLogicGroup(idx, gIdx, { conditions: newConditions });
-                                                                                        }}
-                                                                                        className="p-1.5 text-muted hover:text-danger rounded-lg transition-colors"
-                                                                                    >
-                                                                                        <X size={14} />
-                                                                                    </button>
-                                                                                </div>
-                                                                            ))}
+                                                                                );
+                                                                            })}
                                                                             {group.conditions.length === 0 && (
                                                                                 <div className="py-4 text-center border-2 border-dashed border-border/30 rounded-xl">
                                                                                     <p className="text-[9px] font-black uppercase text-muted/50">No filters in this group</p>

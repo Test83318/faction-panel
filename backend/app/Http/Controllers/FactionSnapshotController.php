@@ -594,6 +594,8 @@ class FactionSnapshotController extends Controller
 
         $request->validate([
             'file' => 'required|file|extensions:json',
+        ], [
+            'file.uploaded' => 'The file failed to upload. This is usually because the file size exceeds the server upload limit (currently '.ini_get('upload_max_filesize').').',
         ]);
 
         $fileContent = file_get_contents($request->file('file')->path());

@@ -26,6 +26,7 @@ use App\Models\StatisticsModel;
 use App\Models\StatisticsPermission;
 use App\Models\StatisticsWidget;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
@@ -437,4 +438,95 @@ test('can restore older snapshot format missing forms or statistics gracefully w
     $response->assertStatus(200);
     $this->faction->refresh();
     expect($this->faction->name)->toBe('Old Backup Faction');
+});
+
+test('can upload a snapshot JSON file', function () {
+    $faction = $this->faction;
+
+    $snapshotData = [
+        'v' => 1,
+        'name' => 'Uploaded Test Snapshot',
+        'description' => 'Test description',
+        'data' => [
+            'faction' => [
+                'name' => 'Uploaded Test Faction',
+                'shortname' => 'lssd',
+            ],
+            'roles' => [],
+            'groups' => [],
+            'flags' => [],
+            'datasets' => [],
+            'recordDatabases' => [],
+            'rosters' => [],
+            'statistics' => [],
+            'forms' => [],
+        ],
+    ];
+
+    $file = UploadedFile::fake()->createWithContent(
+        'snapshot.json',
+        json_encode($snapshotData)
+    );
+
+    $response = $this->actingAs($this->user)->postJson("/api/factions/{$faction->shortname}/snapshots/upload", [
+        'file' => $file,
+    ]);
+
+    $response->assertStatus(200);
+
+    $snapshot = FactionSnapshot::where('faction_id', $faction->id)
+        ->where('name', 'Uploaded Test Snapshot (Imported)')
+        ->first();
+
+    expect($snapshot)->not->toBeNull();
+    expect($snapshot->data['faction']['name'])->toBe('Uploaded Test Faction');
+});
+
+test('uploading empty file returns validation error', function () {
+    $faction = $this->faction;
+
+    $file = UploadedFile::fake()->create(
+        'snapshot.json',
+        0 // 0 KB
+    );
+
+    $response = $this->actingAs($this->user)->postJson("/api/factions/{$faction->shortname}/snapshots/upload", [
+        'file' => $file,
+    ]);
+
+    $response->assertStatus(422);
+});
+
+test('uploading a json object instead of file returns failed to upload error', function () {
+    $faction = $this->faction;
+
+    $response = $this->actingAs($this->user)->postJson("/api/factions/{$faction->shortname}/snapshots/upload", [
+        'file' => [
+            'name' => 'snapshot_lssd_2026-06-02.json',
+            'size' => '0',
+        ],
+    ]);
+
+    $response->assertStatus(422);
+});
+
+test('uploading a file exceeding size limit returns failed to upload error', function () {
+    $faction = $this->faction;
+
+    $file = new UploadedFile(
+        tempnam(sys_get_temp_dir(), 'test'),
+        'snapshot.json',
+        'application/json',
+        UPLOAD_ERR_INI_SIZE,
+        true // test mode
+    );
+
+    $response = $this->actingAs($this->user)->postJson("/api/factions/{$faction->shortname}/snapshots/upload", [
+        'file' => $file,
+    ]);
+
+    $response->assertStatus(422);
+    $response->assertJsonValidationErrors([
+        'file' => 'The file failed to upload. This is usually because the file size exceeds the server upload limit (currently '.ini_get('upload_max_filesize').').',
+    ]);
 });

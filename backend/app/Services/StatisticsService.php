@@ -11,6 +11,18 @@ use Illuminate\Support\Collection;
 
 class StatisticsService
 {
+    protected $rosterPoolsCache = [];
+
+    protected function getRosterPoolCached($rosterId): Collection
+    {
+        if (! isset($this->rosterPoolsCache[$rosterId])) {
+            $totalRows = 0;
+            $this->rosterPoolsCache[$rosterId] = $this->getSourcePool('roster', $rosterId, $totalRows);
+        }
+
+        return $this->rosterPoolsCache[$rosterId];
+    }
+
     public function calculate(StatisticsWidget $widget): array
     {
         $config = $widget->configuration;
@@ -404,6 +416,51 @@ class StatisticsService
                 return str_contains(strtolower((string) $val), strtolower((string) $matchVal));
             case 'is_null':
                 return empty($val);
+            case 'in_roster':
+                if (empty($val)) {
+                    return false;
+                }
+                $rosterId = $cond['relation_roster_id'] ?? null;
+                $rosterCol = $cond['relation_roster_col'] ?? null;
+                if (! $rosterId || ! $rosterCol) {
+                    return false;
+                }
+
+                $rosterPool = $this->getRosterPoolCached($rosterId);
+
+                $matchingRow = $rosterPool->first(function ($row) use ($rosterCol, $val) {
+                    $rowVal = $row->content[$rosterCol] ?? null;
+
+                    return strtolower((string) $rowVal) === strtolower((string) $val);
+                });
+
+                if (! $matchingRow) {
+                    return false;
+                }
+
+                $relationColumn = $cond['relation_column'] ?? null;
+                if ($relationColumn) {
+                    $relationValue = $cond['relation_value'] ?? null;
+                    $relationMatchType = $cond['relation_match_type'] ?? 'equals';
+                    $rowValToCheck = $matchingRow->content[$relationColumn] ?? null;
+
+                    switch ($relationMatchType) {
+                        case 'exists':
+                            return ! empty($rowValToCheck);
+                        case 'equals':
+                            return strtolower((string) $rowValToCheck) === strtolower((string) $relationValue);
+                        case 'not_equals':
+                            return strtolower((string) $rowValToCheck) !== strtolower((string) $relationValue);
+                        case 'contains':
+                            return str_contains(strtolower((string) $rowValToCheck), strtolower((string) $relationValue));
+                        case 'is_null':
+                            return empty($rowValToCheck);
+                        default:
+                            return false;
+                    }
+                }
+
+                return true;
             default:
                 return false;
         }
