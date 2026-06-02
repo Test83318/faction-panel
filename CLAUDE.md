@@ -123,13 +123,3 @@ Resource-level permissions exist for Rosters, FactionRecordDatabases, Statistics
 ### Forms Subsystem
 
 Forms are multi-stage (stages → sections → fields). Supports quiz mode (correct answers, grading). Submissions flow through statuses. GTA:W integration allows linking form submissions to in-game characters. `FormSubmissionController` handles the full lifecycle: `start` → `submit` → `updateStatus` → `gradeResponses`.
-
-### Key Environment Variables
-
-| Variable | Purpose |
-|---|---|
-| `VITE_API_BASE_URL` | Backend URL for frontend (default: `http://localhost:8000`) |
-| `ALLOW_REGISTRATION` | Toggle public registration |
-| `GTAW_OAUTH_ENABLED` | Enable GTA:W OAuth login |
-| `GTAW_CLIENT_ID/SECRET` | GTA:W OAuth credentials |
-| `DB_CONNECTION` | Default: `sqlite` for dev; use `pgsql` for production |
