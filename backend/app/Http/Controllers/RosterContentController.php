@@ -86,7 +86,7 @@ class RosterContentController extends Controller
             $lastUpdated = Carbon::parse($validated['last_updated_at']);
 
             // Get the last user who updated this
-            $lastAudit = $content->audits()->where('event', 'updated')->latest()->first();
+            $lastAudit = $content->audits()->where('event', 'updated')->latest('id')->first();
             $lastUpdatedByMe = $lastAudit && $lastAudit->user_id === $user->id;
 
             // Use timestamp comparison with 1s buffer for precision mismatches

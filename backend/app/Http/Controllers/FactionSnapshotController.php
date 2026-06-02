@@ -59,8 +59,6 @@ class FactionSnapshotController extends Controller
             ->exists();
 
         if ($exists) {
-            $this->audit('snapshot.auto_create_skip', "Skipped automatic snapshot for faction '{$faction->name}': already exists for today", $faction->id);
-
             return response()->json(['message' => 'Auto snapshot already exists for today']);
         }
 
