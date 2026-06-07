@@ -139,14 +139,98 @@ class User extends Authenticatable
         return $this->hasMany(StatisticsModel::class, 'created_by');
     }
 
-    public static function hasFactionPermission(?User $user, Faction $faction, string $permissionKey): bool
+    protected static $userGroupsCache = [];
+    protected static $userRolesCache = [];
+    protected static $factionPermissionsCache = [];
+    protected static $rosterPermissionsCache = [];
+    protected static $recordPermissionsCache = [];
+    protected static $statisticsPermissionsCache = [];
+    protected static $formPermissionsCache = [];
+
+    public static function clearPermissionsCache()
     {
+        self::$userGroupsCache = [];
+        self::$userRolesCache = [];
+        self::$factionPermissionsCache = [];
+        self::$rosterPermissionsCache = [];
+        self::$recordPermissionsCache = [];
+        self::$statisticsPermissionsCache = [];
+        self::$formPermissionsCache = [];
+    }
+
+    protected static function shouldCache(): bool
+    {
+        return !app()->runningUnitTests() || request()->route() !== null;
+    }
+
+    public static function getUserGroupIds(?User $user, int $factionId): \Illuminate\Support\Collection
+    {
+        if (!$user) {
+            return collect();
+        }
+        $cacheKey = "{$user->id}_{$factionId}";
+        $shouldCache = self::shouldCache();
+        if (!$shouldCache || !isset(self::$userGroupsCache[$cacheKey])) {
+            $val = $user->groups()->where('faction_id', $factionId)->pluck('groups.id');
+            if ($shouldCache) {
+                self::$userGroupsCache[$cacheKey] = $val;
+            }
+            return $val;
+        }
+        return self::$userGroupsCache[$cacheKey];
+    }
+
+    public static function getUserRoleIds(?User $user, int $factionId): \Illuminate\Support\Collection
+    {
+        if (!$user) {
+            return collect();
+        }
+        $cacheKey = "{$user->id}_{$factionId}";
+        $shouldCache = self::shouldCache();
+        if (!$shouldCache || !isset(self::$userRolesCache[$cacheKey])) {
+            $val = $user->roles()->where('faction_id', $factionId)->pluck('roles.id');
+            if ($shouldCache) {
+                self::$userRolesCache[$cacheKey] = $val;
+            }
+            return $val;
+        }
+        return self::$userRolesCache[$cacheKey];
+    }
+
+    public static function getFactionPermissions(?User $user, Faction $faction): array
+    {
+        $userId = $user ? $user->id : 'guest';
+        $cacheKey = "{$userId}_{$faction->id}";
+        $shouldCache = self::shouldCache();
+
+        if ($shouldCache && isset(self::$factionPermissionsCache[$cacheKey])) {
+            return self::$factionPermissionsCache[$cacheKey];
+        }
+
         if ($user && $user->is_superadmin) {
-            return true;
+            $allKeys = [];
+            foreach (config('permissions.categories', []) as $category) {
+                foreach ($category['permissions'] as $key => $details) {
+                    $allKeys[] = $key;
+                }
+            }
+            if ($shouldCache) {
+                self::$factionPermissionsCache[$cacheKey] = $allKeys;
+            }
+            return $allKeys;
         }
 
         if ($user && $faction->faction_leader === $user->id) {
-            return true;
+            $allKeys = [];
+            foreach (config('permissions.categories', []) as $category) {
+                foreach ($category['permissions'] as $key => $details) {
+                    $allKeys[] = $key;
+                }
+            }
+            if ($shouldCache) {
+                self::$factionPermissionsCache[$cacheKey] = $allKeys;
+            }
+            return $allKeys;
         }
 
         $roles = collect();
@@ -170,11 +254,12 @@ class User extends Authenticatable
         }
 
         if ($roles->isEmpty()) {
-            return false;
+            if ($shouldCache) {
+                self::$factionPermissionsCache[$cacheKey] = [];
+            }
+            return [];
         }
 
-        // Check for 'administrator' permission first (System category)
-        // This grants everything except specifically exempted permissions
         $isSystemAdmin = false;
         foreach ($roles as $role) {
             if ($role->permissions->where('permission_key', 'administrator')->where('value', 'YES')->first()) {
@@ -183,32 +268,68 @@ class User extends Authenticatable
             }
         }
 
-        // Future-proof exemptions for 'administrator' permission
         $leaderOnlyPermissions = [
-            'delete_faction', // Example of a future permission
+            'delete_faction',
         ];
 
-        if ($isSystemAdmin && ! in_array($permissionKey, $leaderOnlyPermissions)) {
-            return true;
+        $resolved = [];
+        $allKeys = [];
+        foreach (config('permissions.categories', []) as $category) {
+            foreach ($category['permissions'] as $key => $details) {
+                $allKeys[] = $key;
+            }
         }
-
-        $hasNever = false;
-        $hasYes = false;
-
         foreach ($roles as $role) {
-            $permission = $role->permissions->where('permission_key', $permissionKey)->first();
-            if ($permission) {
-                if ($permission->value === 'NEVER') {
-                    $hasNever = true;
-                    break;
+            foreach ($role->permissions as $permission) {
+                $allKeys[] = $permission->permission_key;
+            }
+        }
+        $allKeys = array_unique($allKeys);
+
+        foreach ($allKeys as $key) {
+            if ($isSystemAdmin && ! in_array($key, $leaderOnlyPermissions)) {
+                $resolved[] = $key;
+                continue;
+            }
+
+            $hasNever = false;
+            $hasYes = false;
+
+            foreach ($roles as $role) {
+                $permission = $role->permissions->where('permission_key', $key)->first();
+                if ($permission) {
+                    if ($permission->value === 'NEVER') {
+                        $hasNever = true;
+                        break;
+                    }
+                    if ($permission->value === 'YES') {
+                        $hasYes = true;
+                    }
                 }
-                if ($permission->value === 'YES') {
-                    $hasYes = true;
-                }
+            }
+
+            if ($hasYes && ! $hasNever) {
+                $resolved[] = $key;
             }
         }
 
-        return $hasYes && ! $hasNever;
+        if ($shouldCache) {
+            self::$factionPermissionsCache[$cacheKey] = $resolved;
+        }
+        return $resolved;
+    }
+
+    public static function hasFactionPermission(?User $user, Faction $faction, string $permissionKey): bool
+    {
+        if ($user && $user->is_superadmin) {
+            return true;
+        }
+
+        if ($user && $faction->faction_leader === $user->id) {
+            return true;
+        }
+
+        return in_array($permissionKey, self::getFactionPermissions($user, $faction));
     }
 
     public function hasPermission(string $permissionKey, int $factionId): bool
@@ -266,43 +387,46 @@ class User extends Authenticatable
             }
         }
 
-        // 2. Collect all permission sets applicable to this user
-        $permissionSets = collect();
+        $userId = $user ? $user->id : 'guest';
+        $cacheKey = "{$userId}_{$roster->id}";
 
-        // Public permissions (group_id and role_id are null)
-        $publicPerms = $roster->rosterPermissions()->whereNull('group_id')->whereNull('role_id')->first();
-        if ($publicPerms) {
-            $permissionSets->push($publicPerms->permissions);
-        }
+        if (!isset(self::$rosterPermissionsCache[$cacheKey])) {
+            $permissionSets = collect();
 
-        if ($user) {
-            // Group permissions
-            $userGroupIds = $user->groups()->where('faction_id', $faction->id)->pluck('groups.id');
-            $groupPerms = $roster->rosterPermissions()->whereIn('group_id', $userGroupIds)->get();
-            foreach ($groupPerms as $gp) {
-                $permissionSets->push($gp->permissions);
+            // Public permissions (group_id and role_id are null)
+            $publicPerms = $roster->rosterPermissions->whereNull('group_id')->whereNull('role_id')->first();
+            if ($publicPerms) {
+                $permissionSets->push($publicPerms->permissions);
             }
 
-            // Role permissions
-            $userRoleIds = $user->roles()->where('faction_id', $faction->id)->pluck('roles.id');
-            $rolePerms = $roster->rosterPermissions()->whereIn('role_id', $userRoleIds)->get();
-            foreach ($rolePerms as $rp) {
-                $permissionSets->push($rp->permissions);
+            if ($user) {
+                // Group permissions
+                $userGroupIds = self::getUserGroupIds($user, $faction->id);
+                $groupPerms = $roster->rosterPermissions->whereIn('group_id', $userGroupIds);
+                foreach ($groupPerms as $gp) {
+                    $permissionSets->push($gp->permissions);
+                }
+
+                // Role permissions
+                $userRoleIds = self::getUserRoleIds($user, $faction->id);
+                $rolePerms = $roster->rosterPermissions->whereIn('role_id', $userRoleIds);
+                foreach ($rolePerms as $rp) {
+                    $permissionSets->push($rp->permissions);
+                }
             }
-        }
 
-        if ($permissionSets->isEmpty()) {
-            return false;
-        }
-
-        // If any set has the permission as true, return true
-        foreach ($permissionSets as $set) {
-            if (is_array($set) && in_array($permissionKey, $set)) {
-                return true;
+            $resolved = [];
+            foreach ($permissionSets as $set) {
+                if (is_array($set)) {
+                    foreach ($set as $perm) {
+                        $resolved[] = $perm;
+                    }
+                }
             }
+            self::$rosterPermissionsCache[$cacheKey] = array_unique($resolved);
         }
 
-        return false;
+        return in_array($permissionKey, self::$rosterPermissionsCache[$cacheKey]);
     }
 
     public static function canViewRoster(?User $user, Roster $roster): bool
@@ -330,7 +454,7 @@ class User extends Authenticatable
             return true;
         }
 
-        $hasExplicitPerms = $roster->rosterPermissions()->exists();
+        $hasExplicitPerms = $roster->rosterPermissions->isNotEmpty();
         if ($hasExplicitPerms) {
             return self::hasRosterPermission($user, $roster, 'view_roster');
         }
@@ -355,43 +479,46 @@ class User extends Authenticatable
             }
         }
 
-        // 2. Collect all permission sets applicable to this user
-        $permissionSets = collect();
+        $userId = $user ? $user->id : 'guest';
+        $cacheKey = "{$userId}_{$database->id}";
 
-        // Public permissions (group_id and role_id are null)
-        $publicPerms = $database->databasePermissions()->whereNull('group_id')->whereNull('role_id')->first();
-        if ($publicPerms) {
-            $permissionSets->push($publicPerms->permissions);
-        }
+        if (!isset(self::$recordPermissionsCache[$cacheKey])) {
+            $permissionSets = collect();
 
-        if ($user) {
-            // Group permissions
-            $userGroupIds = $user->groups()->where('faction_id', $faction->id)->pluck('groups.id');
-            $groupPerms = $database->databasePermissions()->whereIn('group_id', $userGroupIds)->get();
-            foreach ($groupPerms as $gp) {
-                $permissionSets->push($gp->permissions);
+            // Public permissions (group_id and role_id are null)
+            $publicPerms = $database->databasePermissions->whereNull('group_id')->whereNull('role_id')->first();
+            if ($publicPerms) {
+                $permissionSets->push($publicPerms->permissions);
             }
 
-            // Role permissions
-            $userRoleIds = $user->roles()->where('faction_id', $faction->id)->pluck('roles.id');
-            $rolePerms = $database->databasePermissions()->whereIn('role_id', $userRoleIds)->get();
-            foreach ($rolePerms as $rp) {
-                $permissionSets->push($rp->permissions);
+            if ($user) {
+                // Group permissions
+                $userGroupIds = self::getUserGroupIds($user, $faction->id);
+                $groupPerms = $database->databasePermissions->whereIn('group_id', $userGroupIds);
+                foreach ($groupPerms as $gp) {
+                    $permissionSets->push($gp->permissions);
+                }
+
+                // Role permissions
+                $userRoleIds = self::getUserRoleIds($user, $faction->id);
+                $rolePerms = $database->databasePermissions->whereIn('role_id', $userRoleIds);
+                foreach ($rolePerms as $rp) {
+                    $permissionSets->push($rp->permissions);
+                }
             }
-        }
 
-        if ($permissionSets->isEmpty()) {
-            return false;
-        }
-
-        // If any set has the permission as true, return true
-        foreach ($permissionSets as $set) {
-            if (is_array($set) && in_array($permissionKey, $set)) {
-                return true;
+            $resolved = [];
+            foreach ($permissionSets as $set) {
+                if (is_array($set)) {
+                    foreach ($set as $perm) {
+                        $resolved[] = $perm;
+                    }
+                }
             }
+            self::$recordPermissionsCache[$cacheKey] = array_unique($resolved);
         }
 
-        return false;
+        return in_array($permissionKey, self::$recordPermissionsCache[$cacheKey]);
     }
 
     public static function hasStatisticsPermission(?User $user, StatisticsModel $model, string $permissionKey): bool
@@ -409,43 +536,46 @@ class User extends Authenticatable
             }
         }
 
-        // 2. Collect all permission sets applicable to this user
-        $permissionSets = collect();
+        $userId = $user ? $user->id : 'guest';
+        $cacheKey = "{$userId}_{$model->id}";
 
-        // Public permissions (group_id and role_id are null)
-        $publicPerms = $model->statisticsPermissions()->whereNull('group_id')->whereNull('role_id')->first();
-        if ($publicPerms) {
-            $permissionSets->push($publicPerms->permissions);
-        }
+        if (!isset(self::$statisticsPermissionsCache[$cacheKey])) {
+            $permissionSets = collect();
 
-        if ($user) {
-            // Group permissions
-            $userGroupIds = $user->groups()->where('faction_id', $faction->id)->pluck('groups.id');
-            $groupPerms = $model->statisticsPermissions()->whereIn('group_id', $userGroupIds)->get();
-            foreach ($groupPerms as $gp) {
-                $permissionSets->push($gp->permissions);
+            // Public permissions (group_id and role_id are null)
+            $publicPerms = $model->statisticsPermissions->whereNull('group_id')->whereNull('role_id')->first();
+            if ($publicPerms) {
+                $permissionSets->push($publicPerms->permissions);
             }
 
-            // Role permissions
-            $userRoleIds = $user->roles()->where('faction_id', $faction->id)->pluck('roles.id');
-            $rolePerms = $model->statisticsPermissions()->whereIn('role_id', $userRoleIds)->get();
-            foreach ($rolePerms as $rp) {
-                $permissionSets->push($rp->permissions);
+            if ($user) {
+                // Group permissions
+                $userGroupIds = self::getUserGroupIds($user, $faction->id);
+                $groupPerms = $model->statisticsPermissions->whereIn('group_id', $userGroupIds);
+                foreach ($groupPerms as $gp) {
+                    $permissionSets->push($gp->permissions);
+                }
+
+                // Role permissions
+                $userRoleIds = self::getUserRoleIds($user, $faction->id);
+                $rolePerms = $model->statisticsPermissions->whereIn('role_id', $userRoleIds);
+                foreach ($rolePerms as $rp) {
+                    $permissionSets->push($rp->permissions);
+                }
             }
-        }
 
-        if ($permissionSets->isEmpty()) {
-            return false;
-        }
-
-        // If any set has the permission as true, return true
-        foreach ($permissionSets as $set) {
-            if (is_array($set) && in_array($permissionKey, $set)) {
-                return true;
+            $resolved = [];
+            foreach ($permissionSets as $set) {
+                if (is_array($set)) {
+                    foreach ($set as $perm) {
+                        $resolved[] = $perm;
+                    }
+                }
             }
+            self::$statisticsPermissionsCache[$cacheKey] = array_unique($resolved);
         }
 
-        return false;
+        return in_array($permissionKey, self::$statisticsPermissionsCache[$cacheKey]);
     }
 
     public static function hasFormPermission(?User $user, Form $form, string $permissionKey): bool
@@ -463,42 +593,45 @@ class User extends Authenticatable
             }
         }
 
-        // 2. Collect all permission sets applicable to this user
-        $permissionSets = collect();
+        $userId = $user ? $user->id : 'guest';
+        $cacheKey = "{$userId}_{$form->id}";
 
-        // Public permissions (group_id and role_id are null)
-        $publicPerms = $form->formPermissions()->whereNull('group_id')->whereNull('role_id')->first();
-        if ($publicPerms) {
-            $permissionSets->push($publicPerms->permissions);
-        }
+        if (!isset(self::$formPermissionsCache[$cacheKey])) {
+            $permissionSets = collect();
 
-        if ($user) {
-            // Group permissions
-            $userGroupIds = $user->groups()->where('faction_id', $faction->id)->pluck('groups.id');
-            $groupPerms = $form->formPermissions()->whereIn('group_id', $userGroupIds)->get();
-            foreach ($groupPerms as $gp) {
-                $permissionSets->push($gp->permissions);
+            // Public permissions (group_id and role_id are null)
+            $publicPerms = $form->formPermissions->whereNull('group_id')->whereNull('role_id')->first();
+            if ($publicPerms) {
+                $permissionSets->push($publicPerms->permissions);
             }
 
-            // Role permissions
-            $userRoleIds = $user->roles()->where('faction_id', $faction->id)->pluck('roles.id');
-            $rolePerms = $form->formPermissions()->whereIn('role_id', $userRoleIds)->get();
-            foreach ($rolePerms as $rp) {
-                $permissionSets->push($rp->permissions);
+            if ($user) {
+                // Group permissions
+                $userGroupIds = self::getUserGroupIds($user, $faction->id);
+                $groupPerms = $form->formPermissions->whereIn('group_id', $userGroupIds);
+                foreach ($groupPerms as $gp) {
+                    $permissionSets->push($gp->permissions);
+                }
+
+                // Role permissions
+                $userRoleIds = self::getUserRoleIds($user, $faction->id);
+                $rolePerms = $form->formPermissions->whereIn('role_id', $userRoleIds);
+                foreach ($rolePerms as $rp) {
+                    $permissionSets->push($rp->permissions);
+                }
             }
-        }
 
-        if ($permissionSets->isEmpty()) {
-            return false;
-        }
-
-        // If any set has the permission as true, return true
-        foreach ($permissionSets as $set) {
-            if (is_array($set) && in_array($permissionKey, $set)) {
-                return true;
+            $resolved = [];
+            foreach ($permissionSets as $set) {
+                if (is_array($set)) {
+                    foreach ($set as $perm) {
+                        $resolved[] = $perm;
+                    }
+                }
             }
+            self::$formPermissionsCache[$cacheKey] = array_unique($resolved);
         }
 
-        return false;
+        return in_array($permissionKey, self::$formPermissionsCache[$cacheKey]);
     }
 }

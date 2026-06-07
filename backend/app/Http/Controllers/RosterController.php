@@ -163,13 +163,13 @@ class RosterController extends Controller
 
         $rosters = $faction->rosters()
             ->where('is_sandbox', false)
-            ->with(['rootSections.children', 'rootSections.contents.editor'])
+            ->with(['rootSections.children', 'rootSections.contents.editor', 'rosterPermissions'])
             ->orderBy('order')
             ->orderBy('id')
             ->get();
 
         $filteredRosters = $rosters->filter(function ($roster) use ($user, $isGlobalViewer) {
-            $hasExplicitPerms = $roster->rosterPermissions()->exists();
+            $hasExplicitPerms = $roster->rosterPermissions->isNotEmpty();
             if ($hasExplicitPerms) {
                 return User::hasRosterPermission($user, $roster, 'view_roster');
             }
@@ -182,7 +182,7 @@ class RosterController extends Controller
             $sandboxRosters = $faction->rosters()
                 ->where('is_sandbox', true)
                 ->where('created_by', $user->id)
-                ->with(['rootSections.children', 'rootSections.contents.editor'])
+                ->with(['rootSections.children', 'rootSections.contents.editor', 'rosterPermissions'])
                 ->orderBy('order')
                 ->orderBy('id')
                 ->get();
@@ -199,7 +199,7 @@ class RosterController extends Controller
             ->where('is_published', true)
             ->with(['entries' => function ($query) {
                 $query->where('is_active', true);
-            }])
+            }, 'databasePermissions'])
             ->get();
 
         $publishedDatabases = $allPublishedDatabases->filter(fn ($db) => User::hasRecordPermission($user, $db, 'view_database'))->values();
@@ -269,7 +269,7 @@ class RosterController extends Controller
         $resolvedLinksMap = [];
         if (! empty($linkRowIds)) {
             $contents = RosterContent::whereIn('id', $linkRowIds)
-                ->with('section.roster.faction')
+                ->with(['section.roster.faction', 'section.roster.rosterPermissions'])
                 ->get()
                 ->keyBy('id');
 

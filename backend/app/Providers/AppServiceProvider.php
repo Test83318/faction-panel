@@ -23,6 +23,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \App\Models\User::clearPermissionsCache();
+
+        $this->app['events']->listen(\Illuminate\Routing\Events\RouteMatched::class, function () {
+            \App\Models\User::clearPermissionsCache();
+        });
+
         Gate::define('viewPulse', function ($user = null) {
             return $user && $user->is_superadmin;
         });

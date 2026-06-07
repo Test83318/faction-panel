@@ -87,8 +87,25 @@ class FactionController extends Controller
         $faction = Faction::where('shortname', $shortname)->with(['creator'])->firstOrFail();
         $user = Auth::guard('sanctum')->user();
 
-        // Trigger automatic snapshot check
-        app(FactionSnapshotController::class)->triggerAutoSnapshot($faction);
+        // Trigger automatic snapshot check (deferred after response to avoid blocking user)
+        $today = now()->startOfDay();
+        $exists = \App\Models\FactionSnapshot::where('faction_id', $faction->id)
+            ->where('type', 'auto')
+            ->where('created_at', '>=', $today)
+            ->exists();
+
+        if (! $exists) {
+            dispatch(function () use ($faction) {
+                $today = now()->startOfDay();
+                $exists = \App\Models\FactionSnapshot::where('faction_id', $faction->id)
+                    ->where('type', 'auto')
+                    ->where('created_at', '>=', $today)
+                    ->exists();
+                if (! $exists) {
+                    app(FactionSnapshotController::class)->triggerAutoSnapshot($faction);
+                }
+            })->afterResponse();
+        }
 
         $allPermissionsConfig = config('permissions.categories');
         $permissions = [];
@@ -116,7 +133,7 @@ class FactionController extends Controller
         // Include Roster Data
         $rosters = $faction->rosters()
             ->where('is_sandbox', false)
-            ->with(['rootSections.children', 'rootSections.contents.editor'])
+            ->with(['rootSections.children', 'rootSections.contents.editor', 'rosterPermissions'])
             ->orderBy('order')
             ->orderBy('id')
             ->get();
@@ -124,7 +141,7 @@ class FactionController extends Controller
         $filteredRosters = $rosters->filter(function ($roster) use ($user, $canViewGlobal) {
             // If this roster has explicit permission entries, always enforce them —
             // even global viewers (view_faction_roster) are subject to per-roster access control.
-            $hasExplicitPerms = $roster->rosterPermissions()->exists();
+            $hasExplicitPerms = $roster->rosterPermissions->isNotEmpty();
             if ($hasExplicitPerms) {
                 return User::hasRosterPermission($user, $roster, 'view_roster');
             }
@@ -174,7 +191,7 @@ class FactionController extends Controller
             $sandboxRosters = $faction->rosters()
                 ->where('is_sandbox', true)
                 ->where('created_by', $user->id)
-                ->with(['rootSections.children', 'rootSections.contents.editor'])
+                ->with(['rootSections.children', 'rootSections.contents.editor', 'rosterPermissions'])
                 ->orderBy('order')
                 ->orderBy('id')
                 ->get();
@@ -213,7 +230,7 @@ class FactionController extends Controller
             ->where('is_published', true)
             ->with(['entries' => function ($query) {
                 $query->where('is_active', true);
-            }])
+            }, 'databasePermissions'])
             ->get();
 
         $publishedDatabases = $allPublishedDatabases->filter(fn ($db) => User::hasRecordPermission($user, $db, 'view_database'))->values();
@@ -281,7 +298,7 @@ class FactionController extends Controller
         $resolvedLinksMap = [];
         if (! empty($linkRowIds)) {
             $contents = RosterContent::whereIn('id', $linkRowIds)
-                ->with('section.roster.faction')
+                ->with(['section.roster.faction', 'section.roster.rosterPermissions'])
                 ->get()
                 ->keyBy('id');
 
