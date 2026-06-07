@@ -12,18 +12,32 @@ use Illuminate\Support\Collection;
 class StatisticsService
 {
     protected $rosterPoolsCache = [];
+
     protected $columnIdMapsCache = [];
+
+    protected $sectionsCache = [];
+
+    protected $rosterLookupsCache = [];
 
     protected function getRealColumnId($sectionId, $targetColName)
     {
-        $cacheKey = $sectionId . '_' . $targetColName;
+        $cacheKey = $sectionId.'_'.$targetColName;
         if (isset($this->columnIdMapsCache[$cacheKey])) {
             return $this->columnIdMapsCache[$cacheKey];
         }
 
-        $section = RosterSection::with('roster')->find($sectionId);
-        if (!$section) {
+        if (isset($this->sectionsCache[$sectionId])) {
+            $section = $this->sectionsCache[$sectionId];
+        } else {
+            $section = RosterSection::with('roster')->find($sectionId);
+            if ($section) {
+                $this->sectionsCache[$sectionId] = $section;
+            }
+        }
+
+        if (! $section) {
             $this->columnIdMapsCache[$cacheKey] = $targetColName;
+
             return $targetColName;
         }
 
@@ -31,11 +45,13 @@ class StatisticsService
         foreach ($columns as $col) {
             if (($col['name'] ?? '') === $targetColName || ($col['id'] ?? '') === $targetColName) {
                 $this->columnIdMapsCache[$cacheKey] = $col['id'];
+
                 return $col['id'];
             }
         }
 
         $this->columnIdMapsCache[$cacheKey] = $targetColName;
+
         return $targetColName;
     }
 
@@ -239,17 +255,21 @@ class StatisticsService
     protected function getSourcePool(string $type, $id, &$totalRowsProcessed, array $config = []): Collection
     {
         if ($type === 'roster') {
-            $roster = Roster::with('rootSections')->find($id);
+            $roster = Roster::find($id);
             if (! $roster) {
                 return collect();
             }
 
+            $allSections = RosterSection::where('roster_id', $id)->get();
+            foreach ($allSections as $s) {
+                $this->sectionsCache[$s->id] = $s;
+            }
+
             $sectionIds = [];
             if (! empty($config['section_ids'])) {
-                $sections = RosterSection::whereIn('id', $config['section_ids'])->get();
-                $sectionIds = $this->getAllSectionIds($sections);
+                $sectionIds = $this->getDescendantSectionIds($allSections, $config['section_ids']);
             } else {
-                $sectionIds = $this->getAllSectionIds($roster->rootSections);
+                $sectionIds = $allSections->pluck('id')->toArray();
             }
 
             $contents = RosterContent::whereIn('section_id', $sectionIds)->get();
@@ -257,12 +277,17 @@ class StatisticsService
 
             return $contents;
         } elseif ($type === 'section') {
-            $section = RosterSection::with('children')->find($id);
+            $section = RosterSection::find($id);
             if (! $section) {
                 return collect();
             }
 
-            $sectionIds = $this->getAllSectionIds([$section]);
+            $allSections = RosterSection::where('roster_id', $section->roster_id)->get();
+            foreach ($allSections as $s) {
+                $this->sectionsCache[$s->id] = $s;
+            }
+
+            $sectionIds = $this->getDescendantSectionIds($allSections, [$section->id]);
             $contents = RosterContent::whereIn('section_id', $sectionIds)->get();
             $totalRowsProcessed += $contents->count();
 
@@ -280,6 +305,29 @@ class StatisticsService
         }
 
         return collect();
+    }
+
+    protected function getDescendantSectionIds(Collection $allSections, array $startSectionIds): array
+    {
+        $descendants = [];
+        $toProcess = $startSectionIds;
+
+        $groupedByParent = $allSections->groupBy('parent_id');
+
+        while (! empty($toProcess)) {
+            $currentId = array_shift($toProcess);
+            $descendants[] = $currentId;
+
+            if ($groupedByParent->has($currentId)) {
+                foreach ($groupedByParent->get($currentId) as $child) {
+                    if (! in_array($child->id, $descendants) && ! in_array($child->id, $toProcess)) {
+                        $toProcess[] = $child->id;
+                    }
+                }
+            }
+        }
+
+        return $descendants;
     }
 
     protected function getAllSectionIds($sections): array
@@ -369,7 +417,16 @@ class StatisticsService
                     $pool = $this->getSourcePool('roster', $cond['roster_id'], $totalRowsProcessed);
                 } elseif ($scope === 'specific_sections' && ! empty($cond['section_ids'])) {
                     $sections = RosterSection::whereIn('id', $cond['section_ids'])->get();
-                    $sectionIds = $this->getAllSectionIds($sections);
+                    if ($sections->isNotEmpty()) {
+                        $firstSection = $sections->first();
+                        $allSections = RosterSection::where('roster_id', $firstSection->roster_id)->get();
+                        foreach ($allSections as $s) {
+                            $this->sectionsCache[$s->id] = $s;
+                        }
+                        $sectionIds = $this->getDescendantSectionIds($allSections, $cond['section_ids']);
+                    } else {
+                        $sectionIds = [];
+                    }
                     $pool = RosterContent::whereIn('section_id', $sectionIds)->get();
                     $totalRowsProcessed += $pool->count();
                 } elseif ($scope === 'section' && $parentType === 'section') {
@@ -506,11 +563,23 @@ class StatisticsService
 
                 $rosterPool = $this->getRosterPoolCached($rosterId);
 
-                $matchingRow = $rosterPool->first(function ($row) use ($rosterCol, $val) {
-                    $rowVal = $row->content[$rosterCol] ?? null;
+                $lookupKey = $rosterId.'_'.$rosterCol;
+                if (! isset($this->rosterLookupsCache[$lookupKey])) {
+                    $lookup = [];
+                    foreach ($rosterPool as $row) {
+                        $rowVal = strtolower((string) ($row->content[$rosterCol] ?? ''));
+                        if ($rowVal !== '') {
+                            if (! isset($lookup[$rowVal])) {
+                                $lookup[$rowVal] = $row;
+                            }
+                        }
+                    }
+                    $this->rosterLookupsCache[$lookupKey] = $lookup;
+                }
 
-                    return strtolower((string) $rowVal) === strtolower((string) $val);
-                });
+                $lookup = $this->rosterLookupsCache[$lookupKey];
+                $normalizedVal = strtolower((string) $val);
+                $matchingRow = $lookup[$normalizedVal] ?? null;
 
                 if (! $matchingRow) {
                     return false;

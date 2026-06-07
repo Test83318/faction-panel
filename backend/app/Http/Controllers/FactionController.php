@@ -8,6 +8,7 @@ use App\Models\RosterContent;
 use App\Models\RosterDataset;
 use App\Models\User;
 use App\Services\DynamicSectionService;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -285,6 +286,7 @@ class FactionController extends Controller
                 ->keyBy('id');
 
             $datasetCache = [];
+            $dbCache = [];
             $rosterColsCache = [];
 
             foreach ($linkRowIds as $rowId) {
@@ -323,15 +325,22 @@ class FactionController extends Controller
                     if ($col && isset($col['dataset_id'])) {
                         $datasetId = $col['dataset_id'];
                         if (! isset($datasetCache[$datasetId])) {
-                            $datasetCache[$datasetId] = RosterDataset::find($datasetId);
+                            $datasetCache[$datasetId] = RosterDataset::with('options')->find($datasetId);
                         }
                         $dataset = $datasetCache[$datasetId];
 
                         if ($dataset) {
                             if ($dataset->record_database_id) {
-                                $db = FactionRecordDatabase::find($dataset->record_database_id);
+                                $dbId = $dataset->record_database_id;
+                                if (! isset($dbCache[$dbId])) {
+                                    $dbCache[$dbId] = FactionRecordDatabase::with(['entries' => function ($q) {
+                                        $q->where('is_active', true);
+                                    }])->find($dbId);
+                                }
+                                $db = $dbCache[$dbId];
+
                                 if ($db && is_numeric($value)) {
-                                    $entry = $db->entries()->where('entry_id', $value)->first();
+                                    $entry = $db->entries->firstWhere('entry_id', $value);
                                     if ($entry) {
                                         $fieldId = $col['database_field_id'] ?? $db->database_structure[0]['id'] ?? 'id';
                                         if ($fieldId === 'id') {
@@ -343,7 +352,7 @@ class FactionController extends Controller
                                 }
                             } else {
                                 if (is_numeric($value)) {
-                                    $option = $dataset->options()->where('id', $value)->first();
+                                    $option = $dataset->options->firstWhere('id', $value);
                                     if ($option) {
                                         $value = $option->value;
                                     }
@@ -741,9 +750,9 @@ class FactionController extends Controller
         $this->audit('faction.update', "Updated details for faction '{$faction->name}'", $faction->id, $faction, $oldValues, $faction->getDirty());
 
         try {
-            \App\Services\NotificationService::triggerFactionEvent($faction, 'updated');
+            NotificationService::triggerFactionEvent($faction, 'updated');
         } catch (\Exception $e) {
-            \Log::error("Failed triggering notification: " . $e->getMessage());
+            \Log::error('Failed triggering notification: '.$e->getMessage());
         }
 
         return $faction;

@@ -90,8 +90,11 @@ class RestrictToWhitelistedServers
         }
 
         // 4. Ensure the IP of the domain is whitelisted
-        // Resolve the domain to its IP address
-        $resolvedIp = gethostbyname($domain);
+        // Resolve the domain to its IP address (cache for 10 minutes to avoid slow DNS queries)
+        $cacheKey = 'resolved_ip_'.md5($domain);
+        $resolvedIp = cache()->remember($cacheKey, 600, function () use ($domain) {
+            return gethostbyname($domain);
+        });
         if ($resolvedIp === $domain) {
             Log::warning('API Protection: Request rejected because domain "'.$domain.'" failed to resolve to an IP.');
 
