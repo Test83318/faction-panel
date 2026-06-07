@@ -2,7 +2,9 @@
 
 namespace Tests\Unit;
 
+use App\Models\RosterContent;
 use App\Services\StatisticsService;
+use Illuminate\Support\Collection;
 use ReflectionClass;
 
 test('evaluateCount applies subtraction correctly', function () {
@@ -155,24 +157,30 @@ test('matchCondition handles in_roster condition correctly', function () {
 });
 
 test('evaluateCount applies count_unique correctly', function () {
-    $service = new class extends StatisticsService {
+    $service = new class extends StatisticsService
+    {
         public $mockPool;
-        protected function getSourcePool(string $type, $id, &$totalRowsProcessed, array $config = []): Collection {
+
+        protected function getSourcePool(string $type, $id, &$totalRowsProcessed, array $config = []): Collection
+        {
             $totalRowsProcessed += $this->mockPool->count();
+
             return $this->mockPool;
         }
-        protected function getRealColumnId($sectionId, $targetColName) {
+
+        protected function getRealColumnId($sectionId, $targetColName)
+        {
             return $targetColName === 'Badge' ? 'col_badge' : $targetColName;
         }
     };
 
-    $row1 = new \App\Models\RosterContent(['section_id' => 1]);
+    $row1 = new RosterContent(['section_id' => 1]);
     $row1->content = ['col_badge' => '101', 'col_status' => 'Active'];
-    
-    $row2 = new \App\Models\RosterContent(['section_id' => 1]);
+
+    $row2 = new RosterContent(['section_id' => 1]);
     $row2->content = ['col_badge' => '102', 'col_status' => 'Active'];
-    
-    $row3 = new \App\Models\RosterContent(['section_id' => 1]);
+
+    $row3 = new RosterContent(['section_id' => 1]);
     $row3->content = ['col_badge' => '101', 'col_status' => 'Active'];
 
     $service->mockPool = collect([$row1, $row2, $row3]);
@@ -191,9 +199,9 @@ test('evaluateCount applies count_unique correctly', function () {
                     'target_col' => 'Badge',
                     'count_unique' => true,
                 ],
-                'filters' => []
-            ]
-        ]
+                'filters' => [],
+            ],
+        ],
     ];
 
     $totalRowsProcessed = 0;
@@ -203,22 +211,24 @@ test('evaluateCount applies count_unique correctly', function () {
 });
 
 test('aggregatePool applies count_unique correctly', function () {
-    $service = new class extends StatisticsService {
-        protected function getRealColumnId($sectionId, $targetColName) {
+    $service = new class extends StatisticsService
+    {
+        protected function getRealColumnId($sectionId, $targetColName)
+        {
             return $targetColName === 'Badge' ? 'col_badge' : $targetColName;
         }
     };
 
-    $row1 = new \App\Models\RosterContent(['section_id' => 1]);
+    $row1 = new RosterContent(['section_id' => 1]);
     $row1->content = ['col_badge' => '101'];
 
-    $row2 = new \App\Models\RosterContent(['section_id' => 1]);
+    $row2 = new RosterContent(['section_id' => 1]);
     $row2->content = ['col_badge' => '102'];
 
-    $row3 = new \App\Models\RosterContent(['section_id' => 1]);
+    $row3 = new RosterContent(['section_id' => 1]);
     $row3->content = ['col_badge' => '101'];
 
-    $row4 = new \App\Models\RosterContent(['section_id' => 1]);
+    $row4 = new RosterContent(['section_id' => 1]);
     $row4->content = ['col_badge' => ''];
 
     $pool = collect([$row1, $row2, $row3, $row4]);
@@ -231,4 +241,3 @@ test('aggregatePool applies count_unique correctly', function () {
 
     expect($result)->toBe(2);
 });
-

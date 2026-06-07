@@ -3,11 +3,9 @@
 namespace App\Services;
 
 use App\Models\Faction;
-use App\Models\FactionRecordDatabase;
 use App\Models\FactionRecordEntry;
 use App\Models\Notification;
 use App\Models\NotificationScheme;
-use App\Models\Roster;
 use App\Models\RosterContent;
 
 class NotificationService
@@ -15,16 +13,16 @@ class NotificationService
     public static function triggerDatabaseEntryEvent(FactionRecordEntry $entry, string $eventType)
     {
         $database = $entry->database;
-        if (!$database) {
+        if (! $database) {
             return;
         }
 
         $faction = $database->faction;
-        if (!$faction) {
+        if (! $faction) {
             return;
         }
 
-        $triggerType = 'database_entry_' . $eventType; // database_entry_created or database_entry_updated
+        $triggerType = 'database_entry_'.$eventType; // database_entry_created or database_entry_updated
 
         $schemes = NotificationScheme::where('faction_id', $faction->id)
             ->where('trigger_type', $triggerType)
@@ -34,11 +32,11 @@ class NotificationService
         foreach ($schemes as $scheme) {
             if (self::evaluateConditions($entry->data ?? [], $scheme->conditions)) {
                 $title = $eventType === 'created' ? "New entry in {$database->name}" : "Entry updated in {$database->name}";
-                
+
                 $allowBranding = $faction->allow_branding;
-                $message = ($allowBranding && !empty($scheme->text_template))
+                $message = ($allowBranding && ! empty($scheme->text_template))
                     ? self::parseTemplate($scheme->text_template, $triggerType, $entry, $database)
-                    : ($eventType === 'created' 
+                    : ($eventType === 'created'
                         ? "A new entry has been created in the database '{$database->name}' (#{$entry->entry_id})."
                         : "An entry has been updated in the database '{$database->name}' (#{$entry->entry_id}).");
 
@@ -62,21 +60,21 @@ class NotificationService
     public static function triggerRosterContentEvent(RosterContent $content, string $eventType)
     {
         $section = $content->section;
-        if (!$section) {
+        if (! $section) {
             return;
         }
 
         $roster = $section->roster;
-        if (!$roster) {
+        if (! $roster) {
             return;
         }
 
         $faction = $roster->faction;
-        if (!$faction) {
+        if (! $faction) {
             return;
         }
 
-        $triggerType = 'roster_row_' . $eventType; // roster_row_created or roster_row_updated
+        $triggerType = 'roster_row_'.$eventType; // roster_row_created or roster_row_updated
 
         $schemes = NotificationScheme::where('faction_id', $faction->id)
             ->where('trigger_type', $triggerType)
@@ -88,7 +86,7 @@ class NotificationService
                 $title = $eventType === 'created' ? "New row in roster {$roster->name}" : "Row updated in roster {$roster->name}";
 
                 $allowBranding = $faction->allow_branding;
-                $message = ($allowBranding && !empty($scheme->text_template))
+                $message = ($allowBranding && ! empty($scheme->text_template))
                     ? self::parseTemplate($scheme->text_template, $triggerType, $content, $roster)
                     : ($eventType === 'created'
                         ? "A new row has been added to roster '{$roster->name}' under section '{$section->name}'."
@@ -113,17 +111,17 @@ class NotificationService
 
     public static function triggerFactionEvent(Faction $faction, string $eventType)
     {
-        $triggerType = 'faction_' . $eventType; // faction_updated
+        $triggerType = 'faction_'.$eventType; // faction_updated
 
         $schemes = NotificationScheme::where('faction_id', $faction->id)
             ->where('trigger_type', $triggerType)
             ->get();
 
         foreach ($schemes as $scheme) {
-            $title = "Faction settings updated";
+            $title = 'Faction settings updated';
 
             $allowBranding = $faction->allow_branding;
-            $message = ($allowBranding && !empty($scheme->text_template))
+            $message = ($allowBranding && ! empty($scheme->text_template))
                 ? self::parseTemplate($scheme->text_template, $triggerType, $faction)
                 : "The faction settings for '{$faction->name}' have been updated.";
 
@@ -149,7 +147,7 @@ class NotificationService
 
         foreach ($conditions as $cond) {
             $columnId = $cond['column_id'] ?? null;
-            if (!$columnId) {
+            if (! $columnId) {
                 continue;
             }
 
@@ -201,7 +199,7 @@ class NotificationService
                 if (isset($entity->data[$key])) {
                     $val = $entity->data[$key];
                     $valStr = is_array($val) ? json_encode($val) : strval($val);
-                    $text = str_replace('{' . $placeholder . '}', $valStr, $text);
+                    $text = str_replace('{'.$placeholder.'}', $valStr, $text);
                 }
             }
         } elseif ($triggerType === 'roster_row_created' || $triggerType === 'roster_row_updated') {
@@ -217,7 +215,7 @@ class NotificationService
                 if (isset($entity->content[$key])) {
                     $val = $entity->content[$key];
                     $valStr = is_array($val) ? json_encode($val) : strval($val);
-                    $text = str_replace('{' . $placeholder . '}', $valStr, $text);
+                    $text = str_replace('{'.$placeholder.'}', $valStr, $text);
                 }
             }
         } elseif ($triggerType === 'faction_updated') {

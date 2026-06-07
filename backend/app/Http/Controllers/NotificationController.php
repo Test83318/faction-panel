@@ -7,7 +7,6 @@ use App\Models\NotificationRead;
 use App\Models\NotificationScheme;
 use App\Models\NotificationSchemePermission;
 use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class NotificationController extends Controller
@@ -18,14 +17,15 @@ class NotificationController extends Controller
         $eligibleSchemeIds = [];
 
         foreach ($user->factions as $faction) {
-            $isLeaderOrAdmin = $user->is_superadmin || 
-                               $faction->faction_leader === $user->id || 
+            $isLeaderOrAdmin = $user->is_superadmin ||
+                               $faction->faction_leader === $user->id ||
                                User::hasFactionPermission($user, $faction, 'administrator');
 
             $schemes = NotificationScheme::where('faction_id', $faction->id)->get();
-            
+
             if ($isLeaderOrAdmin) {
                 $eligibleSchemeIds = array_merge($eligibleSchemeIds, $schemes->pluck('id')->toArray());
+
                 continue;
             }
 
@@ -34,12 +34,12 @@ class NotificationController extends Controller
 
             foreach ($schemes as $scheme) {
                 $hasReceive = NotificationSchemePermission::where('notification_scheme_id', $scheme->id)
-                    ->where(function($q) use ($roleIds, $groupIds) {
+                    ->where(function ($q) use ($roleIds, $groupIds) {
                         $q->whereIn('role_id', $roleIds)
-                          ->orWhereIn('group_id', $groupIds)
-                          ->orWhere(function($sub) {
-                              $sub->whereNull('role_id')->whereNull('group_id');
-                          });
+                            ->orWhereIn('group_id', $groupIds)
+                            ->orWhere(function ($sub) {
+                                $sub->whereNull('role_id')->whereNull('group_id');
+                            });
                     })
                     ->whereJsonContains('permissions', 'receive')
                     ->exists();
@@ -50,29 +50,29 @@ class NotificationController extends Controller
             }
         }
 
-        $notifications = Notification::where(function($q) use ($user, $eligibleSchemeIds) {
-            $q->where(function($sub) use ($user) {
+        $notifications = Notification::where(function ($q) use ($user, $eligibleSchemeIds) {
+            $q->where(function ($sub) use ($user) {
                 $sub->whereIn('type', ['system', 'user'])
-                    ->where(function($inner) use ($user) {
+                    ->where(function ($inner) use ($user) {
                         $inner->where('user_id', $user->id)
-                              ->orWhereNull('user_id');
+                            ->orWhereNull('user_id');
                     });
             })
-            ->orWhere(function($sub) use ($eligibleSchemeIds) {
-                $sub->where('type', 'faction')
-                    ->whereIn('notification_scheme_id', $eligibleSchemeIds);
-            });
+                ->orWhere(function ($sub) use ($eligibleSchemeIds) {
+                    $sub->where('type', 'faction')
+                        ->whereIn('notification_scheme_id', $eligibleSchemeIds);
+                });
         })
-        ->with(['scheme', 'faction'])
-        ->orderBy('created_at', 'desc')
-        ->limit(100)
-        ->get();
+            ->with(['scheme', 'faction'])
+            ->orderBy('created_at', 'desc')
+            ->limit(100)
+            ->get();
 
         $userReads = NotificationRead::where('user_id', $user->id)
             ->pluck('notification_id')
             ->toArray();
 
-        $results = $notifications->map(function($notif) use ($userReads) {
+        $results = $notifications->map(function ($notif) use ($userReads) {
             $isRead = false;
             if ($notif->type !== 'faction') {
                 $isRead = $notif->is_read;
@@ -120,32 +120,32 @@ class NotificationController extends Controller
             $notification->update(['is_read' => true]);
         } else {
             $scheme = $notification->scheme;
-            if (!$scheme) {
+            if (! $scheme) {
                 return response()->json(['message' => 'Scheme not found'], 404);
             }
 
             // Check if user is allowed to read
-            $isAllowed = $user->is_superadmin || 
-                         $scheme->faction->faction_leader === $user->id || 
+            $isAllowed = $user->is_superadmin ||
+                         $scheme->faction->faction_leader === $user->id ||
                          User::hasFactionPermission($user, $scheme->faction, 'administrator');
 
-            if (!$isAllowed) {
+            if (! $isAllowed) {
                 $roleIds = $user->roles()->where('faction_id', $scheme->faction_id)->pluck('roles.id')->toArray();
                 $groupIds = $user->groups()->where('faction_id', $scheme->faction_id)->pluck('groups.id')->toArray();
 
                 $isAllowed = NotificationSchemePermission::where('notification_scheme_id', $scheme->id)
-                    ->where(function($q) use ($roleIds, $groupIds) {
+                    ->where(function ($q) use ($roleIds, $groupIds) {
                         $q->whereIn('role_id', $roleIds)
-                          ->orWhereIn('group_id', $groupIds)
-                          ->orWhere(function($sub) {
-                              $sub->whereNull('role_id')->whereNull('group_id');
-                          });
+                            ->orWhereIn('group_id', $groupIds)
+                            ->orWhere(function ($sub) {
+                                $sub->whereNull('role_id')->whereNull('group_id');
+                            });
                     })
                     ->whereJsonContains('permissions', 'read')
                     ->exists();
             }
 
-            if (!$isAllowed) {
+            if (! $isAllowed) {
                 return response()->json(['message' => 'Forbidden'], 403);
             }
 
@@ -168,9 +168,9 @@ class NotificationController extends Controller
 
         // Mark system / user notifications read
         Notification::whereIn('type', ['system', 'user'])
-            ->where(function($q) use ($user) {
+            ->where(function ($q) use ($user) {
                 $q->where('user_id', $user->id)
-                  ->orWhereNull('user_id');
+                    ->orWhereNull('user_id');
             })
             ->update(['is_read' => true]);
 
@@ -182,7 +182,7 @@ class NotificationController extends Controller
         $user = Auth::user();
 
         // Verify faction access
-        if (!$user->is_superadmin && !$user->factions->contains('id', $scheme->faction_id)) {
+        if (! $user->is_superadmin && ! $user->factions->contains('id', $scheme->faction_id)) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

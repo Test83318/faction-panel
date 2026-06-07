@@ -25,7 +25,7 @@ composer run setup
 composer run dev
 
 # Tests (Pest)
-composer run test
+php artisan test
 
 # Code Style (Pint)
 vendor/bin/pint
@@ -59,7 +59,7 @@ batch\start.bat # Start backend and frontend in separate windows
 ## Development Conventions
 
 - **Type Safety:** Mandatory. `npm run lint` must pass in frontend.
-- **Testing:** Mandatory. `composer run test` must pass in backend.
+- **Testing:** Mandatory. `php artisan test` must pass in backend.
 - **Backend Style:** Thin controllers, logic in models or services (`app/Services`).
 - **Frontend Style:** Component-per-page/feature in `src/components`. Prop-drilling for faction context. No heavy global state (Context API/TanStack Query preferred).
 - **Auditing:** Models should use `Auditable` trait for automatic activity logging.

@@ -2,6 +2,7 @@
 
 use App\Models\Faction;
 use App\Models\FactionInvite;
+use App\Models\Group;
 use App\Models\Role;
 use App\Models\User;
 use Carbon\Carbon;
@@ -190,9 +191,9 @@ test('join with invite and auto-add to groups', function () {
     ]);
 
     // Create groups
-    $group1 = \App\Models\Group::create(['faction_id' => $faction->id, 'name' => 'Group A', 'color' => '#111111', 'created_by' => $creator->id]);
-    $group2 = \App\Models\Group::create(['faction_id' => $faction->id, 'name' => 'Group B', 'color' => '#222222', 'created_by' => $creator->id]);
-    $group3 = \App\Models\Group::create(['faction_id' => $faction->id, 'name' => 'Group C', 'color' => '#333333', 'created_by' => $creator->id]);
+    $group1 = Group::create(['faction_id' => $faction->id, 'name' => 'Group A', 'color' => '#111111', 'created_by' => $creator->id]);
+    $group2 = Group::create(['faction_id' => $faction->id, 'name' => 'Group B', 'color' => '#222222', 'created_by' => $creator->id]);
+    $group3 = Group::create(['faction_id' => $faction->id, 'name' => 'Group C', 'color' => '#333333', 'created_by' => $creator->id]);
 
     // Create invite with group1 and group2
     $response = $this->actingAs($creator)->postJson("/api/factions/{$faction->shortname}/invites", [

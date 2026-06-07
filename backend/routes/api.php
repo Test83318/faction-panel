@@ -23,6 +23,8 @@ use App\Http\Controllers\HelpAdminController;
 use App\Http\Controllers\HelpController;
 use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\InviteController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\NotificationSchemeController;
 use App\Http\Controllers\QuickSearchController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\RosterContentController;
@@ -37,8 +39,6 @@ use App\Http\Controllers\StatisticsPermissionController;
 use App\Http\Controllers\StatisticsWidgetController;
 use App\Http\Controllers\SuperadminController;
 use App\Http\Controllers\UploadController;
-use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\NotificationSchemeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/setup/status', [SetupController::class, 'status']);

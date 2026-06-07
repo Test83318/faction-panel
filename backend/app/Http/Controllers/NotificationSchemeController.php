@@ -16,15 +16,15 @@ class NotificationSchemeController extends Controller
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::user();
 
-        $canConfigure = $user->is_superadmin || 
-                        $faction->faction_leader === $user->id || 
+        $canConfigure = $user->is_superadmin ||
+                        $faction->faction_leader === $user->id ||
                         User::hasFactionPermission($user, $faction, 'configure_notifications');
 
-        $canView = $canConfigure || 
-                   User::hasFactionPermission($user, $faction, 'view_notifications') || 
+        $canView = $canConfigure ||
+                   User::hasFactionPermission($user, $faction, 'view_notifications') ||
                    User::hasFactionPermission($user, $faction, 'administrator');
 
-        if (!$canView) {
+        if (! $canView) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -52,12 +52,12 @@ class NotificationSchemeController extends Controller
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::user();
 
-        $canConfigure = $user->is_superadmin || 
-                        $faction->faction_leader === $user->id || 
+        $canConfigure = $user->is_superadmin ||
+                        $faction->faction_leader === $user->id ||
                         User::hasFactionPermission($user, $faction, 'configure_notifications') ||
                         User::hasFactionPermission($user, $faction, 'administrator');
 
-        if (!$canConfigure) {
+        if (! $canConfigure) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -75,7 +75,7 @@ class NotificationSchemeController extends Controller
         ]);
 
         // Nullify text template if custom branding is not allowed
-        if (!$faction->allow_branding) {
+        if (! $faction->allow_branding) {
             $validated['text_template'] = null;
         }
 
@@ -109,30 +109,30 @@ class NotificationSchemeController extends Controller
         $user = Auth::user();
         $faction = $scheme->faction;
 
-        $isLeaderOrSuper = $user->is_superadmin || 
-                           $faction->faction_leader === $user->id || 
+        $isLeaderOrSuper = $user->is_superadmin ||
+                           $faction->faction_leader === $user->id ||
                            User::hasFactionPermission($user, $faction, 'administrator');
 
         $canManage = $isLeaderOrSuper || User::hasFactionPermission($user, $faction, 'configure_notifications');
 
-        if (!$canManage) {
+        if (! $canManage) {
             // Check scheme-level permission
             $roleIds = $user->roles()->where('faction_id', $faction->id)->pluck('roles.id')->toArray();
             $groupIds = $user->groups()->where('faction_id', $faction->id)->pluck('groups.id')->toArray();
-            
+
             $canManage = NotificationSchemePermission::where('notification_scheme_id', $scheme->id)
-                ->where(function($q) use ($roleIds, $groupIds) {
+                ->where(function ($q) use ($roleIds, $groupIds) {
                     $q->whereIn('role_id', $roleIds)
-                      ->orWhereIn('group_id', $groupIds)
-                      ->orWhere(function($sub) {
-                          $sub->whereNull('role_id')->whereNull('group_id');
-                      });
+                        ->orWhereIn('group_id', $groupIds)
+                        ->orWhere(function ($sub) {
+                            $sub->whereNull('role_id')->whereNull('group_id');
+                        });
                 })
                 ->whereJsonContains('permissions', 'manage')
                 ->exists();
         }
 
-        if (!$canManage) {
+        if (! $canManage) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -149,7 +149,7 @@ class NotificationSchemeController extends Controller
             'permissions.*.permissions' => 'required|array',
         ]);
 
-        if (!$faction->allow_branding) {
+        if (! $faction->allow_branding) {
             $validated['text_template'] = null;
         }
 
@@ -178,29 +178,29 @@ class NotificationSchemeController extends Controller
         $user = Auth::user();
         $faction = $scheme->faction;
 
-        $isLeaderOrSuper = $user->is_superadmin || 
-                           $faction->faction_leader === $user->id || 
+        $isLeaderOrSuper = $user->is_superadmin ||
+                           $faction->faction_leader === $user->id ||
                            User::hasFactionPermission($user, $faction, 'administrator');
 
         $canManage = $isLeaderOrSuper || User::hasFactionPermission($user, $faction, 'configure_notifications');
 
-        if (!$canManage) {
+        if (! $canManage) {
             $roleIds = $user->roles()->where('faction_id', $faction->id)->pluck('roles.id')->toArray();
             $groupIds = $user->groups()->where('faction_id', $faction->id)->pluck('groups.id')->toArray();
-            
+
             $canManage = NotificationSchemePermission::where('notification_scheme_id', $scheme->id)
-                ->where(function($q) use ($roleIds, $groupIds) {
+                ->where(function ($q) use ($roleIds, $groupIds) {
                     $q->whereIn('role_id', $roleIds)
-                      ->orWhereIn('group_id', $groupIds)
-                      ->orWhere(function($sub) {
-                          $sub->whereNull('role_id')->whereNull('group_id');
-                      });
+                        ->orWhereIn('group_id', $groupIds)
+                        ->orWhere(function ($sub) {
+                            $sub->whereNull('role_id')->whereNull('group_id');
+                        });
                 })
                 ->whereJsonContains('permissions', 'manage')
                 ->exists();
         }
 
-        if (!$canManage) {
+        if (! $canManage) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 

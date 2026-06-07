@@ -81,7 +81,7 @@ class InviteController extends Controller
         }
 
         $groupIds = $request->input('group_ids', []);
-        if (!empty($groupIds)) {
+        if (! empty($groupIds)) {
             $validGroupsCount = $faction->groups()->whereIn('id', $groupIds)->count();
             if ($validGroupsCount !== count($groupIds)) {
                 return response()->json(['message' => 'One or more groups are invalid or do not belong to this faction.'], 422);
@@ -110,7 +110,7 @@ class InviteController extends Controller
             'created_by' => $request->user()->id,
         ]);
 
-        if (!empty($groupIds)) {
+        if (! empty($groupIds)) {
             $invite->groups()->attach($groupIds);
         }
 
@@ -202,7 +202,7 @@ class InviteController extends Controller
 
         // Auto-assign groups attached to the invite
         $inviteGroupIds = $invite->groups()->pluck('groups.id')->toArray();
-        if (!empty($inviteGroupIds)) {
+        if (! empty($inviteGroupIds)) {
             $user->groups()->syncWithoutDetaching(
                 array_fill_keys($inviteGroupIds, ['is_leader' => false])
             );

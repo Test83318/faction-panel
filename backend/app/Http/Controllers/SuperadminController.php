@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Faction;
 use App\Models\MembershipTier;
+use App\Models\Notification;
 use App\Models\SiteSetting;
 use App\Models\User;
-use App\Models\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -274,7 +274,7 @@ class SuperadminController extends Controller
             'is_read' => false,
         ]);
 
-        $targetText = $notif->user_id ? "user '{$notif->user->username}'" : "all users";
+        $targetText = $notif->user_id ? "user '{$notif->user->username}'" : 'all users';
         $this->audit('superadmin.notifications.create', "Created system notification '{$notif->title}' targeting {$targetText}", null, $notif, null, $notif->getAttributes());
 
         return response()->json($notif->load('user:id,username'), 201);

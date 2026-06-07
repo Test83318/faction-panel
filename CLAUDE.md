@@ -20,7 +20,7 @@ composer run setup
 composer run dev
 
 # Run tests (Pest)
-composer run test
+php artisan test
 
 # Single test file
 php artisan test --filter TestClassName
@@ -59,7 +59,7 @@ docker-compose up -d --build   # Frontend served at :3007 via Nginx
 After every code modification, **both** must pass before considering work done:
 
 1. `npm run lint` (frontend) — must be type-error-free
-2. `composer run test` (backend) — all Pest tests must pass
+2. `php artisan test` (backend) — all Pest tests must pass
 
 Do not claim a task complete until the codebase is type-safe and tests pass.
 

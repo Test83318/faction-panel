@@ -6,6 +6,7 @@ use App\Models\RosterContent;
 use App\Models\RosterRevision;
 use App\Models\RosterSection;
 use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -58,9 +59,9 @@ class RosterContentController extends Controller
         RosterRevision::logRevision($roster->id, "Created row in section '{$section->name}'", Auth::id());
 
         try {
-            \App\Services\NotificationService::triggerRosterContentEvent($content, 'created');
+            NotificationService::triggerRosterContentEvent($content, 'created');
         } catch (\Exception $e) {
-            \Log::error("Failed triggering notification: " . $e->getMessage());
+            \Log::error('Failed triggering notification: '.$e->getMessage());
         }
 
         return response()->json($content, 201);
@@ -142,9 +143,9 @@ class RosterContentController extends Controller
         RosterRevision::logRevision($roster->id, "Updated row in section '{$content->section->name}'", Auth::id());
 
         try {
-            \App\Services\NotificationService::triggerRosterContentEvent($content, 'updated');
+            NotificationService::triggerRosterContentEvent($content, 'updated');
         } catch (\Exception $e) {
-            \Log::error("Failed triggering notification: " . $e->getMessage());
+            \Log::error('Failed triggering notification: '.$e->getMessage());
         }
 
         return response()->json($content);
@@ -291,9 +292,9 @@ class RosterContentController extends Controller
             $contentModel->update($updateData);
 
             try {
-                \App\Services\NotificationService::triggerRosterContentEvent($contentModel, 'updated');
+                NotificationService::triggerRosterContentEvent($contentModel, 'updated');
             } catch (\Exception $e) {
-                \Log::error("Failed triggering notification: " . $e->getMessage());
+                \Log::error('Failed triggering notification: '.$e->getMessage());
             }
         }
 

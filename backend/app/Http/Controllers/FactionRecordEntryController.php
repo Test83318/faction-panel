@@ -8,6 +8,7 @@ use App\Models\Roster;
 use App\Models\RosterContent;
 use App\Models\RosterDataset;
 use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -68,9 +69,9 @@ class FactionRecordEntryController extends Controller
         $this->audit('record_entry.create', "Created entry #{$entry->entry_id} in database '{$database->name}'", $database->faction_id, $entry);
 
         try {
-            \App\Services\NotificationService::triggerDatabaseEntryEvent($entry, 'created');
+            NotificationService::triggerDatabaseEntryEvent($entry, 'created');
         } catch (\Exception $e) {
-            \Log::error("Failed triggering notification: " . $e->getMessage());
+            \Log::error('Failed triggering notification: '.$e->getMessage());
         }
 
         return response()->json($entry->load('creator:id,username'), 201);
@@ -272,9 +273,9 @@ class FactionRecordEntryController extends Controller
         $this->audit('record_entry.update', "Updated entry #{$entry->entry_id} in database '{$database->name}'", $database->faction_id, $entry, $oldValues, $entry->getDirty());
 
         try {
-            \App\Services\NotificationService::triggerDatabaseEntryEvent($entry, 'updated');
+            NotificationService::triggerDatabaseEntryEvent($entry, 'updated');
         } catch (\Exception $e) {
-            \Log::error("Failed triggering notification: " . $e->getMessage());
+            \Log::error('Failed triggering notification: '.$e->getMessage());
         }
 
         return response()->json($entry->load('creator:id,username'));
