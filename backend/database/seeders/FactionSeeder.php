@@ -44,7 +44,6 @@ class FactionSeeder extends Seeder
                 'password' => Hash::make('password'),
                 'is_superadmin' => true,
                 'membership_tier_id' => 3, // Enterprise
-                'always_match_row_height' => false,
             ]
         );
 
@@ -54,7 +53,6 @@ class FactionSeeder extends Seeder
                 'password' => Hash::make('password'),
                 'is_superadmin' => false,
                 'membership_tier_id' => 3, // Enterprise
-                'always_match_row_height' => true,
             ]
         );
 

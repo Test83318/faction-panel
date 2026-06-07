@@ -339,7 +339,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         $validated = $request->validate([
-            'always_match_row_height' => 'sometimes|boolean',
+            // Empty validation since no user settings remain on backend
         ]);
 
         $oldValues = $user->getOriginal();

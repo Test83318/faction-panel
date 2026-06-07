@@ -12,7 +12,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['username', 'password', 'is_superadmin', 'avatar_url', 'gtaw_id', 'gtaw_username', 'gtaw_access_token', 'membership_tier_id', 'always_match_row_height'])]
+#[Fillable(['username', 'password', 'is_superadmin', 'avatar_url', 'gtaw_id', 'gtaw_username', 'gtaw_access_token', 'membership_tier_id'])]
 #[Hidden(['password', 'remember_token', 'gtaw_id', 'gtaw_username', 'gtaw_access_token'])]
 class User extends Authenticatable
 {
@@ -33,7 +33,6 @@ class User extends Authenticatable
             'is_superadmin' => 'boolean',
             'membership_tier_id' => 'integer',
             'allow_custom_branding' => 'boolean',
-            'always_match_row_height' => 'boolean',
             'gtaw_linked' => 'boolean',
         ];
     }

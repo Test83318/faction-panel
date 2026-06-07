@@ -200,7 +200,6 @@ export interface User {
   membership_tier?: MembershipTier;
   max_factions: number;
   allow_custom_branding: boolean;
-  always_match_row_height: boolean;
   factions_count?: number;
   roles?: Role[];
 }
