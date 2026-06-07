@@ -153,3 +153,82 @@ test('matchCondition handles in_roster condition correctly', function () {
     $result4 = $method->invoke($service, ['db_user' => 'jane_smith'], $cond2);
     expect($result4)->toBeFalse();
 });
+
+test('evaluateCount applies count_unique correctly', function () {
+    $service = new class extends StatisticsService {
+        public $mockPool;
+        protected function getSourcePool(string $type, $id, &$totalRowsProcessed, array $config = []): Collection {
+            $totalRowsProcessed += $this->mockPool->count();
+            return $this->mockPool;
+        }
+        protected function getRealColumnId($sectionId, $targetColName) {
+            return $targetColName === 'Badge' ? 'col_badge' : $targetColName;
+        }
+    };
+
+    $row1 = new \App\Models\RosterContent(['section_id' => 1]);
+    $row1->content = ['col_badge' => '101', 'col_status' => 'Active'];
+    
+    $row2 = new \App\Models\RosterContent(['section_id' => 1]);
+    $row2->content = ['col_badge' => '102', 'col_status' => 'Active'];
+    
+    $row3 = new \App\Models\RosterContent(['section_id' => 1]);
+    $row3->content = ['col_badge' => '101', 'col_status' => 'Active'];
+
+    $service->mockPool = collect([$row1, $row2, $row3]);
+
+    $reflection = new ReflectionClass($service);
+    $method = $reflection->getMethod('evaluateCount');
+    $method->setAccessible(true);
+
+    $count = [
+        'conditions' => [
+            [
+                'type' => 'rows',
+                'scope' => 'roster',
+                'roster_id' => 1,
+                'settings' => [
+                    'target_col' => 'Badge',
+                    'count_unique' => true,
+                ],
+                'filters' => []
+            ]
+        ]
+    ];
+
+    $totalRowsProcessed = 0;
+    $result = $method->invokeArgs($service, [$count, 'roster', 1, &$totalRowsProcessed]);
+
+    expect($result)->toBe(2.0);
+});
+
+test('aggregatePool applies count_unique correctly', function () {
+    $service = new class extends StatisticsService {
+        protected function getRealColumnId($sectionId, $targetColName) {
+            return $targetColName === 'Badge' ? 'col_badge' : $targetColName;
+        }
+    };
+
+    $row1 = new \App\Models\RosterContent(['section_id' => 1]);
+    $row1->content = ['col_badge' => '101'];
+
+    $row2 = new \App\Models\RosterContent(['section_id' => 1]);
+    $row2->content = ['col_badge' => '102'];
+
+    $row3 = new \App\Models\RosterContent(['section_id' => 1]);
+    $row3->content = ['col_badge' => '101'];
+
+    $row4 = new \App\Models\RosterContent(['section_id' => 1]);
+    $row4->content = ['col_badge' => ''];
+
+    $pool = collect([$row1, $row2, $row3, $row4]);
+
+    $reflection = new ReflectionClass($service);
+    $method = $reflection->getMethod('aggregatePool');
+    $method->setAccessible(true);
+
+    $result = $method->invokeArgs($service, [$pool, 'count_unique', 'Badge', 'roster']);
+
+    expect($result)->toBe(2);
+});
+

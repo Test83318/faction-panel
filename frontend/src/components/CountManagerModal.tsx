@@ -584,6 +584,17 @@ export const CountManagerModal: React.FC<CountManagerModalProps> = ({
                                                                                                     <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all ${cond.settings.exclude_spacers ? 'right-0.5' : 'left-0.5'}`} />
                                                                                                 </button>
                                                                                             </div>
+                                                                                            {cond.settings.target_col && (
+                                                                                                <div className="flex items-center justify-between px-1">
+                                                                                                    <span className="text-[9px] font-bold text-muted uppercase">Count Unique</span>
+                                                                                                    <button 
+                                                                                                        onClick={() => updateCondition(idx, cIdx, { settings: { ...cond.settings, count_unique: !cond.settings.count_unique } })}
+                                                                                                        className={`w-7 h-3.5 rounded-full relative transition-colors ${cond.settings.count_unique ? 'bg-accent' : 'bg-muted/30'}`}
+                                                                                                    >
+                                                                                                        <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all ${cond.settings.count_unique ? 'right-0.5' : 'left-0.5'}`} />
+                                                                                                    </button>
+                                                                                                </div>
+                                                                                            )}
                                                                                         </div>
                                                                                     </div>
                                                                                     {cond.settings.target_col && (

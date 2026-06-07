@@ -12,6 +12,32 @@ use Illuminate\Support\Collection;
 class StatisticsService
 {
     protected $rosterPoolsCache = [];
+    protected $columnIdMapsCache = [];
+
+    protected function getRealColumnId($sectionId, $targetColName)
+    {
+        $cacheKey = $sectionId . '_' . $targetColName;
+        if (isset($this->columnIdMapsCache[$cacheKey])) {
+            return $this->columnIdMapsCache[$cacheKey];
+        }
+
+        $section = RosterSection::with('roster')->find($sectionId);
+        if (!$section) {
+            $this->columnIdMapsCache[$cacheKey] = $targetColName;
+            return $targetColName;
+        }
+
+        $columns = $section->use_roster_columns ? ($section->roster->columns ?? []) : ($section->columns ?? []);
+        foreach ($columns as $col) {
+            if (($col['name'] ?? '') === $targetColName || ($col['id'] ?? '') === $targetColName) {
+                $this->columnIdMapsCache[$cacheKey] = $col['id'];
+                return $col['id'];
+            }
+        }
+
+        $this->columnIdMapsCache[$cacheKey] = $targetColName;
+        return $targetColName;
+    }
 
     protected function getRosterPoolCached($rosterId): Collection
     {
@@ -120,6 +146,26 @@ class StatisticsService
 
     protected function aggregatePool(Collection $pool, string $operation, $targetCol, string $sourceType)
     {
+        if ($operation === 'count_unique' && $targetCol) {
+            $dataKey = $sourceType === 'database' ? 'data' : 'content';
+            $values = $pool->map(function ($item) use ($dataKey, $targetCol) {
+                $colId = $targetCol;
+                if ($item instanceof RosterContent) {
+                    $colId = $this->getRealColumnId($item->section_id, $targetCol);
+                }
+                $data = $item->$dataKey ?? [];
+                $val = $data[$colId] ?? null;
+
+                if (is_null($val) || $val === '') {
+                    return null;
+                }
+
+                return is_array($val) ? json_encode($val) : (string) $val;
+            })->filter(fn ($val) => ! is_null($val) && $val !== '');
+
+            return $values->unique()->count();
+        }
+
         if ($operation === 'count' || ! $targetCol) {
             return $pool->count();
         }
@@ -127,8 +173,12 @@ class StatisticsService
         $dataKey = $sourceType === 'database' ? 'data' : 'content';
 
         $values = $pool->map(function ($item) use ($dataKey, $targetCol) {
+            $colId = $targetCol;
+            if ($item instanceof RosterContent) {
+                $colId = $this->getRealColumnId($item->section_id, $targetCol);
+            }
             $data = $item->$dataKey ?? [];
-            $val = $data[$targetCol] ?? 0;
+            $val = $data[$colId] ?? 0;
 
             return is_numeric($val) ? (float) $val : 0;
         });
@@ -334,7 +384,31 @@ class StatisticsService
                 }
 
                 $filtered = $this->applyConditions($pool, $cond['filters'] ?? [$cond], 'roster');
-                $condMatchedValue = $filtered->count();
+
+                if (! empty($cond['settings']['count_unique']) && ! empty($cond['settings']['target_col'])) {
+                    $targetColName = $cond['settings']['target_col'];
+                    $dataKey = ($scope === 'database' || $parentType === 'database') ? 'data' : 'content';
+
+                    $values = $filtered->map(function ($item) use ($dataKey, $targetColName) {
+                        $colId = $targetColName;
+                        if ($item instanceof RosterContent) {
+                            $colId = $this->getRealColumnId($item->section_id, $targetColName);
+                        }
+
+                        $data = $item->$dataKey ?? [];
+                        $val = $data[$colId] ?? null;
+
+                        if (is_null($val) || $val === '') {
+                            return null;
+                        }
+
+                        return is_array($val) ? json_encode($val) : (string) $val;
+                    })->filter(fn ($val) => ! is_null($val) && $val !== '');
+
+                    $condMatchedValue = $values->unique()->count();
+                } else {
+                    $condMatchedValue = $filtered->count();
+                }
             }
 
             // 2. Apply arithmetic/logic
@@ -372,7 +446,7 @@ class StatisticsService
             return $pool->filter(function ($item) use ($conditions, $dataKey) {
                 $data = $item->$dataKey ?? [];
                 foreach ($conditions as $cond) {
-                    if ($this->matchCondition($data, $cond)) {
+                    if ($this->matchCondition($data, $cond, $item)) {
                         return true;
                     }
                 }
@@ -385,7 +459,7 @@ class StatisticsService
         return $pool->filter(function ($item) use ($conditions, $dataKey) {
             $data = $item->$dataKey ?? [];
             foreach ($conditions as $cond) {
-                if (! $this->matchCondition($data, $cond)) {
+                if (! $this->matchCondition($data, $cond, $item)) {
                     return false;
                 }
             }
@@ -394,11 +468,15 @@ class StatisticsService
         });
     }
 
-    protected function matchCondition(array $data, array $cond): bool
+    protected function matchCondition(array $data, array $cond, $item = null): bool
     {
         $targetCol = $cond['target_col'] ?? null;
         if (! $targetCol) {
             return true;
+        }
+
+        if ($item instanceof RosterContent) {
+            $targetCol = $this->getRealColumnId($item->section_id, $targetCol);
         }
 
         $val = $data[$targetCol] ?? null;

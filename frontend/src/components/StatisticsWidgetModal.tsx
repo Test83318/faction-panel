@@ -583,7 +583,7 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
                                                                         }
                                                                     </select>
                                                                 </div>
-                                                                <div>
+                                                                 <div>
                                                                     <label className="block text-[8px] font-black uppercase tracking-widest text-muted mb-1.5">Operation</label>
                                                                     <select 
                                                                         value={series.operation || 'count'}
@@ -591,6 +591,7 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
                                                                         className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase"
                                                                     >
                                                                         <option value="count">Count Entries</option>
+                                                                        <option value="count_unique">Count Unique Values</option>
                                                                         <option value="sum">Sum Value</option>
                                                                         <option value="avg">Average Value</option>
                                                                         <option value="min">Minimum Value</option>
@@ -606,7 +607,7 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
                                                                             className="w-full bg-surface border border-border rounded-lg px-3 py-1.5 text-[10px] font-bold uppercase"
                                                                         >
                                                                             <option value="">Select Column...</option>
-                                                                            {getNumericColumns(series.source_type, series.source_id).map((c: any) => (
+                                                                            {(series.operation === 'count_unique' ? getColumns(series.source_type, series.source_id) : getNumericColumns(series.source_type, series.source_id)).map((c: any) => (
                                                                                 <option key={c.id} value={c.id}>{c.name}</option>
                                                                             ))}
                                                                         </select>
@@ -676,7 +677,7 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
                                                                                     </select>
                                                                                 </div>
                                                                                 <div className="w-px h-3 bg-border" />
-                                                                                <div className="flex items-center gap-1.5">
+                                                                                 <div className="flex items-center gap-1.5">
                                                                                     <span className="text-[8px] font-black uppercase text-muted">Op</span>
                                                                                     <select 
                                                                                         value={group.operation || 'count'}
@@ -684,6 +685,7 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
                                                                                         className="bg-card border border-border rounded px-1.5 py-0.5 text-[9px] font-black uppercase"
                                                                                     >
                                                                                         <option value="count">Count</option>
+                                                                                        <option value="count_unique">Count Unique</option>
                                                                                         <option value="sum">Sum</option>
                                                                                         <option value="avg">Avg</option>
                                                                                     </select>
@@ -697,7 +699,7 @@ export const StatisticsWidgetModal: React.FC<StatisticsWidgetModalProps> = ({
                                                                                             className="bg-card border border-border rounded px-1.5 py-0.5 text-[9px] font-black uppercase"
                                                                                         >
                                                                                             <option value="">Select...</option>
-                                                                                            {getNumericColumns(series.source_type, series.source_id).map((c: any) => (
+                                                                                            {(group.operation === 'count_unique' ? getColumns(series.source_type, series.source_id) : getNumericColumns(series.source_type, series.source_id)).map((c: any) => (
                                                                                                 <option key={c.id} value={c.id}>{c.name}</option>
                                                                                             ))}
                                                                                         </select>

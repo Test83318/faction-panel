@@ -593,7 +593,46 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
                         return false;
                     });
-                    condMatchedValue = matchedRows.length;
+                    if (cond.settings?.count_unique && cond.settings?.target_col) {
+                        const targetColName = cond.settings.target_col;
+                        const values = matchedRows.map(r => {
+                            const rosterCols = rosters.find((re: any) => re.id === (r.roster_id || activeDivId))?.columns || [];
+                            let currentCols = rosterCols;
+                            const findSection = (sections: any[]): any => {
+                                for (const s of sections) {
+                                    if (s.id === r.section_id) return s;
+                                    if (s.children) {
+                                        const found = findSection(s.children);
+                                        if (found) return found;
+                                    }
+                                }
+                                return null;
+                            };
+                            const roster = rosters.find((re: any) => re.id === (r.roster_id || activeDivId));
+                            const section = roster ? findSection(roster.root_sections || []) : null;
+                            if (section && !section.use_roster_columns && section.columns) {
+                                currentCols = section.columns;
+                            }
+
+                            const col = currentCols.find((c: any) => c.name === targetColName || c.id === targetColName);
+                            if (!col) return null;
+
+                            const rawVal = r.content?.[col.id];
+                            if (rawVal === null || rawVal === undefined || rawVal === '') return null;
+
+                            let label = rawVal.toString();
+                            if (col && col.dataset_id) {
+                                const dataset = datasets.find(d => d.id === col.dataset_id);
+                                const option = dataset?.options?.find((o: any) => String(o.id) === String(rawVal));
+                                if (option) label = option.value;
+                            }
+                            return label.trim().toLowerCase();
+                        }).filter(val => val !== null && val !== '');
+                        
+                        condMatchedValue = new Set(values).size;
+                    } else {
+                        condMatchedValue = matchedRows.length;
+                    }
                 }
 
                 // 3. Combine using operator sequentially
