@@ -54,7 +54,8 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
     const [showInactive, setShowInactive] = useState(false);
     const [creatingInvite, setCreatingInvite] = useState(false);
     const [deleting, setDeleting] = useState(false);
-    const [inviteForm, setInviteForm] = useState<{ duration: string; max_uses: number; role_id: string }>({ duration: '24h', max_uses: 0, role_id: '' });
+    const [inviteForm, setInviteForm] = useState<{ duration: string; max_uses: number; role_id: string; group_ids: number[] }>({ duration: '24h', max_uses: 0, role_id: '', group_ids: [] });
+    const [groups, setGroups] = useState<any[]>([]);
 
     // Integrations State
     const [availableFactions, setAvailableFactions] = useState<any[]>([]);
@@ -150,6 +151,15 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
         }
     };
 
+    const fetchGroups = async () => {
+        try {
+            const res = await api.get(`/factions/${faction.shortname}/groups`);
+            setGroups(res.data);
+        } catch (err) {
+            console.error('Failed to fetch groups', err);
+        }
+    };
+
     const fetchActiveInvites = async () => {
         setFetchingActiveInvites(true);
         try {
@@ -218,7 +228,10 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
 
     useEffect(() => {
         if (activeTab === 'users' && members.length === 0) fetchMembers();
-        if (activeTab === 'invites' && activeInvites.length === 0) fetchActiveInvites();
+        if (activeTab === 'invites') {
+            if (activeInvites.length === 0) fetchActiveInvites();
+            fetchGroups();
+        }
         if (activeTab === 'integrations' && availableFactions.length === 0 && !faction.gtaw_faction_id) {
             fetchAvailableFactions();
         }
@@ -285,7 +298,7 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
             });
             toast.success('Invite code generated!');
             fetchActiveInvites();
-            setInviteForm(prev => ({ ...prev, role_id: '', max_uses: 0 }));
+            setInviteForm(prev => ({ ...prev, role_id: '', max_uses: 0, group_ids: [] }));
         } catch (err) {
             toast.error('Failed to create invite');
         } finally {
@@ -1010,6 +1023,49 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                             }
                                         </select>
                                     </div>
+                                    <div>
+                                        <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5">Auto-Add to Groups</label>
+                                        {groups.length === 0 ? (
+                                            <p className="text-[10px] text-muted font-bold uppercase tracking-wide bg-surface/50 border border-border rounded p-3 italic">
+                                                No groups available in this faction.
+                                            </p>
+                                        ) : (
+                                            <div className="bg-surface border border-border rounded p-3 max-h-40 overflow-y-auto space-y-1.5">
+                                                {groups.map((group: any) => {
+                                                    const isChecked = inviteForm.group_ids.includes(group.id);
+                                                    return (
+                                                        <label 
+                                                            key={group.id} 
+                                                            className="flex items-center justify-between p-2.5 rounded bg-card hover:bg-surface border border-border/50 hover:border-accent/30 cursor-pointer transition"
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: group.color }} />
+                                                                <span className="text-[10px] font-black uppercase tracking-wider text-text">{group.name}</span>
+                                                            </div>
+                                                            <input 
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={(e) => {
+                                                                    if (e.target.checked) {
+                                                                        setInviteForm(prev => ({
+                                                                            ...prev,
+                                                                            group_ids: [...prev.group_ids, group.id]
+                                                                        }));
+                                                                    } else {
+                                                                        setInviteForm(prev => ({
+                                                                            ...prev,
+                                                                            group_ids: prev.group_ids.filter(id => id !== group.id)
+                                                                        }));
+                                                                    }
+                                                                }}
+                                                                className="w-3.5 h-3.5 rounded border-border text-accent focus:ring-accent bg-bg cursor-pointer"
+                                                            />
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
                                     <button type="submit" disabled={creatingInvite} className="w-full py-3 bg-accent hover:bg-accent/90 text-white rounded font-bold text-[10px] uppercase tracking-widest transition flex items-center justify-center gap-2 shadow-lg shadow-accent/20">
                                         <LinkIcon size={14} /> {creatingInvite ? 'Generating...' : 'Generate Invite Link'}
                                     </button>
@@ -1050,6 +1106,20 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                                                     </span>
                                                                 )}
                                                             </div>
+                                                            {invite.groups && invite.groups.length > 0 && (
+                                                                <div className="flex flex-wrap gap-1.5 mb-1.5 items-center">
+                                                                    <span className="text-[7.5px] font-black uppercase text-muted tracking-widest">Auto-Groups:</span>
+                                                                    {invite.groups.map((g: any) => (
+                                                                        <span 
+                                                                            key={g.id} 
+                                                                            className="px-1.5 py-0.5 rounded-[4px] border font-black text-[7px] uppercase tracking-widest" 
+                                                                            style={{ borderColor: `${g.color}40`, color: g.color }}
+                                                                        >
+                                                                            {g.name}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
                                                             <div className="flex items-center gap-3 text-[9px] font-bold uppercase tracking-tight text-muted">
                                                                 <span className="flex items-center gap-1"><Users size={10} /> {invite.uses} / {invite.max_uses || '∞'} Uses</span>
                                                                 <span className="flex items-center gap-1"><Clock size={10} /> {invite.expires_at ? `Expires ${new Date(invite.expires_at).toLocaleDateString()}` : 'Never Expires'}</span>
@@ -1125,6 +1195,20 @@ const Administration: React.FC<{ faction: any; user: any; permissions: string[] 
                                                                                 {invite.max_uses && invite.uses >= invite.max_uses ? 'Full' : 'Expired'}
                                                                             </span>
                                                                         </div>
+                                                                        {invite.groups && invite.groups.length > 0 && (
+                                                                            <div className="flex flex-wrap gap-1.5 mb-1.5 items-center opacity-60">
+                                                                                <span className="text-[7.5px] font-black uppercase text-muted tracking-widest">Auto-Groups:</span>
+                                                                                {invite.groups.map((g: any) => (
+                                                                                    <span 
+                                                                                        key={g.id} 
+                                                                                        className="px-1.5 py-0.5 rounded-[4px] border font-black text-[7px] uppercase tracking-widest" 
+                                                                                        style={{ borderColor: `${g.color}40`, color: g.color }}
+                                                                                    >
+                                                                                        {g.name}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
                                                                         <div className="flex items-center gap-3 text-[9px] font-bold uppercase tracking-tight text-muted">
                                                                             <span className="flex items-center gap-1"><Users size={10} /> {invite.uses} / {invite.max_uses || '∞'} Uses</span>
                                                                             <span className="flex items-center gap-1"><Clock size={10} /> {invite.expires_at ? `Expired ${new Date(invite.expires_at).toLocaleDateString()}` : 'Expired'}</span>

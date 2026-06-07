@@ -22,7 +22,7 @@ class InviteController extends Controller
         }
 
         $status = $request->query('status', 'active');
-        $query = $faction->invites()->with(['creator:id,username', 'role'])->latest();
+        $query = $faction->invites()->with(['creator:id,username', 'role', 'groups'])->latest();
 
         if ($status === 'active') {
             $query->where(function ($q) {
@@ -63,6 +63,8 @@ class InviteController extends Controller
             'duration' => 'required|in:1h,3h,6h,12h,24h,48h,7d,30d,never',
             'max_uses' => 'nullable|integer|min:0',
             'role_id' => 'nullable|integer|exists:roles,id',
+            'group_ids' => 'nullable|array',
+            'group_ids.*' => 'integer|exists:groups,id',
         ]);
 
         $roleId = $request->input('role_id') ? (int) $request->input('role_id') : null;
@@ -75,6 +77,14 @@ class InviteController extends Controller
 
             if ($role->weight >= $userHighestWeight) {
                 return response()->json(['message' => 'Cannot assign a role with weight equal to or higher than yours.'], 403);
+            }
+        }
+
+        $groupIds = $request->input('group_ids', []);
+        if (!empty($groupIds)) {
+            $validGroupsCount = $faction->groups()->whereIn('id', $groupIds)->count();
+            if ($validGroupsCount !== count($groupIds)) {
+                return response()->json(['message' => 'One or more groups are invalid or do not belong to this faction.'], 422);
             }
         }
 
@@ -100,9 +110,13 @@ class InviteController extends Controller
             'created_by' => $request->user()->id,
         ]);
 
+        if (!empty($groupIds)) {
+            $invite->groups()->attach($groupIds);
+        }
+
         $this->audit('invite.create', "Created invite code '{$invite->code}' for faction '{$faction->name}'", null, $invite, null, $invite->getAttributes());
 
-        return response()->json($invite->load(['creator:id,username', 'role']), 201);
+        return response()->json($invite->load(['creator:id,username', 'role', 'groups']), 201);
     }
 
     public function destroy($id)
@@ -184,6 +198,14 @@ class InviteController extends Controller
             if ($userRole) {
                 $user->roles()->attach($userRole->id);
             }
+        }
+
+        // Auto-assign groups attached to the invite
+        $inviteGroupIds = $invite->groups()->pluck('groups.id')->toArray();
+        if (!empty($inviteGroupIds)) {
+            $user->groups()->syncWithoutDetaching(
+                array_fill_keys($inviteGroupIds, ['is_leader' => false])
+            );
         }
 
         $this->audit('invite.join', "User '{$user->username}' joined faction '{$faction->name}' using invite code '{$invite->code}'", null, $invite);

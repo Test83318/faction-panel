@@ -38,6 +38,11 @@ class FactionInvite extends Model
         return $this->belongsTo(Role::class);
     }
 
+    public function groups()
+    {
+        return $this->belongsToMany(Group::class, 'faction_invite_group');
+    }
+
     public function isExpired()
     {
         return $this->expires_at && $this->expires_at->isPast();

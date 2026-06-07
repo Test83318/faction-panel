@@ -180,3 +180,42 @@ test('join with invite and assign custom role or default user role', function ()
     expect($joiningUser2->roles()->where('role_id', $defaultUserRole->id)->exists())->toBeTrue();
     expect($joiningUser2->roles()->where('role_id', $customRole->id)->exists())->toBeFalse();
 });
+
+test('join with invite and auto-add to groups', function () {
+    $creator = User::factory()->create();
+    $faction = Faction::factory()->create([
+        'faction_leader' => $creator->id,
+        'created_by' => $creator->id,
+        'access' => 'invite-only',
+    ]);
+
+    // Create groups
+    $group1 = \App\Models\Group::create(['faction_id' => $faction->id, 'name' => 'Group A', 'color' => '#111111', 'created_by' => $creator->id]);
+    $group2 = \App\Models\Group::create(['faction_id' => $faction->id, 'name' => 'Group B', 'color' => '#222222', 'created_by' => $creator->id]);
+    $group3 = \App\Models\Group::create(['faction_id' => $faction->id, 'name' => 'Group C', 'color' => '#333333', 'created_by' => $creator->id]);
+
+    // Create invite with group1 and group2
+    $response = $this->actingAs($creator)->postJson("/api/factions/{$faction->shortname}/invites", [
+        'duration' => '24h',
+        'max_uses' => 0,
+        'role_id' => null,
+        'group_ids' => [$group1->id, $group2->id],
+    ]);
+    $response->assertStatus(201);
+    $inviteCode = $response->json('code');
+    expect($response->json('groups'))->toHaveCount(2);
+
+    // Join with invite
+    $joiningUser = User::factory()->create();
+    $joinResponse = $this->actingAs($joiningUser)->postJson("/api/invites/{$inviteCode}/join");
+    $joinResponse->assertStatus(200);
+
+    // Check user is in faction
+    expect($faction->users()->where('user_id', $joiningUser->id)->exists())->toBeTrue();
+
+    // Check user is added to group1 and group2, but not group3
+    $userGroupIds = $joiningUser->groups()->pluck('groups.id')->toArray();
+    expect($userGroupIds)->toContain($group1->id);
+    expect($userGroupIds)->toContain($group2->id);
+    expect($userGroupIds)->not->toContain($group3->id);
+});
