@@ -28,6 +28,7 @@ class RosterFlagService
         $rosters    = $faction->rosters()->get()->keyBy('id');
         $sections   = RosterSection::whereIn('roster_id', $rosters->keys())->get();
         $sectionsById = $sections->keyBy('id');
+        $datasets   = $faction->rosterDatasets()->get()->keyBy('id');
 
         $contents   = RosterContent::whereIn('section_id', $sections->pluck('id'))
                         ->whereNull('deleted_at')
@@ -37,7 +38,7 @@ class RosterFlagService
         // We need the database entries to resolve raw numeric entry_ids to display labels.
         $allDbEntries = $this->loadAllDbEntries($faction);
 
-        $cache = $this->buildResolutionCache($contents, $rosters, $sectionsById, $allDbEntries);
+        $cache = $this->buildResolutionCache($contents, $rosters, $sectionsById, $allDbEntries, $datasets);
 
         // ── 3. Determine which columns use this flag ─────────────────────────────
         // A column "uses" this flag when it has an `enabled_flags` array containing
@@ -291,7 +292,8 @@ class RosterFlagService
         Collection $contents,
         Collection $rostersById,
         Collection $sectionsById,
-        array $allDbEntriesByDbId    // [dbId => [entryId => entry]]
+        array $allDbEntriesByDbId,    // [dbId => [entryId => entry]]
+        Collection $datasetsById
     ): array {
         $cache = [];
 
@@ -332,7 +334,7 @@ class RosterFlagService
                         : null;
                 }
 
-                $resolved = $this->resolveDisplayValue($rawVal, $col, $allDbEntriesByDbId);
+                $resolved = $this->resolveDisplayValue($rawVal, $col, $allDbEntriesByDbId, $datasetsById);
                 $cache[$content->id][$colId] = strtolower(trim($resolved));
             }
         }
@@ -344,7 +346,7 @@ class RosterFlagService
      * Resolve a raw cell value to a human-readable string, mirroring
      * the frontend's `getResolvedDisplayValue`.
      */
-    private function resolveDisplayValue(mixed $rawVal, array $col, array $allDbEntriesByDbId): string
+    private function resolveDisplayValue(mixed $rawVal, array $col, array $allDbEntriesByDbId, Collection $datasetsById): string
     {
         if ($rawVal === null || $rawVal === '') {
             return '';
@@ -356,7 +358,15 @@ class RosterFlagService
 
         $dbId = $col['linked_database_id'] ?? null;
 
-        // Column linked directly to a record database
+        // Fallback: Check if column is linked to a database via a dataset
+        if (! $dbId && isset($col['dataset_id'])) {
+            $dataset = $datasetsById->get($col['dataset_id']);
+            if ($dataset && $dataset->record_database_id) {
+                $dbId = $dataset->record_database_id;
+            }
+        }
+
+        // Column linked directly or via dataset to a record database
         if ($dbId && isset($allDbEntriesByDbId[$dbId])) {
             $entry = $allDbEntriesByDbId[$dbId][$rawVal] ?? null;
             if ($entry) {
