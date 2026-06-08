@@ -148,6 +148,7 @@ export interface FactionRecordDatabase {
   permissions: any;
   is_api_database: boolean;
   is_published: boolean;
+  detail_customization?: any;
   created_by: number | null;
   creator?: {
     id: number;

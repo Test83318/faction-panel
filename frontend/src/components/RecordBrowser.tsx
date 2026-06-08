@@ -434,21 +434,24 @@ export default function RecordBrowser({ database, shortname, permissions, user, 
         let content = null;
 
         if (mode === 'profile') {
-            const firstField = database.database_structure[0];
+            const showcaseFieldId = database.detail_customization?.showcase_field || database.database_structure?.[0]?.id;
+            const showcaseField = database.database_structure?.find((f: any) => f.id === showcaseFieldId) || database.database_structure?.[0];
+            const otherFields = database.database_structure?.filter((f: any) => f.id !== showcaseField?.id) || [];
+
             content = (
                 <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-2xl">
                     <div className="h-32 bg-gradient-to-r from-accent/20 to-accent/5 flex items-end p-8">
                         <div className="w-24 h-24 rounded-2xl bg-card border-4 border-card shadow-lg flex items-center justify-center text-3xl font-black text-accent translate-y-12">
-                            {String(selectedEntry.data?.[firstField?.id] || 'R').charAt(0).toUpperCase()}
+                            {String(selectedEntry.data?.[showcaseField?.id] || 'R').charAt(0).toUpperCase()}
                         </div>
                     </div>
                     <div className="p-8 pt-16">
                         <div className="mb-8">
-                            <h3 className="text-3xl font-black text-text uppercase tracking-tighter">{selectedEntry.data?.[firstField?.id] || 'Unnamed Record'}</h3>
+                            <h3 className="text-3xl font-black text-text uppercase tracking-tighter">{selectedEntry.data?.[showcaseField?.id] || 'Unnamed Record'}</h3>
                             <p className="text-muted font-bold text-[10px] uppercase tracking-[0.2em]">{database.name} Profile</p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {database.database_structure.slice(1).map(renderField)}
+                            {otherFields.map(renderField)}
                         </div>
                         <Metadata />
                     </div>

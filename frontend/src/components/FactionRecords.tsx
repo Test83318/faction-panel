@@ -644,6 +644,32 @@ export default function FactionRecords({ shortname, permissions, user }: Faction
 
                             {modalTab === 'customization' && (
                                 <div className="space-y-10">
+                                    {/* Showcase Field Section */}
+                                    <div className="space-y-4 pb-6 border-b border-border">
+                                        <div>
+                                            <h3 className="text-xs font-black text-text uppercase tracking-widest flex items-center gap-2">
+                                                <Layout size={14} className="text-accent" /> Profile Showcase Field
+                                            </h3>
+                                            <p className="text-[9px] text-muted font-bold uppercase tracking-widest mt-1">Choose which database field is displayed as the primary name/avatar header in the profile detail view.</p>
+                                        </div>
+                                        <select 
+                                            value={formData.detail_customization?.showcase_field || ''}
+                                            onChange={e => setFormData({
+                                                ...formData,
+                                                detail_customization: {
+                                                    ...formData.detail_customization,
+                                                    showcase_field: e.target.value || null
+                                                }
+                                            })}
+                                            className="w-full bg-surface border border-border p-3 rounded-lg text-sm text-text focus:border-accent outline-none transition"
+                                        >
+                                            <option value="">Default (First Field)</option>
+                                            {formData.database_structure.map((field: any) => (
+                                                <option key={field.id} value={field.id}>{field.name || 'Unnamed Field'}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
                                     {/* Linked Databases Section */}
                                     <div className="space-y-6">
                                         <div className="flex items-center justify-between">

@@ -227,7 +227,7 @@ class IntegrationController extends Controller
                             'abas' => number_format($oldAbas, 2).' > '.$abasString,
                             'date' => $now,
                         ],
-                        'created_by' => Auth::id(),
+                        'created_by' => null,
                     ]);
                     $syncResults['activity_logs']++;
                 }
@@ -243,7 +243,7 @@ class IntegrationController extends Controller
                                 'new_name' => $member['character_name'],
                                 'date' => $now,
                             ],
-                            'created_by' => Auth::id(),
+                            'created_by' => null,
                         ]);
                         $syncResults['name_changes']++;
                     }
@@ -267,7 +267,7 @@ class IntegrationController extends Controller
                     $charDb->entries()->create([
                         'entry_id' => ($charDb->entries()->withTrashed()->max('entry_id') ?? 0) + 1,
                         'data' => $memberData,
-                        'created_by' => Auth::id(),
+                        'created_by' => null,
                     ]);
 
                     // Log to history
@@ -279,7 +279,7 @@ class IntegrationController extends Controller
                             'action' => 'Added',
                             'date' => $now,
                         ],
-                        'created_by' => Auth::id(),
+                        'created_by' => null,
                     ]);
 
                     $syncResults['added']++;
@@ -299,7 +299,7 @@ class IntegrationController extends Controller
                             'action' => 'Removed',
                             'date' => $now,
                         ],
-                        'created_by' => Auth::id(),
+                        'created_by' => null,
                     ]);
 
                     $entry->delete();
@@ -368,6 +368,7 @@ class IntegrationController extends Controller
                 'detail_customization' => [
                     'linked_databases' => [],
                     'roster_integration' => ['enabled' => true],
+                    'showcase_field' => 'name',
                 ],
             ],
             'ACTIVITY' => [
@@ -420,7 +421,7 @@ class IntegrationController extends Controller
                     'record_shortcode' => $shortcode,
                     'is_api_database' => true,
                     'is_published' => $config['is_published'] ?? false,
-                    'created_by' => Auth::id(),
+                    'created_by' => null,
                     'database_structure' => $config['structure'],
                     'detail_customization' => $config['detail_customization'] ?? null,
                     'allow_details_view' => true,
@@ -442,6 +443,7 @@ class IntegrationController extends Controller
                                 ],
                             ],
                             'roster_integration' => ['enabled' => true],
+                            'showcase_field' => 'name',
                         ],
                     ]);
                 }
