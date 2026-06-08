@@ -268,3 +268,66 @@ test('syncing gtaw does not crash when linked roster column contains float or de
     expect($updatedRow->content['name'])->toBe('1.05');
 });
 
+test('syncing gtaw does not crash when linked roster column contains array representing linked_roster_data', function () {
+    // 1. Create a primary row (John Doe)
+    $primaryRow = $this->section->contents()->create([
+        'type' => 'predefined',
+        'content' => [
+            'name' => 'John Doe',
+            'name_cb' => [],
+            'name_tags' => [],
+        ],
+        'created_by' => $this->leader->id,
+    ]);
+
+    // 2. Create another row that links to the primary row (represented as an array)
+    $linkedRow = $this->section->contents()->create([
+        'type' => 'predefined',
+        'content' => [
+            'name' => [
+                'row_id' => $primaryRow->id,
+                'col_id' => 'name',
+            ],
+            'name_cb' => [],
+            'name_tags' => [],
+        ],
+        'created_by' => $this->leader->id,
+    ]);
+
+    // 3. Mock GtawService to return a list of members containing John Doe
+    $this->mock(GtawService::class, function ($mock) {
+        $mock->shouldReceive('getFactionMembers')->andReturn([
+            'data' => [
+                'members' => [
+                    [
+                        'character_id' => 12345,
+                        'character_name' => 'John Doe',
+                        'rank_name' => 'Acting Sheriff',
+                        'rank' => 15,
+                        'abas' => 0.00,
+                        'user_id' => 789,
+                    ],
+                ],
+            ],
+        ]);
+
+        $mock->shouldReceive('getFactionAbas')->andReturn([
+            'data' => [],
+        ]);
+    });
+
+    // 4. Trigger sync and verify it completes successfully without type errors
+    $response = $this->actingAs($this->leader)->postJson('/api/factions/lssd/integrations/gtaw/sync');
+    $response->assertStatus(200);
+
+    // 5. Verify the linked row has resolved name to entry ID
+    $dbEntry = $this->charDb->entries()->where('is_active', true)->first();
+    expect($dbEntry)->not->toBeNull();
+
+    $updatedLinkedRow = RosterContent::find($linkedRow->id);
+    expect($updatedLinkedRow->content['name'])->toBeArray();
+    expect($updatedLinkedRow->content['name']['row_id'])->toBe($primaryRow->id);
+    expect($updatedLinkedRow->content['name_cb'])->toContain('Acting Officer');
+});
+
+

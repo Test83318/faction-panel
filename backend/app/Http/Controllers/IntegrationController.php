@@ -513,6 +513,7 @@ class IntegrationController extends Controller
 
         // 3. Load all roster contents for these sections
         $contents = RosterContent::whereIn('section_id', $sections->pluck('id'))->get();
+        $contentsById = $contents->keyBy('id');
 
         $sectionsById = $sections->keyBy('id');
         $rostersById = $rosters->keyBy('id');
@@ -564,6 +565,16 @@ class IntegrationController extends Controller
                 // Stored value in the content
                 $val = $data[$colId] ?? null;
                 if ($val === null || $val === '') {
+                    continue;
+                }
+
+                // If it is a linked roster data link, resolve it to its actual value
+                if (is_array($val) && isset($val['row_id']) && isset($val['col_id'])) {
+                    $linkedContent = $contentsById->get($val['row_id']);
+                    $val = ($linkedContent && is_array($linkedContent->content)) ? ($linkedContent->content[$val['col_id']] ?? null) : null;
+                }
+
+                if ($val === null || $val === '' || is_array($val)) {
                     continue;
                 }
 
