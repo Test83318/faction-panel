@@ -214,8 +214,24 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                           <option value="hidden_database_data">Hidden Database Data Column</option>
                           <option value="linked_roster_data">Linked Roster Column</option>
                           <option value="hidden_linked_roster_data">Hidden Linked Roster Column</option>
+                          <option value="autofill">Auto-Fill</option>
                         </select>
                       </div>
+
+                    {col.type === 'autofill' && (
+                        <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 space-y-2">
+                            <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">Auto-Fill Value</label>
+                            <input 
+                              value={col.autofill_value || ''} 
+                              onChange={(e) => updateColumn(index, 'autofill_value', e.target.value)}
+                              className="w-full bg-bg border border-border p-2 rounded text-sm text-text focus:border-accent outline-none" 
+                              placeholder="Enter static value for every row..."
+                            />
+                            <p className="text-[9px] text-muted font-medium italic opacity-60">
+                                This value will be automatically filled for every row in the roster and cannot be modified by users.
+                            </p>
+                        </div>
+                    )}
 
                     {col.type?.includes('database_data') && (
                         <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 space-y-4">
@@ -273,7 +289,7 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                         </div>
                     )}
 
-                    {col.type !== 'database_data' && (
+                    {col.type !== 'database_data' && col.type !== 'autofill' && (
                         <div className="bg-bg/50 border border-border rounded-lg p-3 space-y-3">
                         <div className="flex items-center justify-between">
                             <label className="text-[10px] text-muted font-black uppercase tracking-widest flex items-center gap-2">
@@ -416,8 +432,10 @@ export const ColumnsModal: React.FC<ColumnsModalProps> = ({ target, parentColumn
                       </div>
                     )}
 
-                    <div className="space-y-2 border-t border-border mt-4 pt-4">
-                      <label className="block text-[10px] text-muted font-bold uppercase tracking-widest">Checkboxes (e.g. Acting, Alt)</label>
+                    {col.type !== 'autofill' && (
+                      <>
+                        <div className="space-y-2 border-t border-border mt-4 pt-4">
+                          <label className="block text-[10px] text-muted font-bold uppercase tracking-widest">Checkboxes (e.g. Acting, Alt)</label>
                       <Reorder.Group 
                         axis="y" 
                         values={col.checkboxes || []} 
@@ -759,8 +777,10 @@ if (!label) return null;
                         <Plus size={12} /> Add Tag
                       </button>
                     </div>
+                  </>
+                )}
 
-                    <div className="space-y-2 border-t border-border mt-4 pt-4">
+                <div className="space-y-2 border-t border-border mt-4 pt-4">
                       <label className="block text-[10px] text-muted font-bold uppercase tracking-widest flex items-center gap-2">
                         <Flag size={10} className="text-accent" /> Enabled Flags
                       </label>

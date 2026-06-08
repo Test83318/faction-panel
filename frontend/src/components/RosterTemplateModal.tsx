@@ -238,6 +238,7 @@ export const RosterTemplateModal: React.FC<RosterTemplateModalProps> = ({ shortn
                                                                 <option value="hidden_database_data">Hidden Database Data Column</option>
                                                                 <option value="linked_roster_data">Linked Roster Column</option>
                                                                 <option value="hidden_linked_roster_data">Hidden Linked Roster Column</option>
+                                                                <option value="autofill">Auto-Fill</option>
                                                             </select>
                                                             <button 
                                                                 onClick={() => setEditingColumnIndex(editingColumnIndex === idx ? null : idx)}
@@ -266,6 +267,21 @@ export const RosterTemplateModal: React.FC<RosterTemplateModalProps> = ({ shortn
                                                                             className="w-full bg-surface border border-border rounded px-3 py-2 text-xs text-text outline-none focus:border-accent font-mono"
                                                                         />
                                                                     </div>
+
+                                                                    {col.type === 'autofill' && (
+                                                                        <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 space-y-2">
+                                                                            <label className="block text-[10px] text-muted font-bold uppercase tracking-widest mb-1">Auto-Fill Value</label>
+                                                                            <input 
+                                                                              value={col.autofill_value || ''} 
+                                                                              onChange={(e) => updateColumn(idx, { autofill_value: e.target.value })}
+                                                                              className="w-full bg-surface border border-border px-3 py-2 rounded text-xs text-text focus:border-accent outline-none" 
+                                                                              placeholder="Enter static value for every row..."
+                                                                            />
+                                                                            <p className="text-[9px] text-muted font-medium italic opacity-60">
+                                                                                This value will be automatically filled for every row in the roster and cannot be modified by users.
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
 
                                                                     {(col.type.includes('dropdown') || col.type.includes('text')) && !col.type?.includes('database_data') && (
                                                                         <div>
@@ -378,60 +394,62 @@ export const RosterTemplateModal: React.FC<RosterTemplateModalProps> = ({ shortn
                                                                         </div>
                                                                     </div>
 
-                                                                    <div className="space-y-6">
-                                                                        <div>
-                                                                            <label className="block text-[8px] font-black uppercase tracking-widest text-accent mb-2">Checkboxes (Tags)</label>
-                                                                            <div className="flex flex-wrap gap-1.5 mb-2">
-                                                                                {col.checkboxes?.map((cb: any, cidx: number) => {
-                                                                                    const label = typeof cb === 'string' ? cb : cb?.label;
-                                                                                    const color = typeof cb === 'string' ? null : cb.color;
-                                                                                    const autoField = typeof cb === 'string' ? null : cb.auto_apply_field;
+                                                                    {col.type !== 'autofill' && (
+                                                                        <div className="space-y-6">
+                                                                            <div>
+                                                                                <label className="block text-[8px] font-black uppercase tracking-widest text-accent mb-2">Checkboxes (Tags)</label>
+                                                                                <div className="flex flex-wrap gap-1.5 mb-2">
+                                                                                    {col.checkboxes?.map((cb: any, cidx: number) => {
+                                                                                        const label = typeof cb === 'string' ? cb : cb?.label;
+                                                                                        const color = typeof cb === 'string' ? null : cb.color;
+                                                                                        const autoField = typeof cb === 'string' ? null : cb.auto_apply_field;
 
-                                                                                    return (
-                                                                                        <div key={cidx} className="group/item relative flex items-center bg-surface border border-border rounded pl-2 pr-0.5 py-0.5 gap-1 transition-all hover:border-accent/30">
-                                                                                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color || '#3b82f6' }} />
-                                                                                            <span className="text-[8px] font-bold uppercase">{label}</span>
-                                                                                            {autoField && <div className="text-[6px] font-black text-accent bg-accent/10 px-1 rounded">AUTO</div>}
-                                                                                            <button onClick={() => updateColumn(idx, { checkboxes: col.checkboxes.filter((_: any, i: number) => i !== cidx) })} className="p-1 hover:text-danger opacity-0 group-hover/item:opacity-100 transition-all"><X size={10} /></button>
-                                                                                        </div>
-                                                                                    );
-                                                                                })}
-                                                                                <button 
-                                                                                    onClick={() => {
-                                                                                        setAddingItem({ idx, type: 'checkbox' });
-                                                                                        setNewItem({ label: '', color: '#3b82f6', auto_apply_field: '' });
-                                                                                    }} 
-                                                                                    className="px-2 py-1 border border-dashed border-border rounded text-[8px] font-bold uppercase text-muted hover:border-accent transition-all"
-                                                                                >+ Add</button>
+                                                                                        return (
+                                                                                            <div key={cidx} className="group/item relative flex items-center bg-surface border border-border rounded pl-2 pr-0.5 py-0.5 gap-1 transition-all hover:border-accent/30">
+                                                                                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color || '#3b82f6' }} />
+                                                                                                <span className="text-[8px] font-bold uppercase">{label}</span>
+                                                                                                {autoField && <div className="text-[6px] font-black text-accent bg-accent/10 px-1 rounded">AUTO</div>}
+                                                                                                <button onClick={() => updateColumn(idx, { checkboxes: col.checkboxes.filter((_: any, i: number) => i !== cidx) })} className="p-1 hover:text-danger opacity-0 group-hover/item:opacity-100 transition-all"><X size={10} /></button>
+                                                                                            </div>
+                                                                                        );
+                                                                                    })}
+                                                                                    <button 
+                                                                                        onClick={() => {
+                                                                                            setAddingItem({ idx, type: 'checkbox' });
+                                                                                            setNewItem({ label: '', color: '#3b82f6', auto_apply_field: '' });
+                                                                                        }} 
+                                                                                        className="px-2 py-1 border border-dashed border-border rounded text-[8px] font-bold uppercase text-muted hover:border-accent transition-all"
+                                                                                    >+ Add</button>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div>
+                                                                                <label className="block text-[8px] font-black uppercase tracking-widest text-accent mb-2">Right-Side Tags</label>
+                                                                                <div className="flex flex-wrap gap-1.5 mb-2">
+                                                                                    {col.tags?.map((tag: any, tidx: number) => {
+                                                                                        const label = typeof tag === 'string' ? tag : tag?.label;
+                                                                                        const color = typeof tag === 'string' ? null : tag.color;
+                                                                                        const autoField = typeof tag === 'string' ? null : tag.auto_apply_field;
+
+                                                                                        return (
+                                                                                            <div key={tidx} className="group/item relative flex items-center bg-accent/5 border border-accent/20 rounded pl-2 pr-0.5 py-0.5 gap-1 transition-all hover:border-accent/50">
+                                                                                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color || '#3b82f6' }} />
+                                                                                                <span className="text-[8px] font-bold uppercase text-accent">{label}</span>
+                                                                                                {autoField && <div className="text-[6px] font-black text-white bg-accent px-1 rounded">AUTO</div>}
+                                                                                                <button onClick={() => updateColumn(idx, { tags: col.tags.filter((_: any, i: number) => i !== tidx) })} className="p-1 hover:text-danger text-accent opacity-0 group-hover/item:opacity-100 transition-all"><X size={10} /></button>
+                                                                                            </div>
+                                                                                        );
+                                                                                    })}
+                                                                                    <button 
+                                                                                        onClick={() => {
+                                                                                            setAddingItem({ idx, type: 'tag' });
+                                                                                            setNewItem({ label: '', color: '#3b82f6', auto_apply_field: '' });
+                                                                                        }} 
+                                                                                        className="px-2 py-1 border border-dashed border-accent/30 rounded text-[8px] font-bold uppercase text-accent/50 hover:border-accent transition-all"
+                                                                                    >+ Add</button>
+                                                                                </div>
                                                                             </div>
                                                                         </div>
-                                                                        <div>
-                                                                            <label className="block text-[8px] font-black uppercase tracking-widest text-accent mb-2">Right-Side Tags</label>
-                                                                            <div className="flex flex-wrap gap-1.5 mb-2">
-                                                                                {col.tags?.map((tag: any, tidx: number) => {
-                                                                                    const label = typeof tag === 'string' ? tag : tag?.label;
-                                                                                    const color = typeof tag === 'string' ? null : tag.color;
-                                                                                    const autoField = typeof tag === 'string' ? null : tag.auto_apply_field;
-
-                                                                                    return (
-                                                                                        <div key={tidx} className="group/item relative flex items-center bg-accent/5 border border-accent/20 rounded pl-2 pr-0.5 py-0.5 gap-1 transition-all hover:border-accent/50">
-                                                                                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color || '#3b82f6' }} />
-                                                                                            <span className="text-[8px] font-bold uppercase text-accent">{label}</span>
-                                                                                            {autoField && <div className="text-[6px] font-black text-white bg-accent px-1 rounded">AUTO</div>}
-                                                                                            <button onClick={() => updateColumn(idx, { tags: col.tags.filter((_: any, i: number) => i !== tidx) })} className="p-1 hover:text-danger text-accent opacity-0 group-hover/item:opacity-100 transition-all"><X size={10} /></button>
-                                                                                        </div>
-                                                                                    );
-                                                                                })}
-                                                                                <button 
-                                                                                    onClick={() => {
-                                                                                        setAddingItem({ idx, type: 'tag' });
-                                                                                        setNewItem({ label: '', color: '#3b82f6', auto_apply_field: '' });
-                                                                                    }} 
-                                                                                    className="px-2 py-1 border border-dashed border-accent/30 rounded text-[8px] font-bold uppercase text-accent/50 hover:border-accent transition-all"
-                                                                                >+ Add</button>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
+                                                                    )}
                                                                 </div>
                                                                 
                                                                 {addingItem?.idx === idx && (

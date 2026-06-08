@@ -74,6 +74,7 @@ export interface RosterColumn {
   linked_database_id?: number | null;
   data_field_id?: string | null;
   database_field_id?: string | null;
+  autofill_value?: string;
 }
 
 export interface RosterSection {

@@ -516,7 +516,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                             const col = currentCols.find((c: any) => c.name === targetColName || c.id === targetColName);
                             if (!col) return false;
 
-                            const rawVal = content[col.id];
+                            const rawVal = col.type === 'autofill' ? (col.autofill_value || '') : content[col.id];
                             
                             const disregardEmpty = cond.settings.disregard_empty !== undefined ? cond.settings.disregard_empty : true;
                             if (rawVal === null || rawVal === undefined || rawVal === '') {
@@ -550,7 +550,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                             const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
                             return rosterCols.some((col: any) => {
                                 if (!(col.flags || []).includes(flag.id)) return false;
-                                const val = (content[col.id] || '').toString().toLowerCase().trim();
+                                const val = (col.type === 'autofill' ? (col.autofill_value || '') : (content[col.id] || '')).toString().toLowerCase().trim();
                                 if (!val) return false;
                                 return (flag.rules || []).some((rule: any) => {
                                     if (rule.type === 'equals') return val === (rule.value || '').toString().toLowerCase().trim();
@@ -617,7 +617,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                             const col = currentCols.find((c: any) => c.name === targetColName || c.id === targetColName);
                             if (!col) return null;
 
-                            const rawVal = r.content?.[col.id];
+                            const rawVal = col.type === 'autofill' ? (col.autofill_value || '') : r.content?.[col.id];
                             if (rawVal === null || rawVal === undefined || rawVal === '') return null;
 
                             let label = rawVal.toString();
@@ -676,15 +676,15 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
             
             if (c.type === 'rows') {
                 if (!c.settings.target_col) return true;
-                const rawVal = content[c.settings.target_col];
+                const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
+                const col = rosterCols.find((colItem: any) => colItem.id === c.settings.target_col);
+                const rawVal = col?.type === 'autofill' ? (col.autofill_value || '') : content[c.settings.target_col];
                 if (rawVal === null || rawVal === undefined || rawVal === '') {
                     return c.settings.disregard_empty ? false : true;
                 }
 
                 // Resolve ID to label if it matches a dataset option
                 let label = rawVal.toString();
-                const rosterCols = rosters.find((r: any) => r.id === (row.roster_id || activeDivId))?.columns || [];
-                const col = rosterCols.find((colItem: any) => colItem.id === c.settings.target_col);
                 if (col && col.dataset_id) {
                     const dataset = datasets.find(d => d.id === col.dataset_id);
                     const option = dataset?.options?.find((o: any) => String(o.id) === String(rawVal));

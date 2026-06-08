@@ -285,6 +285,8 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   const [showBulkColorPicker, setShowBulkColorPicker] = useState(false);
   const [pickerPosition, setPickerPosition] = useState<'top' | 'bottom'>('top');
   const [menuCoords, setMenuCoords] = useState({ top: 0, left: 0 });
+  const [tagMenuCoords, setTagMenuCoords] = useState({ top: 0, left: 0 });
+  const [tagPickerPosition, setTagPickerPosition] = useState<'top' | 'bottom'>('bottom');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenColorPicker = (e: React.MouseEvent, rowId: number) => {
@@ -313,6 +315,30 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     });
     setShowColorPicker(showColorPicker === rowId ? null : rowId);
     setShowBulkColorPicker(false);
+  };
+
+  const handleOpenTagMenu = (e: React.MouseEvent, rowId: number, colId: string) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const isTop = spaceBelow < 200; // Tag picker is smaller than color picker, say 200px
+    
+    setTagPickerPosition(isTop ? 'top' : 'bottom');
+    
+    let left = rect.left;
+    if (left + 140 > window.innerWidth) {
+        left = window.innerWidth - 140;
+    }
+    if (left < 10) {
+        left = 10;
+    }
+
+    setTagMenuCoords({
+        top: isTop ? rect.top : rect.bottom,
+        left: left
+    });
+    
+    setActiveTagMenu(activeTagMenu?.rowId === rowId && activeTagMenu?.colId === colId ? null : { rowId, colId });
   };
 
   const handleOpenBulkColorPicker = (e: React.MouseEvent) => {
@@ -688,6 +714,23 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     }
   }, [showBulkColorPicker, showColorPicker, handleSaveEdit]);
 
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('.tag-menu-window') || target.closest('.tag-pencil-button')) return;
+        setActiveTagMenu(null);
+    };
+    if (activeTagMenu !== null) {
+        const timer = setTimeout(() => {
+            window.addEventListener('click', handleGlobalClick);
+        }, 0);
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('click', handleGlobalClick);
+        };
+    }
+  }, [activeTagMenu]);
+
   const handleCancelEdit = async () => {
     const id = editingRowId;
     setGlobalEditingRowId?.(null);
@@ -826,6 +869,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     const canViewHidden = canModerate || permissions?.view_hidden_data;
     
     if (isHidden && !canViewHidden) return false;
+    if (col.type === 'autofill') return false;
 
     if (editMode && canEditPredefined) return true;
     if (col.type.startsWith('predefined_') || col.type.includes('predefined')) {
@@ -844,7 +888,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
     const isEditing = editingRowId === row.id;
     const isSaving = savingRows.has(row.id);
-    let value = isEditing ? editData[col.id] : (row.content?.[col.id] || '');
+    let value = col.type === 'autofill' ? (col.autofill_value || '') : (isEditing ? editData[col.id] : (row.content?.[col.id] || ''));
     
     // Fallback: If value is an object but the column type is not linked, it's stale data
     if (value && typeof value === 'object' && col.type !== 'linked_roster_data') {
@@ -1204,11 +1248,8 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                     )}
                     {col.tags && col.tags.length > 0 && (
                         <button 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setActiveTagMenu(activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? null : { rowId: row.id, colId: col.id });
-                            }}
-                            className={`p-1 rounded hover:bg-accent/10 transition-colors relative z-20 pointer-events-auto ${activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? 'text-accent' : 'text-muted'}`}
+                            onClick={(e) => handleOpenTagMenu(e, row.id, col.id)}
+                            className={`p-1 rounded hover:bg-accent/10 transition-colors relative z-20 pointer-events-auto tag-pencil-button ${activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? 'text-accent' : 'text-muted'}`}
                         >
                             <Pencil size={10} />
                         </button>
@@ -1264,8 +1305,15 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 </div>
                 )}
             </CellScaler>
-            {activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id && (
-                <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-[100] p-2 min-w-[120px] animate-in fade-in slide-in-from-top-1">
+            {activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id && createPortal(
+                <div 
+                    className="fixed bg-card border border-border rounded-lg shadow-xl z-[10000] p-2 min-w-[120px] animate-in fade-in slide-in-from-top-1 tag-menu-window cursor-default"
+                    style={{
+                        top: tagMenuCoords.top,
+                        left: tagMenuCoords.left,
+                        transform: `${tagPickerPosition === 'top' ? 'translateY(-100%) translateY(-5px)' : 'translateY(5px)'}`
+                    }}
+                >
                     <div className="text-[8px] font-black uppercase text-muted mb-2 tracking-widest border-b border-border/50 pb-1">Manage Tags</div>
                     <div className="space-y-1">
                         {col.tags?.map(tagDef => {
@@ -1293,7 +1341,8 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                             );
                         })}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
           </div>
         );
@@ -1386,11 +1435,8 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 )}
                 {col.tags && col.tags.length > 0 && (
                     <button 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveTagMenu(activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? null : { rowId: row.id, colId: col.id });
-                        }}
-                        className={`shrink-0 p-1 rounded hover:bg-accent/10 transition-colors ml-1 ${activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? 'text-accent' : 'text-muted'}`}
+                        onClick={(e) => handleOpenTagMenu(e, row.id, col.id)}
+                        className={`shrink-0 p-1 rounded hover:bg-accent/10 transition-colors ml-1 tag-pencil-button ${activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id ? 'text-accent' : 'text-muted'}`}
                     >
                         <Pencil size={10} />
                     </button>
@@ -1471,8 +1517,15 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                     </div>
                 </div>
             )}
-            {activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id && (
-                <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-[100] p-2 min-w-[120px] animate-in fade-in slide-in-from-top-1">
+            {activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id && createPortal(
+                <div 
+                    className="fixed bg-card border border-border rounded-lg shadow-xl z-[10000] p-2 min-w-[120px] animate-in fade-in slide-in-from-top-1 tag-menu-window cursor-default"
+                    style={{
+                        top: tagMenuCoords.top,
+                        left: tagMenuCoords.left,
+                        transform: `${tagPickerPosition === 'top' ? 'translateY(-100%) translateY(-5px)' : 'translateY(5px)'}`
+                    }}
+                >
                     <div className="text-[8px] font-black uppercase text-muted mb-2 tracking-widest border-b border-border/50 pb-1">Manage Tags</div>
                     <div className="space-y-1">
                         {col.tags?.map(tagDef => {
@@ -1500,7 +1553,8 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                             );
                         })}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
       );
@@ -1508,9 +1562,9 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
     return (
       <div 
-        className={`flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap overflow-visible relative group/cell rt-cell-content ${canEditAny ? 'cursor-pointer hover:bg-accent/5' : ''} ${hasOrphanedFlag ? 'ring-1 ring-danger ring-inset bg-danger/5' : ''}`}
+        className={`flex flex-col items-center justify-center h-full gap-0.5 py-1 transition-all whitespace-nowrap overflow-visible relative group/cell rt-cell-content ${canEditAny && col.type !== 'autofill' ? 'cursor-pointer hover:bg-accent/5' : ''} ${hasOrphanedFlag ? 'ring-1 ring-danger ring-inset bg-danger/5' : ''}`}
         title={hasOrphanedFlag ? 'Linked database record no longer exists' : undefined}
-        onClick={() => canEditAny && handleStartEdit(row, col.id)}
+        onClick={() => canEditAny && col.type !== 'autofill' && handleStartEdit(row, col.id)}
       >
         <CellScaler tooltipContent={tooltipContent} forceShowTooltip={showValue && legendItems.length > 0} disabled={isEditing}>
             <div className="flex items-center gap-1.5 px-1 overflow-visible">
