@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Faction;
 use App\Models\FactionRecordDatabase;
+use App\Models\FactionSnapshot;
 use App\Models\RosterContent;
 use App\Models\RosterDataset;
 use App\Models\User;
@@ -89,7 +90,7 @@ class FactionController extends Controller
 
         // Trigger automatic snapshot check (deferred after response to avoid blocking user)
         $today = now()->startOfDay();
-        $exists = \App\Models\FactionSnapshot::where('faction_id', $faction->id)
+        $exists = FactionSnapshot::where('faction_id', $faction->id)
             ->where('type', 'auto')
             ->where('created_at', '>=', $today)
             ->exists();
@@ -97,7 +98,7 @@ class FactionController extends Controller
         if (! $exists) {
             dispatch(function () use ($faction) {
                 $today = now()->startOfDay();
-                $exists = \App\Models\FactionSnapshot::where('faction_id', $faction->id)
+                $exists = FactionSnapshot::where('faction_id', $faction->id)
                     ->where('type', 'auto')
                     ->where('created_at', '>=', $today)
                     ->exists();

@@ -21,7 +21,7 @@ test('anyone can view changelog entries', function () {
         'version' => 'v2.0.0',
         'title' => 'Release v2.0.0',
     ]);
-    
+
     $data = $response->json();
     expect($data)->toBeArray();
     expect($data[0]['items'])->toBeArray();
@@ -42,7 +42,7 @@ test('superadmin can create changelog entry with items', function () {
             ['type' => 'Modification', 'content' => 'Tweaked colors'],
             ['type' => 'Backend', 'content' => 'Updated dependencies'],
             ['type' => 'Fix', 'content' => 'Fixed layout overflow'],
-        ]
+        ],
     ]);
 
     $response->assertStatus(201);
@@ -66,8 +66,8 @@ test('validation rejects invalid item types or structure', function () {
         'title' => 'Release 2.1.0',
         'released_at' => '2026-06-08',
         'items' => [
-            ['type' => 'InvalidType', 'content' => 'Invalid item content']
-        ]
+            ['type' => 'InvalidType', 'content' => 'Invalid item content'],
+        ],
     ]);
     $response->assertStatus(422);
     $response->assertJsonValidationErrors(['items.0.type']);
@@ -78,8 +78,8 @@ test('validation rejects invalid item types or structure', function () {
         'title' => 'Release 2.1.0',
         'released_at' => '2026-06-08',
         'items' => [
-            ['type' => 'Feature']
-        ]
+            ['type' => 'Feature'],
+        ],
     ]);
     $response->assertStatus(422);
     $response->assertJsonValidationErrors(['items.0.content']);
@@ -96,8 +96,8 @@ test('superadmin can update changelog entry with items', function () {
     $response = $this->actingAs($admin)->putJson("/api/superadmin/changelog/{$entry->id}", [
         'title' => 'Updated Title',
         'items' => [
-            ['type' => 'Feature', 'content' => 'Added item']
-        ]
+            ['type' => 'Feature', 'content' => 'Added item'],
+        ],
     ]);
 
     $response->assertStatus(200);

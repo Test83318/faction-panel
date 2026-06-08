@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -140,11 +141,17 @@ class User extends Authenticatable
     }
 
     protected static $userGroupsCache = [];
+
     protected static $userRolesCache = [];
+
     protected static $factionPermissionsCache = [];
+
     protected static $rosterPermissionsCache = [];
+
     protected static $recordPermissionsCache = [];
+
     protected static $statisticsPermissionsCache = [];
+
     protected static $formPermissionsCache = [];
 
     public static function clearPermissionsCache()
@@ -160,40 +167,44 @@ class User extends Authenticatable
 
     protected static function shouldCache(): bool
     {
-        return !app()->runningUnitTests() || request()->route() !== null;
+        return ! app()->runningUnitTests() || request()->route() !== null;
     }
 
-    public static function getUserGroupIds(?User $user, int $factionId): \Illuminate\Support\Collection
+    public static function getUserGroupIds(?User $user, int $factionId): Collection
     {
-        if (!$user) {
+        if (! $user) {
             return collect();
         }
         $cacheKey = "{$user->id}_{$factionId}";
         $shouldCache = self::shouldCache();
-        if (!$shouldCache || !isset(self::$userGroupsCache[$cacheKey])) {
+        if (! $shouldCache || ! isset(self::$userGroupsCache[$cacheKey])) {
             $val = $user->groups()->where('faction_id', $factionId)->pluck('groups.id');
             if ($shouldCache) {
                 self::$userGroupsCache[$cacheKey] = $val;
             }
+
             return $val;
         }
+
         return self::$userGroupsCache[$cacheKey];
     }
 
-    public static function getUserRoleIds(?User $user, int $factionId): \Illuminate\Support\Collection
+    public static function getUserRoleIds(?User $user, int $factionId): Collection
     {
-        if (!$user) {
+        if (! $user) {
             return collect();
         }
         $cacheKey = "{$user->id}_{$factionId}";
         $shouldCache = self::shouldCache();
-        if (!$shouldCache || !isset(self::$userRolesCache[$cacheKey])) {
+        if (! $shouldCache || ! isset(self::$userRolesCache[$cacheKey])) {
             $val = $user->roles()->where('faction_id', $factionId)->pluck('roles.id');
             if ($shouldCache) {
                 self::$userRolesCache[$cacheKey] = $val;
             }
+
             return $val;
         }
+
         return self::$userRolesCache[$cacheKey];
     }
 
@@ -217,6 +228,7 @@ class User extends Authenticatable
             if ($shouldCache) {
                 self::$factionPermissionsCache[$cacheKey] = $allKeys;
             }
+
             return $allKeys;
         }
 
@@ -230,6 +242,7 @@ class User extends Authenticatable
             if ($shouldCache) {
                 self::$factionPermissionsCache[$cacheKey] = $allKeys;
             }
+
             return $allKeys;
         }
 
@@ -257,6 +270,7 @@ class User extends Authenticatable
             if ($shouldCache) {
                 self::$factionPermissionsCache[$cacheKey] = [];
             }
+
             return [];
         }
 
@@ -289,6 +303,7 @@ class User extends Authenticatable
         foreach ($allKeys as $key) {
             if ($isSystemAdmin && ! in_array($key, $leaderOnlyPermissions)) {
                 $resolved[] = $key;
+
                 continue;
             }
 
@@ -316,6 +331,7 @@ class User extends Authenticatable
         if ($shouldCache) {
             self::$factionPermissionsCache[$cacheKey] = $resolved;
         }
+
         return $resolved;
     }
 
@@ -390,7 +406,7 @@ class User extends Authenticatable
         $userId = $user ? $user->id : 'guest';
         $cacheKey = "{$userId}_{$roster->id}";
 
-        if (!isset(self::$rosterPermissionsCache[$cacheKey])) {
+        if (! isset(self::$rosterPermissionsCache[$cacheKey])) {
             $permissionSets = collect();
 
             // Public permissions (group_id and role_id are null)
@@ -482,7 +498,7 @@ class User extends Authenticatable
         $userId = $user ? $user->id : 'guest';
         $cacheKey = "{$userId}_{$database->id}";
 
-        if (!isset(self::$recordPermissionsCache[$cacheKey])) {
+        if (! isset(self::$recordPermissionsCache[$cacheKey])) {
             $permissionSets = collect();
 
             // Public permissions (group_id and role_id are null)
@@ -539,7 +555,7 @@ class User extends Authenticatable
         $userId = $user ? $user->id : 'guest';
         $cacheKey = "{$userId}_{$model->id}";
 
-        if (!isset(self::$statisticsPermissionsCache[$cacheKey])) {
+        if (! isset(self::$statisticsPermissionsCache[$cacheKey])) {
             $permissionSets = collect();
 
             // Public permissions (group_id and role_id are null)
@@ -596,7 +612,7 @@ class User extends Authenticatable
         $userId = $user ? $user->id : 'guest';
         $cacheKey = "{$userId}_{$form->id}";
 
-        if (!isset(self::$formPermissionsCache[$cacheKey])) {
+        if (! isset(self::$formPermissionsCache[$cacheKey])) {
             $permissionSets = collect();
 
             // Public permissions (group_id and role_id are null)

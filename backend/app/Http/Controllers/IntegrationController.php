@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Faction;
+use App\Models\FactionRecordDatabase;
+use App\Models\RosterContent;
+use App\Models\RosterSection;
 use App\Models\User;
 use App\Services\GtawService;
 use Illuminate\Http\Request;
@@ -144,7 +147,7 @@ class IntegrationController extends Controller
             'activity_logs' => 0,
         ];
 
-        DB::transaction(function () use ($charDb, $historyDb, $nameChangeDb, $activityDb, $gtawMembers, $abasData, $now, &$syncResults) {
+        DB::transaction(function () use ($faction, $charDb, $historyDb, $nameChangeDb, $activityDb, $gtawMembers, $abasData, $now, &$syncResults) {
             // 2. Pre-sync duplicate cleanup for Characters Database (before any other logic)
             $charDb->entries()->get()
                 ->groupBy(fn ($e) => $e->data['char_id'] ?? null)
@@ -337,6 +340,9 @@ class IntegrationController extends Controller
                     }
                 }
             }
+
+            // Update linked roster columns and re-evaluate auto-apply rules
+            $this->updateLinkedRosterColumns($faction, $charDb);
         });
 
         $this->audit('integration.gtaw.sync', "Synchronized GTA:W members for faction '{$faction->name}'", null, $faction, null, $syncResults);
@@ -484,5 +490,242 @@ class IntegrationController extends Controller
         $this->audit('integration.gtaw.prune', "Pruned synchronized GTA:W database entries for faction '{$faction->name}'", null, $faction);
 
         return response()->json(['message' => 'All synchronized data pruned']);
+    }
+
+    private function updateLinkedRosterColumns(Faction $faction, FactionRecordDatabase $charDb)
+    {
+        // 1. Get all active entries for character database
+        $activeEntries = $charDb->entries()->where('is_active', true)->get();
+
+        // Load datasets by ID to check database links
+        $datasetsById = $faction->rosterDatasets()->get()->keyBy('id');
+
+        // 2. Load all rosters and sections for this faction
+        $rosters = $faction->rosters()->get();
+        $sections = RosterSection::whereIn('roster_id', $rosters->pluck('id'))->get();
+
+        // 3. Load all roster contents for these sections
+        $contents = RosterContent::whereIn('section_id', $sections->pluck('id'))->get();
+
+        $sectionsById = $sections->keyBy('id');
+        $rostersById = $rosters->keyBy('id');
+
+        foreach ($contents as $content) {
+            $section = $sectionsById->get($content->section_id);
+            if (! $section) {
+                continue;
+            }
+            $roster = $rostersById->get($section->roster_id);
+            if (! $roster) {
+                continue;
+            }
+
+            // Determine active columns for this section/content
+            $columns = ($section->use_roster_columns ?? true) ? ($roster->columns ?? []) : ($section->columns ?: ($roster->columns ?? []));
+            if (! is_array($columns)) {
+                continue;
+            }
+
+            $data = $content->content;
+            if (! is_array($data)) {
+                continue;
+            }
+
+            $changed = false;
+
+            foreach ($columns as $col) {
+                $colId = $col['id'] ?? null;
+                if (! $colId) {
+                    continue;
+                }
+
+                // Check if column is linked to the CHARS database
+                $isLinkedToCharDb = false;
+                if (isset($col['linked_database_id']) && $col['linked_database_id'] == $charDb->id) {
+                    $isLinkedToCharDb = true;
+                } elseif (isset($col['dataset_id']) && $col['dataset_id']) {
+                    $ds = $datasetsById->get($col['dataset_id']);
+                    if ($ds && $ds->record_database_id == $charDb->id) {
+                        $isLinkedToCharDb = true;
+                    }
+                }
+
+                if (! $isLinkedToCharDb) {
+                    continue;
+                }
+
+                // Stored value in the content
+                $val = $data[$colId] ?? null;
+                if ($val === null || $val === '') {
+                    continue;
+                }
+
+                // 4. Find matching entry in CHARS database
+                $matchingEntry = null;
+
+                if (is_numeric($val)) {
+                    // Try to find the active entry by entry_id
+                    $matchingEntry = $activeEntries->firstWhere('entry_id', $val);
+
+                    // If not found in active, it might be soft-deleted or missing
+                    if (! $matchingEntry) {
+                        // Look up the soft-deleted entry to get the identity (name/char_id)
+                        $deletedEntry = $charDb->entries()->onlyTrashed()->where('entry_id', $val)->first();
+                        if ($deletedEntry) {
+                            $charId = $deletedEntry->data['char_id'] ?? null;
+                            $charName = $deletedEntry->data['name'] ?? null;
+
+                            // Check if a new active entry now exists for this character
+                            if ($charId) {
+                                $matchingEntry = $activeEntries->first(function ($e) use ($charId) {
+                                    return ($e->data['char_id'] ?? null) == $charId;
+                                });
+                            }
+                            if (! $matchingEntry && $charName) {
+                                $matchingEntry = $activeEntries->first(function ($e) use ($charName) {
+                                    return strcasecmp($e->data['name'] ?? '', $charName) === 0;
+                                });
+                            }
+
+                            // If we found a new active entry, update the stored value to the new active entry_id!
+                            if ($matchingEntry) {
+                                $data[$colId] = $matchingEntry->entry_id;
+                                $changed = true;
+                            }
+                        }
+                    }
+                } else {
+                    // It is a string (e.g. "John Doe"). Try to find an active entry with matching name
+                    $matchingEntry = $activeEntries->first(function ($e) use ($val) {
+                        return strcasecmp($e->data['name'] ?? '', $val) === 0;
+                    });
+
+                    if ($matchingEntry) {
+                        $data[$colId] = $matchingEntry->entry_id;
+                        $changed = true;
+                    }
+                }
+
+                // 5. Re-evaluate auto-apply checkboxes and tags
+
+                // Process Checkboxes
+                if (isset($col['checkboxes']) && is_array($col['checkboxes'])) {
+                    $cbKey = "{$colId}_cb";
+                    $currentCbs = $data[$cbKey] ?? [];
+                    if (! is_array($currentCbs)) {
+                        $currentCbs = [];
+                    }
+                    $originalCbs = $currentCbs;
+
+                    foreach ($col['checkboxes'] as $cb) {
+                        if (! is_array($cb)) {
+                            continue;
+                        }
+
+                        $label = $cb['label'] ?? null;
+                        if (! $label) {
+                            continue;
+                        }
+
+                        $hasAutoApply = isset($cb['auto_apply']) || isset($cb['auto_apply_field']);
+                        if (! $hasAutoApply) {
+                            continue;
+                        }
+
+                        $db_column = $cb['auto_apply_field'] ?? ($cb['auto_apply']['db_column'] ?? null);
+                        $match_value = $cb['auto_apply_value'] ?? ($cb['auto_apply']['match_value'] ?? null);
+
+                        if ($matchingEntry && $db_column) {
+                            // Evaluate match
+                            $dbVal = ($db_column === 'id') ? (string) $matchingEntry->entry_id : ($matchingEntry->data[$db_column] ?? '');
+
+                            if ($match_value !== null && $match_value !== '') {
+                                $isMatch = ($dbVal !== null && $dbVal !== '') && (stripos((string) $dbVal, (string) $match_value) !== false);
+                            } else {
+                                $isMatch = ($dbVal !== null && $dbVal !== '' && $dbVal !== false);
+                            }
+
+                            $hasLabel = in_array($label, $currentCbs);
+                            if ($isMatch && ! $hasLabel) {
+                                $currentCbs[] = $label;
+                            } elseif (! $isMatch && $hasLabel) {
+                                $currentCbs = array_values(array_diff($currentCbs, [$label]));
+                            }
+                        } else {
+                            // No matching active entry - remove auto-applied checkbox
+                            if (in_array($label, $currentCbs)) {
+                                $currentCbs = array_values(array_diff($currentCbs, [$label]));
+                            }
+                        }
+                    }
+
+                    if ($currentCbs !== $originalCbs) {
+                        $data[$cbKey] = $currentCbs;
+                        $changed = true;
+                    }
+                }
+
+                // Process Tags
+                if (isset($col['tags']) && is_array($col['tags'])) {
+                    $tagKey = "{$colId}_tags";
+                    $currentTags = $data[$tagKey] ?? [];
+                    if (! is_array($currentTags)) {
+                        $currentTags = [];
+                    }
+                    $originalTags = $currentTags;
+
+                    foreach ($col['tags'] as $tag) {
+                        if (! is_array($tag)) {
+                            continue;
+                        }
+
+                        $label = $tag['label'] ?? null;
+                        if (! $label) {
+                            continue;
+                        }
+
+                        $hasAutoApply = isset($tag['auto_apply']) || isset($tag['auto_apply_field']);
+                        if (! $hasAutoApply) {
+                            continue;
+                        }
+
+                        $db_column = $tag['auto_apply_field'] ?? ($tag['auto_apply']['db_column'] ?? null);
+                        $match_value = $tag['auto_apply_value'] ?? ($tag['auto_apply']['match_value'] ?? null);
+
+                        if ($matchingEntry && $db_column) {
+                            // Evaluate match
+                            $dbVal = ($db_column === 'id') ? (string) $matchingEntry->entry_id : ($matchingEntry->data[$db_column] ?? '');
+
+                            if ($match_value !== null && $match_value !== '') {
+                                $isMatch = ($dbVal !== null && $dbVal !== '') && (stripos((string) $dbVal, (string) $match_value) !== false);
+                            } else {
+                                $isMatch = ($dbVal !== null && $dbVal !== '' && $dbVal !== false);
+                            }
+
+                            $hasLabel = in_array($label, $currentTags);
+                            if ($isMatch && ! $hasLabel) {
+                                $currentTags[] = $label;
+                            } elseif (! $isMatch && $hasLabel) {
+                                $currentTags = array_values(array_diff($currentTags, [$label]));
+                            }
+                        } else {
+                            // No matching active entry - remove auto-applied tag
+                            if (in_array($label, $currentTags)) {
+                                $currentTags = array_values(array_diff($currentTags, [$label]));
+                            }
+                        }
+                    }
+
+                    if ($currentTags !== $originalTags) {
+                        $data[$tagKey] = $currentTags;
+                        $changed = true;
+                    }
+                }
+            }
+
+            if ($changed) {
+                $content->update(['content' => $data]);
+            }
+        }
     }
 }

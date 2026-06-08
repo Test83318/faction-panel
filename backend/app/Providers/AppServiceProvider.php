@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\User;
+use Illuminate\Routing\Events\RouteMatched;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Telescope\TelescopeApplicationServiceProvider;
@@ -23,10 +25,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        \App\Models\User::clearPermissionsCache();
+        User::clearPermissionsCache();
 
-        $this->app['events']->listen(\Illuminate\Routing\Events\RouteMatched::class, function () {
-            \App\Models\User::clearPermissionsCache();
+        $this->app['events']->listen(RouteMatched::class, function () {
+            User::clearPermissionsCache();
         });
 
         Gate::define('viewPulse', function ($user = null) {

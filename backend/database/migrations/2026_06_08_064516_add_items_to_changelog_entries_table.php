@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -20,7 +20,7 @@ return new class extends Migration
         // Migrate existing entries
         $entries = DB::table('changelog_entries')->get();
         foreach ($entries as $entry) {
-            if ($entry->body && !$entry->items) {
+            if ($entry->body && ! $entry->items) {
                 $items = [];
                 $lines = explode("\n", $entry->body);
                 foreach ($lines as $line) {
@@ -30,7 +30,7 @@ return new class extends Migration
                         // Check if it's a modification, fix, backend, or feature based on keyword
                         $content = trim($matches[1]);
                         $type = 'Feature';
-                        
+
                         $lowerContent = strtolower($content);
                         if (str_contains($lowerContent, 'fix') || str_contains($lowerContent, 'bug') || str_contains($lowerContent, 'resolve')) {
                             $type = 'Fix';
@@ -42,12 +42,12 @@ return new class extends Migration
 
                         $items[] = [
                             'type' => $type,
-                            'content' => $content
+                            'content' => $content,
                         ];
                     }
                 }
 
-                if (!empty($items)) {
+                if (! empty($items)) {
                     DB::table('changelog_entries')
                         ->where('id', $entry->id)
                         ->update(['items' => json_encode($items)]);
