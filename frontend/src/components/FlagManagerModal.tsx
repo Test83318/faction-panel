@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Save, Flag, GripVertical, Info, Search, Check, AlertCircle, ShieldAlert } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
+import * as LucideIcons from '../icons';
+import { ALL_ICONS } from '../icons';
 import api from '../api';
 import toast from 'react-hot-toast';
 
@@ -27,11 +28,7 @@ interface FlagManagerModalProps {
     onClose: () => void;
 }
 
-const ICON_LIST = [
-    'Flag', 'AlertCircle', 'CheckCircle2', 'Info', 'Star', 'User', 'Shield', 'ShieldAlert', 
-    'ShieldCheck', 'Clock', 'Zap', 'Heart', 'Award', 'Trophy', 'UserCheck', 'UserX', 
-    'UserMinus', 'UserPlus', 'Flame', 'Ghost', 'Crown', 'Gem', 'Hammer', 'Key'
-];
+const ICON_LIST = ALL_ICONS;
 
 const FlagManagerModal: React.FC<FlagManagerModalProps> = ({ shortname, onClose }) => {
     const [flags, setFlags] = useState<RosterFlag[]>([]);
@@ -246,7 +243,7 @@ const FlagManagerModal: React.FC<FlagManagerModalProps> = ({ shortname, onClose 
                                                         {renderIcon(selectedFlag.icon, 10, selectedFlag.color)}
                                                         <span>Icon</span>
                                                     </div>
-                                                    <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-xl shadow-2xl p-2 z-[800] grid grid-cols-6 gap-1 opacity-0 pointer-events-none group-hover/icon:opacity-100 group-hover/icon:pointer-events-auto transition-all w-48">
+                                                    <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-xl shadow-2xl p-2 z-[800] grid grid-cols-6 gap-1 opacity-0 pointer-events-none group-hover/icon:opacity-100 group-hover/icon:pointer-events-auto transition-all w-64 max-h-64 overflow-y-auto">
                                                         {ICON_LIST.map(icon => (
                                                             <button 
                                                                 key={icon}

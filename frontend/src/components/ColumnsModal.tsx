@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Trash2, GripVertical, Settings2, Check, X, Database, Flag, ShieldAlert } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
+import * as LucideIcons from '../icons';
+import { ALL_ICONS } from '../icons';
 import { Reorder } from 'motion/react';
 import api from '../api';
 import { Roster } from '../types';
@@ -600,7 +601,7 @@ if (!label) return null;
                           const linkedDb = recordDatabases.find(db => db.id === linkedDataset?.record_database_id);
                           const dbStructure = linkedDb?.database_structure || [];
                           
-                          const tagIcons = ['Shield', 'ShieldPlus', 'Cross', 'BriefcaseMedical', 'HeartPulse', 'Stethoscope', 'Activity', 'LifeBuoy', 'Star', 'User', 'Zap', 'Info', 'AlertCircle', 'Flag', 'Award', 'Briefcase', 'Crown', 'Target', 'Tool'];
+                          const tagIcons = ALL_ICONS;
 
                           return (
                             <Reorder.Item key={tag.id} value={tag} className="flex flex-col gap-2 bg-bg p-2 rounded border border-border group/tag">
@@ -634,7 +635,7 @@ if (!label) return null;
                                         <span className="text-[8px] font-black uppercase text-muted truncate flex-1">{icon || 'Square'}</span>
                                     </div>
                                     
-                                    <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-[100] p-1 grid grid-cols-4 gap-1 min-w-[140px] opacity-0 invisible group-hover/icon-select:opacity-100 group-hover/icon-select:visible transition-all">
+                                    <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-xl z-[100] p-1 grid grid-cols-4 gap-1 min-w-[150px] max-h-48 overflow-y-auto opacity-0 invisible group-hover/icon-select:opacity-100 group-hover/icon-select:visible transition-all">
                                         <button 
                                             onClick={() => {
                                                 const newTags = [...(col.tags || [])];

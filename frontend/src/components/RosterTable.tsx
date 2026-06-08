@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { RosterContent, RosterColumn } from '../types';
 import { motion, Reorder } from 'motion/react';
 import { Plus, Trash2, Check, X, Pencil, Tag, ExternalLink, GripVertical, SeparatorHorizontal, Settings2 } from 'lucide-react';
-import * as LucideIcons from 'lucide-react';
+import * as LucideIcons from '../icons';
 import api from '../api';
 import toast from 'react-hot-toast';
 import { hexToRgb } from '../utils';
