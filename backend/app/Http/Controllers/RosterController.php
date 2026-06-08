@@ -158,8 +158,13 @@ class RosterController extends Controller
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
         $user = Auth::guard('sanctum')->user();
 
-        $isGlobalViewer = User::hasFactionPermission($user, $faction, 'view_faction_roster');
-        $hasSandboxPerm = User::hasFactionPermission($user, $faction, 'utilize_sandbox_rosters');
+        $userId = $user ? $user->id : 'guest';
+        $version = \Illuminate\Support\Facades\Cache::get("roster_version_{$faction->id}", 0);
+        $cacheKey = "roster_index_{$faction->id}_{$userId}_v{$version}";
+
+        $data = \Illuminate\Support\Facades\Cache::remember($cacheKey, 3600, function () use ($faction, $user) {
+            $isGlobalViewer = User::hasFactionPermission($user, $faction, 'view_faction_roster');
+            $hasSandboxPerm = User::hasFactionPermission($user, $faction, 'utilize_sandbox_rosters');
 
         $rosters = $faction->rosters()
             ->where('is_sandbox', false)
@@ -189,7 +194,7 @@ class RosterController extends Controller
         }
 
         if ($filteredRosters->isEmpty() && ! $isGlobalViewer && ! $hasSandboxPerm) {
-            return response()->json(['message' => 'Forbidden'], 403);
+            return null;
         }
 
         $allRosters = $filteredRosters->concat($sandboxRosters);
@@ -541,9 +546,16 @@ class RosterController extends Controller
             }
         });
 
+        return $allRosters->values();
+        });
+
         $this->audit('roster.list', "Viewed rosters list for faction {$faction->name}");
 
-        return response()->json($allRosters->values());
+        if ($data === null) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        return response()->json($data);
     }
 
     private function maskSection($section, array $rosterHiddenColIds, $roster = null, $omit = false)

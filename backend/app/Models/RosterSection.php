@@ -10,6 +10,18 @@ class RosterSection extends Model
 {
     use Auditable, SoftDeletes;
 
+    protected static function booted()
+    {
+        $clear = function ($section) {
+            $factionId = $section->roster?->faction_id;
+            if ($factionId) {
+                Faction::invalidateRosterCache($factionId);
+            }
+        };
+        static::saved($clear);
+        static::deleted($clear);
+    }
+
     protected $fillable = [
         'roster_id',
         'name',

@@ -149,6 +149,13 @@ class Faction extends Model
         });
     }
 
+    public static function invalidateRosterCache(int $factionId)
+    {
+        $key = "roster_version_{$factionId}";
+        $version = \Illuminate\Support\Facades\Cache::get($key, 0);
+        \Illuminate\Support\Facades\Cache::put($key, $version + 1, now()->addDays(30));
+    }
+
     public function invites()
     {
         return $this->hasMany(FactionInvite::class);

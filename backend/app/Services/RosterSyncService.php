@@ -95,6 +95,10 @@ class RosterSyncService
             }
         }
 
+        if ($modified > 0) {
+            Faction::invalidateRosterCache($faction->id);
+        }
+
         return $modified;
     }
 
