@@ -4,14 +4,7 @@ import api from '../api';
 import Loading from './Loading';
 import { ArrowLeft, ScrollText } from 'lucide-react';
 
-interface ChangelogEntry {
-    id: number;
-    version: string;
-    title: string;
-    body: string;
-    released_at: string;
-    order: number;
-}
+import { ChangelogEntry } from '../types';
 
 interface ChangelogProps {
     siteVersion?: string;
@@ -64,9 +57,41 @@ const Changelog: React.FC<ChangelogProps> = ({ siteVersion }) => {
                                     {new Date(entry.released_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
                                 </span>
                             </div>
-                            <div className="text-sm text-muted whitespace-pre-line leading-relaxed">
-                                {entry.body}
-                            </div>
+                            {entry.items && entry.items.length > 0 ? (
+                                <div className="space-y-4 mt-2">
+                                    {(['Feature', 'Modification', 'Backend', 'Fix'] as const).map(type => {
+                                        const typeItems = entry.items!.filter(item => item.type === type);
+                                        if (typeItems.length === 0) return null;
+
+                                        const config = {
+                                            Feature: { label: 'Features', text: 'text-emerald-500 dark:text-emerald-400' },
+                                            Modification: { label: 'Modifications', text: 'text-sky-500 dark:text-sky-400' },
+                                            Backend: { label: 'Backend Improvements', text: 'text-indigo-500 dark:text-indigo-400' },
+                                            Fix: { label: 'Fixes', text: 'text-danger dark:text-danger-active' },
+                                        }[type];
+
+                                        return (
+                                            <div key={type} className="space-y-1.5">
+                                                <h3 className={`text-[9px] font-black uppercase tracking-[0.15em] ${config.text} flex items-center gap-1.5`}>
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                                    {config.label}
+                                                </h3>
+                                                <ul className="space-y-1 pl-3 text-xs text-muted leading-relaxed list-none">
+                                                    {typeItems.map((item, idx) => (
+                                                        <li key={idx} className="relative pl-3 before:content-['•'] before:absolute before:left-0 before:text-muted/60">
+                                                            {item.content}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="text-sm text-muted whitespace-pre-line leading-relaxed">
+                                    {entry.body}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>

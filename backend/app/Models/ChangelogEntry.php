@@ -10,6 +10,7 @@ class ChangelogEntry extends Model
         'version',
         'title',
         'body',
+        'items',
         'released_at',
         'order',
     ];
@@ -17,5 +18,6 @@ class ChangelogEntry extends Model
     protected $casts = [
         'released_at' => 'date',
         'order' => 'integer',
+        'items' => 'array',
     ];
 }

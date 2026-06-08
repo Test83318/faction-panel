@@ -4,21 +4,45 @@ import toast from 'react-hot-toast';
 import { Plus, Edit2, Trash2, X, Check, ScrollText } from 'lucide-react';
 import { useConfirm } from './ConfirmationProvider';
 
-interface ChangelogEntry {
-    id: number;
-    version: string;
-    title: string;
-    body: string;
-    released_at: string;
-    order: number;
-}
+import { ChangelogEntry, ChangelogItem } from '../types';
 
 const ChangelogAdmin: React.FC = () => {
     const [entries, setEntries] = useState<ChangelogEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [editing, setEditing] = useState<Partial<ChangelogEntry> | null>(null);
     const [processing, setProcessing] = useState(false);
+    const [newItemType, setNewItemType] = useState<ChangelogItem['type']>('Feature');
+    const [newItemContent, setNewItemContent] = useState('');
     const confirm = useConfirm();
+
+    const handleAddItem = () => {
+        if (!newItemContent.trim() || !editing) return;
+        const currentItems = editing.items || [];
+        setEditing({
+            ...editing,
+            items: [...currentItems, { type: newItemType, content: newItemContent.trim() }]
+        });
+        setNewItemContent('');
+    };
+
+    const startEdit = (entry: ChangelogEntry) => {
+        let items = entry.items || [];
+        if (items.length === 0 && entry.body) {
+            const lines = entry.body.split('\n');
+            const parsedItems: ChangelogItem[] = [];
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
+                    parsedItems.push({
+                        type: 'Feature',
+                        content: trimmed.substring(1).trim()
+                    });
+                }
+            });
+            items = parsedItems.length > 0 ? parsedItems : [{ type: 'Feature', content: entry.body }];
+        }
+        setEditing({ ...entry, items });
+    };
 
     useEffect(() => {
         fetchEntries();
@@ -38,6 +62,10 @@ const ChangelogAdmin: React.FC = () => {
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editing) return;
+        if (!editing.items || editing.items.length === 0) {
+            toast.error('Please add at least one changelog item');
+            return;
+        }
         setProcessing(true);
         const loadToast = toast.loading('Saving...');
         try {
@@ -74,7 +102,11 @@ const ChangelogAdmin: React.FC = () => {
         }
     };
 
-    const startNew = () => setEditing({ version: '', title: '', body: '', released_at: new Date().toISOString().split('T')[0], order: 0 });
+    const startNew = () => {
+        setEditing({ version: '', title: '', items: [], released_at: new Date().toISOString().split('T')[0], order: 0 });
+        setNewItemType('Feature');
+        setNewItemContent('');
+    };
 
     if (loading) return <div className="text-muted text-xs p-4">Loading...</div>;
 
@@ -141,16 +173,76 @@ const ChangelogAdmin: React.FC = () => {
                                 required
                             />
                         </div>
-                        <div>
-                            <label className="block text-[9px] font-bold uppercase tracking-widest text-muted mb-1">Body (Markdown)</label>
-                            <textarea
-                                value={editing.body || ''}
-                                onChange={e => setEditing({ ...editing, body: e.target.value })}
-                                className="w-full bg-surface border border-border p-2.5 rounded-lg text-sm font-mono resize-none"
-                                rows={8}
-                                placeholder="- Feature A&#10;- Bug fix B&#10;- Improvement C"
-                                required
-                            />
+                        <div className="space-y-3">
+                            <label className="block text-[9px] font-bold uppercase tracking-widest text-muted">Changelog Items</label>
+                            
+                            {/* Existing items list */}
+                            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                                {(!editing.items || editing.items.length === 0) ? (
+                                    <div className="text-[10px] text-muted italic border border-dashed border-border rounded-lg p-3 text-center">
+                                        No items added yet. Add items below.
+                                    </div>
+                                ) : (
+                                    editing.items.map((item, index) => (
+                                        <div key={index} className="flex items-center gap-2 bg-surface border border-border rounded-lg p-2">
+                                            <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 rounded uppercase shrink-0 ${
+                                                item.type === 'Feature' ? 'bg-emerald-500/10 text-emerald-500' :
+                                                item.type === 'Modification' ? 'bg-sky-500/10 text-sky-500' :
+                                                item.type === 'Backend' ? 'bg-indigo-500/10 text-indigo-500' :
+                                                'bg-danger/10 text-danger'
+                                            }`}>
+                                                {item.type}
+                                            </span>
+                                            <span className="text-xs flex-1 truncate">{item.content}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const updatedItems = [...(editing.items || [])];
+                                                    updatedItems.splice(index, 1);
+                                                    setEditing({ ...editing, items: updatedItems });
+                                                }}
+                                                className="p-1 hover:bg-danger/10 text-muted hover:text-danger rounded transition shrink-0"
+                                            >
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+
+                            {/* Add new item form */}
+                            <div className="flex gap-2 items-center">
+                                <select
+                                    value={newItemType}
+                                    onChange={e => setNewItemType(e.target.value as any)}
+                                    className="bg-surface border border-border p-2 rounded-lg text-xs font-bold shrink-0 h-[34px] w-[120px]"
+                                >
+                                    <option value="Feature">Feature</option>
+                                    <option value="Modification">Modification</option>
+                                    <option value="Backend">Backend</option>
+                                    <option value="Fix">Fix</option>
+                                </select>
+                                <input
+                                    type="text"
+                                    value={newItemContent}
+                                    onChange={e => setNewItemContent(e.target.value)}
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleAddItem();
+                                        }
+                                    }}
+                                    className="flex-1 bg-surface border border-border p-2 rounded-lg text-xs h-[34px]"
+                                    placeholder="Describe the change..."
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleAddItem}
+                                    className="p-2 bg-accent hover:bg-accent/90 text-white rounded-lg transition shrink-0 h-[34px] w-[34px] flex items-center justify-center"
+                                >
+                                    <Plus size={14} />
+                                </button>
+                            </div>
                         </div>
                         <div className="flex gap-2 justify-end">
                             <button
@@ -192,11 +284,27 @@ const ChangelogAdmin: React.FC = () => {
                                         {new Date(entry.released_at).toLocaleDateString()}
                                     </span>
                                 </div>
-                                <p className="text-xs text-muted line-clamp-2 whitespace-pre-line">{entry.body}</p>
+                                {entry.items && entry.items.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1.5 mt-2">
+                                        {entry.items.map((item, idx) => (
+                                            <span key={idx} className="inline-flex items-center gap-1.5 text-[9px] text-muted bg-surface border border-border px-2 py-0.5 rounded font-medium">
+                                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                                    item.type === 'Feature' ? 'bg-emerald-500' :
+                                                    item.type === 'Modification' ? 'bg-sky-500' :
+                                                    item.type === 'Backend' ? 'bg-indigo-500' :
+                                                    'bg-danger'
+                                                }`} />
+                                                {item.content}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-muted line-clamp-2 whitespace-pre-line mt-1">{entry.body}</p>
+                                )}
                             </div>
                             <div className="flex gap-2 shrink-0">
                                 <button
-                                    onClick={() => setEditing({ ...entry })}
+                                    onClick={() => startEdit(entry)}
                                     className="p-2 hover:bg-surface rounded-lg text-muted hover:text-text transition"
                                 >
                                     <Edit2 size={14} />

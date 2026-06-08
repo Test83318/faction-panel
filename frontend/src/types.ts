@@ -495,3 +495,18 @@ export interface NotificationScheme {
   created_by: number | null;
   permissions?: NotificationSchemePermission[];
 }
+
+export interface ChangelogItem {
+  type: 'Feature' | 'Modification' | 'Backend' | 'Fix';
+  content: string;
+}
+
+export interface ChangelogEntry {
+  id: number;
+  version: string;
+  title: string;
+  body?: string | null;
+  items?: ChangelogItem[] | null;
+  released_at: string;
+  order: number;
+}

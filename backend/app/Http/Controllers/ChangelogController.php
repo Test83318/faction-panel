@@ -21,7 +21,10 @@ class ChangelogController extends Controller
         $data = $request->validate([
             'version' => 'required|string|max:50',
             'title' => 'required|string|max:255',
-            'body' => 'required|string',
+            'body' => 'nullable|string',
+            'items' => 'nullable|array',
+            'items.*.type' => 'required_with:items|string|in:Feature,Modification,Backend,Fix',
+            'items.*.content' => 'required_with:items|string',
             'released_at' => 'required|date',
             'order' => 'sometimes|integer|min:0',
         ]);
@@ -38,7 +41,10 @@ class ChangelogController extends Controller
         $data = $request->validate([
             'version' => 'sometimes|string|max:50',
             'title' => 'sometimes|string|max:255',
-            'body' => 'sometimes|string',
+            'body' => 'nullable|string',
+            'items' => 'nullable|array',
+            'items.*.type' => 'required_with:items|string|in:Feature,Modification,Backend,Fix',
+            'items.*.content' => 'required_with:items|string',
             'released_at' => 'sometimes|date',
             'order' => 'sometimes|integer|min:0',
         ]);
