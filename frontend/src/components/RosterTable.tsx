@@ -840,8 +840,9 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 // Find matching entry
                 const fieldId = col.database_field_id || db.database_structure?.[0]?.id;
                 const entry = db.entries.find((e: any) => {
+                    if (String(e.entry_id) === String(value)) return true;
                     const entryValue = (fieldId === 'id') ? String(e.entry_id) : e.data?.[fieldId];
-                    return entryValue === value;
+                    return String(entryValue) === String(value);
                 });
 
                 if (entry) {
@@ -1054,6 +1055,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 const db = recordData.find(d => d.id === sourceDataset?.record_database_id);
                 if (db && db.entries) {
                     const entry = db.entries.find((e: any) => {
+                        if (String(e.entry_id) === String(sourceValue)) return true;
                         let fieldId = sourceCol?.database_field_id;
                         if (!fieldId || ['table', 'compact', 'cards', 'detailed', 'rows'].includes(fieldId)) {
                             fieldId = db.database_structure?.[0]?.id;
@@ -1061,7 +1063,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                         const label = (fieldId === 'id') ? String(e.entry_id) : 
                                      (fieldId === 'created_at') ? new Date(e.created_at).toLocaleDateString() :
                                      e.data?.[fieldId || ''];
-                        return label === sourceValue;
+                        return String(label) === String(sourceValue);
                     });
                     if (entry) {
                         const fieldId = col.data_field_id;
@@ -1195,6 +1197,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             if (db && db.entries) {
                 // Find entry that matches sourceValue (by the source column's referenced field)
                 const entry = db.entries.find((e: any) => {
+                    if (String(e.entry_id) === String(sourceValue)) return true;
                     let fieldId = sourceCol?.database_field_id;
                     if (!fieldId || ['table', 'compact', 'cards', 'detailed', 'rows'].includes(fieldId)) {
                         fieldId = db.database_structure?.[0]?.id;
@@ -1204,7 +1207,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                                  (fieldId === 'created_at') ? new Date(e.created_at).toLocaleDateString() :
                                  e.data?.[fieldId || ''];
                     
-                    return label === sourceValue;
+                    return String(label) === String(sourceValue);
                 });
 
                 if (entry) {
