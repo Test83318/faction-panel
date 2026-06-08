@@ -19,7 +19,102 @@ import { hexToRgb } from '../utils';
 import { useRosterRealtime } from '../hooks/useRosterRealtime';
 
 interface FactionRosterProps {
-...
+    user: any;
+    isDark: boolean;
+    activeDivision: any;
+    totalMembers: number;
+    rosters: any[];
+    setRosters: (rosters: any[]) => void;
+    activeDivId: number | null;
+    setActiveDivId: (id: number | null) => void;
+    permissions: string[];
+    shortname: string | undefined;
+    fetchRosters: () => Promise<void>;
+    datasets: any[];
+    recordData: any[];
+    flags: any[];
+    onlineUsers?: any[];
+    isSandbox?: boolean;
+    mainRosters?: any[];
+}
+
+const FactionRoster: React.FC<FactionRosterProps> = ({ 
+    user,
+    isDark,
+    activeDivision, 
+    totalMembers, 
+    rosters, 
+    setRosters, 
+    activeDivId, 
+    setActiveDivId, 
+    permissions, 
+    shortname, 
+    fetchRosters, 
+    datasets, 
+    recordData, 
+    flags,
+    onlineUsers = [],
+    isSandbox = false,
+    mainRosters = []
+}) => {
+  const navigate = useNavigate();
+  const scrollRef = useRef<HTMLUListElement>(null);
+
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = 200;
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const targetRosters = isSandbox ? [...rosters, ...mainRosters] : rosters;
+  const activeFlagsList = isSandbox ? [] : flags;
+
+  const [showSandboxIntro, setShowSandboxIntro] = useState(false);
+  useEffect(() => {
+    if (isSandbox && !localStorage.getItem('sandbox-intro-dismissed')) {
+      setShowSandboxIntro(true);
+    } else {
+      setShowSandboxIntro(false);
+    }
+  }, [isSandbox]);
+  const canCreate = isSandbox ? true : permissions.includes('create_roster');
+  const canModifyVariables = isSandbox ? false : permissions.includes('modify_roster_variables');
+  const canModifyFlags = isSandbox ? false : permissions.includes('modify_roster_flags');
+  const isGlobalMod = permissions.includes('global_roster_moderation');
+  
+  const rosterPerms = activeDivision?.user_roster_permissions || {};
+  const canModerate = isGlobalMod || rosterPerms.modify_roster || rosterPerms.add_sections || rosterPerms.remove_sections || rosterPerms.manage_columns || rosterPerms.manage_layout;
+  const canAddSections = isGlobalMod || rosterPerms.add_sections;
+
+  const [scaling, setScaling] = useState(() => {
+    const saved = localStorage.getItem('roster-scaling');
+    const val = saved ? parseInt(saved) : 100;
+    return Math.min(130, Math.max(80, val));
+  });
+
+  useEffect(() => {
+    localStorage.setItem('roster-scaling', scaling.toString());
+  }, [scaling]);
+
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSectionModal, setShowSectionModal] = useState(false);
+  const [showColumnsModal, setShowColumnsModal] = useState<any | null>(null);
+  const [showSectionColumnsModal, setShowSectionColumnsModal] = useState<any | null>(null);
+  const [showSectionLayoutModal, setShowSectionLayoutModal] = useState<any | null>(null);
+  const [showPermissionsModal, setShowPermissionsModal] = useState<RosterType | null>(null);
+  const [showVariablesModal, setShowVariablesModal] = useState(false);
+  const [showFlagsModal, setShowFlagsModal] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showLayoutModal, setShowLayoutModal] = useState<RosterType | null>(null);
+  const [showCountsModal, setShowCountsModal] = useState<any | null>(null);
+  const [showRosterContextMenu, setShowRosterContextMenu] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
   const [globalEditingRowId, setGlobalEditingRowId] = useState<number | null>(null);
   const [globalSaveTrigger, setGlobalSaveTrigger] = useState(0);
 
