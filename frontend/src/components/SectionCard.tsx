@@ -18,6 +18,7 @@ interface SectionCardProps {
   recordData?: any[];
   flags?: any[];
   allContents?: any[];
+  allColumns?: Map<string, any>;
   editMode?: boolean;
   rosterColor?: string;
   onAddChild?: (parentId: number) => void;
@@ -55,6 +56,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
   recordData,
   flags,
   allContents,
+  allColumns,
   editMode,
   rosterColor,
   onAddChild, 
@@ -149,6 +151,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             recordData={recordData}
             flags={flags}
             allContents={allContents}
+            allColumns={allColumns}
             editMode={editMode}
             rosterColor={effectiveColor}
             onAddChild={onAddChild}
@@ -366,6 +369,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
                 datasets={datasets}
                 recordData={recordData}
                 flags={flags}
+                allColumns={allColumns}
                 editMode={editMode && !isDynamic}
                 canModerate={canModerate && !isDynamic}
                 permissions={isDynamic ? { 
@@ -470,6 +474,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
           datasets={datasets}
           recordData={recordData}
           flags={flags}
+          allColumns={allColumns}
           editMode={editMode && !isDynamic}
           canModerate={canModerate && !isDynamic}
           permissions={isDynamic ? { 

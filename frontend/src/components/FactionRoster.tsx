@@ -137,6 +137,26 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
     return contents;
   }, [rosters]);
 
+  const allColumns = useMemo(() => {
+    const colsMap = new Map<string, any>();
+    rosters.forEach(r => {
+        if (!r) return;
+        (r.columns || []).forEach((c: any) => {
+            colsMap.set(c.id, c);
+        });
+        const checkSections = (sections: any[]) => {
+            sections.forEach(s => {
+                (s.columns || []).forEach((c: any) => {
+                    colsMap.set(c.id, c);
+                });
+                if (s.children) checkSections(s.children);
+            });
+        };
+        checkSections(r.root_sections || []);
+    });
+    return colsMap;
+  }, [rosters]);
+
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
   const [menuPosition, setMenuPosition] = useState({ left: 0 });
   
@@ -760,35 +780,48 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
   };
 
   const handleUpdateRowLocal = (rowId: number, data: any) => {
-    const newRosters = [...rosters];
-    let found = false;
-
-    const updateSectionContents = (sections: any[]) => {
-      for (const s of sections) {
+    const updateSections = (sections: any[]): { sections: any[]; found: boolean } => {
+      let found = false;
+      const newSections = sections.map(s => {
         if (s.contents) {
-            const idx = s.contents.findIndex((c: any) => c.id === rowId);
-            if (idx !== -1) {
-                s.contents[idx] = { 
-                    ...s.contents[idx], 
-                    content: data.content,
-                    color: data.color,
-                    updated_at: new Date().toISOString() 
-                };
-                found = true;
-                return true;
-            }
+          const idx = s.contents.findIndex((c: any) => c.id === rowId);
+          if (idx !== -1) {
+            found = true;
+            const newContents = [...s.contents];
+            newContents[idx] = {
+              ...newContents[idx],
+              content: data.content,
+              color: data.color,
+              updated_at: new Date().toISOString()
+            };
+            return { ...s, contents: newContents };
+          }
         }
-        if (s.children && updateSectionContents(s.children)) return true;
-      }
-      return false;
+        if (s.children && s.children.length > 0) {
+          const res = updateSections(s.children);
+          if (res.found) {
+            found = true;
+            return { ...s, children: res.sections };
+          }
+        }
+        return s;
+      });
+      return { sections: newSections, found };
     };
 
-    for (const r of newRosters) {
-      if (updateSectionContents(r.root_sections || [])) break;
-    }
+    let foundGlobal = false;
+    const newRosters = rosters.map(r => {
+      if (!r.root_sections) return r;
+      const res = updateSections(r.root_sections);
+      if (res.found) {
+        foundGlobal = true;
+        return { ...r, root_sections: res.sections };
+      }
+      return r;
+    });
 
-    if (found) {
-        setRosters(newRosters);
+    if (foundGlobal) {
+      setRosters(newRosters);
     }
   };
 
@@ -946,6 +979,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         datasets={datasets}
                         recordData={recordData}
                         allContents={allContents}
+                        allColumns={allColumns}
                         flags={activeFlagsList}
                         editMode={editMode}
                         rosterColor={activeDivision.color}
@@ -986,6 +1020,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                 datasets={datasets}
                                 recordData={recordData}
                                 allContents={allContents}
+                                allColumns={allColumns}
                                 flags={activeFlagsList}
                                 editMode={editMode}
                                 rosterColor={activeDivision.color}
@@ -1032,6 +1067,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                     datasets={datasets}
                                     recordData={recordData}
                                     allContents={allContents}
+                                    allColumns={allColumns}
                                     flags={activeFlagsList}
                                     editMode={editMode}
                                     rosterColor={activeDivision.color}
@@ -1073,6 +1109,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                         datasets={datasets}
                                         recordData={recordData}
                                         allContents={allContents}
+                                        allColumns={allColumns}
                                         flags={activeFlagsList}
                                         editMode={editMode}
                                         rosterColor={activeDivision.color}

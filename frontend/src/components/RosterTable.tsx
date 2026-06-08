@@ -145,6 +145,7 @@ interface RosterTableProps {
   canModerate?: boolean;
   permissions?: any;
   flags?: any[];
+  allColumns?: Map<string, any>;
   onUpdateRow?: (id: number, data: any, force?: boolean, lastUpdatedAt?: string | null) => void;
   onDeleteRow?: (id: number) => void;
   onBulkDeleteRow?: (ids: number[]) => void;
@@ -160,6 +161,52 @@ interface RosterTableProps {
   isDynamic?: boolean;
 }
 
+const getResolvedDisplayValue = (
+    rowId: number,
+    colId: string,
+    rawValue: any,
+    col: any,
+    datasets: any[],
+    recordData: any[],
+    resolvedLinks: Map<string, any>
+) => {
+    if (rawValue === null || rawValue === undefined || rawValue === '') return '';
+
+    if (col?.type?.includes('linked_roster_data')) {
+        const resolved = resolvedLinks.get(`${rowId}_${colId}`);
+        if (resolved) return resolved;
+        if (rawValue && typeof rawValue === 'object' && rawValue.roster_id && rawValue.row_id && rawValue.col_id) {
+            return '-';
+        }
+        return String(rawValue);
+    }
+
+    if (col?.dataset_id) {
+        const boundDataset = datasets.find(d => d.id === col.dataset_id);
+        if (boundDataset) {
+            let option = boundDataset.options?.find((o: any) => String(o.id) === String(rawValue));
+            if (!option && boundDataset.record_database_id) {
+                const db = recordData.find(d => d.id === boundDataset.record_database_id);
+                if (db && db.entries) {
+                    const entry = db.entries.find((e: any) => {
+                        if (String(e.entry_id) === String(rawValue)) return true;
+                        let fieldId = col.database_field_id || db.database_structure?.[0]?.id;
+                        const displayVal = (fieldId === 'id') ? String(e.entry_id) : e.data?.[fieldId];
+                        return String(displayVal) === String(rawValue);
+                    });
+                    if (entry) {
+                        return String(entry.data?.[col.database_field_id || ''] || entry.entry_id);
+                    }
+                }
+            }
+            if (option) return option.value;
+        }
+    }
+
+    if (typeof rawValue === 'object') return '-';
+    return String(rawValue);
+};
+
 export const RosterTable: React.FC<RosterTableProps> = ({ 
   sectionId,
   contents, 
@@ -174,6 +221,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
   canModerate,
   permissions,
   flags = [],
+  allColumns,
   onUpdateRow,
   onDeleteRow,
   onBulkDeleteRow,
@@ -405,6 +453,53 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     { name: 'Pink', value: '#ec4899' },
   ];
 
+  const baseResolvedValuesCache = React.useMemo(() => {
+    const cache = new Map<string, string>();
+    const safeAllContents = allContents || [];
+
+    safeAllContents.forEach(row => {
+      if (!row || !row.content) return;
+      
+      Object.entries(row.content).forEach(([colId, rawValue]) => {
+        const col = allColumns?.get(colId) || activeCols.find(c => c.id === colId);
+        const resolved = getResolvedDisplayValue(
+          row.id,
+          colId,
+          rawValue,
+          col,
+          datasets,
+          recordData,
+          resolvedLinks
+        );
+        cache.set(`${row.id}_${colId}`, resolved.toLowerCase().trim());
+      });
+    });
+
+    return cache;
+  }, [allContents, allColumns, activeCols, datasets, recordData, resolvedLinks]);
+
+  const resolvedValuesCache = React.useMemo(() => {
+    const cache = new Map(baseResolvedValuesCache);
+    
+    if (editingRowId !== null) {
+      Object.entries(editData).forEach(([colId, rawValue]) => {
+        const col = allColumns?.get(colId) || activeCols.find(c => c.id === colId);
+        const resolved = getResolvedDisplayValue(
+          editingRowId,
+          colId,
+          rawValue,
+          col,
+          datasets,
+          recordData,
+          resolvedLinks
+        );
+        cache.set(`${editingRowId}_${colId}`, resolved.toLowerCase().trim());
+      });
+    }
+    
+    return cache;
+  }, [baseResolvedValuesCache, editingRowId, editData, allColumns, activeCols, datasets, recordData, resolvedLinks]);
+
   const evaluateFlag = React.useCallback((row: RosterContent, col: RosterColumn, flag: any) => {
     // If the user does not have edit access to the roster, do not evaluate flags at all.
     const hasEditAccess = canModerate || permissions?.edit_defined_fields || permissions?.edit_predefined;
@@ -417,40 +512,15 @@ export const RosterTable: React.FC<RosterTableProps> = ({
     const canViewHidden = canModerate || permissions?.view_hidden_data;
     if (isHidden && !canViewHidden) return false;
 
-    // Determine current value, accounting for unsaved edits
+    const value = resolvedValuesCache.get(`${row.id}_${col.id}`) || '';
+    if (value === '') return false;
+
+    // Determine current raw value for orphaned_database_link
     const isThisRowEditing = editingRowId === row.id;
     const currentRowContent = isThisRowEditing ? { ...(row.content || {}), ...editData } : (row.content || {});
     const rawValue = currentRowContent[col.id];
-    
-    // If value is null or undefined, don't flag (except for specific rules if needed)
-    if (rawValue === null || rawValue === undefined || rawValue === '') return false;
-    
-    // Resolve ID to label if possible
+
     const boundDataset = col.dataset_id ? datasets.find(d => d.id === col.dataset_id) : null;
-    let option = boundDataset?.options?.find((o: any) => String(o.id) === String(rawValue));
-
-    // Check recordData if it's a database link
-    if (!option && boundDataset?.record_database_id) {
-        const db = recordData.find(d => d.id === boundDataset.record_database_id);
-        if (db && db.entries) {
-            // Find by ID or by the actual data value (for manual entries that might match)
-            const entry = db.entries.find((e: any) => {
-                if (String(e.entry_id) === String(rawValue)) return true;
-                
-                // Also check if it matches the display value
-                let fieldId = col.database_field_id || db.database_structure?.[0]?.id;
-                const displayVal = (fieldId === 'id') ? String(e.entry_id) : e.data?.[fieldId];
-                return String(displayVal) === String(rawValue);
-            });
-
-            if (entry) {
-                option = { id: entry.entry_id, value: entry.data?.[col.database_field_id || ''] || entry.entry_id };
-            }
-        }
-    }
-
-    const label = option ? option.value : rawValue.toString();
-    const value = label.toLowerCase().trim();
 
     return flag.rules.some((rule: any) => {
         switch (rule.type) {
@@ -473,7 +543,6 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 if (rule.scope === 'global') {
                     pool = safeAllContents;
                 } else if (rule.scope === 'roster') {
-                    // Try to find the roster ID for the current row
                     const currentRosterId = row.roster_id || safeAllContents.find(c => Number(c.id) === Number(row.id))?.roster_id;
                     if (!currentRosterId) return false;
                     pool = safeAllContents.filter(c => Number(c.roster_id) === Number(currentRosterId));
@@ -485,47 +554,52 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 const excludedSectionIds = (col.flag_settings?.[flag.id]?.excluded_section_ids || []).map((id: any) => Number(id));
 
                 return pool.some(c => {
-                    // Use loose equality for IDs to avoid flagging yourself
                     if (Number(c.id) === Number(row.id)) return false;
-                    
-                    // Skip if from an excluded roster
                     if (c.roster_id && excludedRosterIds.includes(Number(c.roster_id))) return false;
-
-                    // Skip if from an excluded section
                     if (c.section_id && excludedSectionIds.includes(Number(c.section_id))) return false;
 
-                    const targetContent = c.content || {};
-
                     if (rule.target_col) {
-                        return (targetContent[rule.target_col] || '').toString().toLowerCase().trim() === value;
+                        const otherVal = resolvedValuesCache.get(`${c.id}_${rule.target_col}`) || '';
+                        return otherVal === value;
                     }
                     
-                    // If no target col, check all column values for a match
-                    return Object.values(targetContent).some(v => {
-                        if (v === null || v === undefined) return false;
-                        const vStr = v.toString().toLowerCase().trim();
-                        return vStr === value && vStr !== '';
+                    const targetContent = c.content || {};
+                    return Object.keys(targetContent).some(targetColId => {
+                        const otherVal = resolvedValuesCache.get(`${c.id}_${targetColId}`) || '';
+                        return otherVal === value && otherVal !== '';
                     });
                 });
             case 'orphaned_database_link':
-                // For a link to be orphaned, the column must be linked to a database
                 if (!boundDataset?.record_database_id) return false;
 
-                // If "Flag Regardless of Manual Addition" is NOT enabled, only flag values that look like IDs
                 if (!rule.flag_regardless_of_manual_addition) {
                     if (!rawValue || (isNaN(Number(rawValue)) && !String(rawValue).startsWith('temp_') && !String(rawValue).startsWith('opt_'))) return false;
                 } else {
-                    // If enabled, flag any non-empty value that isn't a valid link
                     if (!rawValue) return false;
                 }
 
-                // And that ID/Value must NOT exist in the options (calculated above from recordData)
+                let option = boundDataset?.options?.find((o: any) => String(o.id) === String(rawValue));
+                if (!option && boundDataset?.record_database_id) {
+                    const db = recordData.find(d => d.id === boundDataset.record_database_id);
+                    if (db && db.entries) {
+                        const entry = db.entries.find((e: any) => {
+                            if (String(e.entry_id) === String(rawValue)) return true;
+                            let fieldId = col.database_field_id || db.database_structure?.[0]?.id;
+                            const displayVal = (fieldId === 'id') ? String(e.entry_id) : e.data?.[fieldId];
+                            return String(displayVal) === String(rawValue);
+                        });
+
+                        if (entry) {
+                            option = { id: entry.entry_id, value: entry.data?.[col.database_field_id || ''] || entry.entry_id };
+                        }
+                    }
+                }
                 return !option;
             default:
                 return false;
         }
     });
-  }, [datasets, contents, allContents, editingRowId, editData, recordData, canModerate, permissions]);
+  }, [datasets, contents, allContents, editingRowId, editData, recordData, canModerate, permissions, resolvedLinks, resolvedValuesCache]);
 
   const handleBulkAdd = () => {
     const count = Math.min(Math.max(1, rowCountToAdd), 20);
