@@ -191,6 +191,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/factions/{shortname}/flags', [RosterFlagController::class, 'store']);
     Route::put('/flags/{flag}', [RosterFlagController::class, 'update']);
     Route::delete('/flags/{flag}', [RosterFlagController::class, 'destroy']);
+    Route::post('/flags/{flag}/recalculate', [RosterFlagController::class, 'recalculate']);
 
     // Faction Record Management
     Route::get('/factions/{shortname}/records', [FactionRecordController::class, 'index']);

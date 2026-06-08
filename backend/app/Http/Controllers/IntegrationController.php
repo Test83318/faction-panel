@@ -8,6 +8,7 @@ use App\Models\RosterContent;
 use App\Models\RosterSection;
 use App\Models\User;
 use App\Services\GtawService;
+use App\Services\RosterFlagService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -344,6 +345,16 @@ class IntegrationController extends Controller
             // Update linked roster columns and re-evaluate auto-apply rules
             $this->updateLinkedRosterColumns($faction, $charDb);
         });
+
+        // After the transaction: recalculate all flags for this faction
+        $flagService = app(RosterFlagService::class);
+        foreach ($faction->rosterFlags()->get() as $flag) {
+            try {
+                $flagService->recalculate($flag);
+            } catch (\Throwable $e) {
+                \Log::warning("Flag recalculate failed for flag {$flag->id} ({$flag->name}): ".$e->getMessage());
+            }
+        }
 
         $this->audit('integration.gtaw.sync', "Synchronized GTA:W members for faction '{$faction->name}'", null, $faction, null, $syncResults);
 

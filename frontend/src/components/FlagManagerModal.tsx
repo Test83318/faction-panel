@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Save, Flag, GripVertical, Info, Search, Check, AlertCircle, ShieldAlert } from 'lucide-react';
+import { X, Plus, Trash2, Save, Flag, GripVertical, Info, Search, Check, AlertCircle, ShieldAlert, RefreshCw } from 'lucide-react';
 import * as LucideIcons from '../icons';
 import { ALL_ICONS } from '../icons';
 import api from '../api';
@@ -39,6 +39,7 @@ const FlagManagerModal: React.FC<FlagManagerModalProps> = ({ shortname, onClose 
     const [isSaving, setIsSaving] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [newFlagName, setNewFlagName] = useState('');
+    const [isRecalculating, setIsRecalculating] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -98,6 +99,20 @@ const FlagManagerModal: React.FC<FlagManagerModalProps> = ({ shortname, onClose 
             toast.error('Failed to save flag', { id: loadToast });
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleRecalculate = async () => {
+        if (!selectedFlag || !selectedFlag.id) return;
+        setIsRecalculating(true);
+        const loadToast = toast.loading('Recalculating flag...');
+        try {
+            const res = await api.post(`/flags/${selectedFlag.id}/recalculate`);
+            toast.success(`Recalculated — ${res.data.modified ?? 0} row(s) updated`, { id: loadToast });
+        } catch (err) {
+            toast.error('Failed to recalculate flag', { id: loadToast });
+        } finally {
+            setIsRecalculating(false);
         }
     };
 
@@ -273,6 +288,15 @@ const FlagManagerModal: React.FC<FlagManagerModalProps> = ({ shortname, onClose 
                                             className="px-3 py-1.5 bg-surface hover:bg-bg border border-border text-[10px] font-black uppercase tracking-widest rounded-lg transition"
                                         >
                                             Add Rule
+                                        </button>
+                                        <button 
+                                            onClick={handleRecalculate}
+                                            disabled={isRecalculating}
+                                            title="Recalculate this flag across all roster rows"
+                                            className="px-3 py-1.5 bg-surface hover:bg-bg border border-border text-[10px] font-black uppercase tracking-widest rounded-lg transition disabled:opacity-50 flex items-center gap-2"
+                                        >
+                                            <RefreshCw size={12} className={isRecalculating ? 'animate-spin' : ''} />
+                                            {isRecalculating ? 'Recalculating...' : 'Recalculate'}
                                         </button>
                                         <button 
                                             onClick={handleSaveFlag}
