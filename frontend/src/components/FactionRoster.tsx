@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, Reorder } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -57,6 +57,18 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
     mainRosters = []
 }) => {
   const navigate = useNavigate();
+  const scrollRef = useRef<HTMLUListElement>(null);
+
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = 200;
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   const targetRosters = isSandbox ? [...rosters, ...mainRosters] : rosters;
   const activeFlagsList = isSandbox ? [] : flags;
 
@@ -1213,10 +1225,11 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
       <div className="tabs-bar bg-card border-t border-border flex items-center px-2.5 h-[var(--tab-h)] sticky bottom-0 z-[210]">
         <Reorder.Group 
+            ref={scrollRef}
             axis="x" 
             values={rosters} 
             onReorder={handleReorder}
-            className="flex items-center flex-1 overflow-x-auto scrollbar-none gap-1 h-full"
+            className="flex items-center flex-1 overflow-x-auto overflow-y-hidden scrollbar-none gap-1 h-full"
         >
           {rosters.map((roster: any) => (
             <Reorder.Item 
@@ -1427,8 +1440,20 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
 
         {rosters.length > 5 && (
           <div className="flex border-l border-border pl-2 gap-1 h-full items-center">
-            <button className="p-1.5 text-muted hover:text-text"><ChevronLeft size={16} /></button>
-            <button className="p-1.5 text-muted hover:text-text"><ChevronRight size={16} /></button>
+            <button 
+              onClick={() => handleScroll('left')} 
+              className="p-1.5 text-muted hover:text-text cursor-pointer"
+              title="Scroll Left"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button 
+              onClick={() => handleScroll('right')} 
+              className="p-1.5 text-muted hover:text-text cursor-pointer"
+              title="Scroll Right"
+            >
+              <ChevronRight size={16} />
+            </button>
           </div>
         )}
       </div>
