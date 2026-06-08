@@ -416,16 +416,23 @@ class IntegrationController extends Controller
             ],
         ];
 
+        $apiTypeMap = [
+            'CHARS' => 'gtaw_characters',
+            'ACTIVITY' => 'gtaw_activity',
+            'CHIST' => 'gtaw_history',
+            'CNAME' => 'gtaw_name_changes',
+        ];
+
         $result = [];
 
         foreach ($databases as $shortcode => $config) {
-            $db = $faction->recordDatabases()->where('record_shortcode', $shortcode)->first();
+            $db = $this->findGtawDatabase($faction, $shortcode);
             if (! $db) {
                 $db = $faction->recordDatabases()->create([
                     'name' => $config['name'],
                     'description' => $config['description'],
                     'record_shortcode' => $shortcode,
-                    'is_api_database' => true,
+                    'is_api_database' => $apiTypeMap[$shortcode],
                     'is_published' => $config['is_published'] ?? false,
                     'created_by' => null,
                     'database_structure' => $config['structure'],
@@ -482,7 +489,7 @@ class IntegrationController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $charDb = $faction->recordDatabases()->where('record_shortcode', 'CHARS')->first();
+        $charDb = $this->findGtawDatabase($faction, 'CHARS');
         if ($charDb) {
             $charDb->entries()->delete();
         }
@@ -727,5 +734,70 @@ class IntegrationController extends Controller
                 $content->update(['content' => $data]);
             }
         }
+    }
+
+    private function findGtawDatabase(Faction $faction, string $shortcode)
+    {
+        $apiTypeMap = [
+            'CHARS' => 'gtaw_characters',
+            'ACTIVITY' => 'gtaw_activity',
+            'CHIST' => 'gtaw_history',
+            'CNAME' => 'gtaw_name_changes',
+        ];
+        $targetType = $apiTypeMap[$shortcode] ?? null;
+
+        // 1. Try to find by unique api type string in is_api_database
+        if ($targetType) {
+            $db = $faction->recordDatabases()
+                ->where('is_api_database', $targetType)
+                ->first();
+            if ($db) {
+                return $db;
+            }
+        }
+
+        // 2. Try to find by shortcode (backward compatibility / legacy)
+        $db = $faction->recordDatabases()->where('record_shortcode', $shortcode)->first();
+        if ($db) {
+            // Future proof it: update its is_api_database to the unique string!
+            if ($targetType && $db->getRawOriginal('is_api_database') !== $targetType) {
+                $db->update(['is_api_database' => $targetType]);
+            }
+
+            return $db;
+        }
+
+        // 3. Fallback: Find by structure heuristics (for when user renamed the prefix first time)
+        $apiDatabases = $faction->recordDatabases()->where('is_api_database', '!=', '0')->get();
+
+        foreach ($apiDatabases as $d) {
+            $struct = $d->database_structure;
+            if (! is_array($struct)) {
+                $struct = json_decode($d->getRawOriginal('database_structure'), true) ?: [];
+            }
+            $fieldIds = collect($struct)->pluck('id')->toArray();
+
+            $matched = false;
+            if ($shortcode === 'CHARS' && in_array('is_alt', $fieldIds)) {
+                $matched = true;
+            } elseif ($shortcode === 'ACTIVITY' && in_array('abas', $fieldIds) && ! in_array('is_alt', $fieldIds)) {
+                $matched = true;
+            } elseif ($shortcode === 'CHIST' && in_array('action', $fieldIds)) {
+                $matched = true;
+            } elseif ($shortcode === 'CNAME' && (in_array('old_name', $fieldIds) || in_array('new_name', $fieldIds))) {
+                $matched = true;
+            }
+
+            if ($matched) {
+                // Future proof it: update its is_api_database to the unique string!
+                if ($targetType && $d->getRawOriginal('is_api_database') !== $targetType) {
+                    $d->update(['is_api_database' => $targetType]);
+                }
+
+                return $d;
+            }
+        }
+
+        return null;
     }
 }
