@@ -1089,8 +1089,9 @@ class FactionController extends Controller
 
         if ($search) {
             $query->where(function ($q) use ($search) {
-                $q->where('username', 'like', "%{$search}%")
-                    ->orWhere('gtaw_username', 'like', "%{$search}%");
+                $searchTerm = '%'.strtolower($search).'%';
+                $q->whereRaw('LOWER(users.username) LIKE ?', [$searchTerm])
+                    ->orWhereRaw('LOWER(users.gtaw_username) LIKE ?', [$searchTerm]);
             });
         }
 

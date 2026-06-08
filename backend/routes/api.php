@@ -130,8 +130,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/factions/{faction}/leave', [FactionController::class, 'leave']);
 
     // User Management within Factions
+    Route::get('/factions/{shortname}/users', [FactionController::class, 'getMembers']);
     Route::get('/factions/{shortname}/members', [FactionController::class, 'getMembers']);
     Route::post('/factions/{shortname}/sync-roster-data', [FactionController::class, 'syncRosterData']);
+    Route::get('/factions/{shortname}/users/{member}', [FactionController::class, 'getMemberProfile']);
     Route::get('/factions/{shortname}/members/{member}', [FactionController::class, 'getMemberProfile']);
 
     Route::delete('/factions/{faction}/users/{user}', [FactionController::class, 'removeMember']);
