@@ -357,7 +357,7 @@ class FactionController extends Controller
                                 }
                                 $db = $dbCache[$dbId];
 
-                                if ($db && is_numeric($value)) {
+                                if ($db && is_numeric($value) && filter_var($value, FILTER_VALIDATE_INT) !== false) {
                                     $entry = $db->entries->firstWhere('entry_id', $value);
                                     if ($entry) {
                                         $fieldId = $col['database_field_id'] ?? $db->database_structure[0]['id'] ?? 'id';
@@ -369,7 +369,7 @@ class FactionController extends Controller
                                     }
                                 }
                             } else {
-                                if (is_numeric($value)) {
+                                if (is_numeric($value) && filter_var($value, FILTER_VALIDATE_INT) !== false) {
                                     $option = $dataset->options->firstWhere('id', $value);
                                     if ($option) {
                                         $value = $option->value;

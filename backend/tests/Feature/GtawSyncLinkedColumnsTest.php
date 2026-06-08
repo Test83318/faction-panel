@@ -224,3 +224,47 @@ test('syncing gtaw removes auto-applied checkboxes and tags if entry is removed 
     expect($finalRow->content['name_cb'] ?? [])->toBeEmpty();
     expect($finalRow->content['name_tags'] ?? [])->toBeEmpty();
 });
+
+test('syncing gtaw does not crash when linked roster column contains float or decimal string', function () {
+    // 1. Set up a roster row with a float/decimal string value like "1.05"
+    $decimalRow = $this->section->contents()->create([
+        'type' => 'predefined',
+        'content' => [
+            'name' => '1.05',
+            'name_cb' => [],
+            'name_tags' => [],
+        ],
+        'created_by' => $this->leader->id,
+    ]);
+
+    // 2. Mock GtawService to return a list of members
+    $this->mock(GtawService::class, function ($mock) {
+        $mock->shouldReceive('getFactionMembers')->andReturn([
+            'data' => [
+                'members' => [
+                    [
+                        'character_id' => 12345,
+                        'character_name' => 'John Doe',
+                        'rank_name' => 'Acting Sheriff',
+                        'rank' => 15,
+                        'abas' => 0.00,
+                        'user_id' => 789,
+                    ],
+                ],
+            ],
+        ]);
+
+        $mock->shouldReceive('getFactionAbas')->andReturn([
+            'data' => [],
+        ]);
+    });
+
+    // 3. Trigger sync and verify it completes successfully without crashing
+    $response = $this->actingAs($this->leader)->postJson('/api/factions/lssd/integrations/gtaw/sync');
+    $response->assertStatus(200);
+
+    // 4. Verify the row value "1.05" remains unchanged
+    $updatedRow = RosterContent::find($decimalRow->id);
+    expect($updatedRow->content['name'])->toBe('1.05');
+});
+

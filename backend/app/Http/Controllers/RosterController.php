@@ -319,7 +319,7 @@ class RosterController extends Controller
                         if ($dataset) {
                             if ($dataset->record_database_id) {
                                 $db = FactionRecordDatabase::find($dataset->record_database_id);
-                                if ($db && is_numeric($value)) {
+                                if ($db && is_numeric($value) && filter_var($value, FILTER_VALIDATE_INT) !== false) {
                                     $entry = $db->entries()->where('entry_id', $value)->first();
                                     if ($entry) {
                                         $fieldId = $col['database_field_id'] ?? $db->database_structure[0]['id'] ?? 'id';
@@ -331,7 +331,7 @@ class RosterController extends Controller
                                     }
                                 }
                             } else {
-                                if (is_numeric($value)) {
+                                if (is_numeric($value) && filter_var($value, FILTER_VALIDATE_INT) !== false) {
                                     $option = $dataset->options()->where('id', $value)->first();
                                     if ($option) {
                                         $value = $option->value;
@@ -810,7 +810,7 @@ class RosterController extends Controller
                 if ($dataset) {
                     if ($dataset->record_database_id) {
                         $db = FactionRecordDatabase::find($dataset->record_database_id);
-                        if ($db && is_numeric($value)) {
+                        if ($db && is_numeric($value) && filter_var($value, FILTER_VALIDATE_INT) !== false) {
                             $entry = $db->entries()->where('entry_id', $value)->first();
                             if ($entry) {
                                 $fieldId = $col['database_field_id'] ?? $db->database_structure[0]['id'] ?? 'id';
@@ -822,7 +822,7 @@ class RosterController extends Controller
                             }
                         }
                     } else {
-                        if (is_numeric($value)) {
+                        if (is_numeric($value) && filter_var($value, FILTER_VALIDATE_INT) !== false) {
                             $option = $dataset->options()->where('id', $value)->first();
                             if ($option) {
                                 $value = $option->value;

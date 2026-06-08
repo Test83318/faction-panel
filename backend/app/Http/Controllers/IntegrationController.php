@@ -570,7 +570,7 @@ class IntegrationController extends Controller
                 // 4. Find matching entry in CHARS database
                 $matchingEntry = null;
 
-                if (is_numeric($val)) {
+                if (is_numeric($val) && filter_var($val, FILTER_VALIDATE_INT) !== false) {
                     // Try to find the active entry by entry_id
                     $matchingEntry = $activeEntries->firstWhere('entry_id', $val);
 
