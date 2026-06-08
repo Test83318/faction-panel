@@ -10,6 +10,7 @@ use App\Models\RosterDataset;
 use App\Models\User;
 use App\Services\DynamicSectionService;
 use App\Services\NotificationService;
+use App\Services\RosterSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -450,11 +451,29 @@ class FactionController extends Controller
                     $data = $content->content;
                     if (is_array($data)) {
                         $changed = false;
-                        // Resolve database_data and linked_roster_data into the content object
+                        // Resolve database IDs, database_data and linked_roster_data into the content object for non-editors
                         foreach ($columns as $col) {
                             $colId = $col['id'] ?? null;
                             if (! $colId) {
                                 continue;
+                            }
+
+                            if (! $isEditor) {
+                                $dbId = $getLinkedDatabaseId($col);
+                                if ($dbId) {
+                                    $val = $data[$colId] ?? null;
+                                    if ($val && (is_numeric($val) || (is_string($val) && str_starts_with($val, 'temp_')))) {
+                                        $db = $resolutionDbsById->get($dbId);
+                                        if ($db && $db->relationLoaded('entries')) {
+                                            $entry = $db->entries->firstWhere('entry_id', $val);
+                                            if ($entry) {
+                                                $fieldId = $col['database_field_id'] ?? $db->database_structure[0]['id'] ?? 'id';
+                                                $data[$colId] = ($fieldId === 'id') ? $entry->entry_id : ($entry->data[$fieldId] ?? $val);
+                                                $changed = true;
+                                            }
+                                        }
+                                    }
+                                }
                             }
 
                             if (($col['type'] ?? '') === 'linked_roster_data') {
@@ -1001,6 +1020,24 @@ class FactionController extends Controller
         $this->audit('faction.members.update_roles', "Updated roles for member '{$user->username}' in faction '{$faction->name}'", $faction->id, $user, ['roles' => $oldRoles], ['roles' => $newRoles]);
 
         return response()->json(['message' => 'User roles updated.']);
+    }
+
+    public function syncRosterData(string $shortname, RosterSyncService $syncService)
+    {
+        $faction = Faction::where('shortname', $shortname)->firstOrFail();
+
+        if (! User::hasFactionPermission(Auth::user(), $faction, 'global_roster_moderation')) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $modified = $syncService->syncFaction($faction);
+
+        $this->audit('faction.sync_roster_data', "Manually synchronized roster data with databases for faction '{$faction->name}' — {$modified} row(s) updated", $faction->id);
+
+        return response()->json([
+            'message' => 'Roster data synchronized',
+            'modified' => $modified,
+        ]);
     }
 
     private function maskSection($section, array $rosterHiddenColIds, $roster = null, $omit = false)
