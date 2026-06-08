@@ -25,6 +25,7 @@ class RosterSyncService
             ->whereNull('deleted_at')
             ->get();
 
+        $contentsById = $contents->keyBy('id');
         $modified = 0;
 
         foreach ($contents as $content) {
@@ -47,6 +48,18 @@ class RosterSyncService
 
                 $value = $data[$colId] ?? null;
                 if (!$value) continue;
+
+                // Resolve roster data-link pointers
+                if (is_array($value) && isset($value['row_id'], $value['col_id'])) {
+                    $linked = $contentsById->get($value['row_id']);
+                    $value = ($linked && is_array($linked->content))
+                        ? ($linked->content[$value['col_id']] ?? null)
+                        : null;
+                }
+
+                if ($value === null || is_array($value)) {
+                    continue;
+                }
 
                 $entry = $dbEntries[$dbId][$value] ?? null;
                 if (!$entry) continue;
