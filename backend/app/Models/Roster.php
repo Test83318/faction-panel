@@ -12,8 +12,14 @@ class Roster extends Model
 
     protected static function booted()
     {
-        static::saved(fn ($roster) => Faction::invalidateRosterCache($roster->faction_id));
-        static::deleted(fn ($roster) => Faction::invalidateRosterCache($roster->faction_id));
+        static::saved(function ($roster) {
+            Faction::invalidateRosterCache($roster->faction_id);
+            \App\Events\RosterUpdated::dispatch($roster);
+        });
+        static::deleted(function ($roster) {
+            Faction::invalidateRosterCache($roster->faction_id);
+            \App\Events\RosterUpdated::dispatch($roster);
+        });
     }
 
     protected $fillable = [

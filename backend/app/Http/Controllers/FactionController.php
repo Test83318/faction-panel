@@ -1209,7 +1209,7 @@ class FactionController extends Controller
         return response()->json(['message' => 'User roles updated.']);
     }
 
-    public function syncRosterData(string $shortname, RosterSyncService $syncService)
+    public function syncRosterData(string $shortname)
     {
         $faction = Faction::where('shortname', $shortname)->firstOrFail();
 
@@ -1217,13 +1217,12 @@ class FactionController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $modified = $syncService->syncFaction($faction);
+        \App\Jobs\SyncRosterData::dispatch($faction, Auth::user());
 
-        $this->audit('faction.sync_roster_data', "Manually synchronized roster data with databases for faction '{$faction->name}' — {$modified} row(s) updated", $faction->id);
+        $this->audit('faction.sync_roster_data_queued', "Queued manual synchronization of roster data for faction '{$faction->name}'", $faction->id);
 
         return response()->json([
-            'message' => 'Roster data synchronized',
-            'modified' => $modified,
+            'message' => 'Roster data synchronization queued',
         ]);
     }
 }

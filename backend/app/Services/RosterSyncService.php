@@ -21,82 +21,104 @@ class RosterSyncService
         $datasets = $faction->rosterDatasets()->get()->keyBy('id');
         $dbEntries = $this->loadAllDbEntries($faction);
 
-        $contents = RosterContent::whereIn('section_id', $sections->keys())
-            ->whereNull('deleted_at')
-            ->get();
-
-        $contentsById = $contents->keyBy('id');
         $modified = 0;
+        $modifiedRosterIds = [];
+        $linkedRowsCache = [];
 
-        foreach ($contents as $content) {
-            $section = $sections->get($content->section_id);
-            if (!$section) continue;
-            
-            $roster = $rosters->get($section->roster_id);
-            if (!$roster) continue;
-
-            $columns = $this->resolveColumns($roster, $section);
-            $data = is_array($content->content) ? $content->content : [];
-            $changed = false;
-
-            foreach ($columns as $col) {
-                $colId = $col['id'] ?? null;
-                if (!$colId) continue;
-
-                $dbId = $this->getLinkedDatabaseId($col, $datasets);
-                if (!$dbId) continue;
-
-                $value = $data[$colId] ?? null;
-                if (!$value) continue;
-
-                // Resolve roster data-link pointers
-                if (is_array($value) && isset($value['row_id'], $value['col_id'])) {
-                    $linked = $contentsById->get($value['row_id']);
-                    $value = ($linked && is_array($linked->content))
-                        ? ($linked->content[$value['col_id']] ?? null)
-                        : null;
-                }
-
-                if ($value === null || is_array($value)) {
-                    continue;
-                }
-
-                $entry = $dbEntries[$dbId][$value] ?? null;
-                if (!$entry) continue;
-
-                // Re-evaluate Checkboxes
-                if (isset($col['checkboxes']) && is_array($col['checkboxes'])) {
-                    $key = "{$colId}_cb";
-                    $current = is_array($data[$key] ?? null) ? $data[$key] : [];
-                    $next = $this->evaluateAutoApplies($col['checkboxes'], $entry, $current);
+        RosterContent::whereIn('section_id', $sections->keys())
+            ->whereNull('deleted_at')
+            ->chunkById(200, function ($contents) use ($rosters, $sections, $datasets, $dbEntries, &$modified, &$modifiedRosterIds, &$linkedRowsCache) {
+                // \Log::info('Chunk size: ' . count($contents));
+                foreach ($contents as $content) {
+                    $section = $sections->get($content->section_id);
+                    if (!$section) continue;
                     
-                    if ($current !== $next) {
-                        $data[$key] = array_values($next);
-                        $changed = true;
+                    $roster = $rosters->get($section->roster_id);
+                    if (!$roster) continue;
+
+                    $columns = $this->resolveColumns($roster, $section);
+                    $data = is_array($content->content) ? $content->content : [];
+                    $changed = false;
+
+                    foreach ($columns as $col) {
+                        $colId = $col['id'] ?? null;
+                        if (!$colId) continue;
+
+                        $dbId = $this->getLinkedDatabaseId($col, $datasets);
+                        if (!$dbId) continue;
+
+                        $value = $data[$colId] ?? null;
+                        if (!$value) continue;
+
+                        // Resolve roster data-link pointers
+                        if (is_array($value) && isset($value['row_id'], $value['col_id'])) {
+                            $targetRowId = $value['row_id'];
+                            
+                            if (!isset($linkedRowsCache[$targetRowId])) {
+                                $linked = RosterContent::find($targetRowId);
+                                $linkedRowsCache[$targetRowId] = $linked ? $linked->content : null;
+                            }
+                            
+                            $linkedContent = $linkedRowsCache[$targetRowId];
+                            $value = (is_array($linkedContent))
+                                ? ($linkedContent[$value['col_id']] ?? null)
+                                : null;
+                        }
+
+                        if ($value === null || is_array($value)) {
+                            continue;
+                        }
+
+                        $entry = $dbEntries[$dbId][$value] ?? null;
+                        if (!$entry) {
+                            // \Log::info("Entry not found for dbId $dbId and value $value");
+                            continue;
+                        }
+
+                        // Re-evaluate Checkboxes
+                        if (isset($col['checkboxes']) && is_array($col['checkboxes'])) {
+                            $key = "{$colId}_cb";
+                            $current = is_array($data[$key] ?? null) ? $data[$key] : [];
+                            $next = $this->evaluateAutoApplies($col['checkboxes'], $entry, $current);
+                            
+                            if ($current !== $next) {
+                                $data[$key] = array_values($next);
+                                $changed = true;
+                            }
+                        }
+
+                        // Re-evaluate Tags
+                        if (isset($col['tags']) && is_array($col['tags'])) {
+                            $key = "{$colId}_tags";
+                            $current = is_array($data[$key] ?? null) ? $data[$key] : [];
+                            $next = $this->evaluateAutoApplies($col['tags'], $entry, $current);
+                            
+                            if ($current !== $next) {
+                                $data[$key] = array_values($next);
+                                $changed = true;
+                            }
+                        }
+                    }
+
+                    if ($changed) {
+                        $content->updateQuietly(['content' => $data]);
+                        $modified++;
+                        if (!in_array($roster->id, $modifiedRosterIds)) {
+                            $modifiedRosterIds[] = $roster->id;
+                        }
                     }
                 }
-
-                // Re-evaluate Tags
-                if (isset($col['tags']) && is_array($col['tags'])) {
-                    $key = "{$colId}_tags";
-                    $current = is_array($data[$key] ?? null) ? $data[$key] : [];
-                    $next = $this->evaluateAutoApplies($col['tags'], $entry, $current);
-                    
-                    if ($current !== $next) {
-                        $data[$key] = array_values($next);
-                        $changed = true;
-                    }
-                }
-            }
-
-            if ($changed) {
-                $content->updateQuietly(['content' => $data]);
-                $modified++;
-            }
-        }
+            });
 
         if ($modified > 0) {
             Faction::invalidateRosterCache($faction->id);
+            
+            foreach ($modifiedRosterIds as $rosterId) {
+                $roster = $rosters->get($rosterId);
+                if ($roster) {
+                    \App\Events\RosterUpdated::dispatch($roster);
+                }
+            }
         }
 
         return $modified;

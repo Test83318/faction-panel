@@ -13,9 +13,10 @@ class RosterSection extends Model
     protected static function booted()
     {
         $clear = function ($section) {
-            $factionId = $section->roster?->faction_id;
-            if ($factionId) {
-                Faction::invalidateRosterCache($factionId);
+            $roster = $section->roster;
+            if ($roster) {
+                Faction::invalidateRosterCache($roster->faction_id);
+                \App\Events\RosterUpdated::dispatch($roster);
             }
         };
         static::saved($clear);

@@ -12,14 +12,29 @@ class RosterContent extends Model
 
     protected static function booted()
     {
-        $clear = function ($content) {
-            $factionId = $content->section?->roster?->faction_id;
-            if ($factionId) {
-                Faction::invalidateRosterCache($factionId);
+        static::created(function ($content) {
+            $roster = $content->section?->roster;
+            if ($roster) {
+                Faction::invalidateRosterCache($roster->faction_id);
+                \App\Events\RosterRowAdded::dispatch($content);
             }
-        };
-        static::saved($clear);
-        static::deleted($clear);
+        });
+
+        static::updated(function ($content) {
+            $roster = $content->section?->roster;
+            if ($roster) {
+                Faction::invalidateRosterCache($roster->faction_id);
+                \App\Events\RosterRowUpdated::dispatch($content);
+            }
+        });
+
+        static::deleted(function ($content) {
+            $roster = $content->section?->roster;
+            if ($roster) {
+                Faction::invalidateRosterCache($roster->faction_id);
+                \App\Events\RosterRowDeleted::dispatch($content->id, $roster->id, $roster->faction_id);
+            }
+        });
     }
 
     protected $fillable = [

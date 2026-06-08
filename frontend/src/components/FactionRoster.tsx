@@ -16,117 +16,52 @@ import { ColumnsModal } from './ColumnsModal';
 import { RosterTemplateModal } from './RosterTemplateModal';
 import { CountManagerModal } from './CountManagerModal';
 import { hexToRgb } from '../utils';
+import { useRosterRealtime } from '../hooks/useRosterRealtime';
 
 interface FactionRosterProps {
-    user: any;
-    isDark: boolean;
-    activeDivision: any;
-    totalMembers: number;
-    rosters: any[];
-    setRosters: (rosters: any[]) => void;
-    activeDivId: number | null;
-    setActiveDivId: (id: number | null) => void;
-    permissions: string[];
-    shortname: string | undefined;
-    fetchRosters: () => Promise<void>;
-    datasets: any[];
-    recordData: any[];
-    flags: any[];
-    onlineUsers?: any[];
-    isSandbox?: boolean;
-    mainRosters?: any[];
-}
-
-const FactionRoster: React.FC<FactionRosterProps> = ({ 
-    user,
-    isDark,
-    activeDivision, 
-    totalMembers, 
-    rosters, 
-    setRosters, 
-    activeDivId, 
-    setActiveDivId, 
-    permissions, 
-    shortname, 
-    fetchRosters, 
-    datasets, 
-    recordData, 
-    flags,
-    onlineUsers = [],
-    isSandbox = false,
-    mainRosters = []
-}) => {
-  const navigate = useNavigate();
-  const scrollRef = useRef<HTMLUListElement>(null);
-
-  const handleScroll = (direction: 'left' | 'right') => {
-    if (scrollRef.current) {
-      const scrollAmount = 200;
-      scrollRef.current.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth'
-      });
-    }
-  };
-
-  const targetRosters = isSandbox ? [...rosters, ...mainRosters] : rosters;
-  const activeFlagsList = isSandbox ? [] : flags;
-
-  const [showSandboxIntro, setShowSandboxIntro] = useState(false);
-  useEffect(() => {
-    if (isSandbox && !localStorage.getItem('sandbox-intro-dismissed')) {
-      setShowSandboxIntro(true);
-    } else {
-      setShowSandboxIntro(false);
-    }
-  }, [isSandbox]);
-  const canCreate = isSandbox ? true : permissions.includes('create_roster');
-  const canModifyVariables = isSandbox ? false : permissions.includes('modify_roster_variables');
-  const canModifyFlags = isSandbox ? false : permissions.includes('modify_roster_flags');
-  const isGlobalMod = permissions.includes('global_roster_moderation');
-  
-  const rosterPerms = activeDivision?.user_roster_permissions || {};
-  const canModerate = isGlobalMod || rosterPerms.modify_roster || rosterPerms.add_sections || rosterPerms.remove_sections || rosterPerms.manage_columns || rosterPerms.manage_layout;
-  const canAddSections = isGlobalMod || rosterPerms.add_sections;
-
-  const [scaling, setScaling] = useState(() => {
-    const saved = localStorage.getItem('roster-scaling');
-    const val = saved ? parseInt(saved) : 100;
-    return Math.min(130, Math.max(80, val));
-  });
-
-  useEffect(() => {
-    localStorage.setItem('roster-scaling', scaling.toString());
-  }, [scaling]);
-
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showSectionModal, setShowSectionModal] = useState(false);
-  const [showColumnsModal, setShowColumnsModal] = useState<any | null>(null);
-  const [showSectionColumnsModal, setShowSectionColumnsModal] = useState<any | null>(null);
-  const [showSectionLayoutModal, setShowSectionLayoutModal] = useState<any | null>(null);
-  const [showPermissionsModal, setShowPermissionsModal] = useState<RosterType | null>(null);
-  const [showVariablesModal, setShowVariablesModal] = useState(false);
-  const [showFlagsModal, setShowFlagsModal] = useState(false);
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [showLayoutModal, setShowLayoutModal] = useState<RosterType | null>(null);
-  const [showCountsModal, setShowCountsModal] = useState<any | null>(null);
-  const [showRosterContextMenu, setShowRosterContextMenu] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+...
   const [globalEditingRowId, setGlobalEditingRowId] = useState<number | null>(null);
   const [globalSaveTrigger, setGlobalSaveTrigger] = useState(0);
 
-  // Real-time polling
-  useEffect(() => {
-    const interval = setInterval(() => {
-        // Only poll if not currently editing a roster structure or major settings
-        if (!showCreateModal && !showSectionModal && !showColumnsModal && !showSectionColumnsModal && !showSectionLayoutModal && !showLayoutModal) {
-            fetchRosters();
-        }
-    }, 5000); // 5 seconds
+  // Real-time integration (Reverb)
+  const { presenceUsers } = useRosterRealtime({
+    factionId: activeDivision?.faction_id,
+    rosterId: activeDivision?.id,
+    onRowUpdated: (updatedRow) => {
+        setRosters(prevRosters => {
+            return prevRosters.map(roster => {
+                if (roster.id !== activeDivision?.id) return roster;
+                
+                const updateSection = (sections: any[]): any[] => {
+                    return sections.map(section => {
+                        const newContents = (section.contents || []).map((content: any) => 
+                            content.id === updatedRow.id ? { ...content, ...updatedRow } : content
+                        );
+                        
+                        const newChildren = section.children ? updateSection(section.children) : section.children;
+                        
+                        return { ...section, contents: newContents, children: newChildren };
+                    });
+                };
 
-    return () => clearInterval(interval);
-  }, [showCreateModal, showSectionModal, showColumnsModal, showSectionColumnsModal, showSectionLayoutModal, showLayoutModal, fetchRosters]);
+                return {
+                    ...roster,
+                    root_sections: updateSection(roster.root_sections || [])
+                };
+            });
+        });
+    },
+    onRowAdded: () => {
+        // For now, simpler to re-fetch on add/delete to ensure correct ordering/placement
+        fetchRosters();
+    },
+    onRowDeleted: () => {
+        fetchRosters();
+    },
+    onRosterUpdated: () => {
+        fetchRosters();
+    }
+  });
 
   const allContents = useMemo(() => {
     const contents: any[] = [];
@@ -878,7 +813,7 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                     {/* Online Viewers */}
                     <div className="flex items-center -space-x-1.5">
                         {(() => {
-                            const activeViewers = onlineUsers.filter(u => u.current_roster_id === activeDivId);
+                            const activeViewers = presenceUsers;
                             const displayViewers = activeViewers.slice(0, 3);
                             const remainingCount = activeViewers.length - 3;
                             
@@ -891,10 +826,10 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                         >
                                             <div 
                                                 className="w-[18px] h-[18px] rounded-full border-[1.5px] bg-card overflow-hidden transition-transform group-hover/avatar:-translate-y-0.5 shadow-sm"
-                                                style={{ borderColor: u.primary_role?.color || 'var(--border)' }}
+                                                style={{ borderColor: u.color || 'var(--border)' }}
                                             >
                                                 <img 
-                                                    src={u.avatar_url || `https://ui-avatars.com/api/?name=${u.username}&background=random&color=fff&size=40`} 
+                                                    src={`https://ui-avatars.com/api/?name=${u.username}&background=random&color=fff&size=40`} 
                                                     alt={u.username}
                                                     className="w-full h-full object-cover"
                                                 />
