@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Events\RosterRowAdded;
+use App\Events\RosterRowDeleted;
+use App\Events\RosterRowUpdated;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -16,7 +19,7 @@ class RosterContent extends Model
             $roster = $content->section?->roster;
             if ($roster) {
                 Faction::invalidateRosterCache($roster->faction_id);
-                \App\Events\RosterRowAdded::dispatch($content);
+                RosterRowAdded::dispatch($content);
             }
         });
 
@@ -24,7 +27,7 @@ class RosterContent extends Model
             $roster = $content->section?->roster;
             if ($roster) {
                 Faction::invalidateRosterCache($roster->faction_id);
-                \App\Events\RosterRowUpdated::dispatch($content);
+                RosterRowUpdated::dispatch($content);
             }
         });
 
@@ -32,7 +35,7 @@ class RosterContent extends Model
             $roster = $content->section?->roster;
             if ($roster) {
                 Faction::invalidateRosterCache($roster->faction_id);
-                \App\Events\RosterRowDeleted::dispatch($content->id, $roster->id, $roster->faction_id);
+                RosterRowDeleted::dispatch($content->id, $roster->id, $roster->faction_id);
             }
         });
     }

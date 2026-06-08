@@ -1,12 +1,12 @@
 <?php
 
+use App\Jobs\SyncRosterData;
 use App\Models\Faction;
 use App\Models\FactionRecordDatabase;
 use App\Models\Roster;
 use App\Models\User;
-use App\Jobs\SyncRosterData;
+use App\Services\RosterSyncService;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Auth;
 
 beforeEach(function () {
     $this->leader = User::factory()->create();
@@ -81,8 +81,8 @@ beforeEach(function () {
                         'label' => 'Probation',
                         'auto_apply_field' => 'status_field',
                         'auto_apply_value' => 'Suspended',
-                    ]
-                ]
+                    ],
+                ],
             ],
         ],
         'created_by' => $this->leader->id,
@@ -121,9 +121,9 @@ test('sync-roster-data endpoint dispatches job', function () {
 
 test('SyncRosterData job correctly synchronizes data', function () {
     $job = new SyncRosterData($this->faction, $this->leader);
-    $job->handle(new \App\Services\RosterSyncService());
+    $job->handle(new RosterSyncService);
 
     $this->content->refresh();
-    
+
     expect($this->content->content['name_cb'])->toContain('Probation');
 });

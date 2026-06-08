@@ -25,14 +25,14 @@ class RosterFlagService
         $faction = $flag->faction;
 
         // ── 1. Load all rosters / sections / contents for this faction ──────────
-        $rosters    = $faction->rosters()->get()->keyBy('id');
-        $sections   = RosterSection::whereIn('roster_id', $rosters->keys())->get();
+        $rosters = $faction->rosters()->get()->keyBy('id');
+        $sections = RosterSection::whereIn('roster_id', $rosters->keys())->get();
         $sectionsById = $sections->keyBy('id');
-        $datasets   = $faction->rosterDatasets()->get()->keyBy('id');
+        $datasets = $faction->rosterDatasets()->get()->keyBy('id');
 
-        $contents   = RosterContent::whereIn('section_id', $sections->pluck('id'))
-                        ->whereNull('deleted_at')
-                        ->get();
+        $contents = RosterContent::whereIn('section_id', $sections->pluck('id'))
+            ->whereNull('deleted_at')
+            ->get();
 
         // ── 2. Build a value-resolution cache (content_id → colId → normalised string) ──
         // We need the database entries to resolve raw numeric entry_ids to display labels.
@@ -64,7 +64,7 @@ class RosterFlagService
             }
 
             $columns = $this->resolveColumns($roster, $section);
-            $data    = is_array($content->content) ? $content->content : [];
+            $data = is_array($content->content) ? $content->content : [];
             $changed = false;
 
             foreach ($columns as $col) {
@@ -74,9 +74,9 @@ class RosterFlagService
                 }
 
                 // Only process columns that actually reference this flag
-                $enabledFlags  = $col['enabled_flags'] ?? [];
-                $flagSettings  = $col['flag_settings'] ?? [];
-                $colUsesFlag   = in_array($flag->id, array_map('intval', (array) $enabledFlags))
+                $enabledFlags = $col['enabled_flags'] ?? [];
+                $flagSettings = $col['flag_settings'] ?? [];
+                $colUsesFlag = in_array($flag->id, array_map('intval', (array) $enabledFlags))
                               || isset($flagSettings[$flag->id]);
 
                 if (! $colUsesFlag) {
@@ -97,49 +97,49 @@ class RosterFlagService
 
                 // Decide whether to write into _tags or _cb
                 $hasTags = isset($col['tags']) && is_array($col['tags']);
-                $hasCbs  = isset($col['checkboxes']) && is_array($col['checkboxes']);
+                $hasCbs = isset($col['checkboxes']) && is_array($col['checkboxes']);
 
                 if ($hasTags) {
-                    $key     = "{$colId}_tags";
+                    $key = "{$colId}_tags";
                     $current = array_values(is_array($data[$key] ?? null) ? $data[$key] : []);
-                    $has     = in_array($flag->name, $current);
+                    $has = in_array($flag->name, $current);
 
                     if ($isMatch && ! $has) {
                         $current[] = $flag->name;
                         $data[$key] = array_values($current);
-                        $changed    = true;
+                        $changed = true;
                     } elseif (! $isMatch && $has) {
                         $data[$key] = array_values(array_diff($current, [$flag->name]));
-                        $changed    = true;
+                        $changed = true;
                     }
                 } elseif ($hasCbs) {
-                    $key     = "{$colId}_cb";
+                    $key = "{$colId}_cb";
                     $current = array_values(is_array($data[$key] ?? null) ? $data[$key] : []);
-                    $has     = in_array($flag->name, $current);
+                    $has = in_array($flag->name, $current);
 
                     if ($isMatch && ! $has) {
                         $current[] = $flag->name;
                         $data[$key] = array_values($current);
-                        $changed    = true;
+                        $changed = true;
                     } elseif (! $isMatch && $has) {
                         $data[$key] = array_values(array_diff($current, [$flag->name]));
-                        $changed    = true;
+                        $changed = true;
                     }
                 }
                 // If neither tags nor checkboxes exist on the column definition, we
                 // still need somewhere to persist the flag. Fall back to _tags.
                 else {
-                    $key     = "{$colId}_tags";
+                    $key = "{$colId}_tags";
                     $current = array_values(is_array($data[$key] ?? null) ? $data[$key] : []);
-                    $has     = in_array($flag->name, $current);
+                    $has = in_array($flag->name, $current);
 
                     if ($isMatch && ! $has) {
                         $current[] = $flag->name;
                         $data[$key] = array_values($current);
-                        $changed    = true;
+                        $changed = true;
                     } elseif (! $isMatch && $has) {
                         $data[$key] = array_values(array_diff($current, [$flag->name]));
-                        $changed    = true;
+                        $changed = true;
                     }
                 }
             }
@@ -185,9 +185,9 @@ class RosterFlagService
             $type = $rule['type'] ?? '';
 
             $matched = match ($type) {
-                'equals'     => $value === strtolower(trim((string) ($rule['value'] ?? ''))),
+                'equals' => $value === strtolower(trim((string) ($rule['value'] ?? ''))),
                 'not_equals' => $value !== strtolower(trim((string) ($rule['value'] ?? ''))),
-                'contains'   => str_contains($value, strtolower(trim((string) ($rule['value'] ?? '')))),
+                'contains' => str_contains($value, strtolower(trim((string) ($rule['value'] ?? '')))),
 
                 'exists_elsewhere' => $this->evaluateExistsElsewhere(
                     $flag, $rule, $col, $row, $value, $allContents, $cache, $rostersById, $sectionsById
@@ -231,16 +231,16 @@ class RosterFlagService
         $pool = match ($scope) {
             'global' => $allContents,
             'roster' => $allContents->filter(function ($c) use ($row, $sectionsById) {
-                $rowSection   = $sectionsById->get($row->section_id);
+                $rowSection = $sectionsById->get($row->section_id);
                 $otherSection = $sectionsById->get($c->section_id);
 
                 return $rowSection && $otherSection
                     && $otherSection->roster_id === $rowSection->roster_id;
             }),
-            default  => $allContents->filter(fn ($c) => $c->section_id === $row->section_id),
+            default => $allContents->filter(fn ($c) => $c->section_id === $row->section_id),
         };
 
-        $excludedRosterIds  = array_map('intval', (array) ($flag->excluded_roster_ids ?? []));
+        $excludedRosterIds = array_map('intval', (array) ($flag->excluded_roster_ids ?? []));
         $excludedSectionIds = array_map(
             'intval',
             (array) ($col['flag_settings'][$flag->id]['excluded_section_ids'] ?? [])
@@ -311,7 +311,7 @@ class RosterFlagService
             }
 
             $columns = $this->resolveColumns($roster, $section);
-            $data    = is_array($content->content) ? $content->content : [];
+            $data = is_array($content->content) ? $content->content : [];
 
             $cache[$content->id] = [];
 
@@ -374,6 +374,7 @@ class RosterFlagService
                 if ($fieldId && $fieldId !== 'id') {
                     return (string) ($entry['data'][$fieldId] ?? $rawVal);
                 }
+
                 // Default showcase field = first text-like field or 'name'
                 return (string) ($entry['data']['name'] ?? $entry['data']['character_name'] ?? $rawVal);
             }

@@ -2,15 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SyncRosterData;
 use App\Models\Faction;
 use App\Models\FactionRecordDatabase;
+use App\Models\FactionRecordEntry;
 use App\Models\FactionSnapshot;
 use App\Models\RosterContent;
 use App\Models\RosterDataset;
 use App\Models\User;
 use App\Services\DynamicSectionService;
 use App\Services\NotificationService;
-use App\Services\RosterSyncService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -340,7 +341,7 @@ class FactionController extends Controller
 
         // Bulk load full entry sets for those that need it
         if (! empty($fullLoadDbIds)) {
-            $fullEntries = \App\Models\FactionRecordEntry::whereIn('database_id', $fullLoadDbIds)
+            $fullEntries = FactionRecordEntry::whereIn('database_id', $fullLoadDbIds)
                 ->where('is_active', true)
                 ->get()
                 ->groupBy('database_id');
@@ -408,12 +409,18 @@ class FactionController extends Controller
                             // Database links
                             $dbId = $getLinkedDatabaseId($col);
                             if ($dbId && isset($referencedDbEntryIds[$dbId])) {
-                                if ($val && (is_numeric($val) || (is_string($val) && str_starts_with($val, 'temp_')))) {
+                                if ($val && (is_numeric($val) && filter_var($val, FILTER_VALIDATE_INT) !== false)) {
                                     $referencedDbEntryIds[$dbId][] = (string) $val;
-                                } elseif ($val && is_string($val)) {
+                                } elseif ($val && is_string($val) && ! str_starts_with($val, 'temp_')) {
                                     $fieldId = $col['database_field_id'] ?? null;
                                     if ($fieldId) {
-                                        $referencedDbEntryLabels[$dbId][$fieldId][] = $val;
+                                        if ($fieldId === 'id') {
+                                            if (filter_var($val, FILTER_VALIDATE_INT) !== false) {
+                                                $referencedDbEntryLabels[$dbId][$fieldId][] = $val;
+                                            }
+                                        } else {
+                                            $referencedDbEntryLabels[$dbId][$fieldId][] = $val;
+                                        }
                                     }
                                 }
                             }
@@ -437,13 +444,23 @@ class FactionController extends Controller
 
         // Bulk load referenced entries for databases that weren't fully loaded
         $anyRefs = false;
-        foreach ($referencedDbEntryIds as $ids) { if (! empty($ids)) { $anyRefs = true; break; } }
+        foreach ($referencedDbEntryIds as $ids) {
+            if (! empty($ids)) {
+                $anyRefs = true;
+                break;
+            }
+        }
         if (! $anyRefs) {
-            foreach ($referencedDbEntryLabels as $fields) { if (! empty($fields)) { $anyRefs = true; break; } }
+            foreach ($referencedDbEntryLabels as $fields) {
+                if (! empty($fields)) {
+                    $anyRefs = true;
+                    break;
+                }
+            }
         }
 
         if ($anyRefs) {
-            $referencedEntries = \App\Models\FactionRecordEntry::where(function ($query) use ($referencedDbEntryIds, $referencedDbEntryLabels) {
+            $referencedEntries = FactionRecordEntry::where(function ($query) use ($referencedDbEntryIds, $referencedDbEntryLabels) {
                 foreach ($referencedDbEntryIds as $dbId => $ids) {
                     if (! empty($ids)) {
                         $query->orWhere(function ($q) use ($dbId, $ids) {
@@ -1218,7 +1235,7 @@ class FactionController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        \App\Jobs\SyncRosterData::dispatch($faction, Auth::user());
+        SyncRosterData::dispatch($faction, Auth::user());
 
         $this->audit('faction.sync_roster_data_queued', "Queued manual synchronization of roster data for faction '{$faction->name}'", $faction->id);
 

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\RosterUpdated;
 use App\Models\Faction;
 use App\Models\FactionRecordEntry;
 use App\Models\RosterContent;
@@ -31,10 +32,14 @@ class RosterSyncService
                 // \Log::info('Chunk size: ' . count($contents));
                 foreach ($contents as $content) {
                     $section = $sections->get($content->section_id);
-                    if (!$section) continue;
-                    
+                    if (! $section) {
+                        continue;
+                    }
+
                     $roster = $rosters->get($section->roster_id);
-                    if (!$roster) continue;
+                    if (! $roster) {
+                        continue;
+                    }
 
                     $columns = $this->resolveColumns($roster, $section);
                     $data = is_array($content->content) ? $content->content : [];
@@ -42,23 +47,29 @@ class RosterSyncService
 
                     foreach ($columns as $col) {
                         $colId = $col['id'] ?? null;
-                        if (!$colId) continue;
+                        if (! $colId) {
+                            continue;
+                        }
 
                         $dbId = $this->getLinkedDatabaseId($col, $datasets);
-                        if (!$dbId) continue;
+                        if (! $dbId) {
+                            continue;
+                        }
 
                         $value = $data[$colId] ?? null;
-                        if (!$value) continue;
+                        if (! $value) {
+                            continue;
+                        }
 
                         // Resolve roster data-link pointers
                         if (is_array($value) && isset($value['row_id'], $value['col_id'])) {
                             $targetRowId = $value['row_id'];
-                            
-                            if (!isset($linkedRowsCache[$targetRowId])) {
+
+                            if (! isset($linkedRowsCache[$targetRowId])) {
                                 $linked = RosterContent::find($targetRowId);
                                 $linkedRowsCache[$targetRowId] = $linked ? $linked->content : null;
                             }
-                            
+
                             $linkedContent = $linkedRowsCache[$targetRowId];
                             $value = (is_array($linkedContent))
                                 ? ($linkedContent[$value['col_id']] ?? null)
@@ -70,7 +81,7 @@ class RosterSyncService
                         }
 
                         $entry = $dbEntries[$dbId][$value] ?? null;
-                        if (!$entry) {
+                        if (! $entry) {
                             // \Log::info("Entry not found for dbId $dbId and value $value");
                             continue;
                         }
@@ -80,7 +91,7 @@ class RosterSyncService
                             $key = "{$colId}_cb";
                             $current = is_array($data[$key] ?? null) ? $data[$key] : [];
                             $next = $this->evaluateAutoApplies($col['checkboxes'], $entry, $current);
-                            
+
                             if ($current !== $next) {
                                 $data[$key] = array_values($next);
                                 $changed = true;
@@ -92,7 +103,7 @@ class RosterSyncService
                             $key = "{$colId}_tags";
                             $current = is_array($data[$key] ?? null) ? $data[$key] : [];
                             $next = $this->evaluateAutoApplies($col['tags'], $entry, $current);
-                            
+
                             if ($current !== $next) {
                                 $data[$key] = array_values($next);
                                 $changed = true;
@@ -103,7 +114,7 @@ class RosterSyncService
                     if ($changed) {
                         $content->updateQuietly(['content' => $data]);
                         $modified++;
-                        if (!in_array($roster->id, $modifiedRosterIds)) {
+                        if (! in_array($roster->id, $modifiedRosterIds)) {
                             $modifiedRosterIds[] = $roster->id;
                         }
                     }
@@ -112,11 +123,11 @@ class RosterSyncService
 
         if ($modified > 0) {
             Faction::invalidateRosterCache($faction->id);
-            
+
             foreach ($modifiedRosterIds as $rosterId) {
                 $roster = $rosters->get($rosterId);
                 if ($roster) {
-                    \App\Events\RosterUpdated::dispatch($roster);
+                    RosterUpdated::dispatch($roster);
                 }
             }
         }
@@ -130,32 +141,38 @@ class RosterSyncService
         $changed = false;
 
         foreach ($definitions as $def) {
-            if (!is_array($def)) continue;
-            
+            if (! is_array($def)) {
+                continue;
+            }
+
             $label = $def['label'] ?? null;
-            if (!$label) continue;
+            if (! $label) {
+                continue;
+            }
 
             $autoApply = $def['auto_apply'] ?? null;
             $dbColumn = $def['auto_apply_field'] ?? ($autoApply['db_column'] ?? null);
-            if (!$dbColumn) continue;
+            if (! $dbColumn) {
+                continue;
+            }
 
             $matchValue = $def['auto_apply_value'] ?? ($autoApply['match_value'] ?? null);
-            
-            $dbVal = ($dbColumn === 'id') ? (string)$entry->entry_id : ($entry->data[$dbColumn] ?? null);
-            
+
+            $dbVal = ($dbColumn === 'id') ? (string) $entry->entry_id : ($entry->data[$dbColumn] ?? null);
+
             $isMatch = false;
             if ($matchValue !== null && $matchValue !== '') {
-                $isMatch = $dbVal && str_contains(strtolower((string)$dbVal), strtolower((string)$matchValue));
+                $isMatch = $dbVal && str_contains(strtolower((string) $dbVal), strtolower((string) $matchValue));
             } else {
-                $isMatch = !empty($dbVal);
+                $isMatch = ! empty($dbVal);
             }
 
             $has = in_array($label, $next);
 
-            if ($isMatch && !$has) {
+            if ($isMatch && ! $has) {
                 $next[] = $label;
                 $changed = true;
-            } elseif (!$isMatch && $has) {
+            } elseif (! $isMatch && $has) {
                 $next = array_diff($next, [$label]);
                 $changed = true;
             }
@@ -167,21 +184,24 @@ class RosterSyncService
     private function getLinkedDatabaseId(array $col, Collection $datasetsById): ?int
     {
         if (isset($col['linked_database_id']) && $col['linked_database_id']) {
-            return (int)$col['linked_database_id'];
+            return (int) $col['linked_database_id'];
         }
         if (isset($col['dataset_id']) && $col['dataset_id']) {
             $ds = $datasetsById->get($col['dataset_id']);
             if ($ds && $ds->record_database_id) {
-                return (int)$ds->record_database_id;
+                return (int) $ds->record_database_id;
             }
         }
+
         return null;
     }
 
     private function loadAllDbEntries(Faction $faction): array
     {
         $dbIds = $faction->recordDatabases()->pluck('id')->toArray();
-        if (empty($dbIds)) return [];
+        if (empty($dbIds)) {
+            return [];
+        }
 
         $entries = FactionRecordEntry::whereIn('database_id', $dbIds)
             ->whereNull('deleted_at')
@@ -202,6 +222,7 @@ class RosterSyncService
             return is_array($roster->columns) ? $roster->columns : [];
         }
         $sectionCols = is_array($section->columns) ? $section->columns : [];
-        return !empty($sectionCols) ? $sectionCols : (is_array($roster->columns) ? $roster->columns : []);
+
+        return ! empty($sectionCols) ? $sectionCols : (is_array($roster->columns) ? $roster->columns : []);
     }
 }

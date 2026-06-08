@@ -13,14 +13,19 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 
 Broadcast::channel('faction.{factionId}.updates', function ($user, $factionId) {
     $faction = Faction::find($factionId);
-    if (! $faction) return false;
+    if (! $faction) {
+        return false;
+    }
+
     return User::hasFactionPermission($user, $faction, 'view_faction_roster');
 });
 
 Broadcast::channel('faction.{factionId}.roster.{rosterId}', function ($user, $factionId, $rosterId) {
     $roster = Roster::find($rosterId);
-    if (! $roster || (int) $roster->faction_id !== (int) $factionId) return false;
-    
+    if (! $roster || (int) $roster->faction_id !== (int) $factionId) {
+        return false;
+    }
+
     if (User::canViewRoster($user, $roster)) {
         return [
             'id' => $user->id,
@@ -28,6 +33,6 @@ Broadcast::channel('faction.{factionId}.roster.{rosterId}', function ($user, $fa
             'color' => $user->color, // Assuming user has a color or some identifiable info
         ];
     }
-    
+
     return false;
 });

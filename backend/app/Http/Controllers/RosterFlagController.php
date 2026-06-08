@@ -93,7 +93,7 @@ class RosterFlagController extends Controller
         $this->audit('roster_flag.recalculate', "Recalculated roster flag '{$flag->name}' — {$modified} row(s) updated", null, $flag);
 
         return response()->json([
-            'message'  => 'Flag recalculated',
+            'message' => 'Flag recalculated',
             'modified' => $modified,
         ]);
     }

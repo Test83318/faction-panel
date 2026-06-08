@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Faction;
 use App\Models\FactionRecordDatabase;
+use App\Models\FactionRecordEntry;
 use App\Models\RosterContent;
 use App\Models\RosterSection;
 use App\Models\User;
@@ -627,7 +628,7 @@ class IntegrationController extends Controller
                     // If still not found, search all databases of this faction for this entry_id
                     // (e.g. if it was linked to the old database before it got split/recreated)
                     if (! $matchingEntry) {
-                        $anyEntry = \App\Models\FactionRecordEntry::whereIn('database_id', $faction->recordDatabases()->pluck('id'))
+                        $anyEntry = FactionRecordEntry::whereIn('database_id', $faction->recordDatabases()->pluck('id'))
                             ->where('entry_id', $val)
                             ->first();
                         if ($anyEntry) {

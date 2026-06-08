@@ -16,6 +16,7 @@ class SyncRosterData implements ShouldQueue
     use InteractsWithQueue, Queueable, SerializesModels;
 
     public $faction;
+
     public $user;
 
     /**

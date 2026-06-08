@@ -398,5 +398,3 @@ test('syncing gtaw auto-heals roster entry IDs pointing to old database entries 
     expect($updatedRow->content['name'])->toBe((int) $activeEntry->entry_id);
     expect($updatedRow->content['name_cb'])->toContain('Acting Officer');
 });
-
-

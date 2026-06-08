@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Events\RosterUpdated;
 use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -14,11 +15,11 @@ class Roster extends Model
     {
         static::saved(function ($roster) {
             Faction::invalidateRosterCache($roster->faction_id);
-            \App\Events\RosterUpdated::dispatch($roster);
+            RosterUpdated::dispatch($roster);
         });
         static::deleted(function ($roster) {
             Faction::invalidateRosterCache($roster->faction_id);
-            \App\Events\RosterUpdated::dispatch($roster);
+            RosterUpdated::dispatch($roster);
         });
     }
 

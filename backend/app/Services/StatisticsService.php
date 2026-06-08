@@ -72,7 +72,7 @@ class StatisticsService
         $totalRowsProcessed = 0;
 
         // Snapshot System: Return cached data if it's fresh enough and it's marked as intensive
-        if (!$forceRefresh && $widget->is_intensive && $widget->last_calculated_at && $widget->last_calculated_at->gt(now()->subMinutes(10))) {
+        if (! $forceRefresh && $widget->is_intensive && $widget->last_calculated_at && $widget->last_calculated_at->gt(now()->subMinutes(10))) {
             return [
                 'data' => $widget->cache_result,
                 'is_intensive' => true,
@@ -141,6 +141,7 @@ class StatisticsService
                     'value' => $sqlValue,
                     'color' => $s['color'] ?? null,
                 ];
+
                 continue;
             }
 
@@ -229,13 +230,13 @@ class StatisticsService
             }
 
             $query = RosterContent::query();
-            
+
             if (! empty($config['section_ids'])) {
                 $allSections = RosterSection::where('roster_id', $id)->get();
                 $sectionIds = $this->getDescendantSectionIds($allSections, $config['section_ids']);
                 $query->whereIn('section_id', $sectionIds);
             } else {
-                $query->whereHas('section', function($q) use ($id) {
+                $query->whereHas('section', function ($q) use ($id) {
                     $q->where('roster_id', $id);
                 });
             }
@@ -249,7 +250,7 @@ class StatisticsService
 
             $allSections = RosterSection::where('roster_id', $section->roster_id)->get();
             $sectionIds = $this->getDescendantSectionIds($allSections, [$section->id]);
-            
+
             return RosterContent::whereIn('section_id', $sectionIds);
         } elseif ($type === 'database') {
             $db = FactionRecordDatabase::find($id);
@@ -269,7 +270,9 @@ class StatisticsService
 
         foreach ($conditions as $cond) {
             $targetCol = $cond['target_col'] ?? null;
-            if (! $targetCol) continue;
+            if (! $targetCol) {
+                continue;
+            }
 
             $matchVal = $cond['match_value'] ?? null;
             $matchType = $cond['match_type'] ?? 'equals';
@@ -280,7 +283,7 @@ class StatisticsService
                 // But often targetCol is already a resolved ID if it came from the frontend.
                 // If it's a name, we need to map it.
                 // For simplicity now, we assume targetCol is the ID if it starts with 'col_'
-                if (!str_starts_with($targetCol, 'col_')) {
+                if (! str_starts_with($targetCol, 'col_')) {
                     // It's a name, we need to find all possible IDs for this name across relevant sections
                     // This is complex, so we fallback to collection for now if targetCol is not an ID
                     // (Actually, the frontend usually sends IDs)
@@ -316,6 +319,7 @@ class StatisticsService
     {
         if ($operation === 'count_unique' && $targetCol) {
             $dataKey = $sourceType === 'database' ? 'data' : 'content';
+
             return (float) $query->distinct("{$dataKey}->{$targetCol}")->count();
         }
 
@@ -440,12 +444,14 @@ class StatisticsService
         $colKey = $groupBy['column'];
 
         // Fallback if colKey is not an ID for rosters
-        if (($sourceType === 'roster' || $sourceType === 'section') && !str_starts_with($colKey, 'col_')) {
+        if (($sourceType === 'roster' || $sourceType === 'section') && ! str_starts_with($colKey, 'col_')) {
             return null;
         }
 
         $query = $this->getSourceQuery($sourceType, $sourceId, $config);
-        if (!$query) return null;
+        if (! $query) {
+            return null;
+        }
 
         if (isset($config['filters'])) {
             $this->applyConditionsToQuery($query, $config['filters'], $sourceType);
@@ -455,12 +461,12 @@ class StatisticsService
         $jsonPath = "{$dataKey}->{$colKey}";
 
         $results = $query->selectRaw("{$jsonPath} as group_key, count(*) as aggregate")
-            ->groupBy("group_key")
+            ->groupBy('group_key')
             ->get();
 
-        return $results->map(fn($r) => [
+        return $results->map(fn ($r) => [
             'name' => $r->group_key ?? 'Unknown',
-            'value' => (int) $r->aggregate
+            'value' => (int) $r->aggregate,
         ])->toArray();
     }
 
@@ -562,6 +568,7 @@ class StatisticsService
 
         return $ids;
     }
+
     protected function evaluateCount(array $count, string $parentType, $parentId, &$totalRowsProcessed): float
     {
         if (empty($count['conditions']) || ! is_array($count['conditions'])) {
@@ -569,10 +576,10 @@ class StatisticsService
         }
 
         // Try SQL path first if there are no brackets and we are not in tests or DB is ready
-        $hasBrackets = collect($count['conditions'])->contains(fn($c) => ($c['brackets_open'] ?? 0) > 0 || ($c['brackets_close'] ?? 0) > 0);
-        $hasInRoster = collect($count['conditions'])->contains(fn($c) => ($c['match_type'] ?? '') === 'in_roster');
+        $hasBrackets = collect($count['conditions'])->contains(fn ($c) => ($c['brackets_open'] ?? 0) > 0 || ($c['brackets_close'] ?? 0) > 0);
+        $hasInRoster = collect($count['conditions'])->contains(fn ($c) => ($c['match_type'] ?? '') === 'in_roster');
 
-        if (!$hasBrackets && !$hasInRoster) {
+        if (! $hasBrackets && ! $hasInRoster) {
             try {
                 $sqlValue = $this->evaluateCountWithSql($count, $parentType, $parentId);
                 if ($sqlValue !== null) {
@@ -762,7 +769,9 @@ class StatisticsService
                     }
                 }
 
-                if (!$query) return null;
+                if (! $query) {
+                    return null;
+                }
 
                 $this->applyConditionsToQuery($query, $cond['filters'] ?? [$cond], 'roster');
 
@@ -780,12 +789,18 @@ class StatisticsService
                 $isFirst = false;
             } else {
                 $op = $cond['operator'] ?? ($cond['arithmetic_operator'] ?? '+');
-                
-                if ($op === '+') $result += $condMatchedValue;
-                elseif ($op === '-') $result -= $condMatchedValue;
-                elseif ($op === '*') $result *= $condMatchedValue;
-                elseif ($op === '/' && $condMatchedValue != 0) $result /= $condMatchedValue;
-                else return null; // Logic ops (AND/OR) not implemented in this simple SQL builder
+
+                if ($op === '+') {
+                    $result += $condMatchedValue;
+                } elseif ($op === '-') {
+                    $result -= $condMatchedValue;
+                } elseif ($op === '*') {
+                    $result *= $condMatchedValue;
+                } elseif ($op === '/' && $condMatchedValue != 0) {
+                    $result /= $condMatchedValue;
+                } else {
+                    return null;
+                } // Logic ops (AND/OR) not implemented in this simple SQL builder
             }
         }
 

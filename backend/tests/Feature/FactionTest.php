@@ -88,7 +88,7 @@ test('authorized user can fetch faction users list and search case-insensitively
     $response = $this->actingAs($leader)->getJson('/api/factions/lssd/users');
     $response->assertStatus(200);
     $data = $response->json();
-    
+
     // Should contain the users
     $usernames = collect($data)->pluck('username')->toArray();
     expect($usernames)->toContain('TheLeader')
