@@ -601,7 +601,7 @@ class IntegrationController extends Controller
                             }
                             if (! $matchingEntry && $charName) {
                                 $matchingEntry = $activeEntries->first(function ($e) use ($charName) {
-                                    return strcasecmp($e->data['name'] ?? '', $charName) === 0;
+                                    return strcasecmp(trim($e->data['name'] ?? ''), trim($charName)) === 0;
                                 });
                             }
 
@@ -612,10 +612,33 @@ class IntegrationController extends Controller
                             }
                         }
                     }
+
+                    // If still not found, search all databases of this faction for this entry_id
+                    // (e.g. if it was linked to the old database before it got split/recreated)
+                    if (! $matchingEntry) {
+                        $anyEntry = \App\Models\FactionRecordEntry::whereIn('database_id', $faction->recordDatabases()->pluck('id'))
+                            ->where('entry_id', $val)
+                            ->first();
+                        if ($anyEntry) {
+                            $charName = $anyEntry->data['name'] ?? $anyEntry->data['Character Name'] ?? null;
+                            if ($charName) {
+                                // Try to find matching active entry in the current characters database by name
+                                $matchingEntry = $activeEntries->first(function ($e) use ($charName) {
+                                    return strcasecmp(trim($e->data['name'] ?? ''), trim($charName)) === 0;
+                                });
+
+                                if ($matchingEntry) {
+                                    $data[$colId] = $matchingEntry->entry_id;
+                                    $changed = true;
+                                    \Log::info("GTA:W Sync auto-healed roster entry ID {$val} to active entry ID {$matchingEntry->entry_id} via character name '{$charName}'");
+                                }
+                            }
+                        }
+                    }
                 } else {
                     // It is a string (e.g. "John Doe"). Try to find an active entry with matching name
                     $matchingEntry = $activeEntries->first(function ($e) use ($val) {
-                        return strcasecmp($e->data['name'] ?? '', $val) === 0;
+                        return strcasecmp(trim($e->data['name'] ?? ''), trim($val)) === 0;
                     });
 
                     if ($matchingEntry) {

@@ -537,6 +537,8 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 const datasetNot = datasets.find(d => Number(d.id) === Number(rule.dataset_id));
                 return !datasetNot?.options?.some((opt: any) => (opt.value || '').toString().toLowerCase().trim() === value);
             case 'exists_elsewhere':
+                if (value === '' || value === '-' || value.startsWith('?')) return false;
+
                 let pool: any[] = [];
                 const safeAllContents = allContents || [];
                 
@@ -560,14 +562,16 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
                     if (rule.target_col) {
                         const otherVal = resolvedValuesCache.get(`${c.id}_${rule.target_col}`) || '';
-                        return otherVal === value;
+                        return otherVal === value && otherVal !== '' && otherVal !== '-' && !otherVal.startsWith('?');
                     }
                     
                     const targetContent = c.content || {};
-                    return Object.keys(targetContent).some(targetColId => {
-                        const otherVal = resolvedValuesCache.get(`${c.id}_${targetColId}`) || '';
-                        return otherVal === value && otherVal !== '';
-                    });
+                    return Object.keys(targetContent)
+                        .filter(targetColId => !targetColId.endsWith('_cb') && !targetColId.endsWith('_tags'))
+                        .some(targetColId => {
+                            const otherVal = resolvedValuesCache.get(`${c.id}_${targetColId}`) || '';
+                            return otherVal === value && otherVal !== '' && otherVal !== '-' && !otherVal.startsWith('?');
+                        });
                 });
             case 'orphaned_database_link':
                 if (!boundDataset?.record_database_id) return false;
@@ -1028,6 +1032,13 @@ export const RosterTable: React.FC<RosterTableProps> = ({
         String(o.id) === String(value) || (!isValueId && o.label === value)
     );
 
+    let displayEditValue = value;
+    if (isEditing && col.dataset_id && selectedOpt) {
+        if (!hasTyped) {
+            displayEditValue = selectedOpt.label;
+        }
+    }
+
     const getCellDisplayValue = () => {
         // Always return redacted placeholder for hidden columns when user lacks permission
         if (!showValue) return '??????';
@@ -1453,7 +1464,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({
             <div className="relative w-full flex flex-row items-center justify-center px-1 overflow-visible">
                 <input 
                 ref={col.id === editingColId ? inputRef : null}
-                value={value} 
+                value={displayEditValue} 
                 autoComplete="off"
                 onChange={e => {
                     setHasTyped(true);

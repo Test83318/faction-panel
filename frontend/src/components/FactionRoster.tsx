@@ -588,8 +588,13 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                                     if (rule.type === 'equals') return val === (rule.value || '').toString().toLowerCase().trim();
                                     if (rule.type === 'contains') return val.includes((rule.value || '').toString().toLowerCase().trim());
                                     if (rule.type === 'exists_elsewhere') {
+                                        if (val === '' || val === '-' || val.startsWith('?')) return false;
                                         const otherPool = rule.scope === 'global' ? allContents : allContents.filter(item => item.roster_id === row.roster_id);
-                                        return otherPool.some(item => item.id !== row.id && Object.values(item.content || {}).some(v => (v || '').toString().toLowerCase().trim() === val));
+                                        return otherPool.some(item => item.id !== row.id && Object.entries(item.content || {}).some(([k, v]) => {
+                                            if (k.endsWith('_cb') || k.endsWith('_tags')) return false;
+                                            const otherVal = (v || '').toString().toLowerCase().trim();
+                                            return otherVal === val && otherVal !== '' && otherVal !== '-' && !otherVal.startsWith('?');
+                                        }));
                                     }
                                     return false;
                                 });
@@ -745,8 +750,13 @@ const FactionRoster: React.FC<FactionRosterProps> = ({
                         if (rule.type === 'equals') return val === (rule.value || '').toString().toLowerCase().trim();
                         if (rule.type === 'contains') return val.includes((rule.value || '').toString().toLowerCase().trim());
                         if (rule.type === 'exists_elsewhere') {
+                            if (val === '' || val === '-' || val.startsWith('?')) return false;
                             const otherPool = rule.scope === 'global' ? allContents : allContents.filter(item => item.roster_id === row.roster_id);
-                            return otherPool.some(item => item.id !== row.id && Object.values(item.content || {}).some(v => (v || '').toString().toLowerCase().trim() === val));
+                            return otherPool.some(item => item.id !== row.id && Object.entries(item.content || {}).some(([k, v]) => {
+                                if (k.endsWith('_cb') || k.endsWith('_tags')) return false;
+                                const otherVal = (v || '').toString().toLowerCase().trim();
+                                return otherVal === val && otherVal !== '' && otherVal !== '-' && !otherVal.startsWith('?');
+                            }));
                         }
                         return false;
                     });

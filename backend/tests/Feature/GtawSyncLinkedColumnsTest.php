@@ -330,4 +330,73 @@ test('syncing gtaw does not crash when linked roster column contains array repre
     expect($updatedLinkedRow->content['name_cb'])->toContain('Acting Officer');
 });
 
+test('syncing gtaw auto-heals roster entry IDs pointing to old database entries by searching for character name in all databases of the faction', function () {
+    // 1. Create a dummy "old" database belonging to this faction
+    $oldDb = FactionRecordDatabase::create([
+        'faction_id' => $this->faction->id,
+        'name' => 'Old Characters Database',
+        'record_shortcode' => 'CHARS_OLD',
+        'database_structure' => [
+            ['id' => 'name', 'name' => 'Name', 'type' => 'text', 'required' => true],
+        ],
+        'is_published' => true,
+        'created_by' => $this->leader->id,
+    ]);
+
+    // Create a record in the old database for John Doe with entry ID 99999
+    $oldDb->entries()->create([
+        'entry_id' => 99999,
+        'data' => ['name' => 'John Doe'],
+        'is_active' => true,
+        'created_by' => $this->leader->id,
+    ]);
+
+    // 2. Set the roster row to point to the old entry ID (99999)
+    $decimalRow = $this->section->contents()->create([
+        'type' => 'predefined',
+        'content' => [
+            'name' => 99999,
+            'name_cb' => [],
+            'name_tags' => [],
+        ],
+        'created_by' => $this->leader->id,
+    ]);
+
+    // 3. Mock GtawService to return John Doe as a member
+    $this->mock(GtawService::class, function ($mock) {
+        $mock->shouldReceive('getFactionMembers')->andReturn([
+            'data' => [
+                'members' => [
+                    [
+                        'character_id' => 12345,
+                        'character_name' => 'John Doe',
+                        'rank_name' => 'Acting Sheriff',
+                        'rank' => 15,
+                        'abas' => 0.00,
+                        'user_id' => 789,
+                    ],
+                ],
+            ],
+        ]);
+
+        $mock->shouldReceive('getFactionAbas')->andReturn([
+            'data' => [],
+        ]);
+    });
+
+    // 4. Trigger sync
+    $response = $this->actingAs($this->leader)->postJson('/api/factions/lssd/integrations/gtaw/sync');
+    $response->assertStatus(200);
+
+    // 5. Verify the active entry ID in new CHARS database is something else (not 99999)
+    $activeEntry = $this->charDb->entries()->where('is_active', true)->first();
+    expect($activeEntry)->not->toBeNull();
+    expect($activeEntry->entry_id)->not->toBe(99999);
+
+    // 6. Verify that the roster row value got auto-healed to the new entry ID!
+    $updatedRow = RosterContent::find($decimalRow->id);
+    expect($updatedRow->content['name'])->toBe((int) $activeEntry->entry_id);
+    expect($updatedRow->content['name_cb'])->toContain('Acting Officer');
+});
+
 
