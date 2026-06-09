@@ -6,6 +6,19 @@ use Illuminate\Database\Eloquent\Model;
 
 class RosterPermission extends Model
 {
+    protected static function booted()
+    {
+        $clear = function ($rosterPermission) {
+            $roster = \App\Models\Roster::find($rosterPermission->roster_id);
+            if ($roster) {
+                \App\Models\Faction::invalidateRosterCache($roster->faction_id);
+                \App\Events\RosterUpdated::dispatch($roster);
+            }
+        };
+        static::saved($clear);
+        static::deleted($clear);
+    }
+
     protected $fillable = [
         'roster_id',
         'group_id',
