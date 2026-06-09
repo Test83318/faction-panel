@@ -811,7 +811,7 @@ test('correct answers should be concealed from someone lacking perms', function(
 
 
     // Allow users to view the form
-    FormPermission::create(['form_id'=>$form->id, 'permissions'=> '["view_form"]']);
+    $perm = FormPermission::create(['form_id'=>$form->id, 'permissions'=> '["view_form"]']);
 
     // Create field
     $field = FormField::create([
@@ -827,10 +827,23 @@ test('correct answers should be concealed from someone lacking perms', function(
     $this->actingAs($this->user)->getJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}")
         ->assertStatus(200)
         ->assertJsonPath('stages.0.sections.0.fields.0.correct_answer', 'secret');
+        // Full access
     
     $this->actingAs($applicant)->getJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}")
         ->assertStatus(200)
         ->assertJsonMissingPath('stages.0.sections.0.fields.0.correct_answer');
+        //No access
 
+    $perm->update(['permissions'=> '["view_form", "view_submissions"]']);
+    $this->actingAs($applicant)->getJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}")
+        ->assertStatus(200)
+        ->assertJsonPath('stages.0.sections.0.fields.0.correct_answer', 'secret');
+        //Manual access
+
+    $perm->update(['permissions'=> '["view_form", "form_editor"]']);
+    $this->actingAs($applicant)->getJson("/api/factions/{$this->faction->shortname}/forms/{$form->id}")
+        ->assertStatus(200)
+        ->assertJsonPath('stages.0.sections.0.fields.0.correct_answer', 'secret');
+        //Manual access
 
 });
