@@ -960,6 +960,40 @@ export const RosterTable: React.FC<RosterTableProps> = ({
 
   const [focusedColId, setFocusedColId] = useState<string | null>(null);
   const [hasTyped, setHasTyped] = useState(false);
+  const [suggestionCoords, setSuggestionCoords] = useState<{ top: number, left: number, width: number, position: 'top' | 'bottom' } | null>(null);
+
+  useEffect(() => {
+    if (focusedColId && inputRef.current) {
+      const updateCoords = () => {
+        if (!inputRef.current) return;
+        const rect = inputRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const isTop = spaceBelow < 210; // suggestion list height max-h is max-h-48 (192px) + header + padding
+        
+        setSuggestionCoords({
+          top: isTop ? rect.top : rect.bottom,
+          left: rect.left + rect.width / 2,
+          width: Math.max(rect.width, 160),
+          position: isTop ? 'top' : 'bottom'
+        });
+      };
+
+      updateCoords();
+
+      const animationFrameId = requestAnimationFrame(updateCoords);
+      
+      window.addEventListener('scroll', updateCoords, true);
+      window.addEventListener('resize', updateCoords);
+      
+      return () => {
+        cancelAnimationFrame(animationFrameId);
+        window.removeEventListener('scroll', updateCoords, true);
+        window.removeEventListener('resize', updateCoords);
+      };
+    } else {
+      setSuggestionCoords(null);
+    }
+  }, [focusedColId, editData, hasTyped]);
 
   const inlineCheckboxes = localStorage.getItem('roster-inline-checkboxes') === 'true';
 
@@ -1581,8 +1615,18 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                 )}
                 </CellScaler>
 
-          {filteredSuggestions.length > 0 && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-card border border-border rounded-lg shadow-[0_10px_40px_-5px_rgba(0,0,0,0.5)] z-[9999] overflow-hidden min-w-[160px] animate-in fade-in slide-in-from-top-1 duration-100">
+          {filteredSuggestions.length > 0 && suggestionCoords && createPortal(
+                <div 
+                    className="fixed bg-card border border-border rounded-lg shadow-[0_10px_40px_-5px_rgba(0,0,0,0.5)] z-[99999] overflow-hidden min-w-[160px] animate-in fade-in duration-100"
+                    style={{
+                        top: suggestionCoords.top,
+                        left: suggestionCoords.left,
+                        width: `${suggestionCoords.width}px`,
+                        transform: `translateX(-50%) ${suggestionCoords.position === 'top' ? 'translateY(-100%) translateY(-5px)' : 'translateY(5px)'}`,
+                        '--accent': accentColor,
+                        '--accent-rgb': accentColor?.startsWith('#') ? hexToRgb(accentColor) : undefined
+                    } as React.CSSProperties}
+                >
                     <div className="px-2 py-1 bg-surface/50 text-[7px] font-black text-muted/50 uppercase tracking-widest border-b border-border/30 mb-0.5">Suggestions</div>
                     <div className="max-h-48 overflow-y-auto p-1 space-y-0.5">
                         {filteredSuggestions.map((opt: any) => (
@@ -1603,7 +1647,8 @@ export const RosterTable: React.FC<RosterTableProps> = ({
                             </button>
                         ))}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
             {activeTagMenu?.rowId === row.id && activeTagMenu?.colId === col.id && createPortal(
                 <div 
