@@ -125,13 +125,17 @@ class FactionController extends Controller
             $permissions = User::getFactionPermissions(null, $faction);
         }
 
-        // Update activity if logged in
+        // Update activity if logged in (throttled to once every 60 seconds to prevent DB write pressure)
         if ($user) {
             $currentRosterId = $request->query('roster_id');
-            $faction->users()->updateExistingPivot($user->id, [
-                'current_roster_id' => $currentRosterId,
-                'last_roster_activity' => now(),
-            ]);
+            $pivot = $faction->users()->where('user_id', $user->id)->first()?->pivot;
+            $lastActivity = $pivot?->last_roster_activity ? \Illuminate\Support\Carbon::parse($pivot->last_roster_activity) : null;
+            if (! $lastActivity || now()->diffInSeconds($lastActivity) > 60) {
+                $faction->users()->updateExistingPivot($user->id, [
+                    'current_roster_id' => $currentRosterId,
+                    'last_roster_activity' => now(),
+                ]);
+            }
         }
 
         $canViewGlobal = in_array('view_faction_roster', $permissions);
@@ -176,22 +180,24 @@ class FactionController extends Controller
             $faction->user_primary_role = $primaryRole ?? $highestRole;
         }
 
-        // Active Users Tracking (Online in last 60 seconds)
-        $onlineUsers = $faction->users()
-            ->where('last_roster_activity', '>=', now()->subSeconds(60))
-            ->with(['roles' => function ($query) use ($faction) {
-                $query->where('faction_id', $faction->id)->where('type', 'primary');
-            }])
-            ->get()
-            ->map(function ($u) {
-                return [
-                    'id' => $u->id,
-                    'username' => $u->username,
-                    'avatar_url' => $u->avatar_url,
-                    'current_roster_id' => $u->pivot->current_roster_id,
-                    'primary_role' => $u->roles->first(),
-                ];
-            });
+        // Active Users Tracking (Online in last 60 seconds) - Cached for 10 seconds
+        $onlineUsers = Cache::remember("faction_{$faction->id}_online_users_list", 10, function () use ($faction) {
+            return $faction->users()
+                ->where('last_roster_activity', '>=', now()->subSeconds(60))
+                ->with(['roles' => function ($query) use ($faction) {
+                    $query->where('faction_id', $faction->id)->where('type', 'primary');
+                }])
+                ->get()
+                ->map(function ($u) {
+                    return [
+                        'id' => $u->id,
+                        'username' => $u->username,
+                        'avatar_url' => $u->avatar_url,
+                        'current_roster_id' => $u->pivot->current_roster_id,
+                        'primary_role' => $u->roles->first(),
+                    ];
+                });
+        });
 
         $sandboxRosters = collect();
         if ($hasSandboxPerm && $user) {

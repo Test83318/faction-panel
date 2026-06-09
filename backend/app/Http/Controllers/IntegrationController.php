@@ -223,7 +223,7 @@ class IntegrationController extends Controller
                 $newAbas = (float) $abasValue;
 
                 if (abs($oldAbas - $newAbas) > 0.001) {
-                    $activityDb->entries()->create([
+                    $actEntry = $activityDb->entries()->create([
                         'entry_id' => ($activityDb->entries()->withTrashed()->max('entry_id') ?? 0) + 1,
                         'data' => [
                             'char_id' => $charId,
@@ -234,13 +234,14 @@ class IntegrationController extends Controller
                         ],
                         'created_by' => null,
                     ]);
+                    \App\Services\NotificationService::triggerDatabaseEntryEvent($actEntry, 'created');
                     $syncResults['activity_logs']++;
                 }
 
                 if ($existingEntry) {
                     // Check for name change
                     if ($existingEntry->data['name'] !== $member['character_name']) {
-                        $nameChangeDb->entries()->create([
+                        $ncEntry = $nameChangeDb->entries()->create([
                             'entry_id' => ($nameChangeDb->entries()->withTrashed()->max('entry_id') ?? 0) + 1,
                             'data' => [
                                 'char_id' => $charId,
@@ -250,6 +251,7 @@ class IntegrationController extends Controller
                             ],
                             'created_by' => null,
                         ]);
+                        \App\Services\NotificationService::triggerDatabaseEntryEvent($ncEntry, 'created');
                         $syncResults['name_changes']++;
                     }
 
@@ -265,18 +267,20 @@ class IntegrationController extends Controller
 
                     if ($hasChanges) {
                         $existingEntry->update(['data' => $memberData]);
+                        \App\Services\NotificationService::triggerDatabaseEntryEvent($existingEntry, 'updated');
                         $syncResults['updated']++;
                     }
                 } else {
                     // Create new
-                    $charDb->entries()->create([
+                    $newCharEntry = $charDb->entries()->create([
                         'entry_id' => ($charDb->entries()->withTrashed()->max('entry_id') ?? 0) + 1,
                         'data' => $memberData,
                         'created_by' => null,
                     ]);
+                    \App\Services\NotificationService::triggerDatabaseEntryEvent($newCharEntry, 'created');
 
                     // Log to history
-                    $historyDb->entries()->create([
+                    $histEntry = $historyDb->entries()->create([
                         'entry_id' => ($historyDb->entries()->withTrashed()->max('entry_id') ?? 0) + 1,
                         'data' => [
                             'char_id' => $charId,
@@ -286,6 +290,7 @@ class IntegrationController extends Controller
                         ],
                         'created_by' => null,
                     ]);
+                    \App\Services\NotificationService::triggerDatabaseEntryEvent($histEntry, 'created');
 
                     $syncResults['added']++;
                 }
@@ -296,7 +301,7 @@ class IntegrationController extends Controller
                 $charId = $entry->data['char_id'] ?? null;
                 if ($charId && ! in_array($charId, $processedCharIds)) {
                     // Log to history before deleting
-                    $historyDb->entries()->create([
+                    $remHistEntry = $historyDb->entries()->create([
                         'entry_id' => ($historyDb->entries()->withTrashed()->max('entry_id') ?? 0) + 1,
                         'data' => [
                             'char_id' => $charId,
@@ -306,6 +311,7 @@ class IntegrationController extends Controller
                         ],
                         'created_by' => null,
                     ]);
+                    \App\Services\NotificationService::triggerDatabaseEntryEvent($remHistEntry, 'created');
 
                     $entry->delete();
                     $syncResults['removed']++;
@@ -529,6 +535,9 @@ class IntegrationController extends Controller
 
         $sectionsById = $sections->keyBy('id');
         $rostersById = $rosters->keyBy('id');
+
+        $modified = 0;
+        $modifiedRosterIds = [];
 
         foreach ($contents as $content) {
             $section = $sectionsById->get($content->section_id);
@@ -777,7 +786,22 @@ class IntegrationController extends Controller
             }
 
             if ($changed) {
-                $content->update(['content' => $data]);
+                $content->updateQuietly(['content' => $data]);
+                $modified++;
+                if (! in_array($roster->id, $modifiedRosterIds)) {
+                    $modifiedRosterIds[] = $roster->id;
+                }
+            }
+        }
+
+        if ($modified > 0) {
+            Faction::invalidateRosterCache($faction->id);
+
+            foreach ($modifiedRosterIds as $rosterId) {
+                $roster = $rostersById->get($rosterId);
+                if ($roster) {
+                    \App\Events\RosterUpdated::dispatch($roster);
+                }
             }
         }
     }
